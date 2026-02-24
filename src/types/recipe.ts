@@ -12,11 +12,36 @@ export interface Instruction {
   group: string | null;
 }
 
+export interface CreatedBy {
+  uid: string;
+  displayName: string | null;
+}
+
+export interface Favorite {
+  uid: string;
+  recipeId: string;
+  createdAt: number;
+}
+
+export interface AppUser {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  isAnonymous: boolean;
+}
+
+export interface Collaborator {
+  uid: string;
+  displayName: string | null;
+}
+
 export interface Recipe {
   id: string;
   parentId: string | null;
   rootId: string;
   depth: number;
+  createdBy: CreatedBy;
+  collaborators: Collaborator[];
   title: string;
   description: string;
   ingredients: Ingredient[];

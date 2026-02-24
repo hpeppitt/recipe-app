@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/layout/AppShell';
 import { LibraryPage } from './pages/LibraryPage';
 import { RecipeChatPage } from './pages/RecipeChatPage';
@@ -12,18 +13,21 @@ export default function App() {
   useTheme();
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path="/" element={<LibraryPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-        <Route path="/create" element={<RecipeChatPage />} />
-        <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
-        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
-        <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
-        <Route path="/shared" element={<SharedRecipePage />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<LibraryPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
+          <Route path="/create" element={<RecipeChatPage />} />
+          <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
+          <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+          <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+          <Route path="/shared" element={<SharedRecipePage />} />
+          <Route path="/shared/:id" element={<SharedRecipePage />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

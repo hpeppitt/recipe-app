@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { getApiKey, setApiKey } from '../services/storage';
 import { testConnection } from '../services/gemini';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
+import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Spinner } from '../components/ui/Spinner';
+import { Avatar } from '../components/ui/Avatar';
 import { APP_NAME } from '../lib/constants';
 
 export function SettingsPage() {
@@ -16,6 +18,9 @@ export function SettingsPage() {
   const [testResult, setTestResult] = useState<boolean | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { user, isConfigured, signOut, updateDisplayName } = useAuth();
+  const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [nameSaved, setNameSaved] = useState(false);
 
   const handleSaveKey = () => {
     setApiKey(apiKey);
@@ -28,6 +33,12 @@ export function SettingsPage() {
     const result = await testConnection(apiKey);
     setTestResult(result);
     setTesting(false);
+  };
+
+  const handleSaveName = async () => {
+    await updateDisplayName(displayName.trim());
+    setNameSaved(true);
+    setTimeout(() => setNameSaved(false), 2000);
   };
 
   const handleExport = async () => {
@@ -74,6 +85,59 @@ export function SettingsPage() {
       </header>
 
       <div className="p-4 space-y-8">
+        {/* Account */}
+        {isConfigured && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Account</h2>
+            {user ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Avatar uid={user.uid} name={user.displayName} size="lg" />
+                  <div>
+                    <p className="font-medium text-text-primary">
+                      {user.displayName ?? 'Anonymous'}
+                    </p>
+                    <p className="text-sm text-text-tertiary">
+                      {user.isAnonymous ? 'Anonymous account' : user.email}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    label="Display Name"
+                    value={displayName}
+                    onChange={(e) => {
+                      setDisplayName(e.target.value);
+                      setNameSaved(false);
+                    }}
+                    placeholder="How others will see you"
+                  />
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={handleSaveName}
+                      disabled={!displayName.trim() || displayName.trim() === user.displayName}
+                    >
+                      Save Name
+                    </Button>
+                    {nameSaved && (
+                      <span className="text-xs text-success-600">Saved!</span>
+                    )}
+                  </div>
+                </div>
+                <Button size="sm" variant="ghost" onClick={signOut}>
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-text-tertiary">
+                Not signed in. Sign in when creating a recipe.
+              </p>
+            )}
+          </section>
+        )}
+
         {/* API Key */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Gemini API Key</h2>

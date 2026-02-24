@@ -1,15 +1,27 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRecipeLibrary } from '../hooks/useRecipeLibrary';
+import { useFavoriteIds } from '../hooks/useFavorites';
+import { useAuth } from '../contexts/AuthContext';
 import { RecipeCard } from '../components/recipe/RecipeCard';
+import { NotificationBell } from '../components/notifications/NotificationBell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FAB } from '../components/ui/FAB';
+import { Avatar } from '../components/ui/Avatar';
 import { APP_NAME } from '../lib/constants';
+
+type Filter = 'all' | 'favorites';
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
-  const { recipes, isLoading } = useRecipeLibrary(search);
+  const [filter, setFilter] = useState<Filter>('all');
+  const { user, isConfigured } = useAuth();
+  const { favoriteIds } = useFavoriteIds();
+  const { recipes, isLoading } = useRecipeLibrary(
+    search,
+    filter === 'favorites' ? favoriteIds : undefined
+  );
   const navigate = useNavigate();
 
   return (
@@ -17,6 +29,18 @@ export function LibraryPage() {
       <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center h-14 px-4">
           <h1 className="flex-1 text-lg font-semibold">{APP_NAME}</h1>
+          {user && (
+            <button
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-1.5 mr-2"
+            >
+              <Avatar uid={user.uid} name={user.displayName} size="sm" />
+              <span className="text-xs text-text-tertiary truncate max-w-[100px]">
+                {user.displayName ?? (user.isAnonymous ? 'Anonymous' : user.email)}
+              </span>
+            </button>
+          )}
+          {isConfigured && user && <NotificationBell />}
           <button
             onClick={() => navigate('/settings')}
             className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
@@ -28,7 +52,7 @@ export function LibraryPage() {
             </svg>
           </button>
         </div>
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-3 space-y-2">
           <input
             type="search"
             value={search}
@@ -36,6 +60,21 @@ export function LibraryPage() {
             placeholder="Search recipes..."
             className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
+          <div className="flex gap-2">
+            {(['all', 'favorites'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
+                }`}
+              >
+                {f === 'all' ? 'All' : 'Favorites'}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -46,8 +85,18 @@ export function LibraryPage() {
           ))
         ) : recipes && recipes.length > 0 ? (
           recipes.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} />
+            <RecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              isFavorite={favoriteIds.has(recipe.id)}
+            />
           ))
+        ) : filter === 'favorites' ? (
+          <EmptyState
+            icon="❤️"
+            title="No favorites yet"
+            description="Tap the heart on a recipe to add it to your favorites"
+          />
         ) : search ? (
           <EmptyState
             icon="🔍"

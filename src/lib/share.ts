@@ -1,4 +1,5 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
+import { isFirebaseConfigured } from '../services/firebase';
 import type { Recipe } from '../types/recipe';
 
 export type SharedRecipe = Pick<
@@ -15,6 +16,7 @@ export type SharedRecipe = Pick<
   | 'servings'
   | 'difficulty'
   | 'tags'
+  | 'createdBy'
 >;
 
 function toShareable(recipe: Recipe): SharedRecipe {
@@ -31,10 +33,16 @@ function toShareable(recipe: Recipe): SharedRecipe {
     servings: recipe.servings,
     difficulty: recipe.difficulty,
     tags: recipe.tags,
+    createdBy: recipe.createdBy,
   };
 }
 
 export function encodeRecipeToUrl(recipe: Recipe): string {
+  // When Firebase is configured, share via Firestore document ID
+  if (isFirebaseConfigured) {
+    return `${window.location.origin}/shared/${recipe.id}`;
+  }
+  // Fallback: encode recipe data in URL hash
   const shareable = toShareable(recipe);
   const json = JSON.stringify(shareable);
   const compressed = compressToEncodedURIComponent(json);

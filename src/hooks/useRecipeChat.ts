@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
 import { getApiKey } from '../services/storage';
 import { createRecipe } from '../db/recipes';
+import { publishRecipe } from '../services/firestore';
+import { isFirebaseConfigured } from '../services/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 
@@ -13,6 +16,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const [latestRecipe, setLatestRecipe] = useState<GeneratedRecipe | null>(null);
   const chatRef = useRef<ChatSession | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -64,17 +68,28 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     const firstUserMessage = messages.find((m) => m.role === 'user');
     const prompt = firstUserMessage?.content ?? '';
 
+    const createdBy = {
+      uid: user?.uid ?? 'local',
+      displayName: user?.displayName ?? null,
+    };
+
     const recipe = await createRecipe(
       latestRecipe,
       prompt,
       messages,
       parentRecipe?.id ?? null,
       parentRecipe?.rootId ?? null,
-      parentRecipe?.depth ?? -1
+      parentRecipe?.depth ?? -1,
+      createdBy
     );
 
+    // Publish to Firestore for sharing/social features
+    if (isFirebaseConfigured) {
+      publishRecipe(recipe).catch(() => {});
+    }
+
     navigate(`/recipe/${recipe.id}`);
-  }, [latestRecipe, messages, parentRecipe, navigate]);
+  }, [latestRecipe, messages, parentRecipe, navigate, user]);
 
   return {
     messages,

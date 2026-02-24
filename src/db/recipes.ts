@@ -1,5 +1,5 @@
 import { db } from './database';
-import type { Recipe, RecipeWithChildren } from '../types/recipe';
+import type { Recipe, RecipeWithChildren, CreatedBy } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
@@ -9,7 +9,8 @@ export async function createRecipe(
   chatHistory: ChatMessage[],
   parentId: string | null = null,
   parentRootId: string | null = null,
-  parentDepth: number = -1
+  parentDepth: number = -1,
+  createdBy: CreatedBy = { uid: 'local', displayName: null }
 ): Promise<Recipe> {
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -18,6 +19,8 @@ export async function createRecipe(
     parentId,
     rootId: parentRootId ?? id,
     depth: parentDepth + 1,
+    createdBy,
+    collaborators: [],
     ...generated,
     prompt,
     chatHistory,

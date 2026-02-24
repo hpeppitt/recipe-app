@@ -1,12 +1,14 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useRecipe } from '../hooks/useRecipe';
 import { useRecipeChat } from '../hooks/useRecipeChat';
+import { useAuth } from '../contexts/AuthContext';
 import { TopBar } from '../components/layout/TopBar';
 import { ChatMessageBubble } from '../components/chat/ChatMessage';
 import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { RecipeContent } from '../components/recipe/RecipeContent';
+import { AuthModal } from '../components/auth/AuthModal';
 import { Chip } from '../components/ui/Chip';
 import { SUGGESTION_CHIPS } from '../lib/constants';
 import { useEffect, useRef, useState } from 'react';
@@ -14,17 +16,27 @@ import type { GeneratedRecipe } from '../types/api';
 
 export function RecipeChatPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const isVarying = !!id;
   const { recipe: parentRecipe } = useRecipe(id);
   const { messages, isLoading, error, sendMessage, saveRecipe } = useRecipeChat(
     isVarying ? parentRecipe : undefined
   );
+  const { user, isConfigured, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  // Show auth modal if Firebase is configured and user not signed in
+  useEffect(() => {
+    if (isConfigured && !authLoading && !user) {
+      setShowAuth(true);
+    }
+  }, [isConfigured, authLoading, user]);
 
   const lastAssistantIdx = messages.reduce(
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
@@ -121,6 +133,15 @@ export function RecipeChatPage() {
         onSend={sendMessage}
         disabled={isLoading || (isVarying && !parentRecipe)}
         placeholder={isVarying ? 'Describe the modification...' : 'Describe what you want to cook...'}
+      />
+
+      <AuthModal
+        open={showAuth}
+        onAuthenticated={() => setShowAuth(false)}
+        onDismiss={() => {
+          setShowAuth(false);
+          if (!user) navigate(-1);
+        }}
       />
     </div>
   );
