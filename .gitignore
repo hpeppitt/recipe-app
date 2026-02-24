@@ -24,3 +24,6 @@ build/
 # Environment variables
 .env
 .env.local
+
+# Firebase local cache
+.firebase/
