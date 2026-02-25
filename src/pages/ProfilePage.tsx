@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
-import { useUserRecipes } from '../hooks/useUserRecipes';
+import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
 import { useFollow } from '../hooks/useFollow';
 import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
@@ -93,7 +93,7 @@ function EmailLinkingForm() {
 function OwnProfile() {
   const { user, signOut, updateDisplayName } = useAuth();
   const { profile, updateAvatar, updateName } = useOwnProfile();
-  const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(user?.uid);
+  const { recipes, stats, isLoading: recipesLoading } = useOwnRecipes(user?.uid);
   const navigate = useNavigate();
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [editingName, setEditingName] = useState(false);

@@ -8,7 +8,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
   const filtered: RecipeWithChildren[] | undefined = recipes
     ? (() => {
         let result = recipes;
-        if (favoriteIds && favoriteIds.size > 0) {
+        if (favoriteIds) {
           result = result.filter((r) => favoriteIds.has(r.id));
         }
         if (searchQuery.trim()) {

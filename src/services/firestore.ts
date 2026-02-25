@@ -31,7 +31,15 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
     ...data,
     collaborators: data.collaborators ?? [],
     favoriteCount: 0,
+    viewCount: 0,
   });
+
+  // Increment the creator's recipeCount on their profile
+  if (recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
+    updateDoc(doc(firestore, 'profiles', recipe.createdBy.uid), {
+      recipeCount: increment(1),
+    }).catch(() => {});
+  }
 }
 
 export async function getPublishedRecipe(
@@ -368,6 +376,25 @@ export async function getFollowingProfiles(uid: string): Promise<UserProfile[]> 
   return profiles;
 }
 
+export async function getRecipeStats(recipeIds: string[]): Promise<Map<string, { viewCount: number; favoriteCount: number }>> {
+  const statsMap = new Map<string, { viewCount: number; favoriteCount: number }>();
+  if (!firestore || recipeIds.length === 0) return statsMap;
+  // Fetch each recipe doc for its stats
+  const results = await Promise.allSettled(
+    recipeIds.map((id) => getDoc(doc(firestore!, 'recipes', id)))
+  );
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.exists()) {
+      const data = result.value.data();
+      statsMap.set(result.value.id, {
+        viewCount: data.viewCount || 0,
+        favoriteCount: data.favoriteCount || 0,
+      });
+    }
+  }
+  return statsMap;
+}
+
 // --- UID Migration ---
 
 export async function migrateFirestoreUid(
@@ -479,36 +506,37 @@ export async function incrementRecipeViews(recipeId: string): Promise<void> {
 
 // --- User Recipes ---
 
-export async function getUserRecipes(uid: string): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }>> {
+export async function getUserRecipes(uid: string): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }>> {
   if (!firestore) return [];
   const q = query(
     collection(firestore, 'recipes'),
-    where('createdBy.uid', '==', uid),
-    orderBy('createdAt', 'desc')
+    where('createdBy.uid', '==', uid)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number });
+  const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number });
+  results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return results;
 }
 
-export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }>> {
+export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }>> {
   if (!firestore || uids.length === 0) return [];
   // Firestore 'in' supports up to 30 values
   const chunks = [];
   for (let i = 0; i < uids.length; i += 30) {
     chunks.push(uids.slice(i, i + 30));
   }
-  const results: Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }> = [];
+  const results: Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }> = [];
   for (const chunk of chunks) {
     const q = query(
       collection(firestore, 'recipes'),
       where('createdBy.uid', 'in', chunk),
-      orderBy('createdAt', 'desc'),
       limit(50)
     );
     const snap = await getDocs(q);
     results.push(
-      ...snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number })
+      ...snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number })
     );
   }
+  results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return results;
 }
