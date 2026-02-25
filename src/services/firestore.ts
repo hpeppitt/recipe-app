@@ -54,6 +54,29 @@ export async function getPublishedRecipe(
   };
 }
 
+export type PublishedRecipe = SharedRecipe & {
+  id: string;
+  parentId: string | null;
+  rootId: string;
+  depth: number;
+  favoriteCount: number;
+  viewCount: number;
+  createdAt: number;
+};
+
+export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const q = query(
+    collection(firestore, 'recipes'),
+    orderBy('createdAt', 'desc'),
+    limit(200)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(
+    (d) => ({ id: d.id, ...d.data() }) as PublishedRecipe
+  );
+}
+
 export async function deletePublishedRecipe(id: string): Promise<void> {
   if (!firestore) return;
   await deleteDoc(doc(firestore, 'recipes', id));
