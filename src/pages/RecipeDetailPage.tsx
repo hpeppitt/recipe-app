@@ -36,6 +36,14 @@ export function RecipeDetailPage() {
       ? true // If no auth, treat as owner (local-only mode)
       : recipe.createdBy.uid === user.uid || recipe.createdBy.uid === 'local';
 
+  const handleBack = () => {
+    if (recipe?.parentId) {
+      navigate(`/recipe/${recipe.parentId}`, { replace: true });
+    } else {
+      navigate('/');
+    }
+  };
+
   const handleShare = async () => {
     if (!recipe) return;
     const url = encodeRecipeToUrl(recipe);
@@ -103,6 +111,7 @@ export function RecipeDetailPage() {
       <TopBar
         title={recipe.title}
         showBack
+        onBack={handleBack}
         right={
           <div className="relative">
             <button

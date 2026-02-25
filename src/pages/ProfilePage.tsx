@@ -337,7 +337,7 @@ function PublicProfile({ uid }: { uid: string }) {
                 {recipes.map((r) => (
                   <button
                     key={r.id}
-                    onClick={() => navigate(`/shared/${r.id}`)}
+                    onClick={() => navigate(`/recipe/${r.id}`)}
                     className="w-full text-left bg-surface rounded-xl border border-border p-3 hover:border-border-strong transition-colors"
                   >
                     <div className="flex items-center gap-3">

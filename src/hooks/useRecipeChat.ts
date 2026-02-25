@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
 import { getApiKey } from '../services/storage';
-import { createRecipe } from '../db/recipes';
+import { createRecipe, searchRecipes, searchVariations } from '../db/recipes';
 import { publishRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,11 +15,13 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [latestRecipe, setLatestRecipe] = useState<GeneratedRecipe | null>(null);
+  const [similarRecipes, setSimilarRecipes] = useState<Recipe[]>([]);
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const chatRef = useRef<ChatSession | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const sendMessage = useCallback(
+  const generateRecipe = useCallback(
     async (text: string) => {
       const apiKey = getApiKey();
       if (!apiKey) {
@@ -28,12 +30,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       }
 
       setError(null);
-      const userMessage: ChatMessage = {
-        role: 'user',
-        content: text,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMessage]);
+      setSimilarRecipes([]);
+      setPendingQuery(null);
       setIsLoading(true);
 
       try {
@@ -62,6 +60,43 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     },
     [parentRecipe]
   );
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const userMessage: ChatMessage = {
+        role: 'user',
+        content: text,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      // Only check for duplicates on the first message
+      if (messages.length === 0) {
+        try {
+          const matches = parentRecipe
+            ? await searchVariations(parentRecipe.rootId, text, parentRecipe.id)
+            : await searchRecipes(text);
+
+          if (matches.length > 0) {
+            setSimilarRecipes(matches);
+            setPendingQuery(text);
+            return;
+          }
+        } catch {
+          // Search failed — proceed to generation
+        }
+      }
+
+      await generateRecipe(text);
+    },
+    [messages.length, parentRecipe, generateRecipe]
+  );
+
+  const dismissSimilar = useCallback(async () => {
+    if (pendingQuery) {
+      await generateRecipe(pendingQuery);
+    }
+  }, [pendingQuery, generateRecipe]);
 
   const saveRecipe = useCallback(async () => {
     if (!latestRecipe) return;
@@ -98,7 +133,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     isLoading,
     error,
     latestRecipe,
+    similarRecipes,
     sendMessage,
+    dismissSimilar,
     saveRecipe,
   };
 }

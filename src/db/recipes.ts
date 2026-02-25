@@ -112,6 +112,64 @@ export async function clearAllRecipes(): Promise<void> {
   await db.recipes.clear();
 }
 
+export async function searchRecipes(
+  query: string,
+  excludeRootId?: string
+): Promise<Recipe[]> {
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  if (words.length === 0) return [];
+
+  const all = await db.recipes.toArray();
+  const scored = all
+    .filter((r) => !excludeRootId || r.rootId !== excludeRootId)
+    .map((r) => {
+      const haystack = [
+        r.title,
+        r.description,
+        ...r.tags,
+        ...r.ingredients.map((i) => i.name),
+      ]
+        .join(' ')
+        .toLowerCase();
+      const hits = words.filter((w) => haystack.includes(w)).length;
+      return { recipe: r, score: hits / words.length };
+    })
+    .filter((s) => s.score >= 0.5)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, 5).map((s) => s.recipe);
+}
+
+export async function searchVariations(
+  rootId: string,
+  query: string,
+  excludeId?: string
+): Promise<Recipe[]> {
+  const tree = await db.recipes.where('rootId').equals(rootId).toArray();
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 2);
+  if (words.length === 0) return [];
+
+  const scored = tree
+    .filter((r) => r.id !== excludeId)
+    .map((r) => {
+      const haystack = [r.title, r.description, r.prompt, ...r.tags]
+        .join(' ')
+        .toLowerCase();
+      const hits = words.filter((w) => haystack.includes(w)).length;
+      return { recipe: r, score: hits / words.length };
+    })
+    .filter((s) => s.score >= 0.4)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, 3).map((s) => s.recipe);
+}
+
 export async function migrateRecipesUid(
   oldUid: string,
   newUid: string,

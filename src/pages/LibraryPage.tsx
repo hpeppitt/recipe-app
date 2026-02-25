@@ -142,7 +142,7 @@ export function LibraryPage() {
             followingRecipes.map((r) => (
               <button
                 key={r.id}
-                onClick={() => navigate(`/shared/${r.id}`)}
+                onClick={() => navigate(`/recipe/${r.id}`)}
                 className="w-full text-left bg-surface rounded-2xl border border-border p-4 hover:border-border-strong transition-colors active:scale-[0.99]"
               >
                 <div className="flex gap-3">

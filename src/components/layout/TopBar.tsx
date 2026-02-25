@@ -4,10 +4,11 @@ import type { ReactNode } from 'react';
 interface TopBarProps {
   title: string;
   showBack?: boolean;
+  onBack?: () => void;
   right?: ReactNode;
 }
 
-export function TopBar({ title, showBack = false, right }: TopBarProps) {
+export function TopBar({ title, showBack = false, onBack, right }: TopBarProps) {
   const navigate = useNavigate();
 
   return (
@@ -15,7 +16,7 @@ export function TopBar({ title, showBack = false, right }: TopBarProps) {
       <div className="flex items-center h-14 px-4 max-w-lg mx-auto">
         {showBack && (
           <button
-            onClick={() => navigate(-1)}
+            onClick={onBack ?? (() => navigate(-1))}
             className="mr-2 p-1.5 -ml-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
             aria-label="Go back"
           >
