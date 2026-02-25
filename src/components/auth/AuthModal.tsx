@@ -11,24 +11,31 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) {
-  const { signInAnonymously, sendEmailLink } = useAuth();
+  const { user, signInAnonymously, sendEmailLink } = useAuth();
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  // Auto-dismiss if user is already authenticated (including anonymous)
+  useEffect(() => {
+    if (open && user) {
+      onAuthenticated();
+    }
+  }, [open, user, onAuthenticated]);
+
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) {
+    if (open && !dialog.open && !user) {
       dialog.showModal();
       setStep('choose');
       setEmail('');
       setError(null);
     }
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if ((!open || user) && dialog.open) dialog.close();
+  }, [open, user]);
 
   const handleAnonymous = async () => {
     setLoading(true);

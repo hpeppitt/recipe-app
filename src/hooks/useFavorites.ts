@@ -9,6 +9,7 @@ import {
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { trackFavoriteToggled } from '../services/analytics';
 
 export function useFavoriteIds() {
   const { user } = useAuth();
@@ -42,6 +43,7 @@ export function useFavorite(recipeId: string | undefined) {
       emoji: string;
     }) => {
       if (!uid || !recipeId) return;
+      trackFavoriteToggled(recipeId, !isFav);
       if (isFav) {
         await removeFavorite(uid, recipeId);
         if (isFirebaseConfigured) {

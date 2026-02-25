@@ -7,6 +7,7 @@ import { publishRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
+import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
 
 export function useRecipeChat(parentRecipe?: Recipe) {
@@ -88,6 +89,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       publishRecipe(recipe).catch(() => {});
     }
 
+    trackRecipeCreated(recipe.id, !!parentRecipe);
     navigate(`/recipe/${recipe.id}`);
   }, [latestRecipe, messages, parentRecipe, navigate, user]);
 

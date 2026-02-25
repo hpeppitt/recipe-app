@@ -6,11 +6,18 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
+  linkWithCredential,
+  EmailAuthProvider,
   updateProfile,
   signOut as fbSignOut,
   type Auth,
   type User,
 } from 'firebase/auth';
+import {
+  getEmailForLinking,
+  setEmailForLinking,
+  clearEmailForLinking,
+} from './storage';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
@@ -63,15 +70,71 @@ export async function sendEmailSignInLink(email: string) {
   localStorage.setItem('emailForSignIn', email);
 }
 
-export async function completeEmailSignIn(): Promise<User | null> {
+export async function sendEmailLinkForLinking(email: string) {
+  if (!auth) throw new Error('Firebase not configured');
+  const actionCodeSettings = {
+    url: window.location.origin,
+    handleCodeInApp: true,
+  };
+  await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+  setEmailForLinking(email);
+}
+
+export type EmailLinkResult = {
+  user: User;
+  previousUid: string | null;
+};
+
+export async function completeEmailSignIn(): Promise<EmailLinkResult | null> {
   if (!auth) return null;
   if (!isSignInWithEmailLink(auth, window.location.href)) return null;
-  const email = localStorage.getItem('emailForSignIn');
+
+  const linkingEmail = getEmailForLinking();
+  const signInEmail = localStorage.getItem('emailForSignIn');
+
+  // Try credential linking first (anonymous → email upgrade)
+  if (linkingEmail && auth.currentUser && auth.currentUser.isAnonymous) {
+    try {
+      const credential = EmailAuthProvider.credentialWithLink(
+        linkingEmail,
+        window.location.href
+      );
+      const result = await linkWithCredential(auth.currentUser, credential);
+      clearEmailForLinking();
+      localStorage.removeItem('emailForSignIn');
+      window.history.replaceState({}, '', window.location.pathname);
+      return { user: result.user, previousUid: null }; // UID stays the same
+    } catch (err: unknown) {
+      // auth/credential-already-in-use: email already has an account
+      // Fall through to regular sign-in + migration
+      const firebaseErr = err as { code?: string };
+      if (firebaseErr.code === 'auth/credential-already-in-use') {
+        const previousUid = auth.currentUser.uid;
+        const result = await signInWithEmailLink(
+          auth,
+          linkingEmail,
+          window.location.href
+        );
+        clearEmailForLinking();
+        localStorage.removeItem('emailForSignIn');
+        window.history.replaceState({}, '', window.location.pathname);
+        return { user: result.user, previousUid };
+      }
+      // Other errors: clear and fall through
+      clearEmailForLinking();
+    }
+  }
+
+  // Regular email sign-in
+  const email = linkingEmail || signInEmail;
   if (!email) return null;
+
+  const previousUid = auth.currentUser?.isAnonymous ? auth.currentUser.uid : null;
   const result = await signInWithEmailLink(auth, email, window.location.href);
+  clearEmailForLinking();
   localStorage.removeItem('emailForSignIn');
   window.history.replaceState({}, '', window.location.pathname);
-  return result.user;
+  return { user: result.user, previousUid };
 }
 
 export async function setDisplayName(name: string) {

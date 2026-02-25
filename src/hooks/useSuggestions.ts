@@ -5,6 +5,7 @@ import {
   updateSuggestionStatus,
   createSuggestion,
 } from '../services/firestore';
+import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
 import type { Suggestion } from '../types/social';
 
 export function useSuggestions(recipeId: string | undefined) {
@@ -18,10 +19,12 @@ export function useSuggestions(recipeId: string | undefined) {
 
   const approve = useCallback(async (id: string) => {
     await updateSuggestionStatus(id, 'approved');
+    trackSuggestionReviewed(id, 'approved');
   }, []);
 
   const reject = useCallback(async (id: string) => {
     await updateSuggestionStatus(id, 'rejected');
+    trackSuggestionReviewed(id, 'rejected');
   }, []);
 
   return { suggestions, approve, reject };
@@ -46,6 +49,7 @@ export function useSubmitSuggestion() {
           displayName: user.displayName,
         },
       });
+      trackSuggestionSubmitted(params.recipeId);
     },
     [user]
   );

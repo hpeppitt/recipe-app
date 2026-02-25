@@ -11,6 +11,8 @@ import { InstructionList } from '../components/recipe/InstructionList';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Avatar } from '../components/ui/Avatar';
+import { incrementRecipeViews } from '../services/firestore';
+import { trackRecipeViewed } from '../services/analytics';
 import type { Collaborator } from '../types/recipe';
 
 interface FullSharedRecipe extends SharedRecipe {
@@ -44,6 +46,8 @@ export function SharedRecipePage() {
         if (!cancelled) {
           if (published) {
             setRecipe(published);
+            incrementRecipeViews(paramId);
+            trackRecipeViewed(paramId);
           } else {
             setError(true);
           }
@@ -171,12 +175,15 @@ export function SharedRecipePage() {
                 <h2 className="text-xl font-bold">{recipe.title}</h2>
                 <p className="text-sm text-text-secondary mt-1">{recipe.description}</p>
                 {recipe.createdBy?.displayName && (
-                  <div className="flex items-center gap-1.5 mt-1">
+                  <button
+                    onClick={() => navigate(`/profile/${recipe.createdBy!.uid}`)}
+                    className="flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
+                  >
                     <Avatar uid={recipe.createdBy.uid} name={recipe.createdBy.displayName} size="sm" />
                     <p className="text-xs text-text-tertiary">
-                      Added by {recipe.createdBy.displayName}
+                      Added by <span className="text-primary-600 font-medium">{recipe.createdBy.displayName}</span>
                     </p>
-                  </div>
+                  </button>
                 )}
                 {recipe.collaborators && recipe.collaborators.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap mt-1">

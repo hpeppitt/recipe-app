@@ -20,6 +20,7 @@ import { arrayUnion } from 'firebase/firestore';
 import type { Recipe } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, AppNotification } from '../types/social';
+import type { UserProfile, Follow } from '../types/profile';
 
 // --- Recipes ---
 
@@ -240,4 +241,274 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
   const batch = writeBatch(firestore);
   snap.docs.forEach((d) => batch.update(d.ref, { read: true }));
   await batch.commit();
+}
+
+// --- Profiles ---
+
+export async function getProfile(uid: string): Promise<UserProfile | null> {
+  if (!firestore) return null;
+  const snap = await getDoc(doc(firestore, 'profiles', uid));
+  if (!snap.exists()) return null;
+  return { uid: snap.id, ...snap.data() } as UserProfile;
+}
+
+export async function createOrUpdateProfile(
+  uid: string,
+  data: Partial<Omit<UserProfile, 'uid'>>
+): Promise<void> {
+  if (!firestore) return;
+  const ref = doc(firestore, 'profiles', uid);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    await updateDoc(ref, data);
+  } else {
+    await setDoc(ref, {
+      displayName: null,
+      photoType: 'generated',
+      photoEmoji: null,
+      photoBgColor: null,
+      photoURL: null,
+      recipeCount: 0,
+      followerCount: 0,
+      followingCount: 0,
+      createdAt: Date.now(),
+      ...data,
+    });
+  }
+}
+
+export function subscribeProfile(
+  uid: string,
+  callback: (profile: UserProfile | null) => void
+): () => void {
+  if (!firestore) return () => {};
+  return onSnapshot(doc(firestore, 'profiles', uid), (snap) => {
+    callback(snap.exists() ? { uid: snap.id, ...snap.data() } as UserProfile : null);
+  });
+}
+
+// --- Follows ---
+
+export async function followUser(
+  followerId: string,
+  followingId: string,
+  followerDisplayName: string | null
+): Promise<void> {
+  if (!firestore) return;
+  const followId = `${followerId}_${followingId}`;
+  const batch = writeBatch(firestore);
+
+  batch.set(doc(firestore, 'follows', followId), {
+    followerId,
+    followingId,
+    followerDisplayName,
+    createdAt: Date.now(),
+  });
+
+  batch.update(doc(firestore, 'profiles', followingId), {
+    followerCount: increment(1),
+  });
+
+  batch.update(doc(firestore, 'profiles', followerId), {
+    followingCount: increment(1),
+  });
+
+  await batch.commit();
+}
+
+export async function unfollowUser(
+  followerId: string,
+  followingId: string
+): Promise<void> {
+  if (!firestore) return;
+  const followId = `${followerId}_${followingId}`;
+  const batch = writeBatch(firestore);
+
+  batch.delete(doc(firestore, 'follows', followId));
+
+  batch.update(doc(firestore, 'profiles', followingId), {
+    followerCount: increment(-1),
+  });
+
+  batch.update(doc(firestore, 'profiles', followerId), {
+    followingCount: increment(-1),
+  });
+
+  await batch.commit();
+}
+
+export async function isFollowing(
+  followerId: string,
+  followingId: string
+): Promise<boolean> {
+  if (!firestore) return false;
+  const snap = await getDoc(doc(firestore, 'follows', `${followerId}_${followingId}`));
+  return snap.exists();
+}
+
+export async function getFollowingIds(uid: string): Promise<string[]> {
+  if (!firestore) return [];
+  const q = query(
+    collection(firestore, 'follows'),
+    where('followerId', '==', uid)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => (d.data() as Follow).followingId);
+}
+
+export async function getFollowingProfiles(uid: string): Promise<UserProfile[]> {
+  if (!firestore) return [];
+  const ids = await getFollowingIds(uid);
+  if (ids.length === 0) return [];
+  const profiles: UserProfile[] = [];
+  for (const id of ids) {
+    const p = await getProfile(id);
+    if (p) profiles.push(p);
+  }
+  return profiles;
+}
+
+// --- UID Migration ---
+
+export async function migrateFirestoreUid(
+  oldUid: string,
+  newUid: string,
+  displayName: string | null
+): Promise<void> {
+  if (!firestore) return;
+
+  // Migrate recipes (update createdBy.uid)
+  const recipesQ = query(
+    collection(firestore, 'recipes'),
+    where('createdBy.uid', '==', oldUid)
+  );
+  const recipesSnap = await getDocs(recipesQ);
+  // Firestore batches limited to 500
+  const recipeDocs = recipesSnap.docs;
+  for (let i = 0; i < recipeDocs.length; i += 500) {
+    const batch = writeBatch(firestore);
+    for (const d of recipeDocs.slice(i, i + 500)) {
+      batch.update(d.ref, { 'createdBy.uid': newUid, 'createdBy.displayName': displayName });
+    }
+    await batch.commit();
+  }
+
+  // Migrate favorites
+  const favsQ = query(
+    collection(firestore, 'favorites'),
+    where('uid', '==', oldUid)
+  );
+  const favsSnap = await getDocs(favsQ);
+  for (const d of favsSnap.docs) {
+    const data = d.data();
+    const newFavId = `${newUid}_${data.recipeId}`;
+    const batch = writeBatch(firestore);
+    batch.delete(d.ref);
+    batch.set(doc(firestore, 'favorites', newFavId), { ...data, uid: newUid });
+    await batch.commit();
+  }
+
+  // Migrate notifications (recipientUid)
+  const notifsQ = query(
+    collection(firestore, 'notifications'),
+    where('recipientUid', '==', oldUid)
+  );
+  const notifsSnap = await getDocs(notifsQ);
+  const notifDocs = notifsSnap.docs;
+  for (let i = 0; i < notifDocs.length; i += 500) {
+    const batch = writeBatch(firestore);
+    for (const d of notifDocs.slice(i, i + 500)) {
+      batch.update(d.ref, { recipientUid: newUid });
+    }
+    await batch.commit();
+  }
+
+  // Migrate profile: copy old profile data to new UID, delete old
+  const oldProfileSnap = await getDoc(doc(firestore, 'profiles', oldUid));
+  if (oldProfileSnap.exists()) {
+    const newProfileSnap = await getDoc(doc(firestore, 'profiles', newUid));
+    if (!newProfileSnap.exists()) {
+      // Copy the old profile to new UID
+      await setDoc(doc(firestore, 'profiles', newUid), {
+        ...oldProfileSnap.data(),
+        displayName,
+      });
+    }
+    await deleteDoc(doc(firestore, 'profiles', oldUid));
+  }
+
+  // Migrate follows (as follower)
+  const followerQ = query(
+    collection(firestore, 'follows'),
+    where('followerId', '==', oldUid)
+  );
+  const followerSnap = await getDocs(followerQ);
+  for (const d of followerSnap.docs) {
+    const data = d.data();
+    const newFollowId = `${newUid}_${data.followingId}`;
+    const batch = writeBatch(firestore);
+    batch.delete(d.ref);
+    batch.set(doc(firestore, 'follows', newFollowId), { ...data, followerId: newUid });
+    await batch.commit();
+  }
+
+  // Migrate follows (as following target) - update followerDisplayName where they follow oldUid
+  const followingQ = query(
+    collection(firestore, 'follows'),
+    where('followingId', '==', oldUid)
+  );
+  const followingSnap = await getDocs(followingQ);
+  for (const d of followingSnap.docs) {
+    const data = d.data();
+    const newFollowId = `${data.followerId}_${newUid}`;
+    const batch = writeBatch(firestore);
+    batch.delete(d.ref);
+    batch.set(doc(firestore, 'follows', newFollowId), { ...data, followingId: newUid });
+    await batch.commit();
+  }
+}
+
+// --- Views ---
+
+export async function incrementRecipeViews(recipeId: string): Promise<void> {
+  if (!firestore) return;
+  await updateDoc(doc(firestore, 'recipes', recipeId), {
+    viewCount: increment(1),
+  }).catch(() => {});
+}
+
+// --- User Recipes ---
+
+export async function getUserRecipes(uid: string): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }>> {
+  if (!firestore) return [];
+  const q = query(
+    collection(firestore, 'recipes'),
+    where('createdBy.uid', '==', uid),
+    orderBy('createdAt', 'desc')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number });
+}
+
+export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }>> {
+  if (!firestore || uids.length === 0) return [];
+  // Firestore 'in' supports up to 30 values
+  const chunks = [];
+  for (let i = 0; i < uids.length; i += 30) {
+    chunks.push(uids.slice(i, i + 30));
+  }
+  const results: Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number }> = [];
+  for (const chunk of chunks) {
+    const q = query(
+      collection(firestore, 'recipes'),
+      where('createdBy.uid', 'in', chunk),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    results.push(
+      ...snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number })
+    );
+  }
+  return results;
 }

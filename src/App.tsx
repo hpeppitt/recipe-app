@@ -7,6 +7,7 @@ import { RecipeDetailPage } from './pages/RecipeDetailPage';
 import { VersionTreePage } from './pages/VersionTreePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharedRecipePage } from './pages/SharedRecipePage';
+import { ProfilePage } from './pages/ProfilePage';
 import { useTheme } from './hooks/useTheme';
 
 export default function App() {
@@ -26,6 +27,8 @@ export default function App() {
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
           <Route path="/shared" element={<SharedRecipePage />} />
           <Route path="/shared/:id" element={<SharedRecipePage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:uid" element={<ProfilePage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

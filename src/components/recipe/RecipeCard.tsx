@@ -46,7 +46,14 @@ export function RecipeCard({ recipe, isFavorite }: RecipeCardProps) {
             {creatorName && recipe.createdBy && (
               <>
                 <span>·</span>
-                <span className="inline-flex items-center gap-1 truncate">
+                <span
+                  role="link"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${recipe.createdBy.uid}`);
+                  }}
+                  className="inline-flex items-center gap-1 truncate hover:text-primary-600 transition-colors cursor-pointer"
+                >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <span className="truncate">{creatorName}</span>
                 </span>

@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree } from '../db/recipes';
-import { deletePublishedRecipe } from '../services/firestore';
+import { deletePublishedRecipe, incrementRecipeViews } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { encodeRecipeToUrl } from '../lib/share';
+import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
@@ -41,10 +42,12 @@ export function RecipeDetailPage() {
     await navigator.clipboard.writeText(url);
     setShareCopied(true);
     setTimeout(() => setShareCopied(false), 2000);
+    trackRecipeShared(recipe.id);
   };
 
   const handleDelete = async () => {
     if (!id) return;
+    trackRecipeDeleted(id);
     await deleteRecipeTree(id);
     if (isFirebaseConfigured) {
       deletePublishedRecipe(id).catch(() => {});
@@ -60,6 +63,14 @@ export function RecipeDetailPage() {
       emoji: recipe.emoji,
     });
   };
+
+  // Track view
+  useEffect(() => {
+    if (id && isFirebaseConfigured) {
+      incrementRecipeViews(id);
+      trackRecipeViewed(id);
+    }
+  }, [id]);
 
   const creatorName = recipe?.createdBy?.displayName;
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
@@ -185,12 +196,18 @@ export function RecipeDetailPage() {
           {(creatorName || (recipe.collaborators && recipe.collaborators.length > 0)) && (
             <div className="space-y-2">
               {creatorName && recipe.createdBy && (
-                <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${recipe.createdBy.uid}`);
+                  }}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <p className="text-xs text-text-tertiary">
-                    Added by {creatorName}
+                    Added by <span className="text-primary-600 font-medium">{creatorName}</span>
                   </p>
-                </div>
+                </button>
               )}
               {recipe.collaborators && recipe.collaborators.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">

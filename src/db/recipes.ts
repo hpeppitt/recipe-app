@@ -111,3 +111,20 @@ export async function exportAllRecipes(): Promise<Recipe[]> {
 export async function clearAllRecipes(): Promise<void> {
   await db.recipes.clear();
 }
+
+export async function migrateRecipesUid(
+  oldUid: string,
+  newUid: string,
+  displayName: string | null
+): Promise<number> {
+  const recipes = await db.recipes.toArray();
+  const toUpdate = recipes.filter((r) => r.createdBy.uid === oldUid);
+  for (const recipe of toUpdate) {
+    await db.recipes.put({
+      ...recipe,
+      createdBy: { uid: newUid, displayName },
+      updatedAt: Date.now(),
+    });
+  }
+  return toUpdate.length;
+}
