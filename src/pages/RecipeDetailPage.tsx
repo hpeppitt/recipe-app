@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -35,6 +35,7 @@ export function RecipeDetailPage() {
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
   const { recipe, source, isLoading } = useRecipe(id);
+  const location = useLocation();
   const { children } = useRecipeChildren(id);
   const { ancestors } = useRecipeAncestors(recipe);
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
@@ -58,11 +59,18 @@ export function RecipeDetailPage() {
   });
 
   const handleBack = () => {
-    if (recipe?.parentId) {
-      navigate(`/recipe/${recipe.parentId}`, { replace: true });
-    } else {
-      navigate('/');
+    // Respect real history: arriving from the version tree, a profile or a
+    // notification should return there, not jump to the parent recipe. The old
+    // handler also used `replace: true`, which discarded the current entry and
+    // left the hardware back button inconsistent with the on-screen one.
+    // React Router labels the first entry of a session 'default', so any other
+    // key means there is somewhere in-app to go back to.
+    if (location.key !== 'default') {
+      navigate(-1);
+      return;
     }
+    // Deep link with nothing behind it: go up the lineage if there is one.
+    navigate(recipe?.parentId ? `/recipe/${recipe.parentId}` : '/');
   };
 
   const handleShare = async () => {

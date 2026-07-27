@@ -311,9 +311,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       cannot help, since `source` only becomes 'cloud' when `getPublishedRecipe` succeeds.
       Confirmed in-browser that local-only mode hides the button and leaves Create Variation
       intact; the positive branch rests on the 9 `canManageRecipe` tests plus code reading.)
-- [ ] **UI-7** Recipe detail back button always goes to `parentId` or `/` with
+- [x] **UI-7** Recipe detail back button always goes to `parentId` or `/` with
       `replace: true`, ignoring real history (tree, profile, notifications) and corrupting
       the hardware back button. (`RecipeDetailPage.tsx:39-45`)
+      (fixed: `handleBack` now calls `navigate(-1)` when there is in-app history, detected via
+      `location.key !== 'default'` — React Router labels a session's first entry 'default'.
+      Deep-linked entries (nothing behind them) still fall back to the parent recipe, or the
+      library if there is no parent, but without `replace: true`.
+      The `replace: true` in `handleDelete` was deliberately left: not being able to navigate
+      back to a recipe you just deleted is correct.
+      Verified in-browser, all three behaviours: deep-loaded child (history idx 0) falls back
+      to its parent; tree -> recipe -> back returns to the TREE rather than the parent; and
+      history is coherent again — browser back from the recipe (idx 3) lands on the tree
+      (idx 2) matching the on-screen button, and forward restores idx 3, showing the entry is
+      no longer destroyed.
+      Does NOT deliver the UI-4 follow-on: guarding browser/swipe back against discarding an
+      unsaved recipe still needs the data-router migration, filed as UI-15.)
 - [ ] **UI-8** Notification dropdown (`w-80`, right-anchored) clips offscreen on 320-390px
       viewports. (`NotificationBell.tsx`)
 - [ ] **UI-9** RecipeCard nests a `span role="link"` with onClick inside a `<button>`:
@@ -326,6 +339,16 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
 - [ ] **UI-12** Cloud failures render as happy empty states: Firestore offline shows
       "No recipes yet" and "Recipe not found" instead of an error with retry.
       (`useRecipeLibrary.ts`, `useRecipe.ts`, `LibraryPage.tsx:190-195`)
+
+- [ ] **UI-15** Browser back and the iOS swipe-back gesture still discard an unsaved generated
+      recipe silently. UI-4 added a confirm dialog to the in-app back button, but `App.tsx`
+      uses `BrowserRouter`, so React Router's `useBlocker` is unavailable and non-button
+      navigations can't be intercepted. Needs migrating to `createBrowserRouter` (routes as
+      objects), after which `useBlocker` can guard `RecipeChatPage` while `latestRecipe` is
+      unsaved. On a mobile-first app the swipe gesture is arguably the more common way to
+      leave a page, so the UI-4 fix is partial in practice. (`App.tsx:18-33`,
+      `RecipeChatPage.tsx` handleBack)
+      (split out of UI-4/UI-7 rather than left dangling between them.)
 
 ## Low severity
 
