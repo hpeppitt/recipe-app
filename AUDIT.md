@@ -111,9 +111,18 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       every colour resolves in both themes (light amber #fffbeb/#92400e, dark #451a03/#fde68a).
       Also bumped the "we sent a link" body from `success-600` to `success-700`: once visible
       it computed to ~3.1:1 on `success-50`, under the 4.5:1 minimum for 12px. Now ~4.8:1.)
-- [ ] **UI-3** Version tree current/root nodes hardcode light `bg-primary-50` with themed
+- [x] **UI-3** Version tree current/root nodes hardcode light `bg-primary-50` with themed
       text: illegible in dark mode. Same pattern in `RecipeDetailPage.tsx:249` and
       NotificationBell unread rows. (`VersionTreePage.tsx:65-67`)
+      (fixed: added `--color-primary-950` and explicit `dark:` variants at the three named
+      sites — tree current/root nodes, notification unread rows, pending suggestion rows.
+      Measured in dark mode: the current node was 1.1:1 (near-white text on near-white
+      #eef2ff) and is now 15.3:1; the root node 3.5:1 -> 16.2:1.
+      Deliberately did NOT remap `primary-*` in `.dark` even though that would fix all sites
+      at once: tinted chips pair `bg-primary-50` with `text-primary-700`, so a blanket
+      remap would invert them into dark-on-dark. Left as-is: chips and the `bg-danger-50`
+      error block stay light-tinted in dark mode — visually jarring but readable
+      (dark text on light tint), unlike the themed-text cases above. Folded into UI-13.)
 - [ ] **UI-4** Back navigation from the chat silently discards an unsaved generated recipe;
       no guard, no persistence, no confirm. (`RecipeChatPage.tsx:55-58`)
 - [ ] **UI-5** Missing Gemini API key is discovered only after composing and sending a

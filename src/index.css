@@ -11,6 +11,10 @@
   --color-primary-700: #4338ca;
   --color-primary-800: #3730a3;
   --color-primary-900: #312e81;
+  /* Dark-mode counterpart to the primary-50 tint. The primary scale is
+     deliberately not remapped in .dark, because tinted chips pair primary-50
+     with dark primary-700 text and would invert into illegibility. */
+  --color-primary-950: #1e1b4b;
 
   --color-surface: #ffffff;
   --color-surface-secondary: #f9fafb;

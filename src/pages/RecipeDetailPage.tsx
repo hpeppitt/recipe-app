@@ -255,7 +255,7 @@ export function RecipeDetailPage() {
                     key={s.id}
                     className={`border rounded-xl p-3 ${
                       s.status === 'pending'
-                        ? 'border-primary-200 bg-primary-50/30'
+                        ? 'border-primary-200 bg-primary-50/30 dark:border-primary-800 dark:bg-primary-950/30'
                         : 'border-border bg-surface-secondary'
                     }`}
                   >

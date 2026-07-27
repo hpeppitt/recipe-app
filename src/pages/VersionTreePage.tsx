@@ -62,9 +62,9 @@ function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps)
         onClick={() => onNavigate(node.recipe.id)}
         className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
           isCurrent
-            ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
+            ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200 dark:bg-primary-950 dark:ring-primary-800'
             : isRoot
-            ? 'border-primary-200 bg-primary-50/50 hover:border-primary-300'
+            ? 'border-primary-200 bg-primary-50/50 hover:border-primary-300 dark:border-primary-800 dark:bg-primary-950/50 dark:hover:border-primary-700'
             : 'border-border bg-surface hover:border-border-strong'
         }`}
       >

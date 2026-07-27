@@ -89,7 +89,7 @@ export function NotificationBell() {
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
                   className={`w-full text-left px-4 py-3 hover:bg-surface-secondary transition-colors ${
-                    !notif.read ? 'bg-primary-50/50' : ''
+                    !notif.read ? 'bg-primary-50/50 dark:bg-primary-950/50' : ''
                   }`}
                 >
                   <div className="flex gap-2.5">
