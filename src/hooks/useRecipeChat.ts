@@ -5,6 +5,7 @@ import { getApiKey } from '../services/storage';
 import { createRecipe, searchRecipes, searchVariations } from '../db/recipes';
 import { publishRecipe, searchPublishedRecipes } from '../services/firestore';
 import { mergeDedupById } from '../lib/search';
+import { describeGenerationError, MISSING_API_KEY, type FriendlyError } from '../lib/errors';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
@@ -64,7 +65,7 @@ async function searchSimilarRecipes(
 export function useRecipeChat(parentRecipe?: Recipe) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FriendlyError | null>(null);
   const [latestRecipe, setLatestRecipe] = useState<GeneratedRecipe | null>(null);
   const [similarRecipes, setSimilarRecipes] = useState<SimilarRecipe[]>([]);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
@@ -79,7 +80,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     async (text: string) => {
       const apiKey = getApiKey();
       if (!apiKey) {
-        setError('Please set your Gemini API key in Settings.');
+        setError(MISSING_API_KEY);
         return;
       }
 
@@ -106,8 +107,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         };
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to generate recipe';
-        setError(message);
+        // Keep the raw SDK message out of the UI but available in the console:
+        // it is developer-facing and can echo request details back.
+        console.error('Recipe generation failed', err);
+        setError(describeGenerationError(err));
       } finally {
         setIsLoading(false);
       }
@@ -208,7 +211,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     } catch (err) {
       savingRef.current = false;
       setIsSaving(false);
-      setError(err instanceof Error ? err.message : 'Failed to save recipe');
+      console.error('Recipe save failed', err);
+      setError({ message: "Couldn't save the recipe. Please try again." });
     }
   }, [latestRecipe, messages, parentRecipe, navigate, user]);
 
@@ -217,6 +221,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     isLoading,
     isSaving,
     error,
+    // Read at render so the composer can be blocked up front instead of letting
+    // the user write a prompt and only then discover generation is impossible.
+    // localStorage is synchronous, and returning from Settings remounts the page.
+    needsApiKey: !getApiKey(),
     latestRecipe,
     similarRecipes,
     sendMessage,

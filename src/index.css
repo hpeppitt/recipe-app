@@ -26,8 +26,11 @@
   --color-border-strong: #d1d5db;
 
   --color-danger-50: #fef2f2;
+  --color-danger-300: #fca5a5;
   --color-danger-500: #ef4444;
   --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+  --color-danger-950: #450a0a;
 
   /* Semantic scales carry the shades the components actually reference,
      including the dark: variants. An undefined token emits no CSS at all, which

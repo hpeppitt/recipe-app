@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useRecipe } from '../hooks/useRecipe';
 import { useRecipeChat } from '../hooks/useRecipeChat';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,6 +26,7 @@ export function RecipeChatPage() {
     isLoading,
     isSaving,
     error,
+    needsApiKey,
     latestRecipe,
     similarRecipes,
     sendMessage,
@@ -76,6 +77,25 @@ export function RecipeChatPage() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-lg mx-auto p-4 space-y-4">
+          {/* Surfaced before composing: generation is impossible without a key */}
+          {needsApiKey && (
+            <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-2">
+              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+                A Gemini API key is required
+              </p>
+              <p className="text-xs text-warning-700 dark:text-warning-300">
+                Recipes are generated with Gemini, so you'll need to add your own key before
+                you can create one.
+              </p>
+              <Link
+                to="/settings"
+                className="inline-block text-sm font-medium text-primary-600 dark:text-primary-300 underline underline-offset-2"
+              >
+                Add a key in Settings
+              </Link>
+            </div>
+          )}
+
           {/* Parent recipe context for variations */}
           {isVarying && parentRecipe && (
             <div className="border border-border rounded-2xl overflow-hidden">
@@ -201,8 +221,16 @@ export function RecipeChatPage() {
           {isLoading && <TypingIndicator />}
 
           {error && (
-            <div className="bg-danger-50 text-danger-600 text-sm px-4 py-3 rounded-xl">
-              {error}
+            <div className="bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 text-sm px-4 py-3 rounded-xl space-y-2">
+              <p>{error.message}</p>
+              {error.action === 'settings' && (
+                <Link
+                  to="/settings"
+                  className="inline-block font-medium underline underline-offset-2"
+                >
+                  Open Settings
+                </Link>
+              )}
             </div>
           )}
 
@@ -212,8 +240,14 @@ export function RecipeChatPage() {
 
       <ChatInput
         onSend={sendMessage}
-        disabled={isLoading || (isVarying && !parentRecipe)}
-        placeholder={isVarying ? 'Describe the modification...' : 'Describe what you want to cook...'}
+        disabled={isLoading || needsApiKey || (isVarying && !parentRecipe)}
+        placeholder={
+          needsApiKey
+            ? 'Add a Gemini API key in Settings first'
+            : isVarying
+              ? 'Describe the modification...'
+              : 'Describe what you want to cook...'
+        }
       />
 
       <AuthModal

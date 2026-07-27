@@ -137,9 +137,21 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       without migrating to a data router; that migration belongs with UI-7, which already
       covers this app's history handling. Tapping a dedup match also still leaves the page,
       though at that point no recipe has been generated yet — only the typed prompt is lost.)
-- [ ] **UI-5** Missing Gemini API key is discovered only after composing and sending a
+- [x] **UI-5** Missing Gemini API key is discovered only after composing and sending a
       message; error is plain text with no link to Settings, and raw Gemini exception text
       is shown verbatim. (`useRecipeChat.ts:26-30`, `:55-57`, `RecipeChatPage.tsx:176-180`)
+      (fixed, all three parts: hook exposes `needsApiKey`, so the page shows a banner with a
+      Settings link and disables the composer up front instead of letting the user write a
+      prompt first. `error` became a `FriendlyError { message, action? }` and renders an
+      "Open Settings" link when the cause is key-related. New `lib/errors.ts` maps throws to
+      user-facing copy (bad key / rate limit / offline / unreadable output / outage) with
+      10 tests; the raw message now goes only to `console.error`.
+      Worth noting this was also a leak: the SDK's message embeds the request URL, and the
+      old code rendered `err.message` verbatim, so a rejected-key error printed the API key
+      into the page. Verified in-browser with a stubbed 400 whose body contained the key —
+      page shows only the friendly line, key/URL/raw phrase all absent, full detail in console.
+      Also added `danger-300/700/950` and gave this error block a `dark:` variant while
+      rewriting it, since it was one of the light-only tints noted under UI-3.)
 
 ## Medium severity
 
