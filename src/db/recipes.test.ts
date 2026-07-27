@@ -7,6 +7,7 @@ import {
   getCoreRecipes,
   importRecipes,
   exportAllRecipes,
+  addLocalCollaborator,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
@@ -214,6 +215,54 @@ describe('importRecipes', () => {
 
   it('tolerates a non-array file without throwing', async () => {
     await expect(importRecipes({ recipes: [] })).resolves.toMatchObject({ added: 0, skipped: 0 });
+  });
+});
+
+describe('addLocalCollaborator', () => {
+  const alice = { uid: 'alice', displayName: 'Alice' };
+
+  it('adds a collaborator to the local copy so the owner can see it', async () => {
+    await db.recipes.add(makeRecipe({ id: 'r1', collaborators: [] }));
+
+    const changed = await addLocalCollaborator('r1', alice);
+
+    expect(changed).toBe(true);
+    expect((await db.recipes.get('r1'))?.collaborators).toEqual([alice]);
+  });
+
+  it('is idempotent on uid, matching Firestore arrayUnion', async () => {
+    await db.recipes.add(makeRecipe({ id: 'r1', collaborators: [alice] }));
+
+    const changed = await addLocalCollaborator('r1', alice);
+
+    expect(changed).toBe(false);
+    expect((await db.recipes.get('r1'))?.collaborators).toHaveLength(1);
+  });
+
+  it('appends alongside existing collaborators', async () => {
+    await db.recipes.add(
+      makeRecipe({ id: 'r1', collaborators: [{ uid: 'bob', displayName: 'Bob' }] })
+    );
+
+    await addLocalCollaborator('r1', alice);
+
+    expect((await db.recipes.get('r1'))?.collaborators.map((c) => c.uid).sort()).toEqual([
+      'alice',
+      'bob',
+    ]);
+  });
+
+  it('is a no-op when the recipe is not held locally', async () => {
+    expect(await addLocalCollaborator('not-here', alice)).toBe(false);
+  });
+
+  it('tolerates a legacy record with no collaborators field', async () => {
+    const legacy = makeRecipe({ id: 'r1' });
+    delete (legacy as Partial<typeof legacy>).collaborators;
+    await db.recipes.add(legacy);
+
+    expect(await addLocalCollaborator('r1', alice)).toBe(true);
+    expect((await db.recipes.get('r1'))?.collaborators).toEqual([alice]);
   });
 });
 

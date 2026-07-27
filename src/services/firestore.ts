@@ -19,7 +19,7 @@ import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
-import type { Recipe } from '../types/recipe';
+import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, AppNotification } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
@@ -269,27 +269,44 @@ export function subscribeRecipeSuggestions(
   });
 }
 
+/**
+ * Approve or reject a suggestion.
+ *
+ * Returns the collaborator added on approval so the caller can mirror it onto
+ * the local Dexie copy — the owner's UI reads that copy first, so a cloud-only
+ * write left them unable to see the collaborator they just approved (FUN-7).
+ */
 export async function updateSuggestionStatus(
   suggestionId: string,
   status: 'approved' | 'rejected'
-): Promise<void> {
-  if (!firestore) return;
+): Promise<{ recipeId: string; collaborator: Collaborator } | null> {
+  if (!firestore) return null;
   await updateDoc(doc(firestore, 'suggestions', suggestionId), { status });
 
+  if (status !== 'approved') return null;
+
   // When approved, add the suggester as a collaborator on the recipe
-  if (status === 'approved') {
-    const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
-    if (suggestionSnap.exists()) {
-      const suggestion = suggestionSnap.data() as Suggestion;
-      const collaborator = {
-        uid: suggestion.suggestedBy.uid,
-        displayName: suggestion.suggestedBy.displayName,
-      };
-      await updateDoc(doc(firestore, 'recipes', suggestion.recipeId), {
-        collaborators: arrayUnion(collaborator),
-      }).catch(() => {});
-    }
+  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
+  if (!suggestionSnap.exists()) return null;
+
+  const suggestion = suggestionSnap.data() as Suggestion;
+  const collaborator: Collaborator = {
+    uid: suggestion.suggestedBy.uid,
+    displayName: suggestion.suggestedBy.displayName,
+  };
+
+  try {
+    await updateDoc(doc(firestore, 'recipes', suggestion.recipeId), {
+      collaborators: arrayUnion(collaborator),
+    });
+  } catch (err) {
+    // Don't mirror locally if the cloud write was rejected, or the two stores
+    // would disagree about who collaborated.
+    console.error('Adding collaborator to the published recipe failed', err);
+    return null;
   }
+
+  return { recipeId: suggestion.recipeId, collaborator };
 }
 
 // --- Notifications ---

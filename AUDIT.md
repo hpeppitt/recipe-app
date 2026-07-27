@@ -192,9 +192,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       "2 added, 2 skipped as invalid", legacy envelope backfilled, both recipes render, and
       search still works afterwards. Writing `describeImport` also surfaced a bug of my own
       that a test caught — it reported "Import complete" when only skips had occurred.)
-- [ ] **FUN-7** Approved collaborators are written only to the Firestore doc, but the owner
+- [x] **FUN-7** Approved collaborators are written only to the Firestore doc, but the owner
       UI prefers the local Dexie copy, so owners never see collaborators on their own
       device. (`firestore.ts:228-230`, `useRecipe.ts:48`)
+      (fixed: `updateSuggestionStatus` now returns `{ recipeId, collaborator }` on approval
+      and `useSuggestions.approve` mirrors it into Dexie via new `addLocalCollaborator`,
+      following the same dual-write pattern as favourites. Idempotent on uid to match
+      `arrayUnion`, and a no-op when the recipe isn't held locally.
+      Also tightened the ordering: the cloud `updateDoc` used to swallow failures with
+      `.catch(() => {})`, so a denied write was invisible. It now logs and returns null,
+      which means the local mirror is skipped too — better that both stores stay empty than
+      disagree about who collaborated.
+      Verified: 5 unit tests through real Dexie for the mirror, and in-browser that the
+      owner's detail page renders "Collaborators: <name>" once the local copy has them.
+      Note the browser check needed a reload only because raw IndexedDB writes bypass
+      Dexie's liveQuery; `addLocalCollaborator` writes through Dexie, so the real flow
+      refreshes in place. The end-to-end approve action still needs Firebase to exercise.)
 - [ ] **FUN-8** After a recipe is deleted, `removeCloudFavorite`'s batch update on the
       missing doc rejects, so the cloud favorite can never be removed.
       (`firestore.ts:136-145`, `useFavorites.ts:50`)
