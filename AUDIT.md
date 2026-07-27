@@ -208,9 +208,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Note the browser check needed a reload only because raw IndexedDB writes bypass
       Dexie's liveQuery; `addLocalCollaborator` writes through Dexie, so the real flow
       refreshes in place. The end-to-end approve action still needs Firebase to exercise.)
-- [ ] **FUN-8** After a recipe is deleted, `removeCloudFavorite`'s batch update on the
+- [x] **FUN-8** After a recipe is deleted, `removeCloudFavorite`'s batch update on the
       missing doc rejects, so the cloud favorite can never be removed.
       (`firestore.ts:136-145`, `useFavorites.ts:50`)
+      (fixed: split the `writeBatch` — the favourite doc is deleted on its own, then the
+      counter decrement is attempted separately and tolerated if it fails. Atomicity was the
+      bug here: the favourite is the user's own data and must come off regardless, while the
+      counter lives on a doc that may no longer exist.
+      First Firestore-layer tests in the repo (5), using a module mock of the SDK: no
+      credentials for a real project, and the emulator needs a JVM which isn't installed.
+      Confirmed the tests are sensitive by reverting to the batch version — all 5 fail.
+      They pin the fix's contract (favourite removed even when the counter update rejects,
+      delete ordered first, delete failures still propagate); they do NOT re-prove
+      Firestore's batch-rollback semantics, which the fix takes as given.
+      Left asymmetric on purpose: `addCloudFavorite` stays batched, since refusing to create
+      a favourite for a nonexistent recipe is correct. Its local/cloud divergence on failure
+      belongs with FUN-9.)
 - [ ] **FUN-9** Favorite toggle read-then-write race: double-tap runs `increment(1)` twice,
       permanently inflating `favoriteCount`. (`useFavorites.ts:39-67`, `:82-105`)
 - [ ] **FUN-10** `publishRecipe` uses unconditional `setDoc` that resets `favoriteCount`

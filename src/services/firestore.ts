@@ -187,21 +187,28 @@ export async function addCloudFavorite(
   }
 }
 
-export async function removeCloudFavorite(
-  uid: string,
-  recipeId: string
-): Promise<void> {
+/**
+ * Unfavourite a recipe.
+ *
+ * Deliberately NOT a batch. `update` on a missing document rejects, and in a
+ * batch that rolls back the favourite deletion too — so once the recipe was
+ * deleted, the favourite could never be removed (FUN-8). The favourite record is
+ * the user's own data and must come off regardless; the counter lives on a doc
+ * that may no longer exist, so its decrement is best-effort.
+ */
+export async function removeCloudFavorite(uid: string, recipeId: string): Promise<void> {
   if (!firestore) return;
 
-  const batch = writeBatch(firestore);
-  const favoriteId = `${uid}_${recipeId}`;
+  await deleteDoc(doc(firestore, 'favorites', `${uid}_${recipeId}`));
 
-  batch.delete(doc(firestore, 'favorites', favoriteId));
-  batch.update(doc(firestore, 'recipes', recipeId), {
-    favoriteCount: increment(-1),
-  });
-
-  await batch.commit();
+  try {
+    await updateDoc(doc(firestore, 'recipes', recipeId), {
+      favoriteCount: increment(-1),
+    });
+  } catch (err) {
+    // Expected when the recipe has been deleted; there is no counter to adjust.
+    console.error('Could not decrement favoriteCount (recipe may be deleted)', err);
+  }
 }
 
 export async function isCloudFavorite(
