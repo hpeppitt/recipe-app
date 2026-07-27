@@ -24,7 +24,17 @@ Recipe Lab — a recipe management app with AI-powered recipe generation and bra
 - `npm run dev` — start dev server
 - `npm run build` — type-check + production build
 - `npm run lint` — ESLint
+- `npm test` — Vitest (unit tests for `src/db` and `src/lib`; node env with fake-indexeddb, setup in `src/test/setup.ts`)
 - `npm run preview` — preview production build
+
+## Dev Cycle
+
+- **`AUDIT.md`** (repo root) is the working backlog: checkboxed findings with IDs (SEC/INFRA/FUN/UI) grouped by severity. Fix top-down within a band.
+- **`/audit-next`** fixes exactly one AUDIT.md finding, verifies it, checks it off, and commits (`Fix <ID>: ...`). Loopable via `/loop /audit-next`.
+- **`/preflight`** is the pre-commit gate: build + lint + tests + mobile-viewport browser smoke test of the core flows.
+- **Subagents**: `ui-reviewer` (run after UI/component changes) and `data-integrity-reviewer` (run after changes to `firestore.ts`, `src/db/`, favorites/recipe-chat hooks, or `firestore.rules`). Both read-only.
+- A PostToolUse hook (`.claude/hooks/typecheck-lint.sh`) runs `tsc -b` + ESLint after every edit to `src/**/*.ts(x)` and feeds errors back automatically.
+- New pure logic in `src/db`/`src/lib` should come with tests; use `src/test/factories.ts` (`makeRecipe`, `makeIngredient`).
 
 ## Environment Variables
 
@@ -146,7 +156,7 @@ src/
 - **Firebase is optional** — `firebase.ts` checks env vars before initializing; all auth/Firestore functions are safe no-ops when unconfigured
 - **`AppUser` type** is a plain object extracted from Firebase `User` to avoid passing Firebase class instances through React state
 - **Cloud notifications use `addDoc` fire-and-forget** — notification creation in `firestore.ts` is non-blocking (`.catch(() => {})`) to avoid slowing down the favorite/suggest action
-- **Firestore composite indexes** may need to be created manually for `notifications` (recipientUid + createdAt), `suggestions` (recipeId + createdAt), `recipes` (createdBy.uid + createdAt), and `follows` (followerId); Firebase will auto-prompt with a link in console errors
+- **Firestore rules + indexes live in the repo** (`firestore.rules`, `firestore.indexes.json`, wired via `firebase.json`); deploy with `firebase deploy --only firestore`. Rules enforce ownership server-side and constrain counter updates to exact +/-1 bumps. Known limitation: client-side cross-UID migration (`migrateFirestoreUid`) is denied by rules and fails silently; a proper fix needs a Cloud Function
 - **Ownership fallback**: when `createdBy.uid === 'local'` (pre-auth recipes) or auth is disabled, user is treated as owner
 - **Profile avatars are only custom on profile pages and library header** — recipe cards and detail pages use the generated avatar (deterministic from UID) for simplicity; click through to profile to see the custom avatar
 - **Uploaded avatars stored as base64 JPEG** in Firestore profile doc — images are cropped to square and scaled to 128x128 to keep doc size small
