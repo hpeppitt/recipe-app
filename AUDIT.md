@@ -224,14 +224,33 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Left asymmetric on purpose: `addCloudFavorite` stays batched, since refusing to create
       a favourite for a nonexistent recipe is correct. Its local/cloud divergence on failure
       belongs with FUN-9.)
-- [ ] **FUN-9** Favorite toggle read-then-write race: double-tap runs `increment(1)` twice,
+- [x] **FUN-9** Favorite toggle read-then-write race: double-tap runs `increment(1)` twice,
       permanently inflating `favoriteCount`. (`useFavorites.ts:39-67`, `:82-105`)
+      (fixed: `togglingRef` in-flight guard in both `useFavorite` and `useCloudFavorite`.
+      The cloud write is now awaited so the guard spans the counter update rather than
+      releasing early, but wrapped in `withTimeout` (5s) so an unreachable Firestore can't
+      leave the button permanently locked — the same hang I hit on FUN-5. Cloud errors now
+      log instead of being swallowed by `.catch(() => {})`.
+      VERIFICATION GAP, stated plainly: I could not exercise the double-tap. Favourites
+      require a signed-in user and Firebase is unconfigured here, so the toggle returns early
+      on `!uid`. The mechanism is the same ref guard empirically confirmed under FUN-2, where
+      three synchronous taps produced exactly one write, but that is an argument by analogy,
+      not a measurement of this code path.)
 - [ ] **FUN-10** `publishRecipe` uses unconditional `setDoc` that resets `favoriteCount`
       and `viewCount` to 0 on any re-publish. Latent until a retry mechanism exists.
       (`firestore.ts:27-35`)
 - [ ] **FUN-11** Version tree and variation dedup read local Dexie only: empty tree and
       zero dup detection when varying someone else's cloud recipe.
       (`useRecipeTree.ts:5-11`, `db/recipes.ts:55-57`)
+- [ ] **FUN-16** Favouriting is inert without auth, but the button still looks live. `useFavorite`
+      returns early on `!uid`, and `AuthContext` leaves `user` null whenever Firebase is
+      unconfigured, so in local-only mode the heart icon is rendered and clickable yet writes
+      nothing and never changes state. The Library's Favorites filter is therefore permanently
+      empty too. Either hide/disable the control in local-only mode, or fall back to a device
+      uid so local favourites work without a cloud account.
+      (`useFavorites.ts:45`, `AuthContext.tsx:65-69`, `RecipeDetailPage.tsx` favourite button)
+      (found while verifying FUN-9: three taps stored 0 favourite records and left the
+      aria-label unchanged. Not in the original audit.)
 - [ ] **UI-6** "Suggest a Change" exists only on `/shared/:id`; non-owners browsing the
       shared feed land on `/recipe/:id` which has no suggest affordance, making the
       headline collaboration feature undiscoverable. (`SharedRecipePage.tsx:245-251`)
