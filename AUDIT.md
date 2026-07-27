@@ -362,8 +362,24 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       plainly-labelled "Library" link, and the DOM confirms an aria-hidden avatar plus a
       visible name span. That was a snapshot limitation, not a defect; `Avatar` already sets
       `aria-hidden` on all three branches.)
-- [ ] **UI-10** Touch targets below 44px: TopBar icon row (32px), suggestion Approve/Reject
+- [x] **UI-10** Touch targets below 44px: TopBar icon row (32px), suggestion Approve/Reject
       text buttons (~24px). (`RecipeDetailPage.tsx:117-169`, `:270-281`)
+      (fixed: icon buttons went from `p-1.5` (32px) to `w-11 h-11` with centred content — the
+      four in RecipeDetailPage, TopBar's shared back button, and NotificationBell's bell, which
+      is the same defect in the same icon-row family. Approve/Reject went from unpadded text
+      (~16px tall, not 24) to `min-h-11 px-3`, measured 72x44 and 60x44; `-ml-3` on the row
+      keeps the first label flush with the text above instead of looking indented.
+      Both badge/dot indicators were repositioned from `-top-0.5 -right-0.5` to sit against the
+      20px icon rather than the 44px hit area, or the bigger target would have flung them into
+      the corner. Also bumped Approve to `success-700` and Reject to `text-secondary`, since
+      `success-600`/`text-tertiary` on surface were below AA (same issue as UI-2).
+      Verified by measurement, not eye: all header buttons exactly 44x44; the enlarged row does
+      not overflow a 320px header even with five buttons (the `flex-1 truncate` title absorbs
+      the compression, and the icon buttons are inline-block so they cannot shrink); and
+      Approve/Reject measured from their exact classes since suggestions need Firestore to render.
+      NOT changed, flagged instead: shared `Button` `size="md"` is ~40px. Both subagent reviewers
+      raised it, but it is used mostly full-width where the horizontal target is ample, and
+      changing it shifts every button in the app — that deserves an explicit decision.)
 - [ ] **UI-11** Version tree costs 48px per depth level in a non-scrolling column; deep
       chains leave <150px for cards on a phone. (`VersionTreePage.tsx:90`)
 - [ ] **UI-12** Cloud failures render as happy empty states: Firestore offline shows

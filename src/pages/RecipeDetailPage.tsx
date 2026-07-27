@@ -215,7 +215,7 @@ export function RecipeDetailPage() {
             {isConfigured && (
             <button
               onClick={handleFavoriteToggle}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               {isFavorite ? (
@@ -232,7 +232,7 @@ export function RecipeDetailPage() {
             <button
               onClick={handleShare}
               disabled={isSharing}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors disabled:opacity-50"
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors disabled:opacity-50"
               aria-label="Share recipe"
             >
               {shareCopied ? (
@@ -247,7 +247,7 @@ export function RecipeDetailPage() {
             </button>
             <button
               onClick={() => navigate(`/recipe/${recipe.id}/tree`)}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
               aria-label="Version tree"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -258,14 +258,14 @@ export function RecipeDetailPage() {
               <>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors relative"
+                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
                   aria-label="More options"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                   </svg>
                   {pendingSuggestions.length > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-500" />
+                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500" />
                   )}
                 </button>
                 {showMenu && (
@@ -367,16 +367,19 @@ export function RecipeDetailPage() {
                       )}
                     </p>
                     {s.status === 'pending' && (
-                      <div className="flex gap-2 mt-2">
+                      // Padded to a 44px target. The -ml-3 offsets the first
+                      // button's padding so its label stays flush with the text
+                      // above rather than looking indented.
+                      <div className="flex gap-1 mt-1 -ml-3">
                         <button
                           onClick={() => approve(s.id)}
-                          className="text-xs font-medium text-success-600 hover:underline"
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors"
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => reject(s.id)}
-                          className="text-xs font-medium text-text-tertiary hover:underline"
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-text-secondary hover:underline hover:bg-surface-tertiary transition-colors"
                         >
                           Reject
                         </button>
