@@ -34,7 +34,7 @@ export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
-  const { recipe, source, isLoading } = useRecipe(id);
+  const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   const location = useLocation();
   const { children } = useRecipeChildren(id);
   const { ancestors } = useRecipeAncestors(recipe);
@@ -192,10 +192,20 @@ export function RecipeDetailPage() {
   }
 
   if (!recipe) {
+    // Absence after a failed lookup is not the same as absence: telling someone
+    // their recipe doesn't exist when the network broke is actively misleading.
     return (
       <div className="max-w-lg mx-auto">
-        <TopBar title="Not found" showBack />
-        <div className="p-8 text-center text-text-secondary">Recipe not found</div>
+        <TopBar title={cloudError ? "Couldn't load" : 'Not found'} showBack />
+        <div className="p-8 text-center space-y-3">
+          <p className="text-4xl">{cloudError ? '📡' : '🔍'}</p>
+          <p className="text-text-secondary">
+            {cloudError
+              ? "We couldn't reach the recipe library. Check your connection and try again."
+              : 'Recipe not found.'}
+          </p>
+          {cloudError && <Button onClick={retry}>Try Again</Button>}
+        </div>
       </div>
     );
   }

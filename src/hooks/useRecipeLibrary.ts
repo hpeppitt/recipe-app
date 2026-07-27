@@ -3,7 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getCoreRecipes } from '../db/recipes';
 import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
+import { withTimeout } from '../lib/utils';
 import type { RecipeWithChildren } from '../types/recipe';
+
+/** How long the feed waits for the shared library before showing local only. */
+const LIBRARY_CLOUD_TIMEOUT_MS = 6000;
 
 interface FeedRecipe {
   id: string;
@@ -25,19 +29,34 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
   const localRecipes = useLiveQuery(() => getCoreRecipes(), []);
   const [cloudRecipes, setCloudRecipes] = useState<PublishedRecipe[] | null>(null);
   const [cloudLoading, setCloudLoading] = useState(isFirebaseConfigured);
+  // Failing to reach the shared library used to be indistinguishable from it
+  // being empty, so an offline user was told "No recipes yet" (UI-12).
+  const [cloudError, setCloudError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    getAllPublishedRecipes()
-      .then((r) => {
-        setCloudRecipes(r);
-        setCloudLoading(false);
-      })
-      .catch(() => {
-        setCloudRecipes([]);
-        setCloudLoading(false);
-      });
-  }, []);
+    setCloudLoading(true);
+    setCloudError(false);
+    // Bounded: against an unreachable backend Firestore retries rather than
+    // rejecting, so a plain .catch() never fires and the feed would sit silently
+    // in a partial state forever. A timeout is treated as a failure.
+    withTimeout(
+      getAllPublishedRecipes()
+        .then((r) => ({ recipes: r }))
+        .catch((err) => {
+          console.error('Loading the shared library failed', err);
+          return null;
+        }),
+      LIBRARY_CLOUD_TIMEOUT_MS,
+      null as { recipes: PublishedRecipe[] } | null
+    ).then((result) => {
+      // Either way fall through to the local-only merge, but say so on failure.
+      setCloudRecipes(result ? result.recipes : []);
+      setCloudError(result === null);
+      setCloudLoading(false);
+    });
+  }, [reloadKey]);
 
   // Merge local + cloud, deduplicate by ID, prefer cloud data for shared fields
   const merged = useMemo<FeedRecipe[] | undefined>(() => {
@@ -116,5 +135,8 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
   return {
     recipes: filtered as (RecipeWithChildren & FeedRecipe)[] | undefined,
     isLoading: merged === undefined,
+    /** True when the shared library could not be reached; local recipes still show. */
+    cloudError,
+    retryCloud: () => setReloadKey((k) => k + 1),
   };
 }

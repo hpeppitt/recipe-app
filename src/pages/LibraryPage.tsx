@@ -12,6 +12,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
 import { APP_NAME } from '../lib/constants';
 
 type Filter = 'all' | 'favorites' | 'following' | string; // string = specific uid
@@ -33,7 +34,7 @@ export function LibraryPage() {
   const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
     filter === 'following' ? followingIds : []
   );
-  const { recipes, isLoading } = useRecipeLibrary(
+  const { recipes, isLoading, cloudError, retryCloud } = useRecipeLibrary(
     search,
     filter === 'favorites' ? favoriteIds : undefined
   );
@@ -142,6 +143,27 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
+        {/* Shown above the list, not instead of it: local recipes did load, and
+            the previous behaviour claimed "No recipes yet" when the shared
+            library was merely unreachable. */}
+        {cloudError && (
+          <div
+            role="status"
+            className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-3 flex items-center gap-3"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+                Showing only recipes on this device
+              </p>
+              <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">
+                The shared library couldn't be reached.
+              </p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={retryCloud}>
+              Retry
+            </Button>
+          </div>
+        )}
         {displayLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -196,6 +218,11 @@ export function LibraryPage() {
             title="No results"
             description={`No recipes matching "${search}"`}
           />
+        ) : cloudError ? (
+          // The banner above already explains why the list is empty. Claiming
+          // "No recipes yet" here would contradict it and blame the user for a
+          // network problem — the exact UI-12 symptom.
+          null
         ) : (
           <EmptyState
             icon="👨‍🍳"

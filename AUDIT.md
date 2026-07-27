@@ -396,9 +396,31 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       styles. Worth remembering for any runtime A/B of Tailwind classes.
       Chose min-width + scroll over capping the indent at N levels: capping makes deep siblings
       visually ambiguous about which parent they belong to, which is the tree's whole job.)
-- [ ] **UI-12** Cloud failures render as happy empty states: Firestore offline shows
+- [x] **UI-12** Cloud failures render as happy empty states: Firestore offline shows
       "No recipes yet" and "Recipe not found" instead of an error with retry.
       (`useRecipeLibrary.ts`, `useRecipe.ts`, `LibraryPage.tsx:190-195`)
+      (fixed: both hooks expose `cloudError` plus a retry. Library shows a warning banner
+      ABOVE the list (local recipes did load, so replacing them would lose real content) and
+      suppresses "No recipes yet" when the cloud failed — otherwise the two contradict each
+      other, which my first attempt actually did. Recipe detail distinguishes "Not found"
+      from "Couldn't load" + Try Again.
+      Testing found the naive fix does nothing: against an unreachable backend Firestore
+      RETRIES rather than rejecting, so `.catch()` never fires — I waited 14s with no banner.
+      Both lookups are now bounded with `withTimeout` (6s), treating a timeout as failure.
+      Second time this environment's Firestore hang has changed a fix (see FUN-5); a plain
+      `.catch()` on a Firestore call is not an error path.
+      Also fixed a pre-existing permanent-spinner bug in the same hook (confirmed against
+      HEAD, not introduced here): with Firebase unconfigured the cloud effect returned early
+      without setting `cloudChecked`, so `isLoading` never cleared and any missing recipe sat
+      on a skeleton forever. Now settles after the same 100ms Dexie delay. (That delay is
+      still the FUN-13 hack.)
+      Verified all four states: cloud-fails-with-local-recipes (banner + list, no false empty
+      state), cloud-fails-with-none (banner only, no contradictory "No recipes yet"),
+      cloud-fails-on-detail ("Couldn't load" + Try Again), and local-only mode (normal empty
+      state, genuine "Recipe not found", no false network blame).
+      STILL SILENT, not claimed: the dedup cloud-check failure (FUN-1) and the delete cascade
+      result (FUN-3) — both were annotated "folded into UI-12" but are separate surfaces I did
+      not touch here.)
 
 - [ ] **UI-15** Browser back and the iOS swipe-back gesture still discard an unsaved generated
       recipe silently. UI-4 added a confirm dialog to the in-app back button, but `App.tsx`

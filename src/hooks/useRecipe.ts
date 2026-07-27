@@ -3,27 +3,57 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getRecipe, getRecipeChildren, getRecipeAncestors } from '../db/recipes';
 import { getPublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
+import { withTimeout } from '../lib/utils';
 import type { Recipe } from '../types/recipe';
+
+/** How long a cloud recipe lookup waits before reporting failure. */
+const RECIPE_CLOUD_TIMEOUT_MS = 6000;
 
 export function useRecipe(id: string | undefined) {
   const localRecipe = useLiveQuery(() => (id ? getRecipe(id) : undefined), [id]);
   const [cloudRecipe, setCloudRecipe] = useState<Recipe | null>(null);
   const [cloudChecked, setCloudChecked] = useState(false);
+  // A failed lookup used to be reported as "Recipe not found", which tells the
+  // user their link is dead when the network is the actual problem (UI-12).
+  const [cloudError, setCloudError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     setCloudRecipe(null);
     setCloudChecked(false);
-  }, [id]);
+    setCloudError(false);
+  }, [id, reloadKey]);
 
   // Fall back to Firestore if not found locally
   useEffect(() => {
-    if (!id || localRecipe !== undefined || !isFirebaseConfigured || cloudChecked) return;
+    if (!id || localRecipe !== undefined || cloudChecked) return;
     // localRecipe is undefined during Dexie loading — wait for it to resolve
     // useLiveQuery returns undefined while loading, then the value (or undefined if not found)
     // We use a short delay to let Dexie resolve first
     const timer = setTimeout(() => {
-      getPublishedRecipe(id)
-        .then((published) => {
+      // Local-only mode: there is no cloud to consult, and the delay above has
+      // given Dexie time to settle, so record the check as done. Without this the
+      // page sat on a loading skeleton forever for any missing recipe.
+      if (!isFirebaseConfigured) {
+        setCloudChecked(true);
+        return;
+      }
+      // Bounded for the same reason as the library feed: an unreachable Firestore
+      // retries instead of rejecting, so without a deadline this never resolves
+      // and the page shows a spinner indefinitely.
+      withTimeout(
+        getPublishedRecipe(id).then((r) => ({ published: r })),
+        RECIPE_CLOUD_TIMEOUT_MS,
+        null
+      )
+        .then((result) => {
+          if (result === null) {
+            console.error('Timed out loading the published recipe');
+            setCloudError(true);
+            setCloudChecked(true);
+            return;
+          }
+          const published = result.published;
           if (published) {
             // Convert SharedRecipe to Recipe-like shape for display
             setCloudRecipe({
@@ -42,7 +72,11 @@ export function useRecipe(id: string | undefined) {
           }
           setCloudChecked(true);
         })
-        .catch(() => setCloudChecked(true));
+        .catch((err) => {
+          console.error('Loading the published recipe failed', err);
+          setCloudError(true);
+          setCloudChecked(true);
+        });
     }, 100);
     return () => clearTimeout(timer);
   }, [id, localRecipe, cloudChecked]);
@@ -57,6 +91,9 @@ export function useRecipe(id: string | undefined) {
     // from a published one that merely carries the same placeholder uid.
     source: localRecipe ? ('local' as const) : cloudRecipe ? ('cloud' as const) : undefined,
     isLoading: id ? recipe === undefined && !cloudChecked : false,
+    /** The cloud lookup failed, so absence does NOT mean the recipe is gone. */
+    cloudError,
+    retry: () => setReloadKey((k) => k + 1),
   };
 }
 
