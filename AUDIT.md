@@ -327,8 +327,23 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       no longer destroyed.
       Does NOT deliver the UI-4 follow-on: guarding browser/swipe back against discarding an
       unsaved recipe still needs the data-router migration, filed as UI-15.)
-- [ ] **UI-8** Notification dropdown (`w-80`, right-anchored) clips offscreen on 320-390px
+- [x] **UI-8** Notification dropdown (`w-80`, right-anchored) clips offscreen on 320-390px
       viewports. (`NotificationBell.tsx`)
+      (fixed: below `sm` the panel is `fixed inset-x-4 top-16`, spanning the viewport with
+      1rem insets, so overflow is impossible regardless of where the bell sits. The original
+      anchored 20rem dropdown returns at `sm` and up. Click-outside still works — it uses
+      `panelRef.contains()`, which is DOM containment and unaffected by fixed positioning.
+      Quantified the bug rather than assuming it: reproduced the header anchoring inside a
+      320px container and measured the old panel's left edge at **-48px**, i.e. 48px of 320
+      clipped offscreen. `w-80` and `right-0` are anchor-relative, so that reproduction is
+      faithful without viewport emulation (which has never worked in this session).
+      Verified the fix two ways instead of eyeballing: the shipped CSS puts `.sm\:absolute`
+      inside `@media(min-width:40rem)` with `.fixed`/`.inset-x-4`/`.top-16` unconditional, so
+      the viewport-pinned branch is what applies below 640px; and at the real 1800px viewport
+      the computed style is `absolute / right:0 / 320px`, confirming large screens keep the
+      original design.
+      Note the bell only renders when `isConfigured && user`, so the live component could not
+      be opened here — the geometry was verified from its exact classes.)
 - [ ] **UI-9** RecipeCard nests a `span role="link"` with onClick inside a `<button>`:
       creator link is unreachable by keyboard and broken for screen readers.
       (`RecipeCard.tsx`)

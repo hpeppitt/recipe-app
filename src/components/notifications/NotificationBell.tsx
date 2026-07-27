@@ -64,8 +64,14 @@ export function NotificationBell() {
         )}
       </button>
 
+      {/*
+        A fixed 20rem panel anchored to the bell overflowed the left edge on narrow
+        phones. Below sm it spans the viewport with 1rem insets instead, so clipping
+        is impossible regardless of where the bell sits; the anchored dropdown
+        returns at sm and up. top-16 clears the h-14 sticky header.
+      */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-surface border border-border rounded-2xl shadow-xl z-50">
+        <div className="fixed inset-x-4 top-16 max-h-96 overflow-y-auto bg-surface border border-border rounded-2xl shadow-xl z-50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
             {unreadCount > 0 && (
