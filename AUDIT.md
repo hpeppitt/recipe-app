@@ -479,3 +479,173 @@ identity, so these writes are now denied. The call is fire-and-forget so nothing
 but cloud data will not migrate when an email sign-in lands on a different uid. Proper fix:
 a Cloud Function using the Admin SDK, or linking credentials so the uid never changes.
 Local Dexie migration is unaffected.
+
+---
+
+# UX/UI Sweep Backlog (2026-07-28)
+
+Findings from three parallel UX reviews (create/library flow; detail/tree/sharing;
+account/social/design-system). These are **experience** findings, not correctness bugs —
+the code audit above already cleared those. Same convention: check off when fixed AND verified.
+
+Obsoleted before filing: the reviews flagged that the primary CTA dead-ends with no
+explanation of what a Gemini API key is or where to get one. The server-side proxy removes
+that failure mode entirely, so it is not listed.
+
+## High severity
+
+- [ ] **UX-1** "Clear All Data" does not clear all data. `clearAllRecipes()` is
+      `db.recipes.clear()` only, so the local `favorites` table survives AND every recipe
+      published to Firestore stays public under the user's name. The most deliberate
+      destructive action in the app leaves the content visible to everyone with no
+      indication. Trust/privacy issue, not cosmetic. Either rename to "Delete recipes on this
+      device" and say so explicitly, or actually delete the owned Firestore docs.
+      (`SettingsPage.tsx:70-73`, `db/recipes.ts:155-157`)
+- [ ] **UX-2** Avatar and display-name editing are hover-only
+      (`opacity-0 group-hover:opacity-100`), so on touch the entire AvatarEditor feature —
+      3 tabs, 40 emoji, image upload — is unreachable on the primary platform. The avatar
+      button also has no accessible name (Avatar is `aria-hidden`, pencil svg unlabelled).
+      (`ProfilePage.tsx:133-137`, `:166-168`, `:123`)
+- [ ] **UX-3** AuthModal states a difference that is false: email sign-in "lets your name
+      appear on recipes you share", but anonymous users also get an auto-generated display
+      name on theirs. The differences that matter (tied to this browser, clearing site data
+      loses everything, no other-device access, no sign-out) are never mentioned, and the
+      lossy option is the primary-styled default. (`AuthModal.tsx:80-93`,
+      `AuthContext.tsx:139-145`)
+- [ ] **UX-4** The only safeguard against permanent recipe loss is triple-buried:
+      `EmailLinkingForm` renders *after* the whole recipe list, so the more you stand to lose
+      the further you scroll; Profile is reachable only via a 20px avatar and is absent from
+      BottomNav and Settings. (`ProfilePage.tsx:238-239`, `BottomNav.tsx:4-7`)
+- [ ] **UX-5** Anonymous users are trapped: no sign-out by design, and AuthModal
+      auto-dismisses whenever any user exists, so the email screen is unreachable again. A
+      user on a shared device cannot leave; someone with an existing email account cannot
+      sign into it here and their identities diverge permanently.
+      (`ProfilePage.tsx:238-244`, `AuthContext.tsx:158-161`, `AuthModal.tsx:22-26`)
+- [ ] **UX-6** The collaboration loop dead-ends. Approve writes `status` and adds a
+      collaborator but does not change the recipe, does not open a variation, and sends the
+      suggester no notification (`AppNotification.type` has no outcome variant). Owner presses
+      Approve, nothing visibly happens, suggester never learns. Fatal for the app's
+      differentiating mechanic. (`useSuggestions.ts:21-34`, `firestore.ts:339-357`,
+      `types/social.ts:15`)
+- [ ] **UX-7** Suggestion review is below ingredients, instructions, notes, tags, credits,
+      collaborators and variations; the only entry point is an 8px dot on a "More options"
+      button whose menu contains only Delete. The count is visual-only.
+      (`RecipeDetailPage.tsx:349-402`, `:277-279`)
+- [ ] **UX-8** The review UI cannot support a real decision: no timestamp, no profile link,
+      no reply. Approve/Reject aren't disabled in flight (double-tap on a slow link), there is
+      no success or failure feedback, and Reject is irreversible with no confirm.
+      (`RecipeDetailPage.tsx:355-399`)
+- [ ] **UX-9** First-run framing is missing. The feed merges all published cloud recipes, so
+      "No recipes yet" is nearly unreachable and a new user's actual first screen is an
+      unlabelled list of strangers' recipes — no "Mine" filter, no statement of what the app
+      is. (`LibraryPage.tsx:226-231`, `useRecipeLibrary.ts:89-110`)
+- [ ] **UX-10** The central concept (recipes branch into a version tree) is never
+      communicated where a newcomer would see it. Only hint is inert "3 variations" tertiary
+      text — and cloud feed entries hardcode `childCount: 0`, so it is absent on exactly the
+      recipes a new user browses. (`RecipeCard.tsx:47-54`, `useRecipeLibrary.ts:105`)
+- [ ] **UX-11** Version tree renders the bare string "No tree data found" while the recipe is
+      still resolving (up to the 6s cloud window) and again as the terminal failure state with
+      no retry, though `useRecipe` exposes `cloudError`/`retry`. A single-version tree — the
+      common case — is one card floating with no explanation. (`VersionTreePage.tsx:11-12`,
+      `:32-36`)
+- [ ] **UX-12** Shared page shows "View only" unconditionally, contradicting the favourite
+      and Suggest controls beside it on `/shared/:id`. The genuinely view-only hash link gets
+      the same badge with no explanation and no way to save the recipe — the recipient's
+      highest-value conversion moment is a dead end. (`SharedRecipePage.tsx:193-195`,
+      `:274-292`)
+- [ ] **UX-13** The dedup panel omits the product's whole point: it offers "open this one" or
+      "create anyway" but not "make a variation of this". It also runs behind a
+      "Generating recipe..." indicator, so it breaks a promise it just made, gives no reason
+      for each match, and discards the typed prompt if a match is tapped.
+      (`RecipeChatPage.tsx:166-218`, `TypingIndicator.tsx:9`)
+
+## Medium severity
+
+- [ ] **UX-14** Generation failure has no Try Again, uniquely in the app now — recovery means
+      retyping the prompt that is visible directly above. (`RecipeChatPage.tsx:223-235`)
+- [ ] **UX-15** Only the newest generation is savable (`showSave={i === lastAssistantIdx}` +
+      single `latestRecipe`), so refining once and disliking the result loses the good version
+      that is still on screen. (`RecipeChatPage.tsx:156`, `useRecipeChat.ts:109`)
+- [ ] **UX-16** `/recipe/:id/vary` for an uncached parent can leave a permanently dead
+      composer: only `recipe` is destructured, discarding the `isLoading` and `cloudError`
+      that `useRecipe` now exposes. Looks functional, does nothing.
+      (`RecipeChatPage.tsx:23`, `:243`)
+- [ ] **UX-17** Saving gives no confirmation, and a failed cloud publish is console-only, so
+      the recipe is local while the user believes it is shared. A toast pattern already exists.
+      (`useRecipeChat.ts:246-253`, `RecipeDetailPage.tsx:448-461`)
+- [ ] **UX-18** The Following filter swaps in a different, information-poorer card (no time,
+      difficulty, variation count or favourite marker) and reimplements the nested-link
+      pattern UI-9 fixed. Reuse `RecipeCard`. (`LibraryPage.tsx:174-192`)
+- [ ] **UX-19** Detail header crushes the title (~55px at 320px with five 44px buttons), and
+      the footer makes Create Variation primary even on someone else's recipe where Suggest a
+      Change is the contextually right action. Favourite count is never shown.
+      (`RecipeDetailPage.tsx:215-301`, `:406-419`)
+- [ ] **UX-20** Share can silently do nothing: `navigator.clipboard.writeText` sits in a `try`
+      with only a `finally`, so an insecure context or denied permission produces no signal
+      at all. The up-to-4s publish wait shows only `disabled:opacity-50` on a 20px icon.
+      (`RecipeDetailPage.tsx:76-114`) — introduced by my own FUN-5 fix; add a catch with a
+      selectable-URL fallback and a Spinner.
+- [ ] **UX-21** Cloud recipes still lose their lineage: `useRecipeChildren` and
+      `useRecipeAncestors` remain Dexie-only, so browsed-from-feed recipes get an empty
+      Variations carousel, a floating "Prompt:" quote with nothing saying what it varies, and
+      a delete warning that undercounts variations. (`useRecipe.ts:100-122`,
+      `RecipeDetailPage.tsx:305-312`, `:346`, `:425-427`) — a real gap in my FUN-11 fix, which
+      merged cloud data into `useRecipeTree` only.
+- [ ] **UX-22** Cooking ergonomics: instructions and ingredients are `text-sm` (14px) — the
+      one screen where type size matters most — with no way to check off a gathered
+      ingredient or completed step, and a sticky footer eating ~72px for a CTA nobody needs
+      mid-cook. (`InstructionList.tsx:20-24`, `IngredientList.tsx:20-31`)
+- [ ] **UX-23** A profile fetch failure renders "User not found" with no retry, so a dropped
+      connection is indistinguishable from a deleted account — the same class UI-12 fixed
+      elsewhere. (`ProfilePage.tsx:275-284`, `useProfile.ts:68-71`)
+- [ ] **UX-24** The follow loop is write-only: no notification on gaining a follower (the
+      strongest retention signal a creator gets), follower/following counts aren't tappable,
+      and no follower list exists anywhere. (`firestore.ts:460-485`, `ProfilePage.tsx:201`)
+- [ ] **UX-25** Notifications: no `isLoading`, so "No notifications yet" shows during the
+      initial subscription and a failure reads as "nobody cares"; unread count is visual-only;
+      badge uses raw `bg-red-500` instead of the danger token.
+      (`useNotifications.ts:10-25`, `NotificationBell.tsx:45`, `:62-66`)
+- [ ] **UX-26** Settings is incoherent once the API key field goes — a theme toggle, three
+      data buttons and a hardcoded "v1.0", with no mention of the signed-in account. Proposed
+      IA: Account (identity, anonymous warning + upgrade, sign out) / Appearance / Data. Also
+      hand-rolls the sticky header `TopBar` provides, and Export gives no feedback.
+      (`SettingsPage.tsx:77-81`, `:169`, `:35-44`)
+- [ ] **UX-27** Design-system drift: hand-rolled primary buttons instead of `Button`
+      (ProfilePage Follow/Sign In, AvatarEditor Save/Choose), the segmented control built
+      twice with different metrics, filter pills that duplicate `Chip` with a different
+      selected treatment (so "selected pill" means two things), and `EmptyState` bypassed on
+      Profile. `Chip`'s `active` prop is dead code. (`ProfilePage.tsx:308-318`, `:408-413`,
+      `AvatarEditor.tsx:105-123`, `LibraryPage.tsx:96-140`, `Chip.tsx`)
+- [ ] **UX-28** Touch targets still under 44px outside the areas UI-10 fixed: library header
+      icons (~26-30px) and the scrolling filter row, `Button size="sm"` (~30px) used for
+      standalone account actions, Show/Hide, Mark all read, theme buttons, AvatarEditor's
+      32px emoji cells and 28px swatches, shared-page favourite (~32px), breadcrumb links.
+      (`LibraryPage.tsx:53-57`, `Button.tsx:25`, `SharedRecipePage.tsx:177-181`,
+      `LineageBreadcrumb.tsx:16-21`)
+- [ ] **UX-29** Competing autofocus on `/create`: `ChatInput` focuses unconditionally on
+      mount, so the keyboard opens then AuthModal steals focus; for signed-in users the
+      keyboard covers the suggestion chips, which are the only concrete instruction a new
+      user gets. (`ChatInput.tsx:13-15`, `RecipeChatPage.tsx:59-63`)
+
+## Low severity
+
+- [ ] **UX-30** Light-only tints inside dark theme: recipe tags and the instruction step
+      badge pair a hardcoded light background with dark indigo text. Legible but visually
+      loud against `#111827`, and the only elements ignoring the theme. Add
+      `dark:bg-primary-950 dark:text-primary-300`, matching the pending-suggestion card.
+      (`RecipeContent.tsx:56`, `InstructionList.tsx:21`, `RecipeCardMessage.tsx:61`)
+- [ ] **UX-31** `text-primary-600` on the dark surface is ~2.8:1, below AA. Use
+      `dark:text-primary-400`. (`RecipeCard.tsx:50`, `RecipeDetailPage.tsx:328`)
+- [ ] **UX-32** Dialogs render a heading they never associate with the dialog
+      (`aria-labelledby`), and AuthModal's email step doesn't autofocus its single input.
+      (`AuthModal.tsx:68-72`, `ConfirmDialog.tsx:33-37`, `SuggestChangeModal.tsx`)
+- [ ] **UX-33** Library search matches title, description and tags but NOT ingredients, so
+      searching "chicken" misses recipes full of it — the opposite of what a recipe app user
+      expects. Also no label, no clear button, no result count, and the no-results state
+      offers no way to clear the query. (`useRecipeLibrary.ts:123-131`,
+      `LibraryPage.tsx:86-92`, `:215-220`)
+- [ ] **UX-34** A new user's profile leads with a row of four zeros, and `pluralize` makes the
+      labels twitch as counts cross 1 while "views" never pluralizes.
+      (`ProfilePage.tsx:197-202`)
+- [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
+      describes a button instead of offering one. (`EmptyState.tsx:1-15`)
