@@ -1,5 +1,6 @@
 import { db } from './database';
 import { rankByQuery, recipeHaystack } from '../lib/search';
+import { collectSubtreeIds } from '../lib/tree';
 import type { Recipe, RecipeWithChildren, CreatedBy } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
@@ -74,30 +75,16 @@ export async function getRecipeAncestors(recipe: Recipe): Promise<Recipe[]> {
   return ancestors;
 }
 
-export async function deleteRecipeTree(id: string): Promise<void> {
+/** Deletes a recipe and all its descendants, returning the ids removed. */
+export async function deleteRecipeTree(id: string): Promise<string[]> {
   const recipe = await db.recipes.get(id);
-  if (!recipe) return;
+  if (!recipe) return [];
 
-  // Get all recipes in the tree
   const treeRecipes = await db.recipes.where('rootId').equals(recipe.rootId).toArray();
+  const toDelete = collectSubtreeIds(treeRecipes, id);
 
-  // Build a set of IDs to delete: the recipe and all its descendants
-  const toDelete = new Set<string>();
-  toDelete.add(id);
-
-  // Iteratively find all descendants
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const r of treeRecipes) {
-      if (r.parentId && toDelete.has(r.parentId) && !toDelete.has(r.id)) {
-        toDelete.add(r.id);
-        changed = true;
-      }
-    }
-  }
-
-  await db.recipes.bulkDelete([...toDelete]);
+  await db.recipes.bulkDelete(toDelete);
+  return toDelete;
 }
 
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {

@@ -5,7 +5,7 @@ import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree } from '../db/recipes';
-import { deletePublishedRecipe, incrementRecipeViews } from '../services/firestore';
+import { deletePublishedRecipeTree, incrementRecipeViews } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { encodeRecipeToUrl } from '../lib/share';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
@@ -56,9 +56,13 @@ export function RecipeDetailPage() {
   const handleDelete = async () => {
     if (!id) return;
     trackRecipeDeleted(id);
-    await deleteRecipeTree(id);
+    const rootId = recipe?.rootId;
+    const deletedLocally = await deleteRecipeTree(id);
     if (isFirebaseConfigured) {
-      deletePublishedRecipe(id).catch(() => {});
+      // Cascade to the cloud so published variations aren't left orphaned and
+      // still reachable via /shared/:id. Descendants owned by other users are
+      // denied by the rules and stay published; that needs a Cloud Function.
+      deletePublishedRecipeTree(id, rootId ?? id, deletedLocally).catch(() => {});
     }
     navigate('/', { replace: true });
   };

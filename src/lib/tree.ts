@@ -5,6 +5,40 @@ export interface TreeNode {
   children: TreeNode[];
 }
 
+/**
+ * The given id plus every descendant of it, from a flat node list.
+ *
+ * Shared by the local and cloud delete cascades so both remove exactly the same
+ * subtree. Nodes whose parent is missing from the list are simply unreachable
+ * rather than an error, which keeps a partially-synced cloud tree safe to pass in.
+ */
+export function collectSubtreeIds(
+  nodes: Array<{ id: string; parentId: string | null }>,
+  id: string
+): string[] {
+  const childrenByParent = new Map<string, string[]>();
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const siblings = childrenByParent.get(node.parentId) ?? [];
+    siblings.push(node.id);
+    childrenByParent.set(node.parentId, siblings);
+  }
+
+  const collected = new Set<string>([id]);
+  const queue = [id];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const child of childrenByParent.get(current) ?? []) {
+      // Guards against a cycle in malformed data looping forever.
+      if (collected.has(child)) continue;
+      collected.add(child);
+      queue.push(child);
+    }
+  }
+
+  return [...collected];
+}
+
 export function buildTree(recipes: Recipe[]): TreeNode | null {
   if (recipes.length === 0) return null;
 

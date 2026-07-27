@@ -18,6 +18,7 @@ import {
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack } from '../lib/search';
+import { collectSubtreeIds } from '../lib/tree';
 import type { Recipe } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, AppNotification } from '../types/social';
@@ -98,9 +99,47 @@ export async function searchPublishedRecipes(
   });
 }
 
-export async function deletePublishedRecipe(id: string): Promise<void> {
-  if (!firestore) return;
-  await deleteDoc(doc(firestore, 'recipes', id));
+/**
+ * Delete a published recipe and every published descendant of it.
+ *
+ * The cloud tree is queried rather than derived from the local one, so variations
+ * published from another device (or by another user) are still found. Deletes run
+ * individually, not in a `writeBatch`: the rules only permit deleting your own
+ * recipes, and one denied descendant would abort an atomic batch and leave the
+ * whole subtree published.
+ *
+ * `extraIds` covers ids known to be part of the subtree locally but missing from
+ * the cloud query, e.g. when a doc's rootId was never backfilled.
+ */
+export async function deletePublishedRecipeTree(
+  id: string,
+  rootId: string,
+  extraIds: string[] = []
+): Promise<{ deleted: number; failed: number }> {
+  if (!firestore) return { deleted: 0, failed: 0 };
+
+  let subtreeIds: string[];
+  try {
+    const snap = await getDocs(
+      query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
+    );
+    const nodes = snap.docs.map((d) => ({
+      id: d.id,
+      parentId: (d.data().parentId as string | null) ?? null,
+    }));
+    subtreeIds = collectSubtreeIds(nodes, id);
+  } catch {
+    // Tree query failed — still make a best effort on what the caller knows.
+    subtreeIds = [id];
+  }
+
+  const targets = [...new Set([...subtreeIds, ...extraIds])];
+  const results = await Promise.allSettled(
+    targets.map((target) => deleteDoc(doc(firestore!, 'recipes', target)))
+  );
+
+  const failed = results.filter((r) => r.status === 'rejected').length;
+  return { deleted: results.length - failed, failed };
 }
 
 // --- Cloud Favorites ---

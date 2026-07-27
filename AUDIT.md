@@ -63,9 +63,20 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Verified in-browser with a stubbed Gemini response: three rapid taps wrote exactly one
       recipe. No unit test — the guard lives in a React hook and the Vitest env is node with
       no jsdom or React testing setup.)
-- [ ] **FUN-3** Deleting a recipe cascades locally but deletes only the single doc in
+- [x] **FUN-3** Deleting a recipe cascades locally but deletes only the single doc in
       Firestore, orphaning published variations reachable via `/shared/:id` and profiles.
       (`RecipeDetailPage.tsx:56-64` vs `db/recipes.ts:71-95`, `firestore.ts:80-83`)
+      (fixed: subtree computation extracted to `collectSubtreeIds` in `lib/tree.ts` and
+      shared by both cascades, so local and cloud delete exactly the same set.
+      `deleteRecipeTree` now returns the ids it deleted; new `deletePublishedRecipeTree`
+      queries the cloud tree by rootId — catching variations published from another device
+      that were never local — and deletes each doc individually via `allSettled`, not a
+      `writeBatch`, because one rules-denied descendant would abort an atomic batch and
+      leave the whole subtree published. Removed the now-unused single-doc
+      `deletePublishedRecipe` so the old footgun can't be picked up again.
+      NOT fixed: descendants owned by OTHER users are denied by the rules and stay
+      published — same Cloud Function gap as the UID migration. The cascade result is still
+      swallowed, so a partial failure is invisible; that belongs with FUN-5/UI-12.)
 - [ ] **FUN-4** Ownership fallback (`!user` or `createdBy.uid === 'local'`) shows Delete on
       other people's cloud recipes; rules now block the write server-side but the UI still
       offers it and it previously succeeded. (`RecipeDetailPage.tsx:34-37`)
