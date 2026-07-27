@@ -649,3 +649,24 @@ that failure mode entirely, so it is not listed.
       (`ProfilePage.tsx:197-202`)
 - [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
       describes a button instead of offering one. (`EmptyState.tsx:1-15`)
+
+---
+
+# Accepted risks (watch, not backlog)
+
+- **RISK-1** Client-side prompt construction. With Firebase AI Logic the browser builds
+  the request, so the system instruction ships in the bundle and someone running the app can
+  send arbitrary prompts to the project's Gemini quota. App Check raises the bar (valid app
+  attestation required) but does not remove it. There is also no server hop, so per-account
+  rate limiting has nowhere to run — App Check blocks unauthorized *apps*, not a legitimate
+  user hammering the button.
+  Accepted 2026-07-28 as a deliberate trade for avoiding Blaze and the extra machinery.
+  Watch for: unexplained quota consumption, or generations that don't look like recipes.
+  Mitigations in increasing order of effort, if it ever bites:
+  1. Enforce `responseSchema` on the model config so output must be a valid recipe — cheap,
+     and worth doing anyway since `lib/prompts.ts` already hardcodes the JSON schema.
+  2. Constrain input to structured fields (cuisine, ingredients, dietary dropdowns) instead
+     of free text, which removes the arbitrary-prompt surface rather than policing it.
+  3. Route generation through `functions/` — the Gemini proxy Cloud Function is already
+     written and committed but inert. It owns the prompts server-side and enforces a
+     per-account 30/hour limit. Requires the Blaze plan.
