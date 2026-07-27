@@ -26,21 +26,38 @@ import type { UserProfile, Follow } from '../types/profile';
 
 // --- Recipes ---
 
+/**
+ * Publish (or re-publish) a recipe to the shared library.
+ *
+ * Distinguishes create from update, which the previous unconditional `setDoc`
+ * did not. On a re-publish it must NOT write `favoriteCount`/`viewCount`: those
+ * belong to other people's favourites and views, and resetting them to 0 silently
+ * destroys that data. The profile `recipeCount` is likewise only bumped on first
+ * publish, or a retry would inflate it.
+ */
 export async function publishRecipe(recipe: Recipe): Promise<void> {
   if (!firestore) return;
+
   const { chatHistory, ...data } = recipe;
-  await setDoc(doc(firestore, 'recipes', recipe.id), {
-    ...data,
-    collaborators: data.collaborators ?? [],
-    favoriteCount: 0,
-    viewCount: 0,
-  });
+  const ref = doc(firestore, 'recipes', recipe.id);
+  const content = { ...data, collaborators: data.collaborators ?? [] };
+
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    await setDoc(ref, content, { merge: true });
+    return;
+  }
+
+  // Rules require both counters present and zero on create.
+  await setDoc(ref, { ...content, favoriteCount: 0, viewCount: 0 });
 
   // Increment the creator's recipeCount on their profile
   if (recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
     updateDoc(doc(firestore, 'profiles', recipe.createdBy.uid), {
       recipeCount: increment(1),
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('Incrementing profile recipeCount failed', err);
+    });
   }
 }
 

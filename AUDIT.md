@@ -236,9 +236,21 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       on `!uid`. The mechanism is the same ref guard empirically confirmed under FUN-2, where
       three synchronous taps produced exactly one write, but that is an argument by analogy,
       not a measurement of this code path.)
-- [ ] **FUN-10** `publishRecipe` uses unconditional `setDoc` that resets `favoriteCount`
+- [x] **FUN-10** `publishRecipe` uses unconditional `setDoc` that resets `favoriteCount`
       and `viewCount` to 0 on any re-publish. Latent until a retry mechanism exists.
       (`firestore.ts:27-35`)
+      (fixed: `publishRecipe` now reads the doc first and branches. Create writes both
+      counters as 0 (the rules require them present and zero); re-publish does a
+      `{ merge: true }` write that omits them entirely, so other users' favourites and the
+      view count survive.
+      Second bug at the same site, not in the finding: `recipeCount: increment(1)` fired on
+      EVERY publish, so a retry inflated the creator's profile count. Same root cause — no
+      create/update distinction — so it is fixed here too and now only bumps on first publish.
+      No longer latent: FUN-5 added the retry path this finding was waiting on. My FUN-5 call
+      site only publishes when the doc is confirmed absent, but that guard is now belt-and-
+      braces rather than the only protection; comment there updated.
+      8 tests via the SDK mock. Confirmed sensitive by reverting: exactly the 3 re-publish
+      tests fail, the 5 first-publish ones still pass.)
 - [ ] **FUN-11** Version tree and variation dedup read local Dexie only: empty tree and
       zero dup detection when varying someone else's cloud recipe.
       (`useRecipeTree.ts:5-11`, `db/recipes.ts:55-57`)

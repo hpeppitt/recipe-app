@@ -72,9 +72,9 @@ export function RecipeDetailPage() {
           (async () => {
             if (await getPublishedRecipe(recipe.id)) return true;
             // Publishing at save time is fire-and-forget, so it may never have
-            // landed. Retry here rather than hand out a link that 404s. Only
-            // reached when the doc is confirmed absent, so this cannot reset
-            // the counters a blind re-publish would (see FUN-10).
+            // landed. Retry here rather than hand out a link that 404s.
+            // publishRecipe itself now distinguishes create from update, so a
+            // re-publish no longer resets the counters.
             await publishRecipe(recipe);
             return true;
           })().catch((err) => {
