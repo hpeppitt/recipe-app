@@ -1,15 +1,10 @@
 import { db } from './database';
-import { rankByQuery, recipeHaystack } from '../lib/search';
+import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { parseImportedRecipes } from '../lib/import';
 import type { Recipe, RecipeWithChildren, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
-
-/** Variations also score against the prompt that produced them. */
-function variationHaystack(r: Recipe): string {
-  return [r.title, r.description, r.prompt, ...r.tags].join(' ');
-}
 
 export async function createRecipe(
   generated: GeneratedRecipe,

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { mergeDedupById, queryWords, rankByQuery, recipeHaystack } from './search';
+import {
+  mergeDedupById,
+  queryWords,
+  rankByQuery,
+  recipeHaystack,
+  variationHaystack,
+} from './search';
 
 describe('queryWords', () => {
   it('lowercases and drops words of two characters or fewer', () => {
@@ -33,6 +39,24 @@ describe('recipeHaystack', () => {
     } as Parameters<typeof recipeHaystack>[0]);
 
     expect(haystack).toContain('Bare Recipe');
+  });
+});
+
+describe('variationHaystack', () => {
+  const base = { title: 'Chili v2', description: 'spicier', tags: ['hot'], ingredients: [] };
+
+  it('scores against the originating prompt, not the ingredients', () => {
+    const haystack = variationHaystack({ ...base, prompt: 'make it vegetarian' });
+
+    expect(haystack).toContain('make it vegetarian');
+    expect(haystack).toContain('Chili v2');
+    expect(haystack).toContain('hot');
+  });
+
+  it('tolerates a published doc with no prompt', () => {
+    // Cloud recipes predating the prompt field, and cloud tree entries generally.
+    expect(() => variationHaystack(base)).not.toThrow();
+    expect(variationHaystack(base)).toContain('Chili v2');
   });
 });
 

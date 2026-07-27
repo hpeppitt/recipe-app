@@ -251,9 +251,24 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       braces rather than the only protection; comment there updated.
       8 tests via the SDK mock. Confirmed sensitive by reverting: exactly the 3 re-publish
       tests fail, the 5 first-publish ones still pass.)
-- [ ] **FUN-11** Version tree and variation dedup read local Dexie only: empty tree and
+- [x] **FUN-11** Version tree and variation dedup read local Dexie only: empty tree and
       zero dup detection when varying someone else's cloud recipe.
       (`useRecipeTree.ts:5-11`, `db/recipes.ts:55-57`)
+      (fixed both halves. Tree: new `getPublishedRecipeTree(rootId)`; `useRecipeTree` merges
+      the live local query with the published tree via `mergeDedupById`, local winning on id
+      since it holds the fuller record. A cloud fetch failure degrades to the local tree
+      rather than blanking the view. Dedup: new `searchPublishedVariations` plus
+      `searchSimilarVariations`, mirroring the FUN-1 shape (2 of 3 slots reserved for cloud
+      matches, cloud failure degrades to local-only).
+      `variationHaystack` moved into `lib/search.ts` so the Dexie and Firestore paths score
+      identically instead of drifting.
+      Two related display bugs fixed while here: `useRecipe`'s cloud fallback hardcoded
+      `prompt: ''`, discarding a value the published doc actually carries (`publishRecipe`
+      strips only `chatHistory`); and the tree rendered a bare `""` for any node without a
+      prompt, which every cloud node used to be. Now falls back to "Variation".
+      Verified in-browser: 3-node local tree renders correctly, promptless node shows
+      "Variation" not empty quotes. The cloud merge itself needs Firebase to exercise; its
+      merge logic is the already-tested `mergeDedupById`.)
 - [ ] **FUN-16** Favouriting is inert without auth, but the button still looks live. `useFavorite`
       returns early on `!uid`, and `AuthContext` leaves `user` null whenever Firebase is
       unconfigured, so in local-only mode the heart icon is rendered and clickable yet writes

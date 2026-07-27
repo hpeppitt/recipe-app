@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
-import { rankByQuery, recipeHaystack } from '../lib/search';
+import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
@@ -81,6 +81,12 @@ export type PublishedRecipe = SharedRecipe & {
   favoriteCount: number;
   viewCount: number;
   createdAt: number;
+  /**
+   * `publishRecipe` strips only `chatHistory`, so published docs do carry the
+   * originating prompt. Optional because older docs may predate it.
+   */
+  prompt?: string;
+  collaborators?: Collaborator[];
 };
 
 export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
@@ -114,6 +120,36 @@ export async function searchPublishedRecipes(
     threshold: 0.5,
     limit: maxResults,
   });
+}
+
+/**
+ * Every published recipe in one variation tree.
+ *
+ * The tree UI and variation dedup previously read local Dexie only, so viewing or
+ * varying someone else's recipe showed an empty tree and detected no duplicates.
+ */
+export async function getPublishedRecipeTree(rootId: string): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+}
+
+/** Dedup check for a new variation, against the published siblings in its tree. */
+export async function searchPublishedVariations(
+  rootId: string,
+  prompt: string,
+  excludeId?: string,
+  maxResults = 3
+): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const tree = await getPublishedRecipeTree(rootId);
+  return rankByQuery(
+    tree.filter((r) => r.id !== excludeId),
+    prompt,
+    { haystack: variationHaystack, threshold: 0.4, limit: maxResults }
+  );
 }
 
 /**

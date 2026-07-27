@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
 import { getApiKey } from '../services/storage';
 import { createRecipe, searchRecipes, searchVariations } from '../db/recipes';
-import { publishRecipe, searchPublishedRecipes } from '../services/firestore';
+import {
+  publishRecipe,
+  searchPublishedRecipes,
+  searchPublishedVariations,
+} from '../services/firestore';
 import { mergeDedupById } from '../lib/search';
 import { describeGenerationError, MISSING_API_KEY, type FriendlyError } from '../lib/errors';
 import { isFirebaseConfigured } from '../services/firebase';
@@ -46,7 +50,17 @@ async function searchSimilarRecipes(
   if (!isFirebaseConfigured) return local;
 
   const published = await searchPublishedRecipes(text).catch(() => []);
-  const cloud: SimilarRecipe[] = published.map((r) => ({
+  return mergeDedupById(local, published.map((r) => toCloudSimilar(r, currentUid)), {
+    limit: 5,
+    maxFromSecondary: 2,
+  });
+}
+
+function toCloudSimilar(
+  r: { id: string; emoji: string; title: string; description: string; createdBy?: { uid: string; displayName: string | null } },
+  currentUid: string | undefined
+): SimilarRecipe {
+  return {
     id: r.id,
     emoji: r.emoji,
     title: r.title,
@@ -57,9 +71,35 @@ async function searchSimilarRecipes(
       isOwn: !!currentUid && r.createdBy?.uid === currentUid,
       creatorName: r.createdBy?.displayName ?? null,
     },
-  }));
+  };
+}
 
-  return mergeDedupById(local, cloud, { limit: 5, maxFromSecondary: 2 });
+/**
+ * Dedup for a new variation, across the local tree and the published one.
+ *
+ * Varying someone else's recipe means the tree isn't in local Dexie at all, so a
+ * local-only check found nothing and every variation looked new.
+ */
+async function searchSimilarVariations(
+  parentRecipe: Recipe,
+  text: string,
+  currentUid: string | undefined
+): Promise<SimilarRecipe[]> {
+  const local = toSimilar(
+    await searchVariations(parentRecipe.rootId, text, parentRecipe.id)
+  );
+  if (!isFirebaseConfigured) return local;
+
+  const published = await searchPublishedVariations(
+    parentRecipe.rootId,
+    text,
+    parentRecipe.id
+  ).catch(() => []);
+
+  return mergeDedupById(local, published.map((r) => toCloudSimilar(r, currentUid)), {
+    limit: 3,
+    maxFromSecondary: 2,
+  });
 }
 
 export function useRecipeChat(parentRecipe?: Recipe) {
@@ -142,7 +182,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
           setIsLoading(true);
           try {
             const matches = parentRecipe
-              ? await searchVariations(parentRecipe.rootId, text, parentRecipe.id).then(toSimilar)
+              ? await searchSimilarVariations(parentRecipe, text, user?.uid)
               : await searchSimilarRecipes(text, user?.uid);
 
             if (matches.length > 0) {

@@ -75,7 +75,11 @@ function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps)
               {node.recipe.title}
             </p>
             <p className="text-xs text-text-tertiary truncate">
-              {node.recipe.depth === 0 ? 'Original' : `"${node.recipe.prompt}"`}
+              {node.recipe.depth === 0
+                ? 'Original'
+                : node.recipe.prompt
+                  ? `"${node.recipe.prompt}"`
+                  : 'Variation'}
             </p>
           </div>
           {isCurrent && (

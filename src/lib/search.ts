@@ -34,6 +34,14 @@ export function recipeHaystack(r: ScorableRecipe): string {
 }
 
 /**
+ * Variations score against the prompt that produced them instead of the
+ * ingredient list, since a variation is described by how it differs.
+ */
+export function variationHaystack(r: ScorableRecipe & { prompt?: string }): string {
+  return [r.title, r.description, r.prompt ?? '', ...(r.tags ?? [])].join(' ');
+}
+
+/**
  * Merge two ranked lists, dropping any secondary entry whose id already appears
  * in the primary list. Used to merge cloud dedup matches into local ones without
  * reporting a recipe the user owns twice.

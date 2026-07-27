@@ -32,7 +32,9 @@ export function useRecipe(id: string | undefined) {
               rootId: ((published as Record<string, unknown>).rootId as string) ?? id,
               depth: ((published as Record<string, unknown>).depth as number) ?? 0,
               collaborators: (published as Record<string, unknown>).collaborators as Recipe['collaborators'] ?? [],
-              prompt: '',
+              // Published docs do carry the prompt — publishRecipe strips only
+              // chatHistory — and the tree and lineage views display it.
+              prompt: ((published as Record<string, unknown>).prompt as string) ?? '',
               chatHistory: [],
               createdAt: ((published as Record<string, unknown>).createdAt as number) ?? 0,
               updatedAt: ((published as Record<string, unknown>).updatedAt as number) ?? 0,
