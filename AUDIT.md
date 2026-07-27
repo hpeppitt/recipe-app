@@ -52,9 +52,17 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       index to fix properly. A failed cloud check is also silent to the user; folded into
       UI-12. Reaching a cloud-only recipe shows no lineage (FUN-11) and can surface a
       recipe whose cloud delete was orphaned (FUN-3).)
-- [ ] **FUN-2** `saveRecipe` has no in-flight guard and the Save button never disables;
+- [x] **FUN-2** `saveRecipe` has no in-flight guard and the Save button never disables;
       double-tap creates two recipes with different UUIDs in both stores.
       (`useRecipeChat.ts:101-129`, `RecipeCardMessage.tsx:61-62`)
+      (fixed: `savingRef` guard plus an `isSaving` state the hook exposes; RecipeCardMessage
+      takes `saving` and renders a disabled "Saving…" button. Both halves are needed — the
+      button is still enabled in the same synchronous tick as the first click, before React
+      re-renders, so the ref is what actually stops tap 2. Stays locked after success since
+      the page navigates away; unlocks and surfaces `error` on failure.
+      Verified in-browser with a stubbed Gemini response: three rapid taps wrote exactly one
+      recipe. No unit test — the guard lives in a React hook and the Vitest env is node with
+      no jsdom or React testing setup.)
 - [ ] **FUN-3** Deleting a recipe cascades locally but deletes only the single doc in
       Firestore, orphaning published variations reachable via `/shared/:id` and profiles.
       (`RecipeDetailPage.tsx:56-64` vs `db/recipes.ts:71-95`, `firestore.ts:80-83`)

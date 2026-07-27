@@ -23,6 +23,7 @@ export function RecipeChatPage() {
   const {
     messages,
     isLoading,
+    isSaving,
     error,
     similarRecipes,
     sendMessage,
@@ -119,6 +120,7 @@ export function RecipeChatPage() {
                   showSave={i === lastAssistantIdx && !isLoading}
                   saveLabel={isVarying ? 'Save Variation' : 'Save Recipe'}
                   onSave={saveRecipe}
+                  saving={isSaving}
                 />
               )}
             </div>

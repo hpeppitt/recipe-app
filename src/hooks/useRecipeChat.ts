@@ -68,8 +68,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const [latestRecipe, setLatestRecipe] = useState<GeneratedRecipe | null>(null);
   const [similarRecipes, setSimilarRecipes] = useState<SimilarRecipe[]>([]);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const chatRef = useRef<ChatSession | null>(null);
   const sendingRef = useRef(false);
+  const savingRef = useRef(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -168,37 +170,52 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
   const saveRecipe = useCallback(async () => {
     if (!latestRecipe) return;
+    // createRecipe mints a fresh UUID per call, so a double-tap would write two
+    // distinct recipes to Dexie and publish both. The ref guards the gap before
+    // the isSaving re-render lands.
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setIsSaving(true);
 
-    const firstUserMessage = messages.find((m) => m.role === 'user');
-    const prompt = firstUserMessage?.content ?? '';
+    try {
+      const firstUserMessage = messages.find((m) => m.role === 'user');
+      const prompt = firstUserMessage?.content ?? '';
 
-    const createdBy = {
-      uid: user?.uid ?? 'local',
-      displayName: user?.displayName ?? null,
-    };
+      const createdBy = {
+        uid: user?.uid ?? 'local',
+        displayName: user?.displayName ?? null,
+      };
 
-    const recipe = await createRecipe(
-      latestRecipe,
-      prompt,
-      messages,
-      parentRecipe?.id ?? null,
-      parentRecipe?.rootId ?? null,
-      parentRecipe?.depth ?? -1,
-      createdBy
-    );
+      const recipe = await createRecipe(
+        latestRecipe,
+        prompt,
+        messages,
+        parentRecipe?.id ?? null,
+        parentRecipe?.rootId ?? null,
+        parentRecipe?.depth ?? -1,
+        createdBy
+      );
 
-    // Publish to Firestore for sharing/social features
-    if (isFirebaseConfigured) {
-      publishRecipe(recipe).catch(() => {});
+      // Publish to Firestore for sharing/social features
+      if (isFirebaseConfigured) {
+        publishRecipe(recipe).catch(() => {});
+      }
+
+      trackRecipeCreated(recipe.id, !!parentRecipe);
+      navigate(`/recipe/${recipe.id}`);
+      // Deliberately stays locked after a successful save: the page is
+      // navigating away and re-enabling would briefly re-arm the button.
+    } catch (err) {
+      savingRef.current = false;
+      setIsSaving(false);
+      setError(err instanceof Error ? err.message : 'Failed to save recipe');
     }
-
-    trackRecipeCreated(recipe.id, !!parentRecipe);
-    navigate(`/recipe/${recipe.id}`);
   }, [latestRecipe, messages, parentRecipe, navigate, user]);
 
   return {
     messages,
     isLoading,
+    isSaving,
     error,
     latestRecipe,
     similarRecipes,
