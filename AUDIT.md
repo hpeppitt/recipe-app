@@ -380,8 +380,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       NOT changed, flagged instead: shared `Button` `size="md"` is ~40px. Both subagent reviewers
       raised it, but it is used mostly full-width where the horizontal target is ample, and
       changing it shifts every button in the app — that deserves an explicit decision.)
-- [ ] **UI-11** Version tree costs 48px per depth level in a non-scrolling column; deep
+- [x] **UI-11** Version tree costs 48px per depth level in a non-scrolling column; deep
       chains leave <150px for cards on a phone. (`VersionTreePage.tsx:90`)
+      (fixed: indent halved (`ml-6 pl-6` -> `ml-3 pl-3`, 50px/level -> 26px counting the 2px
+      rule) and node cards given `min-w-56`, so a deep chain scrolls horizontally in the
+      already-`overflow-auto` main instead of crushing the cards. Connector stub moved
+      `left-6` -> `left-3` to track the new indent.
+      The finding understated it. Measured a 6-level chain at 320px: cards went
+      288/238/188/138/88/**38px** — under 150px by depth 3 and effectively unusable by
+      depth 5. Now 288/262/236/224/224/224, flooring at the 224px min-width, with horizontal
+      scroll engaged. Screenshot confirms nesting and connectors still read correctly.
+      Method note: a first attempt to measure the "before" by swapping classes at runtime was
+      wrong — `ml-6`/`pl-6` no longer exist in the source, so Tailwind never emits them and the
+      swap silently did nothing, producing plausible-but-fake numbers. Redone with inline
+      styles. Worth remembering for any runtime A/B of Tailwind classes.
+      Chose min-width + scroll over capping the indent at N levels: capping makes deep siblings
+      visually ambiguous about which parent they belong to, which is the tree's whole job.)
 - [ ] **UI-12** Cloud failures render as happy empty states: Firestore offline shows
       "No recipes yet" and "Recipe not found" instead of an error with retry.
       (`useRecipeLibrary.ts`, `useRecipe.ts`, `LibraryPage.tsx:190-195`)
