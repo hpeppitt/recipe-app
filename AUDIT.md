@@ -100,9 +100,17 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Firebase project to force a real Firestore throw: spinner while loading, "Couldn't Load
       Recipe" + working Try Again on failure, "Invalid Link" for a corrupted hash, and a
       valid lz-string link still renders in full. Temp `.env` removed afterwards.)
-- [ ] **UI-2** Anonymous-account warning banner uses `warning-*`/`success-*` color tokens
+- [x] **UI-2** Anonymous-account warning banner uses `warning-*`/`success-*` color tokens
       that are not defined in `index.css`, so the app's only data-loss safeguard prompt
       renders mostly invisible. (`ProfilePage.tsx:48-70`, `index.css:3-31`)
+      (fixed: added the 16 missing shades to `@theme` — the whole `warning-*` scale plus
+      success 200/300/400/700/800/950. The components' `dark:` variants were already correct;
+      only the tokens were absent, and an undefined Tailwind token emits no CSS at all.
+      Verified by diffing built CSS across the fix: 0 occurrences of these shades before,
+      37 after. Then measured `getComputedStyle` on the banner's exact markup in-browser —
+      every colour resolves in both themes (light amber #fffbeb/#92400e, dark #451a03/#fde68a).
+      Also bumped the "we sent a link" body from `success-600` to `success-700`: once visible
+      it computed to ~3.1:1 on `success-50`, under the 4.5:1 minimum for 12px. Now ~4.8:1.)
 - [ ] **UI-3** Version tree current/root nodes hardcode light `bg-primary-50` with themed
       text: illegible in dark mode. Same pattern in `RecipeDetailPage.tsx:249` and
       NotificationBell unread rows. (`VersionTreePage.tsx:65-67`)

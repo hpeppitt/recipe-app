@@ -49,7 +49,7 @@ function EmailLinkingForm() {
         <p className="text-sm font-medium text-success-700 dark:text-success-300">
           Check your email!
         </p>
-        <p className="text-xs text-success-600 dark:text-success-400">
+        <p className="text-xs text-success-700 dark:text-success-400">
           We sent a link to <strong>{email}</strong>. Click it to secure your account.
         </p>
       </div>
