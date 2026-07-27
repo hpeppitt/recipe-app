@@ -49,6 +49,11 @@ export function useRecipe(id: string | undefined) {
 
   return {
     recipe,
+    // Which store the recipe came from. Callers need this to tell "on my device,
+    // so mine to delete" apart from "someone else's published recipe" — the
+    // createdBy uid alone can't distinguish a pre-auth 'local' recipe of mine
+    // from a published one that merely carries the same placeholder uid.
+    source: localRecipe ? ('local' as const) : cloudRecipe ? ('cloud' as const) : undefined,
     isLoading: id ? recipe === undefined && !cloudChecked : false,
   };
 }

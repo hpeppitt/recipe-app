@@ -17,12 +17,13 @@ import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
+import { canManageRecipe } from '../lib/ownership';
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
-  const { recipe, isLoading } = useRecipe(id);
+  const { recipe, source, isLoading } = useRecipe(id);
   const { children } = useRecipeChildren(id);
   const { ancestors } = useRecipeAncestors(recipe);
   const { isFavorite, toggleFavorite } = useFavorite(id);
@@ -31,10 +32,14 @@ export function RecipeDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
 
-  const isOwner =
-    !isConfigured || !user || !recipe?.createdBy
-      ? true // If no auth, treat as owner (local-only mode)
-      : recipe.createdBy.uid === user.uid || recipe.createdBy.uid === 'local';
+  // Fails closed: while the recipe is still resolving, `source` is undefined and
+  // the destructive menu stays hidden rather than flashing in.
+  const isOwner = canManageRecipe({
+    isConfigured,
+    source,
+    userUid: user?.uid,
+    createdByUid: recipe?.createdBy?.uid,
+  });
 
   const handleBack = () => {
     if (recipe?.parentId) {

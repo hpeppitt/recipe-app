@@ -77,9 +77,17 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       NOT fixed: descendants owned by OTHER users are denied by the rules and stay
       published — same Cloud Function gap as the UID migration. The cascade result is still
       swallowed, so a partial failure is invisible; that belongs with FUN-5/UI-12.)
-- [ ] **FUN-4** Ownership fallback (`!user` or `createdBy.uid === 'local'`) shows Delete on
+- [x] **FUN-4** Ownership fallback (`!user` or `createdBy.uid === 'local'`) shows Delete on
       other people's cloud recipes; rules now block the write server-side but the UI still
       offers it and it previously succeeded. (`RecipeDetailPage.tsx:34-37`)
+      (fixed: `useRecipe` now reports `source: 'local' | 'cloud'`, and the decision moved to
+      a pure `canManageRecipe` in `lib/ownership.ts` with 9 tests. Ownership no longer keys
+      off the `'local'` placeholder uid — which any signed-in user could match on a
+      cloud-fetched doc — but off whether the recipe is actually in this device's library.
+      Signed-out visitors no longer get Delete on published recipes. Fails closed while the
+      recipe is still resolving so the destructive menu can't flash in.
+      Verified by unit test only: the affected branches need Firebase configured, and there
+      is no `.env` on this machine. Extracting the pure function was what made them testable.)
 - [ ] **UI-1** SharedRecipePage renders `null` while loading and forever on fetch failure:
       blank white page for share-link recipients on any error, no spinner or retry.
       (`SharedRecipePage.tsx:136`, `:42-56`)
