@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+
+# Cloud Functions build output
+functions/lib/
 __pycache__/
 *.pyc
 venv/
