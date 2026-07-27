@@ -26,7 +26,13 @@ export function useFavoriteIds() {
 
   const favoriteIds = new Set(favorites?.map((f) => f.recipeId));
 
-  return { favoriteIds, isLoading: favorites === undefined };
+  return {
+    favoriteIds,
+    // Favourites are keyed by uid, so with no signed-in user none can ever exist
+    // and a Favorites filter would be permanently empty (FUN-16).
+    canFavorite: !!uid,
+    isLoading: favorites === undefined,
+  };
 }
 
 export function useFavorite(recipeId: string | undefined) {
@@ -98,7 +104,7 @@ export function useFavorite(recipeId: string | undefined) {
     [uid, recipeId, isFav, user?.displayName]
   );
 
-  return { isFavorite: isFav, toggleFavorite: toggle };
+  return { isFavorite: isFav, toggleFavorite: toggle, canFavorite: !!uid };
 }
 
 /** Favorite hook for shared/cloud recipes (not in local Dexie) */

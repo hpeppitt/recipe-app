@@ -269,7 +269,7 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Verified in-browser: 3-node local tree renders correctly, promptless node shows
       "Variation" not empty quotes. The cloud merge itself needs Firebase to exercise; its
       merge logic is the already-tested `mergeDedupById`.)
-- [ ] **FUN-16** Favouriting is inert without auth, but the button still looks live. `useFavorite`
+- [x] **FUN-16** Favouriting is inert without auth, but the button still looks live. `useFavorite`
       returns early on `!uid`, and `AuthContext` leaves `user` null whenever Firebase is
       unconfigured, so in local-only mode the heart icon is rendered and clickable yet writes
       nothing and never changes state. The Library's Favorites filter is therefore permanently
@@ -278,6 +278,23 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       (`useFavorites.ts:45`, `AuthContext.tsx:65-69`, `RecipeDetailPage.tsx` favourite button)
       (found while verifying FUN-9: three taps stored 0 favourite records and left the
       aria-label unchanged. Not in the original audit.)
+      (fixed: hooks expose `canFavorite`. Split by whether an account is even possible —
+      the two cases deserve different answers rather than one blanket rule:
+        - Firebase unconfigured: the favourite button and the Favorites filter are hidden.
+          No account can exist, so the feature genuinely doesn't apply.
+        - Firebase configured but signed out: the button stays and opens `AuthModal`,
+          matching how SharedRecipePage already handles this. Hiding it here would have
+          been a discoverability regression, since signing in is available.
+      Also fixed a trap the fix would otherwise have introduced: signing out while the
+      Favorites filter was active removes its chip, stranding the user on an empty list with
+      no way back to All. The active filter is now derived, falling back to 'all'.
+      DECISION, since this needed a product call and the user wasn't available: chose hiding
+      over the device-uid alternative. A synthetic device uid would make local favourites
+      work without an account, but orphans those records under that uid once the user signs
+      in, and no favourites migration exists (only `migrateRecipesUid`). That is a data-model
+      change, not a bug fix. Flag if local favourites are actually wanted.
+      Verified in-browser both ways: unconfigured hides the control while Share/tree/menu
+      remain; configured-but-signed-out shows it and opens "Sign in to continue".)
 - [ ] **UI-6** "Suggest a Change" exists only on `/shared/:id`; non-owners browsing the
       shared feed land on `/recipe/:id` which has no suggest affordance, making the
       headline collaboration feature undiscoverable. (`SharedRecipePage.tsx:245-251`)

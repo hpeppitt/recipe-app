@@ -21,6 +21,7 @@ import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
 import { VariationChips } from '../components/recipe/VariationChips';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { AuthModal } from '../components/auth/AuthModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
@@ -35,13 +36,14 @@ export function RecipeDetailPage() {
   const { recipe, source, isLoading } = useRecipe(id);
   const { children } = useRecipeChildren(id);
   const { ancestors } = useRecipeAncestors(recipe);
-  const { isFavorite, toggleFavorite } = useFavorite(id);
+  const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id);
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
   const [isSharing, setIsSharing] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
   // the destructive menu stays hidden rather than flashing in.
@@ -116,6 +118,12 @@ export function RecipeDetailPage() {
 
   const handleFavoriteToggle = () => {
     if (!recipe) return;
+    // Favourites are keyed by uid. Signed out with Firebase available, offer to
+    // sign in rather than no-op silently, matching SharedRecipePage (FUN-16).
+    if (!canFavorite) {
+      setShowAuth(true);
+      return;
+    }
     toggleFavorite({
       ownerId: recipe.createdBy?.uid ?? 'local',
       title: recipe.title,
@@ -165,6 +173,11 @@ export function RecipeDetailPage() {
         onBack={handleBack}
         right={
           <div className="relative">
+            {/* Hidden entirely in local-only mode: favourites need a uid and no
+                account can be created without Firebase, so the control could
+                never do anything (FUN-16). When Firebase is available but the
+                user is signed out, it stays and prompts sign-in. */}
+            {isConfigured && (
             <button
               onClick={handleFavoriteToggle}
               className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
@@ -180,6 +193,7 @@ export function RecipeDetailPage() {
                 </svg>
               )}
             </button>
+            )}
             <button
               onClick={handleShare}
               disabled={isSharing}
@@ -361,6 +375,12 @@ export function RecipeDetailPage() {
         confirmVariant="danger"
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
+      />
+
+      <AuthModal
+        open={showAuth}
+        onAuthenticated={() => setShowAuth(false)}
+        onDismiss={() => setShowAuth(false)}
       />
 
       {shareCopied && (

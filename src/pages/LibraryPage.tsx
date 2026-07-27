@@ -18,11 +18,18 @@ type Filter = 'all' | 'favorites' | 'following' | string; // string = specific u
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [selectedFilter, setSelectedFilter] = useState<Filter>('all');
   const { user, isConfigured } = useAuth();
   const { profile } = useOwnProfile();
-  const { favoriteIds } = useFavoriteIds();
+  const { favoriteIds, canFavorite } = useFavoriteIds();
   const { followingIds, followingProfiles } = useFollowingList();
+
+  // Signing out while Favorites is active removes its chip, which would otherwise
+  // strand the user on an empty list with no way back to All.
+  const filter: Filter =
+    selectedFilter === 'favorites' && !canFavorite ? 'all' : selectedFilter;
+  const setFilter = setSelectedFilter;
+
   const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
     filter === 'following' ? followingIds : []
   );
@@ -83,7 +90,9 @@ export function LibraryPage() {
             className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-            {(['all', 'favorites'] as const).map((f) => (
+            {/* Favourites are keyed by uid, so with no signed-in user the filter
+                is permanently empty — don't offer it at all (FUN-16). */}
+            {(canFavorite ? (['all', 'favorites'] as const) : (['all'] as const)).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
