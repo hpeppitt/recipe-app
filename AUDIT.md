@@ -88,9 +88,18 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       recipe is still resolving so the destructive menu can't flash in.
       Verified by unit test only: the affected branches need Firebase configured, and there
       is no `.env` on this machine. Extracting the pure function was what made them testable.)
-- [ ] **UI-1** SharedRecipePage renders `null` while loading and forever on fetch failure:
+- [x] **UI-1** SharedRecipePage renders `null` while loading and forever on fetch failure:
       blank white page for share-link recipients on any error, no spinner or retry.
       (`SharedRecipePage.tsx:136`, `:42-56`)
+      (fixed: replaced the `recipe`/`error` pair with a `loading | ready | not-found | failed`
+      status. Root cause of the permanent blank page was that `getPublishedRecipe` could
+      throw and `load()` had no try/catch, so `error` stayed false and `recipe` stayed null
+      forever — now caught as `failed`. 'not-found' (dead link) and 'failed' (retryable
+      fetch error) render different copy, and only 'failed' offers Try Again.
+      Verified all four states in-browser by pointing a temporary `.env` at a nonexistent
+      Firebase project to force a real Firestore throw: spinner while loading, "Couldn't Load
+      Recipe" + working Try Again on failure, "Invalid Link" for a corrupted hash, and a
+      valid lz-string link still renders in full. Temp `.env` removed afterwards.)
 - [ ] **UI-2** Anonymous-account warning banner uses `warning-*`/`success-*` color tokens
       that are not defined in `index.css`, so the app's only data-loss safeguard prompt
       renders mostly invisible. (`ProfilePage.tsx:48-70`, `index.css:3-31`)

@@ -11,6 +11,8 @@ import { InstructionList } from '../components/recipe/InstructionList';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { Spinner } from '../components/ui/Spinner';
 import { incrementRecipeViews } from '../services/firestore';
 import { trackRecipeViewed } from '../services/analytics';
 import type { Collaborator } from '../types/recipe';
@@ -27,7 +29,11 @@ export function SharedRecipePage() {
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
   const [recipe, setRecipe] = useState<FullSharedRecipe | null>(null);
-  const [error, setError] = useState(false);
+  // 'not-found' is a permanent dead end (bad or corrupted link); 'failed' is a
+  // fetch that blew up and is worth retrying. Conflating them told users with a
+  // flaky connection that a perfectly good link was corrupt.
+  const [status, setStatus] = useState<'loading' | 'ready' | 'not-found' | 'failed'>('loading');
+  const [reloadKey, setReloadKey] = useState(0);
   const [showSuggest, setShowSuggest] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const { isFavorite, toggleFavorite } = useCloudFavorite(paramId);
@@ -42,15 +48,21 @@ export function SharedRecipePage() {
     async function load() {
       // Try Firestore first (via URL param)
       if (paramId) {
-        const published = await getPublishedRecipe(paramId);
-        if (!cancelled) {
+        try {
+          const published = await getPublishedRecipe(paramId);
+          if (cancelled) return;
           if (published) {
             setRecipe(published);
+            setStatus('ready');
             incrementRecipeViews(paramId);
             trackRecipeViewed(paramId);
           } else {
-            setError(true);
+            setStatus('not-found');
           }
+        } catch {
+          // Offline, rules denial, Firestore outage. Previously this threw out
+          // of the effect and left the page blank forever.
+          if (!cancelled) setStatus('failed');
         }
         return;
       }
@@ -58,24 +70,25 @@ export function SharedRecipePage() {
       // Fallback: URL hash encoded data
       if (location.hash) {
         const decoded = decodeRecipeFromHash(location.hash);
-        if (!cancelled) {
-          if (decoded) {
-            setRecipe(decoded);
-          } else {
-            setError(true);
-          }
+        if (cancelled) return;
+        if (decoded) {
+          setRecipe(decoded);
+          setStatus('ready');
+        } else {
+          setStatus('not-found');
         }
         return;
       }
 
-      if (!cancelled) setError(true);
+      if (!cancelled) setStatus('not-found');
     }
 
+    setStatus('loading');
     load();
     return () => {
       cancelled = true;
     };
-  }, [paramId, location.hash]);
+  }, [paramId, location.hash, reloadKey]);
 
   const handleFavoriteClick = () => {
     if (!user && isConfigured) {
@@ -109,31 +122,49 @@ export function SharedRecipePage() {
     });
   };
 
-  if (error) {
+  if (status !== 'ready' || !recipe) {
+    const heading =
+      status === 'loading'
+        ? 'Loading Recipe'
+        : status === 'failed'
+          ? "Couldn't Load Recipe"
+          : 'Invalid Link';
+
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
         <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border">
           <div className="flex items-center h-14 px-4 max-w-lg mx-auto">
-            <h1 className="flex-1 text-lg font-semibold">Invalid Link</h1>
+            <h1 className="flex-1 text-lg font-semibold">{heading}</h1>
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center space-y-3">
-            <p className="text-4xl">🔗</p>
-            <p className="text-text-secondary">This shared recipe link is invalid or corrupted.</p>
-            <button
-              onClick={() => navigate('/')}
-              className="text-primary-600 text-sm font-medium"
-            >
-              Go to Recipe Lab
-            </button>
-          </div>
+          {status === 'loading' ? (
+            <Spinner className="text-primary-600" />
+          ) : (
+            <div className="text-center space-y-3">
+              <p className="text-4xl">{status === 'failed' ? '📡' : '🔗'}</p>
+              <p className="text-text-secondary">
+                {status === 'failed'
+                  ? "We couldn't reach the recipe library. Check your connection and try again."
+                  : 'This shared recipe link is invalid or corrupted.'}
+              </p>
+              <div className="flex flex-col items-center gap-2">
+                {status === 'failed' && (
+                  <Button onClick={() => setReloadKey((k) => k + 1)}>Try Again</Button>
+                )}
+                <button
+                  onClick={() => navigate('/')}
+                  className="text-primary-600 text-sm font-medium py-2 px-3"
+                >
+                  Go to Recipe Lab
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
   }
-
-  if (!recipe) return null;
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
