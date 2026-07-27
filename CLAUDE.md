@@ -15,7 +15,9 @@ Recipe Lab — a recipe management app with AI-powered recipe generation and bra
 - **Firebase Auth** — anonymous + email link (passwordless) authentication
 - **Firebase Firestore** — shared cloud storage for published recipes, favorites, suggestions, notifications, profiles, follows
 - **Firebase Analytics (GA4)** — event-based analytics tracking via `src/services/analytics.ts`
-- **@google/genai** — Gemini API (model: `gemini-2.0-flash`)
+- **Firebase AI Logic** (`firebase/ai`) — Gemini access (model: `gemini-2.0-flash`) via a
+  Google-hosted proxy that holds the API key server-side. The browser never sees a Gemini
+  key, and App Check is enforced on this path. Replaced direct `@google/genai` calls.
 - **Zod** — structured AI output validation
 - **lz-string** — URL-safe compression for recipe sharing links (fallback when Firebase not configured)
 
@@ -45,6 +47,14 @@ Firebase config via `.env` (see `.env.example`):
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
 - `VITE_FIREBASE_MEASUREMENT_ID` (optional, enables GA4 analytics)
+- `VITE_RECAPTCHA_SITE_KEY` — required for recipe generation; App Check is enforced on the
+  Firebase AI Logic path, so without it the Gemini proxy rejects requests
+- `VITE_APPCHECK_DEBUG_TOKEN` (local dev only) — register the token App Check logs to the
+  console under App Check > Apps > Manage debug tokens, or enforcement blocks localhost
+
+There is deliberately no Gemini API key variable. `VITE_*` values are inlined into the
+client bundle at build time, so a key placed there would be published. AI Logic provisions
+and holds the key server-side instead.
 
 When these are not set, Firebase auth/Firestore is disabled and the app works in local-only mode.
 
@@ -56,7 +66,7 @@ src/
 ├── types/          recipe.ts (Recipe, CreatedBy, Collaborator, Favorite, AppUser), api.ts, social.ts (Suggestion, AppNotification), profile.ts (UserProfile, Follow)
 ├── schemas/        recipe.schema.ts (Zod schemas for AI output validation)
 ├── db/             database.ts (Dexie), recipes.ts (CRUD + tree queries), favorites.ts
-├── services/       gemini.ts (AI client), storage.ts (localStorage), firebase.ts (Auth + Firestore init), firestore.ts (cloud CRUD), analytics.ts (GA4 events)
+├── services/       gemini.ts (Firebase AI Logic client), storage.ts (localStorage), firebase.ts (Auth + Firestore + App Check init), firestore.ts (cloud CRUD), analytics.ts (GA4 events)
 ├── contexts/       AuthContext.tsx (AuthProvider + useAuth hook)
 ├── hooks/          useRecipe, useRecipeLibrary, useRecipeTree, useRecipeChat, useTheme, useFavorites, useNotifications, useSuggestions, useProfile, useFollow, useUserRecipes
 ├── lib/            utils.ts, tree.ts, prompts.ts, constants.ts, share.ts, identity.ts
@@ -82,7 +92,7 @@ src/
 | `/recipe/:id` | RecipeDetailPage | View recipe with ownership-aware actions (delete/suggestions) |
 | `/recipe/:id/vary` | RecipeChatPage | Chat-based variation creation (auth-gated, parent as context) |
 | `/recipe/:id/tree` | VersionTreePage | Visual branching tree of all variations |
-| `/settings` | SettingsPage | API key, theme, data export/import/clear |
+| `/settings` | SettingsPage | Theme, data export/import/clear |
 | `/shared` | SharedRecipePage | View-only recipe from URL hash (lz-string encoded) |
 | `/shared/:id` | SharedRecipePage | View shared recipe from Firestore; supports favorite + suggest |
 | `/profile` | ProfilePage | Own profile: avatar editor, stats, recipe feed, sign out |
@@ -151,6 +161,12 @@ src/
 - **Dexie `update()` not used** — circular type issue with `ChatMessage.recipe`; uses `get()` + `put()` pattern instead
 - **Dexie schema v3** adds `collaborators` field migration; v2 adds `favorites` table + `createdBy` migration
 - **Trailing comma stripping** in `gemini.ts` `parseRecipeJson()` — safety net for Gemini JSON quirks
+- **Recipe generation requires Firebase** — it runs through AI Logic, so local-only mode
+  cannot generate (the composer is disabled with an explanatory notice). Users no longer
+  supply their own key; `getApiKey`/`setApiKey` were removed
+- **Prompts are still client-side** — see `RISK-1` in `AUDIT.md`. An inert Cloud Function
+  proxy in `functions/` owns the prompts server-side and rate-limits per account, kept as
+  the escalation path if quota abuse ever appears (needs the Blaze plan)
 - **`RecipeChatPage`** is shared between `/create` and `/recipe/:id/vary` routes; behavior differs based on presence of `:id` param
 - **All recipes loaded for library** — client-side filtering is fine for local IndexedDB up to thousands of recipes
 - **Firebase is optional** — `firebase.ts` checks env vars before initializing; all auth/Firestore functions are safe no-ops when unconfigured
