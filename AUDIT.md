@@ -173,9 +173,25 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Only publishes when the doc is confirmed absent, so it cannot trigger FUN-10's
       counter reset. NOT fixed: a recipe whose publish failed is still missing from the
       shared library feed until someone shares it — reconciliation is share-triggered only.)
-- [ ] **FUN-6** Settings import does `bulkPut` with no dedup and no schema validation:
+- [x] **FUN-6** Settings import does `bulkPut` with no dedup and no schema validation:
       re-import duplicates every recipe under new UUIDs; malformed records later crash
       `searchRecipes`. (`SettingsPage.tsx:44-61`, `db/recipes.ts:103-105`)
+      (fixed: `importRecipes` now takes the raw parsed JSON and validates it through a new
+      `ImportedRecipeSchema` + pure `parseImportedRecipes`. Malformed records are dropped and
+      counted instead of persisted, so they can no longer crash `searchRecipes` later. The
+      schema is strict on the content fields queries dereference but tolerant on the storage
+      envelope, because pre-v2/v3 exports have no `createdBy`/`collaborators`/`rootId` and
+      rejecting old backups would be its own bug — those get backfilled.
+      Import returns counts and Settings reports them inline, replacing the `alert()`
+      (which also clears that part of UI-13; no `alert(` remains in `src/`).
+      CORRECTION to this finding: re-import does NOT duplicate under new UUIDs. `bulkPut` is
+      keyed on the inbound `id`, so it upserts and re-importing the same file is idempotent.
+      Verified by test and in-browser (a second import reports "1 updated", count unchanged).
+      The real defects were the missing validation and the silent result.
+      Verified in-browser with a mixed file (valid + legacy + malformed + a bare string):
+      "2 added, 2 skipped as invalid", legacy envelope backfilled, both recipes render, and
+      search still works afterwards. Writing `describeImport` also surfaced a bug of my own
+      that a test caught — it reported "Import complete" when only skips had occurred.)
 - [ ] **FUN-7** Approved collaborators are written only to the Firestore doc, but the owner
       UI prefers the local Dexie copy, so owners never see collaborators on their own
       device. (`firestore.ts:228-230`, `useRecipe.ts:48`)

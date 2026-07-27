@@ -5,6 +5,8 @@ import {
   searchVariations,
   deleteRecipeTree,
   getCoreRecipes,
+  importRecipes,
+  exportAllRecipes,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
@@ -159,6 +161,59 @@ describe('deleteRecipeTree', () => {
 
   it('returns an empty list when the recipe does not exist', async () => {
     expect(await deleteRecipeTree('nope')).toEqual([]);
+  });
+});
+
+describe('importRecipes', () => {
+  it('adds new recipes and reports the count', async () => {
+    const result = await importRecipes([makeRecipe({ id: 'i1' }), makeRecipe({ id: 'i2' })]);
+
+    expect(result).toMatchObject({ added: 2, replaced: 0, skipped: 0 });
+    expect(await db.recipes.count()).toBe(2);
+  });
+
+  // AUDIT.md claimed a re-import "duplicates every recipe under new UUIDs".
+  // bulkPut is keyed on the inbound id, so it is actually an upsert.
+  it('is idempotent when the same export is imported twice', async () => {
+    const file = [makeRecipe({ id: 'same-1' }), makeRecipe({ id: 'same-2' })];
+
+    await importRecipes(file);
+    const second = await importRecipes(file);
+
+    expect(second).toMatchObject({ added: 0, replaced: 2 });
+    expect(await db.recipes.count()).toBe(2);
+  });
+
+  it('round-trips an export without loss or duplication', async () => {
+    await db.recipes.add(makeRecipe({ id: 'orig', title: 'Round Trip' }));
+
+    const exported = await exportAllRecipes();
+    const result = await importRecipes(JSON.parse(JSON.stringify(exported)));
+
+    expect(result).toMatchObject({ added: 0, replaced: 1, skipped: 0 });
+    expect(await db.recipes.count()).toBe(1);
+    expect((await db.recipes.get('orig'))?.title).toBe('Round Trip');
+  });
+
+  it('persists nothing when every record is malformed', async () => {
+    const result = await importRecipes([{ nope: true }, 'garbage']);
+
+    expect(result).toMatchObject({ added: 0, replaced: 0, skipped: 2 });
+    expect(await db.recipes.count()).toBe(0);
+  });
+
+  it('leaves the store queryable after importing a mixed file', async () => {
+    await importRecipes([
+      makeRecipe({ id: 'ok', title: 'Tomato Soup', tags: ['warm'] }),
+      { ...makeRecipe({ id: 'bad' }), ingredients: undefined },
+    ]);
+
+    // The whole point: a bad record used to land in the store and throw here.
+    await expect(searchRecipes('tomato soup')).resolves.toHaveLength(1);
+  });
+
+  it('tolerates a non-array file without throwing', async () => {
+    await expect(importRecipes({ recipes: [] })).resolves.toMatchObject({ added: 0, skipped: 0 });
   });
 });
 

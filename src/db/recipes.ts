@@ -1,6 +1,7 @@
 import { db } from './database';
 import { rankByQuery, recipeHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
+import { parseImportedRecipes } from '../lib/import';
 import type { Recipe, RecipeWithChildren, CreatedBy } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
@@ -93,8 +94,37 @@ export async function updateRecipe(id: string, updates: Partial<Recipe>): Promis
   await db.recipes.put({ ...recipe, ...updates, updatedAt: Date.now() });
 }
 
-export async function importRecipes(recipes: Recipe[]): Promise<void> {
+export interface ImportResult {
+  added: number;
+  replaced: number;
+  skipped: number;
+  duplicatesInFile: number;
+}
+
+/**
+ * Import recipes from an untrusted export file.
+ *
+ * Takes the raw parsed JSON rather than `Recipe[]`: validation is part of the
+ * job, not the caller's responsibility. Existing ids are overwritten (bulkPut
+ * is keyed on the inbound id), so re-importing the same file is idempotent.
+ */
+export async function importRecipes(raw: unknown): Promise<ImportResult> {
+  const { recipes, skipped, duplicatesInFile } = parseImportedRecipes(raw);
+  if (recipes.length === 0) {
+    return { added: 0, replaced: 0, skipped, duplicatesInFile };
+  }
+
+  const existing = await db.recipes.bulkGet(recipes.map((r: Recipe) => r.id));
+  const replaced = existing.filter(Boolean).length;
+
   await db.recipes.bulkPut(recipes);
+
+  return {
+    added: recipes.length - replaced,
+    replaced,
+    skipped,
+    duplicatesInFile,
+  };
 }
 
 export async function exportAllRecipes(): Promise<Recipe[]> {

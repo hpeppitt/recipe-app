@@ -30,3 +30,41 @@ export const GeneratedRecipeSchema = z.object({
 });
 
 export type GeneratedRecipeOutput = z.infer<typeof GeneratedRecipeSchema>;
+
+const CreatedBySchema = z.object({
+  uid: z.string(),
+  displayName: z.string().nullable().catch(null),
+});
+
+const ChatMessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string(),
+  timestamp: z.number(),
+  // Nested recipes are not validated: they are chat display history, never read
+  // by the tree or search queries.
+  recipe: z.unknown().optional(),
+});
+
+/**
+ * A recipe arriving from a user-supplied export file.
+ *
+ * Strict about the content fields that queries dereference — `searchRecipes`
+ * spreads `tags` and maps `ingredients[].name`, so a malformed record used to
+ * throw there long after the import "succeeded".
+ *
+ * Tolerant about the storage envelope, because fields added by Dexie migrations
+ * (`createdBy` in v2, `collaborators` in v3) are absent from older exports, and
+ * rejecting those files outright would be its own bug.
+ */
+export const ImportedRecipeSchema = GeneratedRecipeSchema.extend({
+  id: z.string().min(1),
+  parentId: z.string().nullable().default(null),
+  rootId: z.string().min(1).optional(),
+  depth: z.number().int().min(0).default(0),
+  createdBy: CreatedBySchema.default({ uid: 'local', displayName: null }),
+  collaborators: z.array(CreatedBySchema).default([]),
+  prompt: z.string().default(''),
+  chatHistory: z.array(ChatMessageSchema).default([]),
+  createdAt: z.number().optional(),
+  updatedAt: z.number().optional(),
+});
