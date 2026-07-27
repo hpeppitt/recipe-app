@@ -1,5 +1,4 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
-import { isFirebaseConfigured } from '../services/firebase';
 import type { Recipe } from '../types/recipe';
 
 export type SharedRecipe = Pick<
@@ -37,16 +36,36 @@ function toShareable(recipe: Recipe): SharedRecipe {
   };
 }
 
-export function encodeRecipeToUrl(recipe: Recipe): string {
-  // When Firebase is configured, share via Firestore document ID
-  if (isFirebaseConfigured) {
-    return `${window.location.origin}/shared/${recipe.id}`;
+/** Link to a Firestore-backed recipe. Only valid once the doc actually exists. */
+export function cloudShareUrl(id: string, origin = window.location.origin): string {
+  return `${origin}/shared/${id}`;
+}
+
+/**
+ * Self-contained link carrying the whole recipe in the URL hash. Always works,
+ * even offline, but is view-only: recipients can't favourite or suggest changes.
+ */
+export function hashShareUrl(recipe: Recipe, origin = window.location.origin): string {
+  const json = JSON.stringify(toShareable(recipe));
+  return `${origin}/shared#r=${compressToEncodedURIComponent(json)}`;
+}
+
+/**
+ * Which kind of share link to hand out.
+ *
+ * Publishing is fire-and-forget at save time, so a recipe can be local-only
+ * without the app knowing. Returning a cloud URL on that assumption produced
+ * links that 404 for the recipient, so the caller has to confirm the doc exists
+ * (or publish it) before a cloud link is chosen.
+ */
+export function pickShareUrl(
+  recipe: Recipe,
+  opts: { firebaseConfigured: boolean; isPublished: boolean; origin?: string }
+): { url: string; mode: 'cloud' | 'self-contained' } {
+  if (opts.firebaseConfigured && opts.isPublished) {
+    return { url: cloudShareUrl(recipe.id, opts.origin), mode: 'cloud' };
   }
-  // Fallback: encode recipe data in URL hash
-  const shareable = toShareable(recipe);
-  const json = JSON.stringify(shareable);
-  const compressed = compressToEncodedURIComponent(json);
-  return `${window.location.origin}/shared#r=${compressed}`;
+  return { url: hashShareUrl(recipe, opts.origin), mode: 'self-contained' };
 }
 
 export function decodeRecipeFromHash(hash: string): SharedRecipe | null {

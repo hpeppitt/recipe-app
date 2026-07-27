@@ -5,9 +5,15 @@ import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree } from '../db/recipes';
-import { deletePublishedRecipeTree, incrementRecipeViews } from '../services/firestore';
+import {
+  deletePublishedRecipeTree,
+  getPublishedRecipe,
+  incrementRecipeViews,
+  publishRecipe,
+} from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
-import { encodeRecipeToUrl } from '../lib/share';
+import { pickShareUrl } from '../lib/share';
+import { withTimeout } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -18,6 +24,9 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
+
+/** How long Share waits on the cloud before falling back to a self-contained link. */
+const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +40,8 @@ export function RecipeDetailPage() {
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
+  const [isSharing, setIsSharing] = useState(false);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
   // the destructive menu stays hidden rather than flashing in.
@@ -50,12 +61,43 @@ export function RecipeDetailPage() {
   };
 
   const handleShare = async () => {
-    if (!recipe) return;
-    const url = encodeRecipeToUrl(recipe);
-    await navigator.clipboard.writeText(url);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
-    trackRecipeShared(recipe.id);
+    if (!recipe || isSharing) return;
+    setIsSharing(true);
+    try {
+      let isPublished = false;
+      if (isFirebaseConfigured) {
+        // Bounded so an unreachable backend degrades to a self-contained link
+        // instead of leaving the user waiting on a Firestore retry loop.
+        isPublished = await withTimeout(
+          (async () => {
+            if (await getPublishedRecipe(recipe.id)) return true;
+            // Publishing at save time is fire-and-forget, so it may never have
+            // landed. Retry here rather than hand out a link that 404s. Only
+            // reached when the doc is confirmed absent, so this cannot reset
+            // the counters a blind re-publish would (see FUN-10).
+            await publishRecipe(recipe);
+            return true;
+          })().catch((err) => {
+            console.error('Could not publish recipe before sharing', err);
+            return false;
+          }),
+          SHARE_PUBLISH_TIMEOUT_MS,
+          false
+        );
+      }
+
+      const { url, mode } = pickShareUrl(recipe, {
+        firebaseConfigured: isFirebaseConfigured,
+        isPublished,
+      });
+      await navigator.clipboard.writeText(url);
+      setShareMode(mode);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 3000);
+      trackRecipeShared(recipe.id);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -140,7 +182,8 @@ export function RecipeDetailPage() {
             </button>
             <button
               onClick={handleShare}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              disabled={isSharing}
+              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors disabled:opacity-50"
               aria-label="Share recipe"
             >
               {shareCopied ? (
@@ -319,6 +362,21 @@ export function RecipeDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
+
+      {shareCopied && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="text-sm font-medium text-text-primary">Link copied</p>
+          {shareMode === 'self-contained' && (
+            <p className="mt-0.5 text-xs text-text-secondary">
+              This link carries the whole recipe, so it works without the cloud — but
+              recipients can't favourite it or suggest changes.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

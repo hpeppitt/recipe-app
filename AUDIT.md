@@ -155,10 +155,24 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
 
 ## Medium severity
 
-- [ ] **FUN-5** Firestore publish is fire-and-forget with swallowed errors and no retry;
+- [x] **FUN-5** Firestore publish is fire-and-forget with swallowed errors and no retry;
       Share still emits a cloud URL that 404s for recipients. Needs a reconciliation or
       retry path, and Share should verify the recipe is actually published.
       (`useRecipeChat.ts:123-124`, `share.ts:42-44`)
+      (fixed: `encodeRecipeToUrl` — which returned a cloud URL purely because Firebase was
+      configured — is replaced by pure `pickShareUrl`/`cloudShareUrl`/`hashShareUrl`. Share
+      now checks whether the doc exists, retries the publish if it doesn't, and only emits a
+      cloud link once confirmed; otherwise it falls back to the self-contained hash link and
+      the toast says recipients can't favourite or suggest. That retry is also the
+      reconciliation path for the swallowed save-time publish, which now logs instead of
+      vanishing silently.
+      Browser testing found a regression in my own first version: against an unreachable
+      backend Firestore retries rather than rejecting, so Share hung with no link at all
+      (>14s, worse than the old broken link). Added `withTimeout` (4s) so it degrades to the
+      working link; verified it now completes in ~5s. 12 new tests.
+      Only publishes when the doc is confirmed absent, so it cannot trigger FUN-10's
+      counter reset. NOT fixed: a recipe whose publish failed is still missing from the
+      shared library feed until someone shares it — reconciliation is share-triggered only.)
 - [ ] **FUN-6** Settings import does `bulkPut` with no dedup and no schema validation:
       re-import duplicates every recipe under new UUIDs; malformed records later crash
       `searchRecipes`. (`SettingsPage.tsx:44-61`, `db/recipes.ts:103-105`)

@@ -199,9 +199,14 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         createdBy
       );
 
-      // Publish to Firestore for sharing/social features
+      // Publish to Firestore for sharing/social features. Deliberately not
+      // awaited so a slow network doesn't hold up navigation, but no longer
+      // silently swallowed: Share reconciles a failed publish on demand, and
+      // this leaves a trace when it doesn't land.
       if (isFirebaseConfigured) {
-        publishRecipe(recipe).catch(() => {});
+        publishRecipe(recipe).catch((err) => {
+          console.error('Publishing recipe to the cloud failed; it stays local until shared', err);
+        });
       }
 
       trackRecipeCreated(recipe.id, !!parentRecipe);
