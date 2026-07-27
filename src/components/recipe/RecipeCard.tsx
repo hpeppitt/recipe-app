@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { formatTime } from '../../lib/utils';
 import { DIFFICULTY_LABELS } from '../../lib/constants';
 import { pluralize } from '../../lib/utils';
@@ -11,16 +11,25 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe, isFavorite }: RecipeCardProps) {
-  const navigate = useNavigate();
   const creatorName = recipe.createdBy?.displayName;
 
   return (
-    <button
-      onClick={() => navigate(`/recipe/${recipe.id}`)}
-      className="w-full text-left bg-surface rounded-2xl border border-border p-4 hover:border-border-strong transition-colors active:scale-[0.99]"
-    >
+    // The card was a <button> containing a span[role=link] for the creator.
+    // Interactive descendants are invalid inside a button, and the span had no
+    // tabIndex or key handler, so the creator was mouse-only. Now the card is a
+    // plain container with two real links: one stretched over the whole card and
+    // one for the creator, lifted above it. Both are keyboard reachable and the
+    // click targets are unchanged.
+    <div className="relative bg-surface rounded-2xl border border-border p-4 hover:border-border-strong transition-colors active:scale-[0.99]">
+      <Link
+        to={`/recipe/${recipe.id}`}
+        aria-label={recipe.title}
+        className="absolute inset-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+      />
       <div className="flex gap-3">
-        <span className="text-3xl flex-shrink-0 mt-0.5">{recipe.emoji}</span>
+        <span className="text-3xl flex-shrink-0 mt-0.5" aria-hidden="true">
+          {recipe.emoji}
+        </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h3 className="font-semibold text-text-primary truncate">{recipe.title}</h3>
@@ -46,22 +55,21 @@ export function RecipeCard({ recipe, isFavorite }: RecipeCardProps) {
             {creatorName && recipe.createdBy && (
               <>
                 <span>·</span>
-                <span
-                  role="link"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/profile/${recipe.createdBy.uid}`);
-                  }}
-                  className="inline-flex items-center gap-1 truncate hover:text-primary-600 transition-colors cursor-pointer"
+                {/* relative + z-10 lifts this above the stretched card link so it
+                    stays clickable and is not swallowed by the overlay. */}
+                <Link
+                  to={`/profile/${recipe.createdBy.uid}`}
+                  aria-label={`View ${creatorName}'s profile`}
+                  className="relative z-10 inline-flex items-center gap-1 truncate hover:text-primary-600 transition-colors rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <span className="truncate">{creatorName}</span>
-                </span>
+                </Link>
               </>
             )}
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

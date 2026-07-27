@@ -344,9 +344,24 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       original design.
       Note the bell only renders when `isConfigured && user`, so the live component could not
       be opened here — the geometry was verified from its exact classes.)
-- [ ] **UI-9** RecipeCard nests a `span role="link"` with onClick inside a `<button>`:
+- [x] **UI-9** RecipeCard nests a `span role="link"` with onClick inside a `<button>`:
       creator link is unreachable by keyboard and broken for screen readers.
       (`RecipeCard.tsx`)
+      (fixed with the stretched-link pattern: the card is now a plain `div` holding two real
+      `Link`s — one `absolute inset-0` over the whole card, one for the creator lifted above
+      it with `relative z-10`. Both are genuine anchors, so both are keyboard reachable and
+      the invalid interactive-inside-button content model is gone. Also marked the decorative
+      emoji `aria-hidden` and gave the creator link an explicit "View X's profile" label,
+      since a link named only "Nina Cook" doesn't convey where it goes.
+      Verified in-browser: card is a DIV, no `button [role=link] / button a` anywhere, both
+      anchors tabbable, creator click reaches /profile/... (proving z-10 beats the overlay)
+      and the card reaches /recipe/..., with 4 sampled points across the card body all hitting
+      the recipe link so the click area is unchanged. Overlay is 2px smaller than the card in
+      each axis — exactly the 1px border, since `inset-0` resolves against the padding box.
+      Note on tooling: `read_page` reported the creator link as unnamed, but so was BottomNav's
+      plainly-labelled "Library" link, and the DOM confirms an aria-hidden avatar plus a
+      visible name span. That was a snapshot limitation, not a defect; `Avatar` already sets
+      `aria-hidden` on all three branches.)
 - [ ] **UI-10** Touch targets below 44px: TopBar icon row (32px), suggestion Approve/Reject
       text buttons (~24px). (`RecipeDetailPage.tsx:117-169`, `:270-281`)
 - [ ] **UI-11** Version tree costs 48px per depth level in a non-scrolling column; deep
