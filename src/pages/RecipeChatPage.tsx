@@ -131,7 +131,7 @@ export function RecipeChatPage() {
                 <p className="text-sm font-medium text-text-primary">
                   {isVarying
                     ? 'Similar variations already exist'
-                    : 'You already have similar recipes'}
+                    : 'Similar recipes already exist'}
                 </p>
                 <p className="text-xs text-text-tertiary">
                   Would you like to use one of these instead?
@@ -145,7 +145,7 @@ export function RecipeChatPage() {
                     className="w-full text-left bg-surface rounded-xl border border-border p-3 hover:border-border-strong transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-2xl">{r.emoji}</span>
+                      <span className="text-2xl" aria-hidden="true">{r.emoji}</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm text-text-primary truncate">
                           {r.title}
@@ -153,6 +153,15 @@ export function RecipeChatPage() {
                         <p className="text-xs text-text-tertiary line-clamp-1">
                           {r.description}
                         </p>
+                        {r.cloudOrigin && (
+                          <p className="text-xs text-text-secondary mt-0.5">
+                            {r.cloudOrigin.isOwn
+                              ? 'Your recipe, not on this device'
+                              : r.cloudOrigin.creatorName
+                                ? `Shared library, by ${r.cloudOrigin.creatorName}`
+                                : 'In the shared library'}
+                          </p>
+                        )}
                       </div>
                       <svg className="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />

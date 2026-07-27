@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
+import { rankByQuery, recipeHaystack } from '../lib/search';
 import type { Recipe } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, AppNotification } from '../types/social';
@@ -75,6 +76,26 @@ export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
   return snap.docs.map(
     (d) => ({ id: d.id, ...d.data() }) as PublishedRecipe
   );
+}
+
+/**
+ * Dedup check against the shared cloud library.
+ *
+ * Firestore has no full-text search, so this scores the most recent published
+ * recipes client-side over the same window the library feed uses. Recipes past
+ * that window are not considered — an accepted limit until dedup moves server-side.
+ */
+export async function searchPublishedRecipes(
+  prompt: string,
+  maxResults = 5
+): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const all = await getAllPublishedRecipes();
+  return rankByQuery(all, prompt, {
+    haystack: recipeHaystack,
+    threshold: 0.5,
+    limit: maxResults,
+  });
 }
 
 export async function deletePublishedRecipe(id: string): Promise<void> {

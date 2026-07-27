@@ -1,7 +1,13 @@
 import { db } from './database';
+import { rankByQuery, recipeHaystack } from '../lib/search';
 import type { Recipe, RecipeWithChildren, CreatedBy } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
+
+/** Variations also score against the prompt that produced them. */
+function variationHaystack(r: Recipe): string {
+  return [r.title, r.description, r.prompt, ...r.tags].join(' ');
+}
 
 export async function createRecipe(
   generated: GeneratedRecipe,
@@ -116,31 +122,12 @@ export async function searchRecipes(
   query: string,
   excludeRootId?: string
 ): Promise<Recipe[]> {
-  const words = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-  if (words.length === 0) return [];
-
   const all = await db.recipes.toArray();
-  const scored = all
-    .filter((r) => !excludeRootId || r.rootId !== excludeRootId)
-    .map((r) => {
-      const haystack = [
-        r.title,
-        r.description,
-        ...r.tags,
-        ...r.ingredients.map((i) => i.name),
-      ]
-        .join(' ')
-        .toLowerCase();
-      const hits = words.filter((w) => haystack.includes(w)).length;
-      return { recipe: r, score: hits / words.length };
-    })
-    .filter((s) => s.score >= 0.5)
-    .sort((a, b) => b.score - a.score);
-
-  return scored.slice(0, 5).map((s) => s.recipe);
+  return rankByQuery(
+    all.filter((r) => !excludeRootId || r.rootId !== excludeRootId),
+    query,
+    { haystack: recipeHaystack, threshold: 0.5, limit: 5 }
+  );
 }
 
 export async function searchVariations(
@@ -149,25 +136,11 @@ export async function searchVariations(
   excludeId?: string
 ): Promise<Recipe[]> {
   const tree = await db.recipes.where('rootId').equals(rootId).toArray();
-  const words = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-  if (words.length === 0) return [];
-
-  const scored = tree
-    .filter((r) => r.id !== excludeId)
-    .map((r) => {
-      const haystack = [r.title, r.description, r.prompt, ...r.tags]
-        .join(' ')
-        .toLowerCase();
-      const hits = words.filter((w) => haystack.includes(w)).length;
-      return { recipe: r, score: hits / words.length };
-    })
-    .filter((s) => s.score >= 0.4)
-    .sort((a, b) => b.score - a.score);
-
-  return scored.slice(0, 3).map((s) => s.recipe);
+  return rankByQuery(
+    tree.filter((r) => r.id !== excludeId),
+    query,
+    { haystack: variationHaystack, threshold: 0.4, limit: 3 }
+  );
 }
 
 export async function migrateRecipesUid(

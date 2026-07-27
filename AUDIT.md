@@ -12,8 +12,9 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
   whitespace, drops words of length <= 2, scores each local recipe by the fraction of query
   words appearing as substrings in `title + description + tags + ingredient names`.
   Threshold >= 0.5, top 5 shown with a "Create Anyway" bypass.
-- Variations: `searchVariations()` (`db/recipes.ts:146-171`) same scoring within the local
-  tree, threshold >= 0.4, top 3.
+- Variations: `searchVariations()` (`db/recipes.ts:146-171`) same scoring algorithm within
+  the local tree, threshold >= 0.4, top 3, but a different haystack: `title + description +
+  prompt + tags`, with ingredient names swapped for the originating prompt.
 - Handles case and word order. Does not handle: plurals/stemming, substring false positives
   ("rice" matches "licorice"), all-short-word prompts (returns nothing), semantics.
 - There is NO dedup at save time, on data import, on later chat messages, or against
@@ -30,11 +31,27 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       useAuth co-location gets a targeted disable; useNotifications markAllRead deps fixed
       via uid destructure; set-state-in-effect demoted to warn since the per-hook rewrites
       belong to FUN-8/9/11/13 + UI-12. 17 warnings remain, deferred to those findings.)
-- [ ] **SEC-1** Deploy Firestore security rules (repo now has `firestore.rules` +
+- [x] **SEC-1** Deploy Firestore security rules (repo now has `firestore.rules` +
       `firestore.indexes.json`; project is still in test mode). `firebase deploy --only firestore`
-- [ ] **FUN-1** Dedup never checks Firestore, so users publish duplicates to the shared
+      (fixed: deployed 2026-07-27 to recipe-lab-3832b — rules compiled + released, indexes
+      deployed. Verified target against `.firebaserc` and confirmed the released rules are
+      the ownership-enforcing ruleset, not test mode. UID-migration limitation still stands.)
+- [x] **FUN-1** Dedup never checks Firestore, so users publish duplicates to the shared
       library. Cloud recipes are not mirrored locally, so `searchRecipes` cannot see them.
       (`useRecipeChat.ts:76-78`, `db/recipes.ts:125`)
+      (fixed: scoring extracted to `lib/search.ts`; new `searchPublishedRecipes` scores the
+      cloud feed and merges with local matches, local winning on id ties. Two of the five
+      panel slots are reserved for cloud matches so local results can't bury the cloud
+      duplicate. Cloud failure degrades to local-only. Also fixed a regression this
+      introduced: dedup is now a network call, so `sendMessage` got an in-flight ref guard
+      and covers the search with `isLoading` — without it a second send skipped dedup and
+      raced a second Gemini generation. Labels distinguish own-but-not-on-this-device from
+      another user's recipe.
+      NOT fixed, deliberately: dedup still only sees the newest 200 published recipes and
+      re-reads that feed per prompt with no caching — a real limit, needs a server-side
+      index to fix properly. A failed cloud check is also silent to the user; folded into
+      UI-12. Reaching a cloud-only recipe shows no lineage (FUN-11) and can surface a
+      recipe whose cloud delete was orphaned (FUN-3).)
 - [ ] **FUN-2** `saveRecipe` has no in-flight guard and the Save button never disables;
       double-tap creates two recipes with different UUIDs in both stores.
       (`useRecipeChat.ts:101-129`, `RecipeCardMessage.tsx:61-62`)
