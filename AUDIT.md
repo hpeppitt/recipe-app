@@ -295,9 +295,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       change, not a bug fix. Flag if local favourites are actually wanted.
       Verified in-browser both ways: unconfigured hides the control while Share/tree/menu
       remain; configured-but-signed-out shows it and opens "Sign in to continue".)
-- [ ] **UI-6** "Suggest a Change" exists only on `/shared/:id`; non-owners browsing the
+- [x] **UI-6** "Suggest a Change" exists only on `/shared/:id`; non-owners browsing the
       shared feed land on `/recipe/:id` which has no suggest affordance, making the
       headline collaboration feature undiscoverable. (`SharedRecipePage.tsx:245-251`)
+      (fixed: RecipeDetailPage gained a secondary "Suggest a Change" button under Create
+      Variation, reusing the existing `SuggestChangeModal` and `useSubmitSuggestion` rather
+      than duplicating either.
+      Gate is `isConfigured && !isOwner && source === 'cloud'`, leaning on the `canManageRecipe`
+      and `source` signals added for FUN-4. The `source === 'cloud'` term is deliberate
+      defence: recipes only enter Dexie via create or import, so anything local is effectively
+      the user's own, and a suggestion needs a published doc to point at. Signed-out visitors
+      get the button and an AuthModal prompt, matching SharedRecipePage.
+      VERIFICATION GAP: only the negative cases were exercised. Producing the positive case
+      needs a cloud-sourced recipe, which needs a working Firebase project — a bogus `.env`
+      cannot help, since `source` only becomes 'cloud' when `getPublishedRecipe` succeeds.
+      Confirmed in-browser that local-only mode hides the button and leaves Create Variation
+      intact; the positive branch rests on the 9 `canManageRecipe` tests plus code reading.)
 - [ ] **UI-7** Recipe detail back button always goes to `parentId` or `/` with
       `replace: true`, ignoring real history (tree, profile, notifications) and corrupting
       the hardware back button. (`RecipeDetailPage.tsx:39-45`)

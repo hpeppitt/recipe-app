@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
-import { useSuggestions } from '../hooks/useSuggestions';
+import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree } from '../db/recipes';
 import {
@@ -22,6 +22,7 @@ import { VariationChips } from '../components/recipe/VariationChips';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
+import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
@@ -38,12 +39,14 @@ export function RecipeDetailPage() {
   const { ancestors } = useRecipeAncestors(recipe);
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id);
+  const { submit: submitSuggestion } = useSubmitSuggestion();
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
   const [isSharing, setIsSharing] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
   // the destructive menu stays hidden rather than flashing in.
@@ -114,6 +117,30 @@ export function RecipeDetailPage() {
       deletePublishedRecipeTree(id, rootId ?? id, deletedLocally).catch(() => {});
     }
     navigate('/', { replace: true });
+  };
+
+  // Only cloud recipes belonging to someone else can be suggested against:
+  // canManageRecipe treats anything in this device's library as the user's own,
+  // and a suggestion needs a published doc to reference.
+  const canSuggest = isConfigured && !isOwner && source === 'cloud';
+
+  const handleSuggestClick = () => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setShowSuggest(true);
+  };
+
+  const handleSubmitSuggestion = async (message: string) => {
+    if (!recipe || !id) return;
+    await submitSuggestion({
+      recipeId: id,
+      recipeOwnerId: recipe.createdBy?.uid ?? 'local',
+      recipeTitle: recipe.title,
+      recipeEmoji: recipe.emoji,
+      message,
+    });
   };
 
   const handleFavoriteToggle = () => {
@@ -356,10 +383,17 @@ export function RecipeDetailPage() {
       </main>
 
       <div className="sticky bottom-0 p-4 bg-surface border-t border-border">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto space-y-2">
           <Button fullWidth onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
             Create Variation
           </Button>
+          {/* Suggesting a change used to exist only on /shared/:id, so anyone who
+              reached another user's recipe through the library never saw it. */}
+          {canSuggest && (
+            <Button variant="secondary" fullWidth onClick={handleSuggestClick}>
+              Suggest a Change
+            </Button>
+          )}
         </div>
       </div>
 
@@ -381,6 +415,13 @@ export function RecipeDetailPage() {
         open={showAuth}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
+      />
+
+      <SuggestChangeModal
+        open={showSuggest}
+        recipeTitle={recipe.title}
+        onSubmit={handleSubmitSuggestion}
+        onClose={() => setShowSuggest(false)}
       />
 
       {shareCopied && (
