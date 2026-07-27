@@ -431,6 +431,26 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       leave a page, so the UI-4 fix is partial in practice. (`App.tsx:18-33`,
       `RecipeChatPage.tsx` handleBack)
       (split out of UI-4/UI-7 rather than left dangling between them.)
+      (ATTEMPTED 2026-07-28 and REVERTED — no code shipped. Findings so the next attempt
+      starts informed rather than repeating this:
+      1. The migration itself is fine. `createBrowserRouter` + `RouterProvider` converted
+         cleanly (flat routes, one `AppShell` layout route) and all 9 routes were verified
+         rendering. `AuthProvider` can stay outside `RouterProvider` — it uses no router hooks;
+         only `AppShell` needs router context, via `Outlet`.
+      2. `useBlocker` did NOT block. With react-router 7.13.0 and a confirmed unsaved recipe,
+         the blocker registered (state 'unblocked', `hasUnsavedRecipe` true) but its callback
+         was NEVER invoked on navigation — verified by logging persisted through the
+         transition. It failed for `navigate(-1)` from the in-app button as well as
+         `history.back()`, i.e. all POP navigation, not just the gesture.
+      3. NOT StrictMode. That was my hypothesis (effect-registered blocker, React 19
+         double-invoke); I tested it by temporarily removing StrictMode and the callback still
+         was never called. Hypothesis disproven — don't re-spend time there.
+      Reverted rather than shipped because the migration's only purpose is enabling the
+      blocker, so without it there is no user benefit, and keeping it would have left UI-4's
+      guard regressed (the manual `onBack` dialog was removed in favour of the blocker).
+      UI-4's dialog was re-verified working after the revert.
+      Next step is probably a `popstate`/`beforeunload` guard, or checking whether v7 blocking
+      of POP needs something this app is missing — not another straight `useBlocker` attempt.)
 
 ## Low severity
 
