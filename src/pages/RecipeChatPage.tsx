@@ -11,6 +11,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SUGGESTION_CHIPS } from '../lib/constants';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
@@ -25,6 +26,7 @@ export function RecipeChatPage() {
     isLoading,
     isSaving,
     error,
+    latestRecipe,
     similarRecipes,
     sendMessage,
     dismissSimilar,
@@ -34,6 +36,19 @@ export function RecipeChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  // A generated recipe lives only in component state until saved, so leaving the
+  // page destroys it. isSaving excluded because saveRecipe navigates on success.
+  const hasUnsavedRecipe = !!latestRecipe && !isSaving;
+
+  const handleBack = () => {
+    if (hasUnsavedRecipe) {
+      setShowDiscard(true);
+      return;
+    }
+    navigate(-1);
+  };
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -56,6 +71,7 @@ export function RecipeChatPage() {
       <TopBar
         title={isVarying ? 'New Variation' : 'New Recipe'}
         showBack
+        onBack={handleBack}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -207,6 +223,19 @@ export function RecipeChatPage() {
           setShowAuth(false);
           if (!user) navigate(-1);
         }}
+      />
+
+      <ConfirmDialog
+        open={showDiscard}
+        title={isVarying ? 'Discard this variation?' : 'Discard this recipe?'}
+        message={`"${latestRecipe?.title ?? 'This recipe'}" hasn't been saved yet. Going back will discard it.`}
+        confirmLabel="Discard"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setShowDiscard(false);
+          navigate(-1);
+        }}
+        onCancel={() => setShowDiscard(false)}
       />
     </div>
   );

@@ -123,8 +123,20 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       remap would invert them into dark-on-dark. Left as-is: chips and the `bg-danger-50`
       error block stay light-tinted in dark mode — visually jarring but readable
       (dark text on light tint), unlike the themed-text cases above. Folded into UI-13.)
-- [ ] **UI-4** Back navigation from the chat silently discards an unsaved generated recipe;
+- [x] **UI-4** Back navigation from the chat silently discards an unsaved generated recipe;
       no guard, no persistence, no confirm. (`RecipeChatPage.tsx:55-58`)
+      (fixed: `TopBar` got an `onBack` that opens a danger ConfirmDialog naming the recipe
+      when `latestRecipe` exists and isn't being saved. Verified in-browser with a stubbed
+      Gemini response: back opens the dialog and stays put, Cancel keeps the recipe and the
+      Save button, Discard navigates away, and with no generated recipe back still leaves
+      immediately with no prompt.
+      Chose confirm-on-exit over draft persistence as the conservative option — persisting
+      drafts is a feature, not a bug fix, and would need a schema decision.
+      NOT covered: the browser/hardware back button and the swipe-back gesture still discard
+      silently. `App.tsx` uses `BrowserRouter`, so React Router's `useBlocker` is unavailable
+      without migrating to a data router; that migration belongs with UI-7, which already
+      covers this app's history handling. Tapping a dedup match also still leaves the page,
+      though at that point no recipe has been generated yet — only the typed prompt is lost.)
 - [ ] **UI-5** Missing Gemini API key is discovered only after composing and sending a
       message; error is plain text with no link to Settings, and raw Gemini exception text
       is shown verbatim. (`useRecipeChat.ts:26-30`, `:55-57`, `RecipeChatPage.tsx:176-180`)
