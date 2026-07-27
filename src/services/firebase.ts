@@ -20,6 +20,7 @@ import {
 } from './storage';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -41,6 +42,25 @@ let firestore: Firestore | null = null;
 
 if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
+
+  // App Check must be initialised before the first Gemini call: Firebase AI Logic
+  // enforces it, and without a token the proxy rejects the request. This is what
+  // replaces "protect the site from bots" — it gates the API path itself, which
+  // a CDN in front of the site never could.
+  if (import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+    // Registered debug token for localhost; without this, enforcement blocks dev.
+    if (import.meta.env.DEV) {
+      (
+        window as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean | string }
+      ).FIREBASE_APPCHECK_DEBUG_TOKEN =
+        import.meta.env.VITE_APPCHECK_DEBUG_TOKEN || true;
+    }
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+
   auth = getAuth(app);
   firestore = getFirestore(app);
   if (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) {
@@ -48,7 +68,7 @@ if (isFirebaseConfigured) {
   }
 }
 
-export { auth, firestore, type User };
+export { app as firebaseApp, auth, firestore, type User };
 
 export function onAuthStateChanged(callback: (user: User | null) => void) {
   if (!auth) return () => {};

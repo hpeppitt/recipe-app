@@ -1,36 +1,15 @@
 import { useState } from 'react';
-import { getApiKey, setApiKey } from '../services/storage';
-import { testConnection } from '../services/gemini';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
 import { describeImport } from '../lib/import';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Spinner } from '../components/ui/Spinner';
 import { APP_NAME } from '../lib/constants';
 
 export function SettingsPage() {
-  const [apiKey, setApiKeyState] = useState(getApiKey);
-  const [showKey, setShowKey] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<boolean | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const { theme, setTheme } = useTheme();
-
-  const handleSaveKey = () => {
-    setApiKey(apiKey);
-    setTestResult(null);
-  };
-
-  const handleTest = async () => {
-    setTesting(true);
-    setTestResult(null);
-    const result = await testConnection(apiKey);
-    setTestResult(result);
-    setTesting(false);
-  };
 
   const handleExport = async () => {
     const recipes = await exportAllRecipes();
@@ -81,43 +60,6 @@ export function SettingsPage() {
       </header>
 
       <div className="p-4 space-y-8">
-        {/* API Key */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Gemini API Key</h2>
-          <div className="space-y-2">
-            <div className="relative">
-              <Input
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKeyState(e.target.value);
-                  setTestResult(null);
-                }}
-                type={showKey ? 'text' : 'password'}
-                placeholder="Enter your Gemini API key"
-              />
-              <button
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text-secondary"
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="secondary" onClick={handleSaveKey}>
-                Save Key
-              </Button>
-              <Button size="sm" variant="secondary" onClick={handleTest} disabled={!apiKey || testing}>
-                {testing ? <Spinner size="sm" /> : 'Test Connection'}
-              </Button>
-            </div>
-            {testResult !== null && (
-              <p className={`text-sm ${testResult ? 'text-success-600' : 'text-danger-600'}`}>
-                {testResult ? 'Connection successful!' : 'Connection failed. Check your API key.'}
-              </p>
-            )}
-          </div>
-        </section>
-
         {/* Theme */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Theme</h2>

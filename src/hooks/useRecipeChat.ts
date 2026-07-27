@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
-import { getApiKey } from '../services/storage';
 import { createRecipe, searchRecipes, searchVariations } from '../db/recipes';
 import {
   publishRecipe,
@@ -9,7 +8,11 @@ import {
   searchPublishedVariations,
 } from '../services/firestore';
 import { mergeDedupById } from '../lib/search';
-import { describeGenerationError, MISSING_API_KEY, type FriendlyError } from '../lib/errors';
+import {
+  describeGenerationError,
+  GENERATION_UNAVAILABLE,
+  type FriendlyError,
+} from '../lib/errors';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
@@ -118,9 +121,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
   const generateRecipe = useCallback(
     async (text: string) => {
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        setError(MISSING_API_KEY);
+      if (!isFirebaseConfigured) {
+        setError(GENERATION_UNAVAILABLE);
         return;
       }
 
@@ -132,8 +134,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       try {
         if (!chatRef.current) {
           chatRef.current = parentRecipe
-            ? createVariationChat(apiKey, parentRecipe)
-            : createRecipeChat(apiKey);
+            ? createVariationChat(parentRecipe)
+            : createRecipeChat();
         }
 
         const generated = await chatRef.current.sendMessage(text);
@@ -266,10 +268,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     isLoading,
     isSaving,
     error,
-    // Read at render so the composer can be blocked up front instead of letting
-    // the user write a prompt and only then discover generation is impossible.
-    // localStorage is synchronous, and returning from Settings remounts the page.
-    needsApiKey: !getApiKey(),
+    // Blocks the composer up front instead of letting the user write a prompt and
+    // only then discover generation is impossible. Users no longer supply a key —
+    // AI Logic holds it — so the only remaining precondition is a Firebase project.
+    generationUnavailable: !isFirebaseConfigured,
     latestRecipe,
     similarRecipes,
     sendMessage,

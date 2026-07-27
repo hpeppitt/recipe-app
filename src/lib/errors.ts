@@ -4,9 +4,14 @@ export interface FriendlyError {
   action?: 'settings';
 }
 
-export const MISSING_API_KEY: FriendlyError = {
-  message: 'Add your Gemini API key in Settings to start generating recipes.',
-  action: 'settings',
+/**
+ * Generation runs through Firebase AI Logic, so it needs a configured Firebase
+ * project. There is no user-supplied key any more, and therefore nothing the user
+ * can do in Settings about it — hence no `action`.
+ */
+export const GENERATION_UNAVAILABLE: FriendlyError = {
+  message:
+    'Recipe generation is unavailable because this build has no Firebase configuration.',
 };
 
 /**
@@ -21,6 +26,17 @@ export function describeGenerationError(err: unknown): FriendlyError {
   const raw = (err instanceof Error ? err.message : String(err ?? '')).toLowerCase();
 
   // Gemini reports a bad key as 400 API_KEY_INVALID, and a disabled one as 403.
+  // App Check rejection is the most likely 401/403 now: the proxy refuses a request
+  // without valid app attestation.
+  if (raw.includes('app check') || raw.includes('appcheck')) {
+    return {
+      message:
+        "This app couldn't verify itself with the recipe service. Reload the page and try again.",
+    };
+  }
+
+  // A rejected key is no longer the user's problem — Firebase provisions and holds
+  // it — so this must NOT point at Settings, which no longer has a key field.
   if (
     raw.includes('api key not valid') ||
     raw.includes('api_key_invalid') ||
@@ -30,8 +46,7 @@ export function describeGenerationError(err: unknown): FriendlyError {
     raw.includes('403')
   ) {
     return {
-      message: 'Gemini rejected your API key. Check or replace it in Settings.',
-      action: 'settings',
+      message: 'Recipe generation is misconfigured and was rejected. Please report this.',
     };
   }
 

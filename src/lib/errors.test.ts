@@ -1,18 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { describeGenerationError, MISSING_API_KEY } from './errors';
+import { describeGenerationError, GENERATION_UNAVAILABLE } from './errors';
 
 describe('describeGenerationError', () => {
-  it('points an invalid key at Settings', () => {
+  // The key belongs to Firebase now, so a rejection is an operator problem. Offering
+  // a Settings link would dead-end on a page with no key field.
+  it('reports a rejected key without pointing at Settings', () => {
     const result = describeGenerationError(
       new Error('[400 Bad Request] API key not valid. Please pass a valid API key.')
     );
 
-    expect(result.action).toBe('settings');
-    expect(result.message).toMatch(/rejected your API key/i);
+    expect(result.action).toBeUndefined();
+    expect(result.message).toMatch(/misconfigured/i);
   });
 
-  it('treats a 403 as a key problem', () => {
-    expect(describeGenerationError(new Error('403 PERMISSION_DENIED')).action).toBe('settings');
+  it('treats a 403 the same way, with no user-facing action', () => {
+    expect(describeGenerationError(new Error('403 PERMISSION_DENIED')).action).toBeUndefined();
+  });
+
+  it('explains an App Check rejection as something a reload may fix', () => {
+    const result = describeGenerationError(new Error('Firebase App Check token is invalid'));
+
+    expect(result.message).toMatch(/verify itself/i);
+    expect(result.action).toBeUndefined();
   });
 
   it('explains rate limiting without offering Settings', () => {
@@ -66,8 +75,10 @@ describe('describeGenerationError', () => {
     expect(result.message).not.toContain('key=');
   });
 
-  it('exposes a missing-key constant that links to Settings', () => {
-    expect(MISSING_API_KEY.action).toBe('settings');
-    expect(MISSING_API_KEY.message).toMatch(/Settings/);
+  // Users no longer supply a key, so there is nothing actionable in Settings and
+  // the constant must NOT offer a link that would dead-end.
+  it('exposes a generation-unavailable constant with no Settings action', () => {
+    expect(GENERATION_UNAVAILABLE.action).toBeUndefined();
+    expect(GENERATION_UNAVAILABLE.message).toMatch(/unavailable/i);
   });
 });
