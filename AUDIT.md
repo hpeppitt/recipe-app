@@ -788,10 +788,25 @@ that failure mode entirely, so it is not listed.
       the list and hides the label.
       Deliberately not touched: the feed hardcodes `childCount: 0` for cloud recipes, which is
       the other half of why the app looks flat to a newcomer. That is UX-10's subject.)
-- [ ] **UX-10** The central concept (recipes branch into a version tree) is never
+- [x] **UX-10** The central concept (recipes branch into a version tree) is never
       communicated where a newcomer would see it. Only hint is inert "3 variations" tertiary
       text — and cloud feed entries hardcode `childCount: 0`, so it is absent on exactly the
       recipes a new user browses. (`RecipeCard.tsx:47-54`, `useRecipeLibrary.ts:105`)
+      (fixed both halves.
+      **The data half was the real bug.** Counts are now computed across local and cloud
+      records together via a new pure `countDescendantsByRoot`. Doing it per-store would
+      double-count anything both saved locally and published, so it dedupes by id first —
+      covered by a test, along with counting the subtree rather than direct children, which is
+      what the local count already meant.
+      Measured against the live shared library: **0 recipes showed a variation count before,
+      5 of 7 after.** The concept was invisible not because the hint was too quiet but because
+      the number was hardcoded to zero on every cloud recipe.
+      **The framing half** extends the UX-9 first-run card to state that any recipe can branch
+      into variations and grows a tree of versions rather than being overwritten.
+      `getCoreRecipes` was deleted rather than left in place: the hook was its only caller and
+      now needs the full local set to compute counts, so keeping it would have left a tested
+      function nothing calls. Its describe block went with it; the replacement logic is
+      covered by the three new `countDescendantsByRoot` tests.)
 - [ ] **UX-11** Version tree renders the bare string "No tree data found" while the recipe is
       still resolving (up to the 6s cloud window) and again as the terminal failure state with
       no retry, though `useRecipe` exposes `cloudError`/`retry`. A single-version tree — the

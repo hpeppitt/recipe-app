@@ -4,7 +4,6 @@ import {
   searchRecipes,
   searchVariations,
   deleteRecipeTree,
-  getCoreRecipes,
   importRecipes,
   exportAllRecipes,
   addLocalCollaborator,
@@ -265,26 +264,6 @@ describe('addLocalCollaborator', () => {
 
     expect(await addLocalCollaborator('r1', alice)).toBe(true);
     expect((await db.recipes.get('r1'))?.collaborators).toEqual([alice]);
-  });
-});
-
-describe('getCoreRecipes', () => {
-  it('returns only roots with a count of their descendants', async () => {
-    await db.recipes.add(makeRecipe({ id: 'r1', rootId: 'r1' }));
-    await db.recipes.add(
-      makeRecipe({ id: 'r2', rootId: 'r1', parentId: 'r1', depth: 1 })
-    );
-    await db.recipes.add(
-      makeRecipe({ id: 'r3', rootId: 'r1', parentId: 'r2', depth: 2 })
-    );
-    await db.recipes.add(makeRecipe({ id: 'solo', rootId: 'solo' }));
-
-    const cores = await getCoreRecipes();
-    const byId = new Map(cores.map((c) => [c.id, c.childCount]));
-
-    expect(byId.size).toBe(2);
-    expect(byId.get('r1')).toBe(2);
-    expect(byId.get('solo')).toBe(0);
   });
 });
 

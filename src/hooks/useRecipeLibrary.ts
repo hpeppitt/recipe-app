@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getCoreRecipes } from '../db/recipes';
+import { getAllRecipes } from '../db/recipes';
+import { countDescendantsByRoot } from '../lib/tree';
 import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
@@ -26,7 +27,9 @@ interface FeedRecipe {
 }
 
 export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<string>) {
-  const localRecipes = useLiveQuery(() => getCoreRecipes(), []);
+  // All local recipes, not just roots: the descendant counts are computed here
+  // now, from local and cloud records together, so the whole set is needed.
+  const localRecipes = useLiveQuery(() => getAllRecipes(), []);
   const [cloudRecipes, setCloudRecipes] = useState<PublishedRecipe[] | null>(null);
   const [cloudLoading, setCloudLoading] = useState(isFirebaseConfigured);
   // Failing to reach the shared library used to be indistinguishable from it
@@ -64,9 +67,18 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
 
     const byId = new Map<string, FeedRecipe>();
 
-    // Add local recipes first
+    // Variation counts span both stores: a root saved locally can have
+    // variations that only exist in the cloud, and vice versa. Counting one
+    // store at a time is what left cloud feed entries showing zero.
+    const childCounts = countDescendantsByRoot([
+      ...(localRecipes ?? []).map((r) => ({ id: r.id, rootId: r.rootId })),
+      ...(cloudRecipes ?? []).map((r) => ({ id: r.id, rootId: r.rootId ?? r.id })),
+    ]);
+
+    // Add local recipes first (roots only — the rest exist just for the counts)
     if (localRecipes) {
       for (const r of localRecipes) {
+        if (r.parentId) continue;
         byId.set(r.id, {
           id: r.id,
           parentId: r.parentId,
@@ -79,7 +91,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
           difficulty: r.difficulty,
           tags: r.tags,
           createdBy: r.createdBy,
-          childCount: r.childCount,
+          childCount: childCounts.get(r.id) ?? 0,
           createdAt: r.createdAt,
         });
       }
@@ -102,7 +114,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
             difficulty: r.difficulty,
             tags: r.tags,
             createdBy: r.createdBy,
-            childCount: 0,
+            childCount: childCounts.get(r.id) ?? 0,
             createdAt: r.createdAt ?? 0,
           });
         }

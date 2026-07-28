@@ -182,8 +182,13 @@ export function LibraryPage() {
                 Welcome to {APP_NAME}
               </p>
               <p className="text-xs text-text-secondary">
-                Describe a dish and it writes you a recipe. Below are recipes
-                shared by everyone using {APP_NAME} — browse them, or start your own.
+                Describe a dish and it writes you a recipe. Any recipe — yours or
+                someone else's — can branch into variations, so a recipe grows a
+                tree of versions instead of being overwritten.
+              </p>
+              <p className="text-xs text-text-secondary">
+                Below are recipes shared by everyone using {APP_NAME}. Browse them,
+                or start your own.
               </p>
             </div>
             <Button size="sm" onClick={() => navigate('/create')}>

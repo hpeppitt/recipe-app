@@ -2,7 +2,7 @@ import { db } from './database';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { parseImportedRecipes } from '../lib/import';
-import type { Recipe, RecipeWithChildren, CreatedBy, Collaborator } from '../types/recipe';
+import type { Recipe, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
@@ -40,15 +40,6 @@ export async function getRecipe(id: string): Promise<Recipe | undefined> {
 
 export async function getAllRecipes(): Promise<Recipe[]> {
   return db.recipes.orderBy('createdAt').reverse().toArray();
-}
-
-export async function getCoreRecipes(): Promise<RecipeWithChildren[]> {
-  const all = await getAllRecipes();
-  const cores = all.filter((r) => r.parentId === null);
-  return cores.map((core) => ({
-    ...core,
-    childCount: all.filter((r) => r.rootId === core.id && r.id !== core.id).length,
-  }));
 }
 
 export async function getRecipeChildren(parentId: string): Promise<Recipe[]> {

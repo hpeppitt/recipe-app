@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, collectSubtreeIds } from './tree';
+import { buildTree, collectSubtreeIds, countDescendantsByRoot } from './tree';
 import { makeRecipe } from '../test/factories';
 
 describe('collectSubtreeIds', () => {
@@ -75,5 +75,33 @@ describe('buildTree', () => {
     const tree = buildTree([root, late, early]);
 
     expect(tree?.children.map((c) => c.recipe.id)).toEqual(['early', 'late']);
+  });
+});
+
+describe('countDescendantsByRoot', () => {
+  it('counts a subtree without counting the root itself', () => {
+    const counts = countDescendantsByRoot([
+      { id: 'root', rootId: 'root' },
+      { id: 'a', rootId: 'root' },
+      { id: 'b', rootId: 'root' },
+    ]);
+
+    expect(counts.get('root')).toBe(2);
+  });
+
+  it('does not double-count a recipe present both locally and in the cloud', () => {
+    // The feed merges two stores; the same variation appears in both.
+    const counts = countDescendantsByRoot([
+      { id: 'a', rootId: 'root' },
+      { id: 'a', rootId: 'root' },
+      { id: 'b', rootId: 'root' },
+    ]);
+
+    expect(counts.get('root')).toBe(2);
+  });
+
+  it('reports nothing for a root with no variations', () => {
+    const counts = countDescendantsByRoot([{ id: 'root', rootId: 'root' }]);
+    expect(counts.get('root')).toBeUndefined();
   });
 });
