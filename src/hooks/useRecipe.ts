@@ -21,17 +21,25 @@ export function useRecipe(id: string | undefined) {
   const localSettled = localQuery !== undefined;
   const localRecipe = localQuery?.value;
 
-  const [cloudRecipe, setCloudRecipe] = useState<Recipe | null>(null);
-  const [cloudChecked, setCloudChecked] = useState(false);
-  // A failed lookup used to be reported as "Recipe not found", which tells the
-  // user their link is dead when the network is the actual problem (UI-12).
-  const [cloudError, setCloudError] = useState(false);
+  // Stamped with the id the result belongs to, rather than a bare boolean.
+  // React reuses this component across a param change, so a plain `cloudChecked`
+  // stayed true from the previous recipe for the one render before the reset
+  // effect ran — long enough to flash a confident "Recipe not found" (~69ms,
+  // measured) before the new recipe resolved.
+  const [cloud, setCloud] = useState<{
+    id: string | undefined;
+    recipe: Recipe | null;
+    error: boolean;
+  }>({ id: undefined, recipe: null, error: false });
+
+  // Derived, so a stale result can never be read as this id's answer.
+  const cloudChecked = cloud.id === id;
+  const cloudRecipe = cloudChecked ? cloud.recipe : null;
+  const cloudError = cloudChecked ? cloud.error : false;
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    setCloudRecipe(null);
-    setCloudChecked(false);
-    setCloudError(false);
+    setCloud({ id: undefined, recipe: null, error: false });
   }, [id, reloadKey]);
 
   // Fall back to Firestore only once Dexie has definitively said "not here".
@@ -43,7 +51,7 @@ export function useRecipe(id: string | undefined) {
     // Local-only mode: there is no cloud to consult, so the lookup is complete.
     // Without this the page sat on a loading skeleton forever for a missing recipe.
     if (!isFirebaseConfigured) {
-      setCloudChecked(true);
+      setCloud({ id, recipe: null, error: false });
       return;
     }
 
@@ -60,14 +68,16 @@ export function useRecipe(id: string | undefined) {
         if (cancelled) return;
         if (result === null) {
           console.error('Timed out loading the published recipe');
-          setCloudError(true);
-          setCloudChecked(true);
+          setCloud({ id, recipe: null, error: true });
           return;
         }
         const published = result.published;
         if (published) {
           // Convert SharedRecipe to Recipe-like shape for display
-          setCloudRecipe({
+          setCloud({
+            id,
+            error: false,
+            recipe: {
             ...published,
             parentId: (published as Record<string, unknown>).parentId as string | null ?? null,
             rootId: ((published as Record<string, unknown>).rootId as string) ?? id,
@@ -79,15 +89,16 @@ export function useRecipe(id: string | undefined) {
             chatHistory: [],
             createdAt: ((published as Record<string, unknown>).createdAt as number) ?? 0,
             updatedAt: ((published as Record<string, unknown>).updatedAt as number) ?? 0,
-          } as Recipe);
+            } as Recipe,
+          });
+          return;
         }
-        setCloudChecked(true);
+        setCloud({ id, recipe: null, error: false });
       })
       .catch((err) => {
         if (cancelled) return;
         console.error('Loading the published recipe failed', err);
-        setCloudError(true);
-        setCloudChecked(true);
+        setCloud({ id, recipe: null, error: true });
       });
 
     // Guards a late response landing after the id changed, which the old

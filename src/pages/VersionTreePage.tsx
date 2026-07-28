@@ -3,13 +3,21 @@ import { useRecipeTree } from '../hooks/useRecipeTree';
 import { useRecipe } from '../hooks/useRecipe';
 import { TopBar } from '../components/layout/TopBar';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
 import type { TreeNode } from '../lib/tree';
 
 export function VersionTreePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { recipe } = useRecipe(id);
-  const { tree, isLoading } = useRecipeTree(recipe?.rootId);
+  const { recipe, isLoading: recipeLoading, cloudError, retry } = useRecipe(id);
+  const { tree, isLoading: treeLoading } = useRecipeTree(recipe?.rootId);
+
+  // The recipe's own resolution has to be part of "loading". While it is still
+  // in flight rootId is undefined, so useRecipeTree reports an empty tree
+  // immediately — which is how a still-loading page showed "No tree data found"
+  // for up to the full 6s cloud window.
+  const isLoading = recipeLoading || treeLoading;
 
   if (isLoading) {
     return (
@@ -29,10 +37,44 @@ export function VersionTreePage() {
 
       <main className="flex-1 overflow-auto p-4">
         <div className="max-w-lg mx-auto">
-          {tree ? (
-            <TreeNodeView node={tree} currentId={id} onNavigate={(rid) => navigate(`/recipe/${rid}`)} depth={0} />
+          {/* A failed cloud lookup is not an absent tree. Previously both ended
+              at the same dead-end string, telling the user their recipe had no
+              versions when the network was the actual problem. */}
+          {cloudError ? (
+            <div className="text-center py-8 space-y-3">
+              <EmptyState
+                icon="📡"
+                title="Couldn't load the version tree"
+                description="The shared library is unreachable right now. Your recipe is fine."
+              />
+              <Button variant="secondary" onClick={retry}>
+                Try again
+              </Button>
+            </div>
+          ) : tree ? (
+            <div className="space-y-4">
+              <TreeNodeView node={tree} currentId={id} onNavigate={(rid) => navigate(`/recipe/${rid}`)} depth={0} />
+              {/* The common case is a single card sitting alone with nothing
+                  explaining what this screen is for. Say it, and offer the
+                  action that fills the tree. */}
+              {tree.children.length === 0 && (
+                <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-3 text-center">
+                  <p className="text-sm text-text-secondary">
+                    This recipe has no variations yet. Branch it to try a change —
+                    the original stays exactly as it is.
+                  </p>
+                  <Button size="sm" onClick={() => navigate(`/recipe/${id}/vary`)}>
+                    Create a variation
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : (
-            <p className="text-center text-text-secondary py-8">No tree data found</p>
+            <EmptyState
+              icon="🔍"
+              title="Recipe not found"
+              description="It may have been deleted, or the link may be wrong."
+            />
           )}
         </div>
       </main>

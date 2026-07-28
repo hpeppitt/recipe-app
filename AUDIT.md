@@ -807,11 +807,32 @@ that failure mode entirely, so it is not listed.
       now needs the full local set to compute counts, so keeping it would have left a tested
       function nothing calls. Its describe block went with it; the replacement logic is
       covered by the three new `countDescendantsByRoot` tests.)
-- [ ] **UX-11** Version tree renders the bare string "No tree data found" while the recipe is
+- [x] **UX-11** Version tree renders the bare string "No tree data found" while the recipe is
       still resolving (up to the 6s cloud window) and again as the terminal failure state with
       no retry, though `useRecipe` exposes `cloudError`/`retry`. A single-version tree — the
       common case — is one card floating with no explanation. (`VersionTreePage.tsx:11-12`,
       `:32-36`)
+      (fixed. The page now has four distinct states: skeleton while loading, a cloud-error
+      state with a working Try again wired to `useRecipe`'s `retry`, a genuine "Recipe not
+      found", and the tree. The single-version case gets copy explaining that branching leaves
+      the original untouched, plus a Create a variation button.
+      **Two real bugs sat underneath the cosmetic one, both found by measuring rather than
+      looking.** Replacing the vague string with a confident "Recipe not found" made a
+      pre-existing mid-load flash visible, so I instrumented a MutationObserver and caught it
+      at ~69ms:
+      1. `useRecipe` held `cloudChecked` as a bare boolean. React reuses the component across a
+         param change, so it stayed true from the *previous* recipe for one render. Cloud state
+         is now stamped with the id it belongs to and the flags are derived, so a stale result
+         can never be read as this id's answer.
+      2. The flash survived that fix, which disproved my first diagnosis. The real remaining
+         cause was `useRecipeTree.isLoading`, which only reflected Dexie and ignored its own
+         cloud fetch — so for any recipe not in local Dexie it reported "loaded, empty" while
+         the variations were still in flight. That is the actual mechanism behind the original
+         finding, not just a slow recipe lookup. Its cloud state is now keyed to `rootId` too,
+         and counts toward `isLoading`.
+      Verified: skeleton → tree with no intermediate state, a bogus id still lands on "Recipe
+      not found" rather than hanging, and a multi-variation tree renders without the
+      single-version hint.)
 - [ ] **UX-12** Shared page shows "View only" unconditionally, contradicting the favourite
       and Suggest controls beside it on `/shared/:id`. The genuinely view-only hash link gets
       the same badge with no explanation and no way to save the recipe — the recipient's
