@@ -1403,13 +1403,36 @@ that failure mode entirely, so it is not listed.
       participant (`recipeOwnerId` or `suggestedBy.uid`) with `fromUid == request.auth.uid`, then
       `firebase deploy --only firestore`. Deployment affects the live project, so it is the
       owner's call rather than something to do mid-loop.)
-- [ ] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
+- [x] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing
       profile-row pattern, and routes; the counts cannot become tappable until that destination
       exists. Note `follows` docs already store `followerDisplayName`, so a follower list can
       render without a second read per row.
       (`firestore.ts` follows helpers, `ProfilePage.tsx` StatBox)
+      (fixed. Added `getFollowers` + a `useFollowers` hook; the following list reuses the existing
+      `useFollowingList`, which already fetches profiles. As the finding predicted,
+      `followerDisplayName` is on the follow doc, so the follower list costs one query and no
+      per-row read.
+      **The rules constrain this in a way the finding did not anticipate, and it is deliberate.**
+      `follows` read requires the caller to be one of the two parties, so a user can list their
+      *own* followers and following but not anyone else's. Rather than widen the rules — which
+      would expose everyone's follow graph, a privacy decision that is not mine to make — the
+      counts are tappable only on your own profile and stay inert on a public one. Verified: 0
+      tappable counts on another user's profile.
+      **Inline disclosure instead of new routes.** The finding proposes a list screen; the lists
+      are short and read in context, so tapping a count expands it in place. Less navigation and
+      no new URLs to keep consistent.
+      Also added the missing **following** count — the row previously showed followers only, so
+      half the relationship was invisible even as a number. Sorting is client-side: an
+      `orderBy('createdAt')` would need a composite index, and an index deploy is a worse
+      dependency than sorting a short list.
+      Verified against a real follow: counts read "0 followers / 1 following", the following list
+      showed RusticWaffle, `aria-expanded` toggled, tapping a row navigated to that profile, and
+      the followers branch showed its empty state. Unfollowed afterwards to restore the data.
+      Two of my own lint warnings were removed rather than left to match the file's existing
+      pattern: loading is derived from a uid-stamped state object, so no `setState` runs
+      synchronously in the effect and the exposed list cannot outlive its session.)
 - [ ] **UX-41** Recipe tag markup is duplicated three times, identically:
       `RecipeContent`, `RecipeCardMessage` and `SharedRecipePage` each hand-roll the same
       `px-2 py-0.5 rounded-full` tag pill. UX-30 had to patch all three for dark mode and its

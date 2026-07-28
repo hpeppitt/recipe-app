@@ -585,6 +585,44 @@ export async function getFollowingProfiles(uid: string): Promise<UserProfile[]> 
   return profiles;
 }
 
+/** A follower, as recorded on the follow document itself. */
+export interface FollowerSummary {
+  uid: string;
+  displayName: string | null;
+  createdAt: number;
+}
+
+/**
+ * Who follows `uid`.
+ *
+ * Only ever called for the signed-in user's own profile: the rules allow reading
+ * a follow doc only when the caller is one of its two parties, so another user's
+ * follower graph is deliberately private and this query would be denied for it.
+ *
+ * `followerDisplayName` is stored on the follow doc, so a follower list needs no
+ * second read per row — unlike the following list, which has to fetch profiles
+ * because the doc carries the follower's name rather than the followed user's.
+ *
+ * Sorted client-side. Adding `orderBy('createdAt')` would require a composite
+ * index, and an index deploy is a worse dependency than sorting a short list here.
+ */
+export async function getFollowers(uid: string): Promise<FollowerSummary[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'follows'), where('followingId', '==', uid))
+  );
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as Follow & { followerDisplayName?: string | null };
+      return {
+        uid: data.followerId,
+        displayName: data.followerDisplayName ?? null,
+        createdAt: (data as { createdAt?: number }).createdAt ?? 0,
+      };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export async function getRecipeStats(recipeIds: string[]): Promise<Map<string, { viewCount: number; favoriteCount: number }>> {
   const statsMap = new Map<string, { viewCount: number; favoriteCount: number }>();
   if (!firestore || recipeIds.length === 0) return statsMap;

@@ -6,6 +6,8 @@ import {
   unfollowUser,
   getFollowingIds,
   getFollowingProfiles,
+  getFollowers,
+  type FollowerSummary,
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { trackFollowToggled } from '../services/analytics';
@@ -39,6 +41,48 @@ export function useFollow(targetUid: string | undefined) {
   }, [user, targetUid, following, loading]);
 
   return { isFollowing: following, toggleFollow: toggle, loading };
+}
+
+/**
+ * Followers of the signed-in user.
+ *
+ * Own-profile only, matching the rules: another user's follow graph is not
+ * readable, so there is no `uid` parameter to misuse.
+ */
+export function useFollowers() {
+  const { user } = useAuth();
+  const uid = user?.uid;
+  // One state object stamped with the uid it belongs to. Loading is then derived
+  // rather than set, which keeps every setState inside the async callback instead
+  // of running synchronously in the effect body.
+  const [state, setState] = useState<{
+    uid: string | undefined;
+    followers: FollowerSummary[];
+    error: boolean;
+  }>({ uid: undefined, followers: [], error: false });
+
+  useEffect(() => {
+    if (!uid || !isFirebaseConfigured) return;
+    let cancelled = false;
+    getFollowers(uid)
+      .then((followers) => {
+        if (!cancelled) setState({ uid, followers, error: false });
+      })
+      .catch((err) => {
+        console.error('Loading followers failed', err);
+        if (!cancelled) setState({ uid, followers: [], error: true });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  const settled = state.uid === uid;
+  return {
+    followers: settled ? state.followers : [],
+    isLoading: !!uid && isFirebaseConfigured && !settled,
+    error: settled && state.error,
+  };
 }
 
 export function useFollowingList() {

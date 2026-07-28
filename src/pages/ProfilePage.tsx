@@ -3,7 +3,7 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
-import { useFollow } from '../hooks/useFollow';
+import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
 import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
@@ -15,12 +15,67 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { pluralize } from '../lib/utils';
 
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex-1 text-center">
+/**
+ * A stat, optionally tappable.
+ *
+ * Only tappable where there is something to show. Followers and following are
+ * readable for the signed-in user's own profile; on someone else's the rules
+ * deliberately keep their follow graph private, so those counts stay inert rather
+ * than leading to a denied query.
+ */
+function StatBox({
+  label,
+  value,
+  onClick,
+  expanded,
+}: {
+  label: string;
+  value: number;
+  onClick?: () => void;
+  expanded?: boolean;
+}) {
+  const body = (
+    <>
       <p className="text-lg font-bold text-text-primary">{value}</p>
       <p className="text-xs text-text-tertiary">{label}</p>
-    </div>
+    </>
+  );
+
+  if (!onClick) return <div className="flex-1 text-center">{body}</div>;
+
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={`flex-1 text-center min-h-11 py-1 transition-colors hover:bg-surface-secondary ${
+        expanded ? 'bg-surface-secondary' : ''
+      }`}
+    >
+      {body}
+    </button>
+  );
+}
+
+/** One row in the followers / following list. */
+function PersonRow({
+  uid,
+  displayName,
+  onOpen,
+}: {
+  uid: string;
+  displayName: string | null;
+  onOpen: (uid: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onOpen(uid)}
+      className="w-full min-h-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-secondary transition-colors text-left"
+    >
+      <Avatar uid={uid} name={displayName} size="sm" />
+      <span className="text-sm text-text-primary truncate">
+        {displayName ?? 'Anonymous'}
+      </span>
+    </button>
   );
 }
 
@@ -102,6 +157,12 @@ function OwnProfile() {
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  // Which list, if any, the user has opened from the stat row. Inline disclosure
+  // rather than a new route: it is a short list read in context, and a separate
+  // screen would be more navigation for less.
+  const [openList, setOpenList] = useState<'followers' | 'following' | null>(null);
+  const { followers, isLoading: followersLoading, error: followersError } = useFollowers();
+  const { followingProfiles, isLoading: followingLoading } = useFollowingList();
 
   if (!user) return null;
 
@@ -220,12 +281,76 @@ function OwnProfile() {
           {(recipes.length > 0 ||
             stats.totalViews > 0 ||
             stats.totalFavorites > 0 ||
-            (profile?.followerCount ?? 0) > 0) && (
-            <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-              <StatBox label="recipes" value={recipes.length} />
-              <StatBox label="views" value={stats.totalViews} />
-              <StatBox label="favorites" value={stats.totalFavorites} />
-              <StatBox label="followers" value={profile?.followerCount ?? 0} />
+            (profile?.followerCount ?? 0) > 0 ||
+            followingProfiles.length > 0) && (
+            <div className="space-y-2">
+              <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
+                <StatBox label="recipes" value={recipes.length} />
+                <StatBox label="views" value={stats.totalViews} />
+                <StatBox label="favorites" value={stats.totalFavorites} />
+                <StatBox
+                  label="followers"
+                  value={profile?.followerCount ?? 0}
+                  expanded={openList === 'followers'}
+                  onClick={() =>
+                    setOpenList(openList === 'followers' ? null : 'followers')
+                  }
+                />
+                <StatBox
+                  label="following"
+                  value={profile?.followingCount ?? followingProfiles.length}
+                  expanded={openList === 'following'}
+                  onClick={() =>
+                    setOpenList(openList === 'following' ? null : 'following')
+                  }
+                />
+              </div>
+
+              {openList === 'followers' && (
+                <div className="border border-border rounded-2xl p-2">
+                  {followersLoading ? (
+                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                  ) : followersError ? (
+                    <p className="text-sm text-text-secondary text-center py-3">
+                      Couldn't load your followers.
+                    </p>
+                  ) : followers.length === 0 ? (
+                    <EmptyState compact icon="👤" title="No followers yet" />
+                  ) : (
+                    followers.map((f) => (
+                      <PersonRow
+                        key={f.uid}
+                        uid={f.uid}
+                        displayName={f.displayName}
+                        onOpen={(uid) => navigate(`/profile/${uid}`)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {openList === 'following' && (
+                <div className="border border-border rounded-2xl p-2">
+                  {followingLoading ? (
+                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                  ) : followingProfiles.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon="👥"
+                      title="Not following anyone yet"
+                    />
+                  ) : (
+                    followingProfiles.map((p) => (
+                      <PersonRow
+                        key={p.uid}
+                        uid={p.uid}
+                        displayName={p.displayName}
+                        onOpen={(uid) => navigate(`/profile/${uid}`)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
 
