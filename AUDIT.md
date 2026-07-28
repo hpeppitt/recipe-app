@@ -924,10 +924,30 @@ that failure mode entirely, so it is not listed.
       confirmed on a fresh load that the feed is back to 7 cards and local storage to 0. Note the
       first check looked like the delete had failed — the already-mounted feed was showing cloud
       data fetched before the delete, not a stale document.)
-- [ ] **UX-16** `/recipe/:id/vary` for an uncached parent can leave a permanently dead
+- [x] **UX-16** `/recipe/:id/vary` for an uncached parent can leave a permanently dead
       composer: only `recipe` is destructured, discarding the `isLoading` and `cloudError`
       that `useRecipe` now exposes. Looks functional, does nothing.
       (`RecipeChatPage.tsx:23`, `:243`)
+      (fixed: the page now consumes `isLoading`, `cloudError` and `retry`, and separates the
+      three situations that all looked identical before — parent still loading (spinner),
+      parent lookup failed (explanation + Try again, the only one worth retrying), and parent
+      genuinely gone (explanation + Create a new recipe, since retrying a deleted recipe is
+      pointless).
+      The disabled composer's placeholder was the part that made this look functional: it
+      still invited you to "Describe the modification..." while accepting nothing. It now says
+      why it is inert. Also suppressed the "How would you like to modify this recipe?" prompt
+      while the parent is unresolved, since it contradicted the notice directly above it.
+      Verified all three states at 390px, and the recovery specifically — a fault that clears
+      after one call gave: composer disabled with "The original recipe is unavailable" →
+      Try again → parent rendered, placeholder back to "Describe the modification...",
+      composer enabled.
+      Two self-inflicted stumbles worth noting: a regex meant to inject the test fault landed
+      inside the function's return type and broke the build, and an unconditional `throw` made
+      the rest of the function unreachable, which changed TS narrowing and produced a
+      misleading type error. Both were my test scaffolding, not the fix; the second was solved
+      by making the throw conditional. An earlier attempt also appeared to show Try again
+      missing, when in fact HMR had already re-run the lookup and recovered on its own — the
+      button was gone because it was no longer needed.)
 - [ ] **UX-17** Saving gives no confirmation, and a failed cloud publish is console-only, so
       the recipe is local while the user believes it is shared. A toast pattern already exists.
       (`useRecipeChat.ts:246-253`, `RecipeDetailPage.tsx:448-461`)

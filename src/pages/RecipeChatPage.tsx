@@ -11,6 +11,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
+import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SUGGESTION_CHIPS } from '../lib/constants';
 import { queryWords } from '../lib/search';
@@ -49,7 +50,14 @@ export function RecipeChatPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isVarying = !!id;
-  const { recipe: parentRecipe } = useRecipe(id);
+  // isLoading/cloudError were being discarded, so a parent that never arrived
+  // left a composer that looked usable, accepted no input, and said nothing.
+  const {
+    recipe: parentRecipe,
+    isLoading: parentLoading,
+    cloudError: parentCloudError,
+    retry: retryParent,
+  } = useRecipe(id);
   const {
     messages,
     isLoading,
@@ -127,6 +135,44 @@ export function RecipeChatPage() {
             </div>
           )}
 
+          {/* Why the composer is inert. Each of these three is a distinct
+              situation and only one of them is worth retrying. */}
+          {isVarying && !parentRecipe && parentLoading && (
+            <div className="flex items-center gap-3 border border-border rounded-2xl p-4">
+              <Spinner size="sm" />
+              <p className="text-sm text-text-secondary">Loading the original recipe...</p>
+            </div>
+          )}
+
+          {isVarying && !parentRecipe && !parentLoading && parentCloudError && (
+            <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-2">
+              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+                Couldn't load the original recipe
+              </p>
+              <p className="text-xs text-warning-700 dark:text-warning-300">
+                A variation needs it as a starting point, so this can't continue until it
+                loads. Your connection may be the problem.
+              </p>
+              <Button size="sm" variant="secondary" onClick={retryParent}>
+                Try again
+              </Button>
+            </div>
+          )}
+
+          {isVarying && !parentRecipe && !parentLoading && !parentCloudError && (
+            <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-2">
+              <p className="text-sm font-medium text-text-primary">
+                That recipe no longer exists
+              </p>
+              <p className="text-xs text-text-secondary">
+                It may have been deleted. You can still start a brand-new recipe instead.
+              </p>
+              <Button size="sm" variant="secondary" onClick={() => navigate('/create')}>
+                Create a new recipe
+              </Button>
+            </div>
+          )}
+
           {/* Parent recipe context for variations */}
           {isVarying && parentRecipe && (
             <div className="border border-border rounded-2xl overflow-hidden">
@@ -168,7 +214,7 @@ export function RecipeChatPage() {
             </div>
           )}
 
-          {messages.length === 0 && isVarying && (
+          {messages.length === 0 && isVarying && parentRecipe && (
             <div className="py-8 text-center">
               <p className="text-text-secondary text-sm">
                 How would you like to modify this recipe?
@@ -344,9 +390,15 @@ export function RecipeChatPage() {
         placeholder={
           generationUnavailable
             ? 'Recipe generation is unavailable'
-            : isVarying
-              ? 'Describe the modification...'
-              : 'Describe what you want to cook...'
+            : // A disabled composer inviting you to "describe the modification"
+              // is the part that made this look functional while doing nothing.
+              isVarying && !parentRecipe
+              ? parentLoading
+                ? 'Loading the original recipe...'
+                : 'The original recipe is unavailable'
+              : isVarying
+                ? 'Describe the modification...'
+                : 'Describe what you want to cook...'
         }
       />
 
