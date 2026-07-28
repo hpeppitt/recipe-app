@@ -855,11 +855,33 @@ that failure mode entirely, so it is not listed.
       Cleaned up the 3 stray copies the failed attempt wrote to local Dexie, and the 1 from the
       passing run; local recipe count back to 0. Verified `/shared/:id` shows no badge and
       keeps both actions.)
-- [ ] **UX-13** The dedup panel omits the product's whole point: it offers "open this one" or
+- [x] **UX-13** The dedup panel omits the product's whole point: it offers "open this one" or
       "create anyway" but not "make a variation of this". It also runs behind a
       "Generating recipe..." indicator, so it breaks a promise it just made, gives no reason
       for each match, and discards the typed prompt if a match is tapped.
       (`RecipeChatPage.tsx:166-218`, `TypingIndicator.tsx:9`)
+      (fixed all four.
+      **Branch from this** added per match, alongside Open. The only choices had been abandon
+      your idea or duplicate an existing recipe — branching, the product's whole premise, was
+      absent from the one screen where it is most obviously the right answer.
+      **Indicator**: the hook now reports which of its two waits is running, so the dedup
+      search says "Checking for similar recipes..." instead of announcing generation that had
+      not started and that the panel then contradicted. Measured: only the checking label
+      appears during dedup.
+      **Reason per match**: each row lists the query words it actually shares, e.g. "Matches:
+      pressure, cooker, brown, rice", rather than asserting similarity and leaving the user to
+      guess.
+      **Typed prompt preserved**: Branch carries `pendingQuery` into the variation composer, so
+      choosing a match no longer throws away what you wrote.
+      **A latent bug surfaced while verifying that last part, and the first fix silently did
+      nothing.** The composer came up empty: `initialValue` is only read at mount, and
+      navigating /create -> /recipe/:id/vary keeps RecipeChatPage — and its ChatInput —
+      mounted. My first attempt synced it with an effect; lint correctly objected that this is
+      a cascading-render antipattern, so it is now a `key` on the seed, which is the idiomatic
+      remount. Re-measured: composer arrives holding the typed prompt.
+      Worth noting UX-6's approve-to-variation path was unaffected, because it navigates from
+      RecipeDetailPage and so mounts the page fresh — the bug only existed on the route that
+      stays within the same component.)
 
 ## Medium severity
 

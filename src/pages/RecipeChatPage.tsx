@@ -13,8 +13,22 @@ import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SUGGESTION_CHIPS } from '../lib/constants';
+import { queryWords } from '../lib/search';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
+
+/**
+ * The query words this match actually shares, so the panel can say why it is
+ * showing you something instead of just asserting similarity.
+ */
+function matchedWords(
+  query: string | null,
+  recipe: { title: string; description: string }
+): string[] {
+  if (!query) return [];
+  const haystack = `${recipe.title} ${recipe.description}`.toLowerCase();
+  return queryWords(query).filter((w) => haystack.includes(w));
+}
 
 export function RecipeChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +43,8 @@ export function RecipeChatPage() {
     generationUnavailable,
     latestRecipe,
     similarRecipes,
+    loadingPhase,
+    pendingQuery,
     sendMessage,
     dismissSimilar,
     saveRecipe,
@@ -171,41 +187,71 @@ export function RecipeChatPage() {
                     : 'Similar recipes already exist'}
                 </p>
                 <p className="text-xs text-text-tertiary">
-                  Would you like to use one of these instead?
+                  Open one, branch a new version from it, or carry on with yours.
                 </p>
               </div>
               <div className="space-y-2">
-                {similarRecipes.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => navigate(`/recipe/${r.id}`)}
-                    className="w-full text-left bg-surface rounded-xl border border-border p-3 hover:border-border-strong transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl" aria-hidden="true">{r.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-text-primary truncate">
-                          {r.title}
-                        </p>
-                        <p className="text-xs text-text-tertiary line-clamp-1">
-                          {r.description}
-                        </p>
-                        {r.cloudOrigin && (
-                          <p className="text-xs text-text-secondary mt-0.5">
-                            {r.cloudOrigin.isOwn
-                              ? 'Your recipe, not on this device'
-                              : r.cloudOrigin.creatorName
-                                ? `Shared library, by ${r.cloudOrigin.creatorName}`
-                                : 'In the shared library'}
+                {similarRecipes.map((r) => {
+                  const matched = matchedWords(pendingQuery, r);
+                  return (
+                    <div
+                      key={r.id}
+                      className="bg-surface rounded-xl border border-border p-3 space-y-2"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl" aria-hidden="true">{r.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-text-primary truncate">
+                            {r.title}
                           </p>
-                        )}
+                          <p className="text-xs text-text-tertiary line-clamp-1">
+                            {r.description}
+                          </p>
+                          {/* Why this was surfaced. Without it the panel asserts
+                              similarity and leaves the user to guess at it. */}
+                          {matched.length > 0 && (
+                            <p className="text-xs text-text-secondary mt-0.5">
+                              Matches: {matched.join(', ')}
+                            </p>
+                          )}
+                          {r.cloudOrigin && (
+                            <p className="text-xs text-text-secondary mt-0.5">
+                              {r.cloudOrigin.isOwn
+                                ? 'Your recipe, not on this device'
+                                : r.cloudOrigin.creatorName
+                                  ? `Shared library, by ${r.cloudOrigin.creatorName}`
+                                  : 'In the shared library'}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <svg className="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                      </svg>
+                      {/* Branching is the whole point of the app and the panel
+                          did not offer it — the only choices were abandon your
+                          idea or duplicate an existing recipe. Carrying
+                          pendingQuery through means the typed prompt is not lost
+                          either way. */}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => navigate(`/recipe/${r.id}`)}
+                        >
+                          Open
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/recipe/${r.id}/vary`, {
+                              state: { suggestion: pendingQuery ?? '' },
+                            })
+                          }
+                        >
+                          Branch from this
+                        </Button>
+                      </div>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 fullWidth
@@ -217,7 +263,15 @@ export function RecipeChatPage() {
             </div>
           )}
 
-          {isLoading && <TypingIndicator />}
+          {isLoading && (
+            <TypingIndicator
+              label={
+                loadingPhase === 'checking'
+                  ? 'Checking for similar recipes...'
+                  : 'Generating recipe...'
+              }
+            />
+          )}
 
           {error && (
             <div className="bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 text-sm px-4 py-3 rounded-xl space-y-2">
@@ -238,6 +292,11 @@ export function RecipeChatPage() {
       </main>
 
       <ChatInput
+        // Keyed on the seed so a seed arriving with a new route actually reaches
+        // the composer. Navigating /create -> /recipe/:id/vary keeps this page
+        // mounted, so without the remount `initialValue` was read once at mount
+        // and the carried-over prompt was silently dropped.
+        key={suggestionSeed}
         onSend={sendMessage}
         initialValue={suggestionSeed}
         disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}

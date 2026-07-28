@@ -108,6 +108,10 @@ async function searchSimilarVariations(
 export function useRecipeChat(parentRecipe?: Recipe) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // Which of the two waits is in progress. They were indistinguishable, so the
+  // dedup search sat behind a "Generating recipe..." indicator — announcing work
+  // that had not started, and that the panel then contradicted.
+  const [loadingPhase, setLoadingPhase] = useState<'checking' | 'generating' | null>(null);
   const [error, setError] = useState<FriendlyError | null>(null);
   const [latestRecipe, setLatestRecipe] = useState<GeneratedRecipe | null>(null);
   const [similarRecipes, setSimilarRecipes] = useState<SimilarRecipe[]>([]);
@@ -144,6 +148,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       setSimilarRecipes([]);
       setPendingQuery(null);
       setIsLoading(true);
+      setLoadingPhase('generating');
 
       try {
         if (!chatRef.current) {
@@ -170,6 +175,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         setError(describeGenerationError(err));
       } finally {
         setIsLoading(false);
+        setLoadingPhase(null);
         generatingRef.current = false;
       }
     },
@@ -197,6 +203,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
           // Covers the cloud round trip: disables the input and shows the
           // typing indicator instead of leaving the chat looking idle.
           setIsLoading(true);
+          setLoadingPhase('checking');
           try {
             const matches = parentRecipe
               ? await searchSimilarVariations(parentRecipe, text, user?.uid)
@@ -211,6 +218,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
             // Search failed — proceed to generation
           } finally {
             setIsLoading(false);
+            setLoadingPhase(null);
           }
         }
 
@@ -289,6 +297,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     generationUnavailable: !isFirebaseConfigured,
     latestRecipe,
     similarRecipes,
+    loadingPhase,
+    /** The prompt that produced the current matches, so the UI can carry it forward. */
+    pendingQuery,
     sendMessage,
     dismissSimilar,
     saveRecipe,

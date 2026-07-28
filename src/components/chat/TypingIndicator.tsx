@@ -1,4 +1,9 @@
-export function TypingIndicator() {
+interface TypingIndicatorProps {
+  /** What is actually happening. Defaults to generation, the longer wait. */
+  label?: string;
+}
+
+export function TypingIndicator({ label = 'Generating recipe...' }: TypingIndicatorProps) {
   return (
     <div className="flex items-center gap-1 px-4 py-3">
       <div className="flex gap-1">
@@ -6,7 +11,7 @@ export function TypingIndicator() {
         <span className="w-2 h-2 bg-text-tertiary rounded-full animate-bounce [animation-delay:150ms]" />
         <span className="w-2 h-2 bg-text-tertiary rounded-full animate-bounce [animation-delay:300ms]" />
       </div>
-      <span className="text-xs text-text-tertiary ml-2">Generating recipe...</span>
+      <span className="text-xs text-text-tertiary ml-2">{label}</span>
     </div>
   );
 }
