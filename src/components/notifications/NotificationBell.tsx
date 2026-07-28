@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Avatar } from '../ui/Avatar';
+import { Spinner } from '../ui/Spinner';
 import { timeAgo } from '../../lib/utils';
 
 // Keyed maps rather than a growing ternary chain: four types made the inline
@@ -24,7 +25,8 @@ const NOTIF_VERBS: Record<string, string> = {
 };
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, isLoading, error, markRead, markAllRead } =
+    useNotifications();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -79,7 +81,7 @@ export function NotificationBell() {
         {/* Badge is positioned against the 20px icon, not the 44px hit area, so
             the larger touch target doesn't push it out to the corner. */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-danger-600 text-white text-[10px] font-bold px-1">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -105,7 +107,23 @@ export function NotificationBell() {
             )}
           </div>
 
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <div className="px-4 py-8 flex items-center justify-center gap-3">
+              <Spinner size="sm" />
+              <span className="text-sm text-text-tertiary">Loading...</span>
+            </div>
+          ) : error ? (
+            // Distinct from empty: "nothing here" and "we couldn't check" are
+            // very different messages to send a creator.
+            <div className="px-4 py-6 text-center space-y-1">
+              <p className="text-sm font-medium text-text-primary">
+                Couldn't load notifications
+              </p>
+              <p className="text-xs text-text-secondary">
+                The connection failed. Reopen this to try again.
+              </p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-text-tertiary">
               No notifications yet
             </div>

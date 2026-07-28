@@ -11,17 +11,34 @@ export function useNotifications() {
   const { user, isConfigured } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  // The panel had no way to tell "waiting for the first snapshot" from "there is
+  // nothing here", so it showed the empty state during startup and after a
+  // failure alike.
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!isConfigured || !user) {
       setNotifications([]);
       setUnreadCount(0);
+      setIsLoading(false);
+      setError(false);
       return;
     }
-    return subscribeNotifications(user.uid, (notifs) => {
-      setNotifications(notifs);
-      setUnreadCount(notifs.filter((n) => !n.read).length);
-    });
+    setIsLoading(true);
+    setError(false);
+    return subscribeNotifications(
+      user.uid,
+      (notifs) => {
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.read).length);
+        setIsLoading(false);
+      },
+      () => {
+        setError(true);
+        setIsLoading(false);
+      }
+    );
   }, [isConfigured, user?.uid]);
 
   const markRead = useCallback(
@@ -37,5 +54,5 @@ export function useNotifications() {
     await markAllNotificationsRead(uid);
   }, [uid]);
 
-  return { notifications, unreadCount, markRead, markAllRead };
+  return { notifications, unreadCount, isLoading, error, markRead, markAllRead };
 }

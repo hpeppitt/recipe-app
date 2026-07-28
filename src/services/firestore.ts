@@ -399,7 +399,9 @@ export async function updateSuggestionStatus(
 
 export function subscribeNotifications(
   uid: string,
-  callback: (notifications: AppNotification[]) => void
+  callback: (notifications: AppNotification[]) => void,
+  /** Called if the subscription fails, e.g. a missing index or denied read. */
+  onError?: (err: Error) => void
 ): () => void {
   if (!firestore) return () => {};
   const q = query(
@@ -408,11 +410,20 @@ export function subscribeNotifications(
     orderBy('createdAt', 'desc'),
     limit(50)
   );
-  return onSnapshot(q, (snap) => {
-    callback(
-      snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification)
-    );
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      callback(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification)
+      );
+    },
+    // Without this, a failed subscription was silent and the panel sat on its
+    // empty state, which reads as "nobody has interacted with your recipes".
+    (err) => {
+      console.error('Notification subscription failed', err);
+      onError?.(err);
+    }
+  );
 }
 
 export async function markNotificationRead(

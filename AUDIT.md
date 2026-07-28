@@ -1151,10 +1151,26 @@ that failure mode entirely, so it is not listed.
       **Deferred as UX-40: tappable counts and the follower list.** Those need a `follows`
       query by `followingId`, a new list screen and routing — a feature, not a fix, and the
       counts cannot become tappable before the destination exists.)
-- [ ] **UX-25** Notifications: no `isLoading`, so "No notifications yet" shows during the
+- [x] **UX-25** Notifications: no `isLoading`, so "No notifications yet" shows during the
       initial subscription and a failure reads as "nobody cares"; unread count is visual-only;
       badge uses raw `bg-red-500` instead of the danger token.
       (`useNotifications.ts:10-25`, `NotificationBell.tsx:45`, `:62-66`)
+      (fixed. `useNotifications` gained `isLoading` and `error`; the panel now has three distinct
+      states plus the list, so waiting, failing and genuinely-empty no longer look identical.
+      Getting the error at all required a change one layer down: `subscribeNotifications` called
+      `onSnapshot` with no error callback, so a failed subscription was **completely silent** —
+      not merely unstyled. It now takes an optional `onError` and logs.
+      The empty state mattering here is specific: for a creator, "nothing here" and "we couldn't
+      check" are very different messages, and showing the former on failure tells them nobody
+      cares about their recipes.
+      Badge now uses `bg-danger-600`; a repo-wide grep confirms no raw `bg-red-500` remains.
+      **Unread count was already non-visual** — UI-14 put it in the button's `aria-label`
+      ("Notifications, 1 unread"), verified again here. That third of the finding was already
+      done and needed no change.
+      Verified all four states. The real subscription resolves from Firestore's local cache too
+      fast to catch the loading state by racing it, so loading and error were forced via a
+      temporary switch: loading shows a spinner and **not** the empty state, error shows its own
+      message with neither empty nor loading, and the normal path still lists notifications.)
 - [ ] **UX-26** Settings is incoherent once the API key field goes — a theme toggle, three
       data buttons and a hardcoded "v1.0", with no mention of the signed-in account. Proposed
       IA: Account (identity, anonymous warning + upgrade, sign out) / Appearance / Data. Also
