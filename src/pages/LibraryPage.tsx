@@ -15,6 +15,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { APP_NAME } from '../lib/constants';
+import { pluralize } from '../lib/utils';
 
 type Filter = 'all' | 'mine' | 'favorites' | 'following' | string; // string = specific uid
 
@@ -105,16 +106,31 @@ export function LibraryPage() {
           </button>
         </div>
         <div className="px-4 pb-3 space-y-2">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search recipes..."
-            // Placeholder text is not an accessible name: it disappears on input
-            // and some screen readers never announce it.
-            aria-label="Search recipes"
-            className="w-full px-3 py-2.5 min-h-11 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
+          <div className="relative">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search recipes and ingredients..."
+              // Placeholder text is not an accessible name: it disappears on input
+              // and some screen readers never announce it.
+              aria-label="Search recipes and ingredients"
+              className="w-full px-3 py-2.5 pr-11 min-h-11 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            {/* type="search" gives a native clear affordance in some browsers and
+                none at all in others, so it cannot be relied on. */}
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-0 top-0 h-full w-11 flex items-center justify-center text-text-tertiary hover:text-text-primary"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Favourites are keyed by uid, so with no signed-in user the filter
                 is permanently empty — don't offer it at all (FUN-16). */}
@@ -196,6 +212,14 @@ export function LibraryPage() {
           </div>
         )}
 
+        {/* A count confirms the search did something, and how much. Without it a
+            filtered list is indistinguishable from a short library. */}
+        {search && !displayLoading && displayRecipes && (
+          <p role="status" className="text-xs text-text-tertiary">
+            {displayRecipes.length} {pluralize(displayRecipes.length, 'result')} for "{search}"
+          </p>
+        )}
+
         {/* Names the list once the intro is gone, so "All" is never mistaken
             for "mine". Only meaningful when the shared library is reachable. */}
         {!isFirstRun && !showFollowing && filter === 'all' && !search && !cloudError && (
@@ -270,11 +294,18 @@ export function LibraryPage() {
             description="Tap the heart on a recipe to add it to your favorites"
           />
         ) : search ? (
-          <EmptyState
-            icon="🔍"
-            title="No results"
-            description={`No recipes matching "${search}"`}
-          />
+          // Previously a dead end: the only escape was selecting the field and
+          // deleting the text.
+          <div className="space-y-3 text-center">
+            <EmptyState
+              icon="🔍"
+              title="No results"
+              description={`Nothing matches "${search}" in titles, ingredients or tags.`}
+            />
+            <Button variant="secondary" onClick={() => setSearch('')}>
+              Clear search
+            </Button>
+          </div>
         ) : cloudError ? (
           // The banner above already explains why the list is empty. Claiming
           // "No recipes yet" here would contradict it and blame the user for a

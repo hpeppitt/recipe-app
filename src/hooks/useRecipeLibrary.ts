@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getAllRecipes } from '../db/recipes';
 import { countDescendantsByRoot } from '../lib/tree';
+import { recipeHaystack } from '../lib/search';
 import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
@@ -21,6 +22,11 @@ interface FeedRecipe {
   totalTime: number;
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  /**
+   * Carried purely so search can match them. Searching "chicken" and missing
+   * every recipe full of chicken is the opposite of what a recipe app should do.
+   */
+  ingredients: { name: string }[];
   createdBy: { uid: string; displayName: string | null };
   childCount: number;
   createdAt: number;
@@ -90,6 +96,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
           totalTime: r.totalTime,
           difficulty: r.difficulty,
           tags: r.tags,
+          ingredients: r.ingredients ?? [],
           createdBy: r.createdBy,
           childCount: childCounts.get(r.id) ?? 0,
           createdAt: r.createdAt,
@@ -113,6 +120,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
             totalTime: r.totalTime,
             difficulty: r.difficulty,
             tags: r.tags,
+            ingredients: r.ingredients ?? [],
             createdBy: r.createdBy,
             childCount: childCounts.get(r.id) ?? 0,
             createdAt: r.createdAt ?? 0,
@@ -134,12 +142,10 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      // Same haystack the dedup check uses, so "already exists" and "I can find
+      // it" cannot disagree about what a recipe contains. Adds ingredients,
+      // which title/description/tags alone were missing.
+      result = result.filter((r) => recipeHaystack(r).toLowerCase().includes(q));
     }
     return result;
   }, [merged, favoriteIds, searchQuery]);

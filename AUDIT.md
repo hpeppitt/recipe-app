@@ -1320,11 +1320,26 @@ that failure mode entirely, so it is not listed.
       "Sign in with Email" and typing an address is the only remaining action, so the keyboard
       appearing is the desired outcome rather than an obstruction. The distinction is whether
       there is still content to read.)
-- [ ] **UX-33** Library search matches title, description and tags but NOT ingredients, so
+- [x] **UX-33** Library search matches title, description and tags but NOT ingredients, so
       searching "chicken" misses recipes full of it — the opposite of what a recipe app user
       expects. Also no label, no clear button, no result count, and the no-results state
       offers no way to clear the query. (`useRecipeLibrary.ts:123-131`,
       `LibraryPage.tsx:86-92`, `:215-220`)
+      (fixed. **Ingredients**: search now runs over `recipeHaystack` — the same haystack the dedup
+      check already used — rather than a second hand-written field list. That is deliberate: with
+      two lists, "this already exists" and "I can find it" could disagree about what a recipe
+      contains. Required carrying `ingredients` on `FeedRecipe`, which did not have them.
+      Measured before and after on the live library: "garlic" returned **0 results before, 1
+      after** (Pork and Beef Bolognese, whose title and description contain no "garlic"), so the
+      ingredient path is genuinely doing the work rather than the term happening to appear
+      elsewhere.
+      **Clear button** added rather than relying on `type="search"`, whose native clear affordance
+      exists in some browsers and not others. **Result count** as a `role="status"` line, since a
+      filtered list is otherwise indistinguishable from a short library. **No-results** gained a
+      Clear search button — it was previously a dead end whose only escape was selecting the field
+      and deleting the text. Both clear paths verified to restore all 7 recipes.
+      The label was already present (added in UI-14); updated its wording to mention ingredients,
+      since the placeholder now promises them.)
 - [ ] **UX-34** A new user's profile leads with a row of four zeros, and `pluralize` makes the
       labels twitch as counts cross 1 while "views" never pluralizes.
       (`ProfilePage.tsx:197-202`)
