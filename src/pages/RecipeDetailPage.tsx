@@ -535,7 +535,10 @@ export function RecipeDetailPage() {
         </div>
       </main>
 
-      <div className="sticky bottom-0 p-4 bg-surface border-t border-border">
+      {/* Not sticky. Branching or suggesting is a before/after action, and pinning
+          it cost ~72px of the one screen people read while their hands are busy.
+          At the end of the recipe is also where the decision actually happens. */}
+      <div className="p-4 border-t border-border">
         <div className="max-w-lg mx-auto space-y-2">
           {/* Suggesting a change used to exist only on /shared/:id, so anyone who
               reached another user's recipe through the library never saw it.

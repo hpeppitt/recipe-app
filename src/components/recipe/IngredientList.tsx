@@ -1,11 +1,28 @@
+import { useState } from 'react';
 import type { Ingredient } from '../../types/recipe';
 
 interface IngredientListProps {
   ingredients: Ingredient[];
+  /**
+   * Cook-along mode: each row becomes a tick-off target. Off in the chat preview
+   * card, where the recipe is a proposal rather than something being cooked.
+   */
+  checkable?: boolean;
 }
 
-export function IngredientList({ ingredients }: IngredientListProps) {
+export function IngredientList({ ingredients, checkable = false }: IngredientListProps) {
   const groups = groupIngredients(ingredients);
+  // Deliberately not persisted. A tick means "I have this out on the counter
+  // right now"; restoring yesterday's ticks would be actively misleading.
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  const toggle = (key: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="space-y-4">
@@ -15,22 +32,46 @@ export function IngredientList({ ingredients }: IngredientListProps) {
           {group && (
             <h4 className="text-sm font-medium text-text-secondary mb-2">{group}</h4>
           )}
-          <ul className="space-y-1.5">
-            {items.map((ing, i) => (
-              <li key={i} className="flex gap-2 text-sm">
-                <span className="text-primary-500 mt-0.5">•</span>
-                <span>
+          <ul className={checkable ? 'space-y-0.5' : 'space-y-1.5'}>
+            {items.map((ing, i) => {
+              const key = `${group ?? ''}-${i}`;
+              const isChecked = checked.has(key);
+              // text-base, not text-sm: this is read at arm's length on a
+              // counter, which is the one place 14px is least defensible.
+              const body = (
+                <span className={isChecked ? 'line-through opacity-60' : undefined}>
                   {ing.amount != null && (
                     <span className="font-medium">{formatAmount(ing.amount)}</span>
                   )}{' '}
                   {ing.unit && <span>{ing.unit}</span>}{' '}
                   <span className="text-text-primary">{ing.name}</span>
-                  {ing.notes && (
-                    <span className="text-text-tertiary">, {ing.notes}</span>
-                  )}
+                  {ing.notes && <span className="text-text-tertiary">, {ing.notes}</span>}
                 </span>
-              </li>
-            ))}
+              );
+
+              if (!checkable) {
+                return (
+                  <li key={i} className="flex gap-2 text-base">
+                    <span className="text-primary-500 mt-0.5">•</span>
+                    {body}
+                  </li>
+                );
+              }
+
+              return (
+                <li key={i} className="text-base">
+                  <label className="flex gap-3 items-start min-h-11 py-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggle(key)}
+                      className="mt-1 w-5 h-5 flex-shrink-0 accent-primary-600"
+                    />
+                    {body}
+                  </label>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}

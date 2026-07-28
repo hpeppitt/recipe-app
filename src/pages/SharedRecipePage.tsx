@@ -281,8 +281,8 @@ export function SharedRecipePage() {
             difficulty={recipe.difficulty}
           />
 
-          <IngredientList ingredients={recipe.ingredients} />
-          <InstructionList instructions={recipe.instructions} />
+          <IngredientList ingredients={recipe.ingredients} checkable />
+          <InstructionList instructions={recipe.instructions} checkable />
 
           {recipe.notes.length > 0 && (
             <div className="space-y-2">

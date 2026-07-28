@@ -31,8 +31,10 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
         difficulty={recipe.difficulty}
       />
 
-      <IngredientList ingredients={recipe.ingredients} />
-      <InstructionList instructions={recipe.instructions} />
+      {/* Cook-along ticks only on the full view. In the collapsed parent-recipe
+          preview the recipe is context, not something being cooked. */}
+      <IngredientList ingredients={recipe.ingredients} checkable={!compact} />
+      <InstructionList instructions={recipe.instructions} checkable={!compact} />
 
       {recipe.notes.length > 0 && (
         <div className="space-y-2">

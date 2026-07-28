@@ -1067,10 +1067,26 @@ that failure mode entirely, so it is not listed.
       symptom described.
       Removed the old hooks rather than leaving them: the page was their only caller, so keeping
       them would have left Dexie-only lineage available to be wired up again by mistake.)
-- [ ] **UX-22** Cooking ergonomics: instructions and ingredients are `text-sm` (14px) — the
+- [x] **UX-22** Cooking ergonomics: instructions and ingredients are `text-sm` (14px) — the
       one screen where type size matters most — with no way to check off a gathered
       ingredient or completed step, and a sticky footer eating ~72px for a CTA nobody needs
       mid-cook. (`InstructionList.tsx:20-24`, `IngredientList.tsx:20-31`)
+      (fixed all three. Type is now `text-base`; measured 16px for both lists, up from 14px.
+      **Tick-off is opt-in via a `checkable` prop, not unconditional.** These components are also
+      used by the chat preview card and the collapsed parent-recipe preview, where the recipe is
+      a proposal or context rather than something being cooked — checkboxes there would be
+      furniture. Verified the compact preview renders 0 checkboxes and 0 step buttons while still
+      listing ingredients.
+      Ingredient rows are 44px labels (measured) so the whole row is the target, not just the
+      box. For steps the existing numbered circle *becomes* the target and flips to a filled
+      ✓ — cooking adds no new controls to an already busy screen; measured 56px, `aria-pressed`
+      toggles correctly.
+      **State is deliberately session-only and not persisted.** A tick means "this is out on the
+      counter right now"; restoring yesterday's ticks would actively mislead someone starting the
+      same recipe again. That is a real decision, not an omission.
+      Footer un-stuck, reclaiming ~72px. Branching or suggesting is a before/after action, and
+      the end of the recipe is where that decision actually gets made. Verified the wrapper is
+      now `position: static` and no longer occupies the viewport while reading.)
 - [ ] **UX-23** A profile fetch failure renders "User not found" with no retry, so a dropped
       connection is indistinguishable from a deleted account — the same class UI-12 fixed
       elsewhere. (`ProfilePage.tsx:275-284`, `useProfile.ts:68-71`)
