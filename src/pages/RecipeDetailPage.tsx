@@ -508,7 +508,7 @@ export function RecipeDetailPage() {
                     e.stopPropagation();
                     navigate(`/profile/${recipe.createdBy.uid}`);
                   }}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  className="min-h-11 flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <p className="text-xs text-text-tertiary">

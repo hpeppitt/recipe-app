@@ -22,9 +22,12 @@ export function Button({
         'inline-flex items-center justify-center font-medium rounded-xl transition-all active:scale-[0.98]',
         'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
         'disabled:opacity-50 disabled:pointer-events-none',
-        size === 'sm' && 'text-sm px-3 py-1.5',
-        size === 'md' && 'text-sm px-4 py-2.5',
-        size === 'lg' && 'text-base px-6 py-3',
+        // 44px floor on every size. sm is used for standalone actions (Save,
+        // Add Email, Try again), not only as an inline adornment, so a 32px
+        // version of it was a real target failure rather than a density choice.
+        size === 'sm' && 'text-sm px-3 py-1.5 min-h-11',
+        size === 'md' && 'text-sm px-4 py-2.5 min-h-11',
+        size === 'lg' && 'text-base px-6 py-3 min-h-11',
         variant === 'primary' && 'bg-primary-600 text-white hover:bg-primary-700',
         variant === 'secondary' && 'bg-surface-tertiary text-text-primary hover:bg-border',
         variant === 'danger' && 'bg-danger-600 text-white hover:bg-danger-500',

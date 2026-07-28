@@ -1220,12 +1220,35 @@ that failure mode entirely, so it is not listed.
       stronger signal for an active filter — and safe to change because `active` had no existing
       consumer. Added `aria-pressed` so a filter's state is not colour-only. Verified toggling
       All → Favorites swaps both the background and `aria-pressed`.)
-- [ ] **UX-28** Touch targets still under 44px outside the areas UI-10 fixed: library header
+- [x] **UX-28** Touch targets still under 44px outside the areas UI-10 fixed: library header
       icons (~26-30px) and the scrolling filter row, `Button size="sm"` (~30px) used for
       standalone account actions, Show/Hide, Mark all read, theme buttons, AvatarEditor's
       32px emoji cells and 28px swatches, shared-page favourite (~32px), breadcrumb links.
       (`LibraryPage.tsx:53-57`, `Button.tsx:25`, `SharedRecipePage.tsx:177-181`,
       `LineageBreadcrumb.tsx:16-21`)
+      (fixed by measuring every interactive element on every screen rather than working from the
+      list, which turned out to be incomplete. Measured before: Profile icon 28px, Settings 32px,
+      search input 38px, filter chips 32px, `Button size="sm"` 32px, breadcrumb links ~20px,
+      emoji cells 32px, swatches 28px, credit links 20px. All now >=44px, verified per screen.
+      **The list missed things, and one of them was mine.** `SegmentedControl` — which I had
+      created one finding earlier for UX-27 — shipped at 40px (page) and 32px (compact), so the
+      component built to remove duplication reproduced the very defect this finding is about.
+      Also missing from the list: the "Added by" credit links on both the detail and shared pages
+      (20px, two separate copies).
+      **A first approach was wrong and is worth recording.** I added a `.touch-target` utility
+      expanding the hit area with an overlaid `::after`, keeping small controls visually compact.
+      It measured correctly — 44px — but a click 5px above a filter chip hit the parent row, not
+      the chip. The filter row is `overflow-x-auto`, which clips the overlay, and the card's
+      creator link is `truncate` (`overflow: hidden`), which clips its own. **A measurable target
+      that is not clickable is worse than a small one**, because it passes an audit while failing
+      the user. Removed the utility entirely and used explicit `min-h-11`, then re-verified by
+      hit-testing at a chip's true top edge.
+      Audit note: an `<input>` inside a >=44px `<label>` is already full-size — the ingredient
+      checkboxes read as 20px until the measurement accounted for their label wrapper.
+      **One documented exception**: the in-card creator link is 32px, up from 20px. A 44px target
+      inside the card's dense metadata row would inflate every card. 32px clears WCAG 2.2 SC
+      2.5.8 (AA, 24x24), it is a secondary link, and the whole card is a large target for the
+      primary action. Deliberate, not overlooked.)
 - [ ] **UX-29** Competing autofocus on `/create`: `ChatInput` focuses unconditionally on
       mount, so the keyboard opens then AuthModal steals focus; for signed-in users the
       keyboard covers the suggestion chips, which are the only concrete instruction a new

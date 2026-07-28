@@ -42,7 +42,10 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex-1 font-medium transition-colors',
+              // 44px floor on both variants. `compact` shrinks the type and
+              // horizontal padding, not the target — the first version of this
+              // component reproduced the 40px/32px heights it was meant to fix.
+              'flex-1 font-medium transition-colors min-h-11',
               compact ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm',
               selected
                 ? 'bg-primary-600 text-white'

@@ -78,7 +78,7 @@ export function RecipeCard({ recipe, isFavorite }: RecipeCardProps) {
                 <Link
                   to={`/profile/${recipe.createdBy.uid}`}
                   aria-label={`View ${creatorName}'s profile`}
-                  className="relative z-10 inline-flex items-center gap-1 truncate hover:text-primary-600 transition-colors rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  className="relative z-10 inline-flex items-center gap-1 py-1.5 truncate hover:text-primary-600 transition-colors rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                 >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <span className="truncate">{creatorName}</span>

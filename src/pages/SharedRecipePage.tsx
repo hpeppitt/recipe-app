@@ -213,7 +213,7 @@ export function SharedRecipePage() {
             {paramId && !isOwner && (
               <button
                 onClick={handleFavoriteClick}
-                className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
                 aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
                 {isFavorite ? (
@@ -250,7 +250,7 @@ export function SharedRecipePage() {
                 {recipe.createdBy?.displayName && (
                   <button
                     onClick={() => navigate(`/profile/${recipe.createdBy!.uid}`)}
-                    className="flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
+                    className="min-h-11 flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
                   >
                     <Avatar uid={recipe.createdBy.uid} name={recipe.createdBy.displayName} size="sm" />
                     <p className="text-xs text-text-tertiary">
@@ -318,7 +318,7 @@ export function SharedRecipePage() {
           {paramId && !isOwner ? (
             <button
               onClick={handleSuggestClick}
-              className="w-full py-2.5 rounded-xl border border-primary-600 text-primary-600 text-sm font-medium hover:bg-primary-50 transition-colors"
+              className="w-full py-2.5 min-h-11 rounded-xl border border-primary-600 text-primary-600 text-sm font-medium hover:bg-primary-50 transition-colors"
             >
               Suggest a Change
             </button>

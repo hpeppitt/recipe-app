@@ -130,7 +130,7 @@ export function AvatarEditor({
               <button
                 key={e}
                 onClick={() => setEmoji(e)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${
+                className={`w-11 h-11 flex items-center justify-center rounded-lg text-xl transition-colors ${
                   emoji === e ? 'bg-primary-100 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
                 }`}
               >
@@ -143,7 +143,7 @@ export function AvatarEditor({
               <button
                 key={c}
                 onClick={() => setBgColor(c)}
-                className={`w-7 h-7 rounded-full transition-transform ${
+                className={`w-11 h-11 rounded-full transition-transform ${
                   bgColor === c ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''
                 }`}
                 style={{ backgroundColor: c }}

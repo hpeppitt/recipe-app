@@ -74,7 +74,7 @@ export function LibraryPage() {
           {isConfigured && user && <NotificationBell />}
           <button
             onClick={() => navigate('/profile')}
-            className="p-1 rounded-lg hover:bg-surface-tertiary transition-colors ml-1"
+            className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors ml-1"
             aria-label="Profile"
           >
             {user ? (
@@ -95,7 +95,7 @@ export function LibraryPage() {
           </button>
           <button
             onClick={() => navigate('/settings')}
-            className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+            className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
             aria-label="Settings"
           >
             <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -113,7 +113,7 @@ export function LibraryPage() {
             // Placeholder text is not an accessible name: it disappears on input
             // and some screen readers never announce it.
             aria-label="Search recipes"
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 min-h-11 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Favourites are keyed by uid, so with no signed-in user the filter
@@ -149,7 +149,7 @@ export function LibraryPage() {
                   <button
                     key={fp.uid}
                     onClick={() => navigate(`/profile/${fp.uid}`)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-text-secondary hover:bg-surface-tertiary transition-colors whitespace-nowrap"
+                    className="min-h-11 flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-text-secondary hover:bg-surface-tertiary transition-colors whitespace-nowrap"
                   >
                     <Avatar
                       uid={fp.uid}
