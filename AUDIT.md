@@ -724,10 +724,21 @@ that failure mode entirely, so it is not listed.
       Rules were checked and permit it: `notifications` create requires only
       `fromUid == request.auth.uid`, which the reviewer satisfies, and does not constrain
       `type`, so no rules redeploy is needed.)
-- [ ] **UX-7** Suggestion review is below ingredients, instructions, notes, tags, credits,
+- [x] **UX-7** Suggestion review is below ingredients, instructions, notes, tags, credits,
       collaborators and variations; the only entry point is an 8px dot on a "More options"
       button whose menu contains only Delete. The count is visual-only.
       (`RecipeDetailPage.tsx:349-402`, `:277-279`)
+      (fixed: the Suggestions section moved above `RecipeContent`, so the owner's one action
+      item on their own page is the first thing under the header rather than the last thing
+      on it. It only renders for owners with suggestions, so it costs nothing on every other
+      recipe. Reviewed suggestions stay in the same list as pending ones — splitting them
+      would have added a second section for no gain, since the list is short and resolved
+      rows already read as resolved.
+      The 8px dot became a numbered badge matching the notification bell, and the button's
+      `aria-label` now carries the count, which previously existed only as a coloured pixel.
+      Added `aria-expanded`/`aria-haspopup` while there, since it opens a menu.
+      Verified at 390px with a forced owner and fixture suggestions: section renders above
+      the recipe, badge reads "1", label reads "More options, 1 suggestions pending".)
 - [ ] **UX-8** The review UI cannot support a real decision: no timestamp, no profile link,
       no reply. Approve/Reject aren't disabled in flight (double-tap on a slow link), there is
       no success or failure feedback, and Reject is irreversible with no confirm.
@@ -846,6 +857,13 @@ that failure mode entirely, so it is not listed.
       (`ProfilePage.tsx:197-202`)
 - [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
       describes a button instead of offering one. (`EmptyState.tsx:1-15`)
+- [ ] **UX-36** RecipeDetailPage header actions wrap off-screen for owners. At 390px with a
+      long title the four action buttons (Favorite, Share, Version tree, More options) wrap
+      into a column inside the `h-14` header; 4x44px centred in 56px puts the first two at
+      y=-60 and y=-16, above the viewport and unreachable. An owner cannot favourite or share
+      such a recipe at all on a phone. Measured, and confirmed pre-existing by reproducing it
+      against the pre-UX-7 code with ownership forced, so not a regression.
+      (`RecipeDetailPage.tsx` header action row)
 
 ---
 

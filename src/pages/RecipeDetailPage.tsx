@@ -277,13 +277,24 @@ export function RecipeDetailPage() {
                 <button
                   onClick={() => setShowMenu(!showMenu)}
                   className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
-                  aria-label="More options"
+                  // The pending count was an 8px dot and nothing else: no number,
+                  // and nothing at all for a screen reader. Same treatment as the
+                  // notification bell.
+                  aria-label={
+                    pendingSuggestions.length > 0
+                      ? `More options, ${pendingSuggestions.length} suggestions pending`
+                      : 'More options'
+                  }
+                  aria-expanded={showMenu}
+                  aria-haspopup="menu"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                   </svg>
                   {pendingSuggestions.length > 0 && (
-                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500" />
+                    <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-bold px-1">
+                      {pendingSuggestions.length > 99 ? '99+' : pendingSuggestions.length}
+                    </span>
                   )}
                 </button>
                 {showMenu && (
@@ -319,40 +330,9 @@ export function RecipeDetailPage() {
             </div>
           )}
 
-          <RecipeContent recipe={recipe} />
-
-          {(creatorName || (recipe.collaborators && recipe.collaborators.length > 0)) && (
-            <div className="space-y-2">
-              {creatorName && recipe.createdBy && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/profile/${recipe.createdBy.uid}`);
-                  }}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
-                  <p className="text-xs text-text-tertiary">
-                    Added by <span className="text-primary-600 font-medium">{creatorName}</span>
-                  </p>
-                </button>
-              )}
-              {recipe.collaborators && recipe.collaborators.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-xs text-text-tertiary">Collaborators:</span>
-                  {recipe.collaborators.map((c) => (
-                    <span key={c.uid} className="inline-flex items-center gap-1 bg-surface-secondary rounded-full pl-0.5 pr-2 py-0.5">
-                      <Avatar uid={c.uid} name={c.displayName} size="sm" />
-                      <span className="text-xs text-text-secondary">{c.displayName ?? 'Anonymous'}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <VariationChips children={children} />
-
+          {/* Pending review sits above the recipe body. This is the owner's
+              action item on their own page; it was previously below ingredients,
+              instructions, notes, tags, credits, collaborators and variations. */}
           {/* Suggestions section (owner only) */}
           {isOwner && suggestions.length > 0 && (
             <div className="space-y-3">
@@ -417,6 +397,41 @@ export function RecipeDetailPage() {
               </div>
             </div>
           )}
+
+          <RecipeContent recipe={recipe} />
+
+          {(creatorName || (recipe.collaborators && recipe.collaborators.length > 0)) && (
+            <div className="space-y-2">
+              {creatorName && recipe.createdBy && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${recipe.createdBy.uid}`);
+                  }}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
+                  <p className="text-xs text-text-tertiary">
+                    Added by <span className="text-primary-600 font-medium">{creatorName}</span>
+                  </p>
+                </button>
+              )}
+              {recipe.collaborators && recipe.collaborators.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs text-text-tertiary">Collaborators:</span>
+                  {recipe.collaborators.map((c) => (
+                    <span key={c.uid} className="inline-flex items-center gap-1 bg-surface-secondary rounded-full pl-0.5 pr-2 py-0.5">
+                      <Avatar uid={c.uid} name={c.displayName} size="sm" />
+                      <span className="text-xs text-text-secondary">{c.displayName ?? 'Anonymous'}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <VariationChips children={children} />
+
         </div>
       </main>
 
