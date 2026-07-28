@@ -1171,11 +1171,30 @@ that failure mode entirely, so it is not listed.
       fast to catch the loading state by racing it, so loading and error were forced via a
       temporary switch: loading shows a spinner and **not** the empty state, error shows its own
       message with neither empty nor loading, and the normal path still lists notifications.)
-- [ ] **UX-26** Settings is incoherent once the API key field goes — a theme toggle, three
+- [x] **UX-26** Settings is incoherent once the API key field goes — a theme toggle, three
       data buttons and a hardcoded "v1.0", with no mention of the signed-in account. Proposed
       IA: Account (identity, anonymous warning + upgrade, sign out) / Appearance / Data. Also
       hand-rolls the sticky header `TopBar` provides, and Export gives no feedback.
       (`SettingsPage.tsx:77-81`, `:169`, `:35-44`)
+      (fixed, adopting the proposed Account / Appearance / Data structure and replacing the
+      hand-rolled sticky header with `TopBar`.
+      **Account deliberately links out rather than duplicating.** The finding proposes putting
+      the anonymous upgrade and sign-out here, but both already exist on the Profile page — the
+      upgrade form and, since UX-5, a sign-out whose confirm explains that an anonymous account
+      cannot be signed back into. Rebuilding either here would mean two copies of a
+      consequential flow to keep in step. Settings now states who is signed in, warns when the
+      account is browser-only, and links to where those actions live. Verified the link lands on
+      a page that really does offer both.
+      **Export feedback**: it wrote a file and said nothing, which on a phone — where the
+      download lands out of sight — is indistinguishable from a dead button. It now reports the
+      count, and says so explicitly when there is nothing to export rather than silently writing
+      an empty file. Verified with 0 recipes.
+      **The version was a lie, so it is now derived.** "v1.0" was hardcoded. Vite `define` now
+      injects it from `package.json`, with an ambient declaration in a new `src/vite-env.d.ts`
+      (`vite/client` types already come from tsconfig, so the file only needs the one line).
+      `package.json` was 0.0.0, which would have displayed as "v0.0.0", so I set it to **0.1.0**
+      — a small project decision, flagged here: it reads as pre-1.0 and in testing, which matches
+      where the app actually is. Renders "Recipe Lab v0.1.0", and can no longer drift.)
 - [ ] **UX-27** Design-system drift: hand-rolled primary buttons instead of `Button`
       (ProfilePage Follow/Sign In, AvatarEditor Save/Choose), the segmented control built
       twice with different metrics, filter pills that duplicate `Chip` with a different

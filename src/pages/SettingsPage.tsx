@@ -1,17 +1,27 @@
 import { useState } from 'react';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
 import { describeImport } from '../lib/import';
+import { pluralize } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
+import { TopBar } from '../components/layout/TopBar';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 export function SettingsPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [importStatus, setImportStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  // Export wrote a file and said nothing, so on a phone — where the download
+  // lands out of sight — it was indistinguishable from a dead button.
+  const [exportStatus, setExportStatus] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
+  const { user, isConfigured } = useAuth();
+  const navigate = useNavigate();
 
   const handleExport = async () => {
+    setExportStatus(null);
     const recipes = await exportAllRecipes();
     const blob = new Blob([JSON.stringify(recipes, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -20,6 +30,11 @@ export function SettingsPage() {
     a.download = `recipe-lab-export-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    setExportStatus(
+      recipes.length > 0
+        ? `Exported ${recipes.length} ${pluralize(recipes.length, 'recipe')} to your downloads.`
+        : 'There are no recipes on this device to export.'
+    );
   };
 
   const handleImport = () => {
@@ -53,16 +68,49 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center h-14 px-4">
-          <h1 className="text-lg font-semibold">Settings</h1>
-        </div>
-      </header>
+      {/* Was a hand-rolled copy of TopBar's sticky header. */}
+      <TopBar title="Settings" />
 
       <div className="p-4 space-y-8">
-        {/* Theme */}
+        {/* Account. The page never acknowledged who was signed in, which is odd
+            for the screen people open looking for their account. Identity and
+            sign-out live on the Profile page, so this links there rather than
+            duplicating the anonymous-upgrade form and the sign-out confirm — two
+            flows that would then need keeping in step. */}
+        {isConfigured && (
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
+              Account
+            </h2>
+            {user ? (
+              <div className="space-y-2">
+                <p className="text-sm text-text-primary">
+                  Signed in as{' '}
+                  <span className="font-medium">{user.displayName ?? 'Anonymous'}</span>
+                </p>
+                <p className="text-xs text-text-tertiary">
+                  {user.isAnonymous
+                    ? 'This account lives only in this browser. Add an email to keep your recipes.'
+                    : user.email}
+                </p>
+                <Button variant="secondary" fullWidth onClick={() => navigate('/profile')}>
+                  {user.isAnonymous ? 'Add an email, or sign out' : 'Manage account'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-text-secondary">You're not signed in.</p>
+                <Button variant="secondary" fullWidth onClick={() => navigate('/profile')}>
+                  Sign in
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Appearance */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Theme</h2>
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Appearance</h2>
           <div className="flex rounded-xl border border-border overflow-hidden">
             {(['system', 'light', 'dark'] as const).map((option) => (
               <button
@@ -87,6 +135,11 @@ export function SettingsPage() {
             <Button variant="secondary" fullWidth onClick={handleExport}>
               Export All Recipes
             </Button>
+            {exportStatus && (
+              <p role="status" className="text-xs text-text-secondary">
+                {exportStatus}
+              </p>
+            )}
             <Button variant="secondary" fullWidth onClick={handleImport}>
               Import Recipes
             </Button>
@@ -115,7 +168,11 @@ export function SettingsPage() {
           </div>
         </section>
 
-        <p className="text-xs text-text-tertiary text-center">{APP_NAME} v1.0</p>
+        {/* Read from package.json via Vite `define`, so it cannot drift from
+            reality the way the hardcoded "v1.0" had. */}
+        <p className="text-xs text-text-tertiary text-center">
+          {APP_NAME} v{__APP_VERSION__}
+        </p>
       </div>
 
       <ConfirmDialog
