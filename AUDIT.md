@@ -739,10 +739,32 @@ that failure mode entirely, so it is not listed.
       Added `aria-expanded`/`aria-haspopup` while there, since it opens a menu.
       Verified at 390px with a forced owner and fixture suggestions: section renders above
       the recipe, badge reads "1", label reads "More options, 1 suggestions pending".)
-- [ ] **UX-8** The review UI cannot support a real decision: no timestamp, no profile link,
+- [x] **UX-8** The review UI cannot support a real decision: no timestamp, no profile link,
       no reply. Approve/Reject aren't disabled in flight (double-tap on a slow link), there is
       no success or failure feedback, and Reject is irreversible with no confirm.
       (`RecipeDetailPage.tsx:355-399`)
+      (fixed five of the six; reply is deferred, see below.
+      **Timestamp**: `timeAgo` was a private helper inside `NotificationBell`. Lifted it to
+      `lib/utils` and reused it rather than writing a second copy. Now takes an injectable
+      `now`, so the boundaries are testable — three tests added, including one asserting a
+      future stamp renders "just now" rather than a negative age, since clock skew between
+      devices makes that reachable.
+      **Profile link**: the suggester's name is now a link to their profile. Deciding on a
+      suggestion means knowing who sent it.
+      **In-flight**: one `reviewingId` disables *both* buttons on *every* row, not just the
+      one clicked — the failure mode included approving one suggestion while rejecting
+      another, which a per-button guard would have allowed. Approve shows "Working…".
+      **Failure feedback**: a `role="alert"` line in the section. A rejected write was
+      previously silent: the row stayed pending and the owner never learned why.
+      **Reject confirm**: added, echoing the suggestion text. Approve deliberately has no
+      confirm — it navigates to a composer the owner can just back out of, so a confirm there
+      would be friction without a decision. Reject is one-way *and* now notifies the
+      suggester (UX-6), which is what earns it the extra step.
+      Each behaviour was verified by forcing its state, not by assuming: a temporary 3s delay
+      proved a triple-tap yields one "Working…" with both buttons disabled, and a temporary
+      thrown error proved the alert renders, no navigation happens, and the buttons re-enable.
+      **Deferred: reply.** That is a new feature — a message model, a thread UI and its own
+      notification type — not a fix to this screen. Logged as UX-37 rather than smuggled in.)
 - [ ] **UX-9** First-run framing is missing. The feed merges all published cloud recipes, so
       "No recipes yet" is nearly unreachable and a new user's actual first screen is an
       unlabelled list of strangers' recipes — no "Mine" filter, no statement of what the app
@@ -864,6 +886,11 @@ that failure mode entirely, so it is not listed.
       such a recipe at all on a phone. Measured, and confirmed pre-existing by reproducing it
       against the pre-UX-7 code with ownership forced, so not a regression.
       (`RecipeDetailPage.tsx` header action row)
+- [ ] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
+      clarification ("which part is too salty?") is impossible and the suggester cannot
+      respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
+      Needs a message model, thread UI and a notification type, so it is a feature rather
+      than a fix. (`RecipeDetailPage.tsx` suggestions section, `types/social.ts`)
 
 ---
 

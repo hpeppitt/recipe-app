@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { withTimeout } from './utils';
+import { withTimeout, timeAgo } from './utils';
 
 describe('withTimeout', () => {
   it('returns the resolved value when it beats the deadline', async () => {
@@ -50,5 +50,26 @@ describe('withTimeout', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('timeAgo', () => {
+  const NOW = 1_700_000_000_000;
+
+  it('reports anything under a minute as "just now"', () => {
+    expect(timeAgo(NOW - 59_000, NOW)).toBe('just now');
+  });
+
+  it('crosses into minutes, hours and days at the right boundaries', () => {
+    expect(timeAgo(NOW - 60_000, NOW)).toBe('1m ago');
+    expect(timeAgo(NOW - 59 * 60_000, NOW)).toBe('59m ago');
+    expect(timeAgo(NOW - 60 * 60_000, NOW)).toBe('1h ago');
+    expect(timeAgo(NOW - 23 * 3_600_000, NOW)).toBe('23h ago');
+    expect(timeAgo(NOW - 24 * 3_600_000, NOW)).toBe('1d ago');
+  });
+
+  it('does not render a negative age when the stamp is ahead of this clock', () => {
+    // Clock skew between devices is normal; "in -3 seconds" would be worse.
+    expect(timeAgo(NOW + 5_000, NOW)).toBe('just now');
   });
 });

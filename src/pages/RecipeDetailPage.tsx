@@ -13,7 +13,7 @@ import {
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { pickShareUrl } from '../lib/share';
-import { withTimeout } from '../lib/utils';
+import { withTimeout, timeAgo } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -48,6 +48,12 @@ export function RecipeDetailPage() {
   const [isSharing, setIsSharing] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
+  // Which suggestion is mid-review. Both buttons on every row disable while one
+  // is in flight: a slow link previously allowed a double-tap, or approving one
+  // suggestion while rejecting another.
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState<{ id: string; message: string } | null>(null);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
   // the destructive menu stays hidden rather than flashing in.
@@ -149,6 +155,35 @@ export function RecipeDetailPage() {
       recipeEmoji: recipe.emoji,
       message,
     });
+  };
+
+  const handleReview = async (
+    suggestionId: string,
+    action: 'approve' | 'reject',
+    message: string
+  ) => {
+    if (reviewingId) return;
+    setReviewingId(suggestionId);
+    setReviewError(null);
+    try {
+      if (action === 'approve') {
+        await approve(suggestionId);
+        navigate(`/recipe/${id}/vary`, { state: { suggestion: message } });
+        return;
+      }
+      await reject(suggestionId);
+    } catch (err) {
+      console.error(`Reviewing the suggestion (${action}) failed`, err);
+      setReviewError(
+        action === 'approve'
+          ? "Couldn't approve that suggestion. Please try again."
+          : "Couldn't reject that suggestion. Please try again."
+      );
+    } finally {
+      // Left set on the approve path only if navigation did not happen; the
+      // early return above means a successful approve unmounts this anyway.
+      setReviewingId(null);
+    }
   };
 
   const handleFavoriteToggle = () => {
@@ -339,6 +374,13 @@ export function RecipeDetailPage() {
               <h3 className="font-semibold text-text-primary">
                 Suggestions ({pendingSuggestions.length} pending)
               </h3>
+              {/* A failed review used to be entirely silent: the row stayed
+                  pending and the owner had no idea the write had been rejected. */}
+              {reviewError && (
+                <p role="alert" className="text-xs text-danger-600">
+                  {reviewError}
+                </p>
+              )}
               <div className="space-y-2">
                 {suggestions.map((s) => (
                   <div
@@ -351,7 +393,19 @@ export function RecipeDetailPage() {
                   >
                     <p className="text-sm text-text-primary">"{s.message}"</p>
                     <p className="text-xs text-text-tertiary mt-1">
-                      from {s.suggestedBy.displayName ?? 'Anonymous'}
+                      from{' '}
+                      {/* Deciding on a suggestion means knowing who sent it.
+                          The name was plain text with nowhere to go. */}
+                      <button
+                        onClick={() => navigate(`/profile/${s.suggestedBy.uid}`)}
+                        className="underline hover:text-text-secondary"
+                      >
+                        {s.suggestedBy.displayName ?? 'Anonymous'}
+                      </button>
+                      {' · '}
+                      {/* Age matters: a suggestion from an hour ago and one from
+                          last March are not the same decision. */}
+                      <span>{timeAgo(s.createdAt)}</span>
                       {s.status !== 'pending' && (
                         <span
                           className={`ml-2 font-medium ${
@@ -374,19 +428,19 @@ export function RecipeDetailPage() {
                           // was all. It now carries the owner into the variation
                           // composer with the suggestion prefilled, which is the
                           // action the approval was implicitly promising.
-                          onClick={async () => {
-                            await approve(s.id);
-                            navigate(`/recipe/${s.recipeId}/vary`, {
-                              state: { suggestion: s.message },
-                            });
-                          }}
-                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors"
+                          onClick={() => handleReview(s.id, 'approve', s.message)}
+                          disabled={reviewingId !== null}
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors disabled:opacity-50 disabled:pointer-events-none"
                         >
-                          Approve
+                          {reviewingId === s.id ? 'Working…' : 'Approve'}
                         </button>
                         <button
-                          onClick={() => reject(s.id)}
-                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-text-secondary hover:underline hover:bg-surface-tertiary transition-colors"
+                          // Rejection is one-way and now notifies the suggester,
+                          // so it gets a confirm. Approve does not: it navigates
+                          // to a composer the owner can simply back out of.
+                          onClick={() => setRejecting({ id: s.id, message: s.message })}
+                          disabled={reviewingId !== null}
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-text-secondary hover:underline hover:bg-surface-tertiary transition-colors disabled:opacity-50 disabled:pointer-events-none"
                         >
                           Reject
                         </button>
@@ -468,6 +522,27 @@ export function RecipeDetailPage() {
         open={showAuth}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
+      />
+
+      {/* Rejection cannot be undone and now sends the suggester a notification,
+          so it asks first. The suggestion text is echoed because the list can
+          hold several and the buttons are small. */}
+      <ConfirmDialog
+        open={rejecting !== null}
+        title="Reject this suggestion?"
+        message={
+          rejecting
+            ? `"${rejecting.message}" will be marked rejected and the suggester will be notified. This can't be undone.`
+            : ''
+        }
+        confirmLabel="Reject"
+        confirmVariant="danger"
+        onConfirm={() => {
+          const target = rejecting;
+          setRejecting(null);
+          if (target) handleReview(target.id, 'reject', target.message);
+        }}
+        onCancel={() => setRejecting(null)}
       />
 
       <SuggestChangeModal

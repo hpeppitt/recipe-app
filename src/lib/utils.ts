@@ -59,3 +59,23 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Pr
       });
   });
 }
+
+/**
+ * Short relative time, e.g. "just now", "5m ago", "3d ago".
+ *
+ * `now` is injectable so the thresholds can be tested without freezing the
+ * clock. Lifted out of NotificationBell so the suggestion list could show
+ * timestamps too rather than growing a second copy.
+ */
+export function timeAgo(timestamp: number, now: number = Date.now()): string {
+  const seconds = Math.floor((now - timestamp) / 1000);
+  // Clock skew between devices can put a server-stamped time slightly ahead of
+  // this device's clock; "in -3 seconds" would be worse than "just now".
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
