@@ -1038,13 +1038,30 @@ that failure mode entirely, so it is not listed.
       **Fallback must not guess.** For an unknown ingredient, do volume→volume (cups→ml, always
       correct) or leave the line untouched. Never invent a density.
 
+      **In scope, confirmed by the user 2026-07-28** — both were initially noted as asides:
+
+      1. **Unit synonym normalisation.** `unit` is free text from the model, so the same unit
+         arrives as `tbsp` / `tablespoon` / `T` / `Tbsp.`. Normalise to a canonical key before
+         any lookup, or conversions silently no-op on spellings the map does not happen to
+         contain. This is the difference between the toggle working and the toggle working
+         *sometimes*, which is worse.
+      2. **Temperatures.** Converting ingredients while leaving "Bake at 180°C" untouched is a
+         half-done toggle — the oven is exactly where an imperial cook is stuck. This is harder
+         than ingredients because temperatures live inside `Instruction.text` prose, not a
+         numeric field, so it means rewriting rendered text rather than formatting a number.
+         Notes: match at display time only and never mutate the stored string; handle the real
+         spread of forms (`180C`, `180 °C`, `350F`, `180°`, ranges like `180-200°C`, and gas
+         marks, which convert to neither system and should be left alone); round to sane oven
+         steps (177°C is technically right for 350°F and useless on a dial — go to 175/180);
+         and convert only plausible cooking temperatures so a stray "200" or a time like
+         "350 minutes" is not mangled. Bare `180°` with no unit is ambiguous and should be left
+         as-is rather than guessed.
+
       Other constraints: convert at display time only, never rewriting the stored recipe, or a
       shared link changes meaning depending on who last viewed it. Preference lives in Settings
-      beside Theme and persists via `storage.ts`. Unit strings from the model are free text, so
-      normalise synonyms (tbsp/tablespoon/T) before matching. Temperatures in instruction text
-      (°C/°F) are a separate problem and out of scope unless raised.
-      (`types/recipe.ts` Ingredient, `components/recipe/IngredientList.tsx`, `SettingsPage.tsx`,
-      new `lib/units.ts` + tests)
+      beside Theme and persists via `storage.ts`.
+      (`types/recipe.ts` Ingredient + Instruction, `components/recipe/IngredientList.tsx`,
+      `components/recipe/InstructionList.tsx`, `SettingsPage.tsx`, new `lib/units.ts` + tests)
 - [ ] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
       protein/carbs/fat, presumably per serving so it composes with the existing `servings`
       field.
