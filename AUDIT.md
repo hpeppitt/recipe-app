@@ -422,7 +422,7 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       result (FUN-3) — both were annotated "folded into UI-12" but are separate surfaces I did
       not touch here.)
 
-- [ ] **UI-15** Browser back and the iOS swipe-back gesture still discard an unsaved generated
+- [x] **UI-15** Browser back and the iOS swipe-back gesture still discard an unsaved generated
       recipe silently. UI-4 added a confirm dialog to the in-app back button, but `App.tsx`
       uses `BrowserRouter`, so React Router's `useBlocker` is unavailable and non-button
       navigations can't be intercepted. Needs migrating to `createBrowserRouter` (routes as
@@ -451,6 +451,26 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       UI-4's dialog was re-verified working after the revert.
       Next step is probably a `popstate`/`beforeunload` guard, or checking whether v7 blocking
       of POP needs something this app is missing — not another straight `useBlocker` attempt.)
+      (FIXED 2026-07-28, second attempt, taking the `popstate` route the note above pointed at.
+      **No router migration.** `createBrowserRouter` was only ever a means to `useBlocker`, and
+      that was already disproven, so this intercepts POP directly and `App.tsx` is untouched.
+      Mechanism: while a recipe is unsaved, a sentinel history entry is parked on top of the
+      page. The first Back pops the sentinel instead of leaving; the handler immediately
+      re-pushes it — so the user stays put — and opens the existing discard dialog. Confirming
+      unwinds two entries (sentinel + the page's own), or goes home when `location.key` is
+      'default' and there is nothing behind. `beforeunload` covers reload and tab close, which
+      no in-app guard can observe.
+      Verified against a real generated recipe, not a fixture: Back showed the dialog with the
+      recipe still on screen and the URL unchanged; Cancel kept the recipe and a *second* Back
+      was caught again (the re-arm works); Discard left to the library. Regressions checked too
+      — with nothing unsaved, Back navigates with no dialog, and saving still navigates to the
+      new recipe unblocked, which was the most damaging thing this could have broken.
+      **Known trade-off, measured:** the sentinel is left behind when the guard disarms because
+      the recipe was *saved* rather than discarded, so Back from the new recipe lands on
+      `/create` twice before reaching the library. Two presses on the same URL, no data loss, no
+      spurious dialog. Removing it would require navigating during cleanup, which would race the
+      save's own navigation — a worse failure than a duplicate history entry. Accepted
+      deliberately rather than left undiscovered.)
 
 ## Low severity
 

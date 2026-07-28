@@ -87,6 +87,20 @@ export function RecipeChatPage() {
   // page destroys it. isSaving excluded because saveRecipe navigates on success.
   const hasUnsavedRecipe = !!latestRecipe && !isSaving;
 
+  // True while a sentinel history entry is parked on top of this page, so the
+  // discard confirm knows it has an extra entry to unwind past.
+  const guardArmedRef = useRef(false);
+
+  const leaveAfterDiscard = () => {
+    // Consume the sentinel as well as this page's own entry. With no history
+    // behind us (a direct load) there is nothing to go back to, so go home.
+    if (location.key === 'default') {
+      navigate('/', { replace: true });
+      return;
+    }
+    navigate(guardArmedRef.current ? -2 : -1);
+  };
+
   const handleBack = () => {
     if (hasUnsavedRecipe) {
       setShowDiscard(true);
@@ -94,6 +108,47 @@ export function RecipeChatPage() {
     }
     navigate(-1);
   };
+
+  /**
+   * Guard hardware back, the iOS swipe gesture, and tab close.
+   *
+   * `useBlocker` is unavailable under `BrowserRouter`, and migrating to
+   * `createBrowserRouter` did not help: with react-router 7.13.0 the blocker
+   * callback was never invoked for POP at all (recorded under UI-15, including
+   * that StrictMode was ruled out). So this intercepts POP directly.
+   *
+   * A sentinel entry is parked on top of the page while a recipe is unsaved. The
+   * first Back pops the sentinel rather than leaving, at which point the sentinel
+   * is immediately re-pushed — the user stays put — and the discard dialog opens.
+   */
+  useEffect(() => {
+    if (!hasUnsavedRecipe) return;
+
+    window.history.pushState({ recipeGuard: true }, '');
+    guardArmedRef.current = true;
+
+    const onPop = () => {
+      // Re-arm first so a second Back is still caught if the dialog is dismissed
+      // by any means other than the buttons.
+      window.history.pushState({ recipeGuard: true }, '');
+      setShowDiscard(true);
+    };
+
+    // Covers reload and tab close, which no in-app guard can see. Browsers show
+    // their own generic wording; preventDefault is all that is required.
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      guardArmedRef.current = false;
+    };
+  }, [hasUnsavedRecipe]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -419,7 +474,7 @@ export function RecipeChatPage() {
         confirmVariant="danger"
         onConfirm={() => {
           setShowDiscard(false);
-          navigate(-1);
+          leaveAfterDiscard();
         }}
         onCancel={() => setShowDiscard(false)}
       />
