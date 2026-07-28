@@ -3,6 +3,7 @@ import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes'
 import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
+import { useUnitSystem } from '../hooks/useUnitSystem';
 import { Button } from '../components/ui/Button';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -18,6 +19,7 @@ export function SettingsPage() {
   // lands out of sight — it was indistinguishable from a dead button.
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
+  const { unitSystem, setUnitSystem } = useUnitSystem();
   const { user, isConfigured } = useAuth();
   const navigate = useNavigate();
 
@@ -122,6 +124,27 @@ export function SettingsPage() {
               { value: 'dark', label: 'Dark' },
             ]}
           />
+        </section>
+
+        {/* Units. Sits under Appearance because it is a display preference: it
+            changes how recipes are rendered, never what is stored. */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Units</h2>
+          <SegmentedControl
+            label="Measurement units"
+            value={unitSystem}
+            onChange={setUnitSystem}
+            options={[
+              { value: 'original', label: 'As written' },
+              { value: 'metric', label: 'Metric' },
+              { value: 'imperial', label: 'Imperial' },
+            ]}
+          />
+          <p className="text-xs text-text-tertiary">
+            Converts ingredient amounts and oven temperatures as they're displayed. Anything
+            that can't be converted exactly — a cup of flour into grams, "2 onions" — is left
+            as written rather than guessed.
+          </p>
         </section>
 
         {/* Data */}

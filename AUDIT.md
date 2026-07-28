@@ -1429,7 +1429,7 @@ that failure mode entirely, so it is not listed.
       something nearer #cbd5e1 for secondary, then re-measure both themes.
       Found while verifying UX-31, which was specifically about a primary token; logged separately
       because this is the neutral scale and affects every screen. (`index.css` dark block)
-- [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
+- [x] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
       emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
       Requested by the user 2026-07-28.
 
@@ -1490,6 +1490,32 @@ that failure mode entirely, so it is not listed.
       beside Theme and persists via `storage.ts`.
       (`types/recipe.ts` Ingredient + Instruction, `components/recipe/IngredientList.tsx`,
       `components/recipe/InstructionList.tsx`, `SettingsPage.tsx`, new `lib/units.ts` + tests)
+      (**implemented 2026-07-28**, following the plan recorded above. New `lib/units.ts` with 20
+      tests; no schema change and no Gemini call, as decided.
+      Scope delivered: `canonicalUnit` normalises the free-text unit ("Tbsp." / "tablespoons" /
+      "fl oz"); `convertAmount` does weight↔weight and volume↔volume with unit promotion (500 g →
+      1.1 lb); `convertTemperatures` rewrites oven temperatures in instruction prose; preference
+      persists via `storage.ts` and a `useUnitSystem` hook; Settings gained a Units control.
+      **Refusals are the important part.** Conversion returns `null` — leaving the original text —
+      for unknown units, bare counts ("2 onions"), and any volume↔weight crossing, since that
+      needs per-ingredient density. Temperatures skip implausible values so "350 minutes" and a
+      stray "200" are never mangled, leave a bare "180°" alone as ambiguous, and ignore gas marks.
+      **Two things the plan did not anticipate, both found by testing against real recipes:**
+      1. Spoons are used in *both* systems. Treating tsp/tbsp as imperial turned "½ tsp Salt" into
+         "2.46 ml Salt" — arithmetically right, practically worse. They are now never converted
+         *away from*, but remain valid targets, since 15 ml → 1 tbsp does help.
+      2. **A bug in my own first version.** Temperatures snapped to a fixed table of oven steps,
+         which silently *clamped* anything above its top entry: 290°C is 554°F, fell off the end
+         of the table and came back as 500°F, collapsing "260-290°C" into "500-500°F". Replaced
+         with arithmetic rounding (nearest 5°C / 25°F), which has no ceiling. Regression test added.
+      Also collapses "500-550°F or 260-290°C" to a single figure once both halves convert to the
+      same thing, which otherwise reads like a rendering bug.
+      Verified on real recipes: cups → ml, °C ↔ °F both directions including a 260-290°C range,
+      and "As written" restores the original string exactly. Preference left on "As written".
+      **Known limitation, by design:** dry goods measured by volume still convert volume-to-volume,
+      so "1 cup Brown Rice" becomes "237 ml Brown Rice" rather than grams. Grams would need the
+      density data this deliberately does not invent.)
+
 - [ ] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
       protein/carbs/fat, presumably per serving so it composes with the existing `servings`
       field.

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { Ingredient } from '../../types/recipe';
+import { useUnitSystem } from '../../hooks/useUnitSystem';
+import { convertAmount } from '../../lib/units';
 
 interface IngredientListProps {
   ingredients: Ingredient[];
@@ -15,6 +17,7 @@ export function IngredientList({ ingredients, checkable = false }: IngredientLis
   // Deliberately not persisted. A tick means "I have this out on the counter
   // right now"; restoring yesterday's ticks would be actively misleading.
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const { unitSystem } = useUnitSystem();
 
   const toggle = (key: string) =>
     setChecked((prev) => {
@@ -38,12 +41,20 @@ export function IngredientList({ ingredients, checkable = false }: IngredientLis
               const isChecked = checked.has(key);
               // text-base, not text-sm: this is read at arm's length on a
               // counter, which is the one place 14px is least defensible.
+              // Converted at display time only; the stored recipe is untouched so a
+              // shared link means the same thing to everyone. `null` means the
+              // conversion was not reliable (unknown unit, a count, or a
+              // volume-weight crossing), in which case the original is shown.
+              const converted = convertAmount(ing.amount, ing.unit, unitSystem);
+              const shownAmount = converted ? converted.amount : ing.amount;
+              const shownUnit = converted ? converted.unit : ing.unit;
+
               const body = (
                 <span className={isChecked ? 'line-through opacity-60' : undefined}>
-                  {ing.amount != null && (
-                    <span className="font-medium">{formatAmount(ing.amount)}</span>
+                  {shownAmount != null && (
+                    <span className="font-medium">{formatAmount(shownAmount)}</span>
                   )}{' '}
-                  {ing.unit && <span>{ing.unit}</span>}{' '}
+                  {shownUnit && <span>{shownUnit}</span>}{' '}
                   <span className="text-text-primary">{ing.name}</span>
                   {ing.notes && <span className="text-text-tertiary">, {ing.notes}</span>}
                 </span>

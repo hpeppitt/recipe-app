@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { Instruction } from '../../types/recipe';
+import { useUnitSystem } from '../../hooks/useUnitSystem';
+import { convertTemperatures } from '../../lib/units';
 
 interface InstructionListProps {
   instructions: Instruction[];
@@ -11,6 +13,7 @@ export function InstructionList({ instructions, checkable = false }: Instruction
   const groups = groupInstructions(instructions);
   // Session-only, like the ingredient ticks: "done" means done in this cook.
   const [done, setDone] = useState<Set<number>>(new Set());
+  const { unitSystem } = useUnitSystem();
 
   const toggle = (step: number) =>
     setDone((prev) => {
@@ -50,7 +53,11 @@ export function InstructionList({ instructions, checkable = false }: Instruction
                     isDone ? 'line-through opacity-60' : ''
                   }`}
                 >
-                  {inst.text}
+                  {/* Oven temperatures live in prose, so converting ingredients
+                      while leaving "Bake at 180°C" alone would be a half-done
+                      toggle — the oven is exactly where an imperial cook is
+                      stuck. Rewritten for display only. */}
+                  {convertTemperatures(inst.text, unitSystem)}
                 </p>
               );
 
