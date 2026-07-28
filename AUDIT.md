@@ -994,10 +994,35 @@ that failure mode entirely, so it is not listed.
       intro appears only on All. Unfollowed afterwards and confirmed on a fresh load that the
       count is back to 0 — the immediate post-unfollow reading of 1 was stale UI, not a failed
       write.)
-- [ ] **UX-19** Detail header crushes the title (~55px at 320px with five 44px buttons), and
+- [x] **UX-19** Detail header crushes the title (~55px at 320px with five 44px buttons), and
       the footer makes Create Variation primary even on someone else's recipe where Suggest a
       Change is the contextually right action. Favourite count is never shown.
       (`RecipeDetailPage.tsx:215-301`, `:406-419`)
+      (fixed, and **fixes UX-36 in the same change** — same header, same root cause, so they
+      could not be separated.
+      **The stated premise is wrong and worth correcting.** Measured at a 320px header, the
+      pre-fix title was **208px, not ~55px**. The ~55px figure assumes the action buttons lay
+      out in a row consuming ~188px of width. They never did: the container was
+      `<div className="relative">` with no flex direction, so four 44px buttons stacked
+      *vertically*, occupying only 44px horizontally. The title therefore had more room than
+      claimed, and the actual defect was UX-36's: 176px of stacked buttons centred in an
+      `h-14` header put the first ones at negative y, off-screen and unreachable. Measured
+      pre-fix at 320px: Favorite at y=-38, three buttons all at x=260.
+      Header is now `flex items-center gap-1`, which alone stops the stacking, and reduced to
+      two visible controls (Favourite + overflow menu) with Share, Version tree and Delete
+      moved into the menu. The menu is no longer owner-only, since everyone needs Share and
+      Version tree. Post-fix at 320px: all buttons in one row at y=6, nothing off-screen, title
+      160px. Note the title is *narrower* than pre-fix (160 vs 208) — that is the correct
+      trade, since the pre-fix width came from the buttons being unreachable.
+      **Footer**: on someone else's recipe Suggest a Change is now primary and Create Variation
+      secondary. On your own, branching stays primary — there is nobody to suggest to.
+      **Favourite count**: rendered when non-zero. Read defensively off the recipe rather than
+      widening `Recipe`, since `favoriteCount` is a cloud-only field a local recipe never has.
+      Verified by favouriting a recipe (count showed "1 favourite", correctly singular) and
+      unfavouriting to restore, confirming it returns to hidden.
+      One false alarm while verifying: the menu appeared to show Delete for a non-owner. That
+      was the closed `ConfirmDialog`'s confirm button, which is always in the DOM; scoping the
+      query to the menu panel showed only Share and Version tree, as intended.)
 - [ ] **UX-20** Share can silently do nothing: `navigator.clipboard.writeText` sits in a `try`
       with only a `finally`, so an insecure context or denied permission produces no signal
       at all. The up-to-4s publish wait shows only `disabled:opacity-50` on a 20px icon.
@@ -1067,13 +1092,18 @@ that failure mode entirely, so it is not listed.
       (`ProfilePage.tsx:197-202`)
 - [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
       describes a button instead of offering one. (`EmptyState.tsx:1-15`)
-- [ ] **UX-36** RecipeDetailPage header actions wrap off-screen for owners. At 390px with a
+- [x] **UX-36** RecipeDetailPage header actions wrap off-screen for owners. At 390px with a
       long title the four action buttons (Favorite, Share, Version tree, More options) wrap
       into a column inside the `h-14` header; 4x44px centred in 56px puts the first two at
       y=-60 and y=-16, above the viewport and unreachable. An owner cannot favourite or share
       such a recipe at all on a phone. Measured, and confirmed pre-existing by reproducing it
       against the pre-UX-7 code with ownership forced, so not a regression.
       (`RecipeDetailPage.tsx` header action row)
+      (fixed as part of UX-19 — same header and the same root cause, so fixing one necessarily
+      fixed the other. The cause was not wrapping at all, as I originally described it: the
+      container had no flex direction, so the buttons were block-level and stacked. Adding
+      `flex` resolves it; reducing to two visible controls makes a recurrence impossible.
+      See UX-19 for the measurements, which also correct that finding's premise.)
 - [ ] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
       clarification ("which part is too salty?") is impossible and the suggester cannot
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.

@@ -13,7 +13,7 @@ import {
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { pickShareUrl } from '../lib/share';
-import { withTimeout, timeAgo } from '../lib/utils';
+import { withTimeout, timeAgo, pluralize } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -232,6 +232,10 @@ export function RecipeDetailPage() {
   }, [id]);
 
   const creatorName = recipe?.createdBy?.displayName;
+  // Published docs carry favoriteCount; a purely local recipe has none. Read
+  // defensively rather than widening Recipe, since it is a cloud-only field.
+  const favoriteCount =
+    (recipe as unknown as { favoriteCount?: number } | undefined)?.favoriteCount ?? 0;
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
 
   if (isLoading) {
@@ -274,94 +278,93 @@ export function RecipeDetailPage() {
         showBack
         onBack={handleBack}
         right={
-          <div className="relative">
+          // Two visible controls and a menu, never four. The old row put four
+          // 44px buttons in an h-14 header with no flex direction set, so they
+          // stacked: 176px centred in 56px pushed the first two to y=-60 and
+          // y=-16, off-screen and unreachable (UX-36). `flex` fixes the stacking;
+          // moving Share and Version tree into the menu is what stops the title
+          // being crushed to ~55px at 320px (UX-19).
+          <div className="relative flex items-center gap-1 flex-shrink-0">
             {/* Hidden entirely in local-only mode: favourites need a uid and no
                 account can be created without Firebase, so the control could
                 never do anything (FUN-16). When Firebase is available but the
                 user is signed out, it stays and prompts sign-in. */}
             {isConfigured && (
-            <button
-              onClick={handleFavoriteToggle}
-              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
-              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            >
-              {isFavorite ? (
-                <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 5.65a5.5 5.5 0 0 0-7.752.22 5.5 5.5 0 0 0-7.752-.22 5.52 5.52 0 0 0 0 7.81l6.573 6.631a1.75 1.75 0 0 0 2.358 0l6.573-6.631a5.52 5.52 0 0 0 0-7.81Z" />
-                </svg>
-              )}
-            </button>
+              <button
+                onClick={handleFavoriteToggle}
+                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors flex-shrink-0"
+                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                {isFavorite ? (
+                  <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 5.65a5.5 5.5 0 0 0-7.752.22 5.5 5.5 0 0 0-7.752-.22 5.52 5.52 0 0 0 0 7.81l6.573 6.631a1.75 1.75 0 0 0 2.358 0l6.573-6.631a5.52 5.52 0 0 0 0-7.81Z" />
+                  </svg>
+                )}
+              </button>
             )}
+
+            {/* The menu is no longer owner-only, since Share and Version tree
+                live in it and everyone needs those. */}
             <button
-              onClick={handleShare}
-              disabled={isSharing}
-              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors disabled:opacity-50"
-              aria-label="Share recipe"
-            >
-              {shareCopied ? (
-                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => navigate(`/recipe/${recipe.id}/tree`)}
-              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
-              aria-label="Version tree"
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative flex-shrink-0"
+              aria-label={
+                pendingSuggestions.length > 0
+                  ? `More options, ${pendingSuggestions.length} suggestions pending`
+                  : 'More options'
+              }
+              aria-expanded={showMenu}
+              aria-haspopup="menu"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
               </svg>
+              {pendingSuggestions.length > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-bold px-1">
+                  {pendingSuggestions.length > 99 ? '99+' : pendingSuggestions.length}
+                </span>
+              )}
             </button>
-            {isOwner && (
+
+            {showMenu && (
               <>
-                <button
-                  onClick={() => setShowMenu(!showMenu)}
-                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
-                  // The pending count was an 8px dot and nothing else: no number,
-                  // and nothing at all for a screen reader. Same treatment as the
-                  // notification bell.
-                  aria-label={
-                    pendingSuggestions.length > 0
-                      ? `More options, ${pendingSuggestions.length} suggestions pending`
-                      : 'More options'
-                  }
-                  aria-expanded={showMenu}
-                  aria-haspopup="menu"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-                  </svg>
-                  {pendingSuggestions.length > 0 && (
-                    <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-bold px-1">
-                      {pendingSuggestions.length > 99 ? '99+' : pendingSuggestions.length}
-                    </span>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[180px]">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      handleShare();
+                    }}
+                    disabled={isSharing}
+                    className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary disabled:opacity-50"
+                  >
+                    {isSharing ? 'Preparing link...' : 'Share'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      navigate(`/recipe/${recipe.id}/tree`);
+                    }}
+                    className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary"
+                  >
+                    Version tree
+                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowDelete(true);
+                      }}
+                      className="w-full px-4 py-2.5 text-left text-sm text-danger-600 hover:bg-surface-secondary"
+                    >
+                      Delete
+                    </button>
                   )}
-                </button>
-                {showMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                    <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[140px]">
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          setShowDelete(true);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-danger-600 hover:bg-surface-secondary"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                )}
+                </div>
               </>
             )}
           </div>
@@ -468,6 +471,15 @@ export function RecipeDetailPage() {
 
           <RecipeContent recipe={recipe} />
 
+          {/* The count existed on the document and was never shown anywhere, so a
+              recipe others had favourited looked exactly like one nobody had.
+              Only rendered when there is something to report. */}
+          {favoriteCount > 0 && (
+            <p className="text-xs text-text-tertiary">
+              {favoriteCount} {pluralize(favoriteCount, 'favourite')}
+            </p>
+          )}
+
           {(creatorName || (recipe.collaborators && recipe.collaborators.length > 0)) && (
             <div className="space-y-2">
               {creatorName && recipe.createdBy && (
@@ -505,14 +517,28 @@ export function RecipeDetailPage() {
 
       <div className="sticky bottom-0 p-4 bg-surface border-t border-border">
         <div className="max-w-lg mx-auto space-y-2">
-          <Button fullWidth onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
-            Create Variation
-          </Button>
           {/* Suggesting a change used to exist only on /shared/:id, so anyone who
-              reached another user's recipe through the library never saw it. */}
-          {canSuggest && (
-            <Button variant="secondary" fullWidth onClick={handleSuggestClick}>
-              Suggest a Change
+              reached another user's recipe through the library never saw it.
+
+              On someone else's recipe, suggesting is the contextually right
+              action and now takes the primary slot; branching drops to secondary.
+              On your own, branching stays primary — there is nobody to suggest to. */}
+          {canSuggest ? (
+            <>
+              <Button fullWidth onClick={handleSuggestClick}>
+                Suggest a Change
+              </Button>
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => navigate(`/recipe/${recipe.id}/vary`)}
+              >
+                Create Variation
+              </Button>
+            </>
+          ) : (
+            <Button fullWidth onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
+              Create Variation
             </Button>
           )}
         </div>
