@@ -102,9 +102,16 @@ export function SettingsPage() {
                 {importStatus.message}
               </p>
             )}
+            {/* Named for what it actually does. "Clear All Data" implied it
+                removed published recipes too, which it never did — they stay
+                public under the user's name in the shared library. */}
             <Button variant="danger" fullWidth onClick={() => setShowClearConfirm(true)}>
-              Clear All Data
+              Delete Recipes on This Device
             </Button>
+            <p className="text-xs text-text-tertiary">
+              Recipes you've shared stay in the shared library. Delete those from each
+              recipe's own page.
+            </p>
           </div>
         </section>
 
@@ -113,9 +120,9 @@ export function SettingsPage() {
 
       <ConfirmDialog
         open={showClearConfirm}
-        title="Clear All Data"
-        message="This will permanently delete all recipes and variations. This cannot be undone."
-        confirmLabel="Clear All"
+        title="Delete Recipes on This Device"
+        message="This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+        confirmLabel="Delete"
         confirmVariant="danger"
         onConfirm={handleClear}
         onCancel={() => setShowClearConfirm(false)}

@@ -8,11 +8,13 @@ import {
   importRecipes,
   exportAllRecipes,
   addLocalCollaborator,
+  clearAllRecipes,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 beforeEach(async () => {
   await db.recipes.clear();
+  await db.favorites.clear();
 });
 
 describe('searchRecipes (dedup scoring)', () => {
@@ -283,5 +285,19 @@ describe('getCoreRecipes', () => {
     expect(byId.size).toBe(2);
     expect(byId.get('r1')).toBe(2);
     expect(byId.get('solo')).toBe(0);
+  });
+});
+
+describe('clearAllRecipes', () => {
+  it('clears favourites too, not just recipes', async () => {
+    await db.recipes.add(makeRecipe({ id: 'r1' }));
+    await db.favorites.add({ uid: 'u1', recipeId: 'r1', createdAt: Date.now() });
+
+    await clearAllRecipes();
+
+    // The recipes half always passed; favourites is the part that survived and
+    // left rows pointing at recipes the user had just deleted.
+    expect(await db.recipes.count()).toBe(0);
+    expect(await db.favorites.count()).toBe(0);
   });
 });

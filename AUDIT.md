@@ -581,13 +581,29 @@ that failure mode entirely, so it is not listed.
 
 ## High severity
 
-- [ ] **UX-1** "Clear All Data" does not clear all data. `clearAllRecipes()` is
+- [x] **UX-1** "Clear All Data" does not clear all data. `clearAllRecipes()` is
       `db.recipes.clear()` only, so the local `favorites` table survives AND every recipe
       published to Firestore stays public under the user's name. The most deliberate
       destructive action in the app leaves the content visible to everyone with no
       indication. Trust/privacy issue, not cosmetic. Either rename to "Delete recipes on this
       device" and say so explicitly, or actually delete the owned Firestore docs.
       (`SettingsPage.tsx:70-73`, `db/recipes.ts:155-157`)
+      (fixed, taking the rename option — **product decision, flagged**. The finding offered
+      two paths and I took the conservative one: mass-deleting published recipes is
+      irreversible and is not purely the user's call, because other people may have
+      favourited or branched from them. Removing a root would orphan or destroy someone
+      else's variation. Per-recipe delete already exists for anyone who wants a published
+      recipe gone.
+      Two changes. The local wipe is now genuinely complete: `clearAllRecipes` clears
+      `favorites` as well as `recipes`, in one transaction. The surviving favourites were a
+      real bug on their own — rows pointed at recipes the user had just deleted, and the list
+      resurrected itself on next sign-in. Covered by a test that fails against the old
+      one-line implementation.
+      The button is renamed "Delete Recipes on This Device", with helper text and a confirm
+      dialog that both state that shared recipes stay in the shared library. Verified at
+      390px; the dialog was cancelled rather than confirmed, so no data was destroyed.
+      If you would rather it also unpublished your own Firestore docs, that is a
+      straightforward follow-up — say so and I will add it.)
 - [ ] **UX-2** Avatar and display-name editing are hover-only
       (`opacity-0 group-hover:opacity-100`), so on touch the entire AvatarEditor feature —
       3 tabs, 40 emoji, image upload — is unreachable on the primary platform. The avatar

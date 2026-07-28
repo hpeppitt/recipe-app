@@ -152,8 +152,21 @@ export async function exportAllRecipes(): Promise<Recipe[]> {
   return db.recipes.toArray();
 }
 
+/**
+ * Wipes every local table, not just recipes. Favourites used to survive, so
+ * "Clear All Data" left rows keyed to recipes that no longer existed — and
+ * re-signing in resurrected a favourites list for a library that was gone.
+ *
+ * Deliberately local-only: published recipes are not touched. Deleting them is
+ * both irreversible and not purely the user's to do, since other people may
+ * have favourited or branched from them. The Settings copy now says so, and
+ * per-recipe delete remains the way to remove a published recipe.
+ */
 export async function clearAllRecipes(): Promise<void> {
-  await db.recipes.clear();
+  await db.transaction('rw', db.recipes, db.favorites, async () => {
+    await db.recipes.clear();
+    await db.favorites.clear();
+  });
 }
 
 export async function searchRecipes(
