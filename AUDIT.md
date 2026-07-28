@@ -1391,6 +1391,18 @@ that failure mode entirely, so it is not listed.
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
       Needs a message model, thread UI and a notification type, so it is a feature rather
       than a fix. (`RecipeDetailPage.tsx` suggestions section, `types/social.ts`)
+      (**blocked: needs a `firestore.rules` change and a deploy.** Checked both possible shapes
+      and neither works against the live rules. Appending a `replies` array to the suggestion doc
+      is denied — `allow update` requires `resource.data.recipeOwnerId == request.auth.uid` *and*
+      `changedKeys().hasOnly(['status'])`, so the owner may only flip status and the suggester
+      cannot write at all. A `suggestions/{id}/messages` subcollection has no matching rule, so it
+      is denied by default.
+      Not shipping the UI ahead of the rules on purpose: a Reply button that fails with a
+      permission error until someone deploys is worse than no Reply button.
+      To unblock, `firestore.rules` needs a messages subcollection allowing create by either
+      participant (`recipeOwnerId` or `suggestedBy.uid`) with `fromUid == request.auth.uid`, then
+      `firebase deploy --only firestore`. Deployment affects the live project, so it is the
+      owner's call rather than something to do mid-loop.)
 - [ ] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing
