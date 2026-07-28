@@ -622,12 +622,28 @@ that failure mode entirely, so it is not listed.
       Verified at 390px: badge and pencil both visible with no hover, tapping each opens its
       editor, `aria-expanded` flips, and a repo-wide grep confirms no `opacity-0
       group-hover:` affordances remain anywhere.)
-- [ ] **UX-3** AuthModal states a difference that is false: email sign-in "lets your name
+- [x] **UX-3** AuthModal states a difference that is false: email sign-in "lets your name
       appear on recipes you share", but anonymous users also get an auto-generated display
       name on theirs. The differences that matter (tied to this browser, clearing site data
       loses everything, no other-device access, no sign-out) are never mentioned, and the
       lossy option is the primary-styled default. (`AuthModal.tsx:80-93`,
       `AuthContext.tsx:139-145`)
+      (fixed. Confirmed the claim was false before rewriting: `handleSignInAnonymously` calls
+      `generateDisplayName(uid)` and writes it to the profile, so anonymous users are credited
+      identically — the test account on this machine shows as "TangySage". The footnote was
+      selling a distinction that does not exist.
+      Replaced it with per-option copy stating the differences that are real: email survives
+      clearing the browser and works across devices; anonymous is quickest but lives in this
+      browser only, is deleted by clearing site data, and is unreachable elsewhere. Also
+      mentions that an email can be added later from the profile, so the fast path no longer
+      reads as a dead end.
+      Swapped the visual priority: email is now the primary button. Anonymous being
+      primary-styled nudged people toward the lossy option without disclosing it was lossy,
+      which is the part of this finding that actually costs users their recipes.
+      Verified at 390px with the modal forced open (not reachable while signed in): both
+      options and their copy fit without overflow, and the email step still reaches Back /
+      Send Link. Deliberately not addressed here: anonymous users having no sign-out is
+      UX-5's subject.)
 - [ ] **UX-4** The only safeguard against permanent recipe loss is triple-buried:
       `EmailLinkingForm` renders *after* the whole recipe list, so the more you stand to lose
       the further you scroll; Profile is reachable only via a 20px avatar and is absent from
