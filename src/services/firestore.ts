@@ -289,6 +289,9 @@ export async function createSuggestion(params: {
     recipeId: params.recipeId,
     recipeOwnerId: params.recipeOwnerId,
     recipeTitle: params.recipeTitle,
+    // Stored so the approve/reject notification can be built from the
+    // suggestion alone, without refetching the recipe.
+    recipeEmoji: params.recipeEmoji,
     suggestedBy: params.suggestedBy,
     message: params.message,
     status: 'pending',
@@ -338,18 +341,41 @@ export function subscribeRecipeSuggestions(
  */
 export async function updateSuggestionStatus(
   suggestionId: string,
-  status: 'approved' | 'rejected'
+  status: 'approved' | 'rejected',
+  reviewer?: { uid: string; displayName: string | null }
 ): Promise<{ recipeId: string; collaborator: Collaborator } | null> {
   if (!firestore) return null;
+
+  // Read before writing: the suggester's identity is needed to notify them of
+  // either outcome, and a rejection used to return early without ever loading it.
+  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
+  if (!suggestionSnap.exists()) return null;
+  const suggestion = suggestionSnap.data() as Suggestion;
+
   await updateDoc(doc(firestore, 'suggestions', suggestionId), { status });
+
+  // Close the loop back to the suggester. Fire-and-forget like the other
+  // notification writes, so a failure here never blocks the review itself.
+  if (reviewer && reviewer.uid !== suggestion.suggestedBy.uid) {
+    addDoc(collection(firestore, 'notifications'), {
+      recipientUid: suggestion.suggestedBy.uid,
+      type: status === 'approved' ? 'suggestion_approved' : 'suggestion_rejected',
+      recipeId: suggestion.recipeId,
+      recipeTitle: suggestion.recipeTitle,
+      recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
+      fromUid: reviewer.uid,
+      fromDisplayName: reviewer.displayName,
+      // Echo the original suggestion so the notification is self-explanatory
+      // weeks later, rather than "your suggestion was approved" with no context.
+      message: suggestion.message,
+      read: false,
+      createdAt: Date.now(),
+    }).catch(() => {});
+  }
 
   if (status !== 'approved') return null;
 
   // When approved, add the suggester as a collaborator on the recipe
-  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
-  if (!suggestionSnap.exists()) return null;
-
-  const suggestion = suggestionSnap.data() as Suggestion;
   const collaborator: Collaborator = {
     uid: suggestion.suggestedBy.uid,
     displayName: suggestion.suggestedBy.displayName,

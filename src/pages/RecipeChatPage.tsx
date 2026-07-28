@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useRecipe } from '../hooks/useRecipe';
 import { useRecipeChat } from '../hooks/useRecipeChat';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,6 +38,10 @@ export function RecipeChatPage() {
   const [parentExpanded, setParentExpanded] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+  // Set when the owner arrives here by approving a suggestion, so the composer
+  // opens with the suggestion already written out.
+  const location = useLocation();
+  const suggestionSeed = (location.state as { suggestion?: string } | null)?.suggestion ?? '';
 
   // A generated recipe lives only in component state until saved, so leaving the
   // page destroys it. isSaving excluded because saveRecipe navigates on success.
@@ -235,6 +239,7 @@ export function RecipeChatPage() {
 
       <ChatInput
         onSend={sendMessage}
+        initialValue={suggestionSeed}
         disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
         placeholder={
           generationUnavailable

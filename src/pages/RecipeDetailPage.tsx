@@ -390,7 +390,16 @@ export function RecipeDetailPage() {
                       // above rather than looking indented.
                       <div className="flex gap-1 mt-1 -ml-3">
                         <button
-                          onClick={() => approve(s.id)}
+                          // Approving used to end here: status flipped, and that
+                          // was all. It now carries the owner into the variation
+                          // composer with the suggestion prefilled, which is the
+                          // action the approval was implicitly promising.
+                          onClick={async () => {
+                            await approve(s.id);
+                            navigate(`/recipe/${s.recipeId}/vary`, {
+                              state: { suggestion: s.message },
+                            });
+                          }}
                           className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors"
                         >
                           Approve

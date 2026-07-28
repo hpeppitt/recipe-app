@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   subscribeRecipeSuggestions,
@@ -10,7 +10,7 @@ import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/a
 import type { Suggestion } from '../types/social';
 
 export function useSuggestions(recipeId: string | undefined) {
-  const { isConfigured } = useAuth();
+  const { isConfigured, user } = useAuth();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
   useEffect(() => {
@@ -18,20 +18,29 @@ export function useSuggestions(recipeId: string | undefined) {
     return subscribeRecipeSuggestions(recipeId, setSuggestions);
   }, [isConfigured, recipeId]);
 
+  // The reviewer is passed through so the suggester can be told the outcome;
+  // Firestore rules require the notification's fromUid to be the writer.
+  // Memoised because a fresh object each render would invalidate both callbacks.
+  const reviewer = useMemo(
+    () => (user ? { uid: user.uid, displayName: user.displayName } : undefined),
+    [user]
+  );
+
   const approve = useCallback(async (id: string) => {
-    const approved = await updateSuggestionStatus(id, 'approved');
+    const approved = await updateSuggestionStatus(id, 'approved', reviewer);
     // Dual-write, as with favourites: the owner's UI reads the local copy first,
     // so a cloud-only collaborator would be invisible on their own device.
     if (approved) {
       await addLocalCollaborator(approved.recipeId, approved.collaborator);
     }
     trackSuggestionReviewed(id, 'approved');
-  }, []);
+    return approved;
+  }, [reviewer]);
 
   const reject = useCallback(async (id: string) => {
-    await updateSuggestionStatus(id, 'rejected');
+    await updateSuggestionStatus(id, 'rejected', reviewer);
     trackSuggestionReviewed(id, 'rejected');
-  }, []);
+  }, [reviewer]);
 
   return { suggestions, approve, reject };
 }

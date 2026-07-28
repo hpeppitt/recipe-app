@@ -4,10 +4,22 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * Seed text for the composer. Used when approving a suggestion hands the
+   * owner into the variation flow — the suggestion is prefilled but not sent,
+   * so they can edit it and are never billed for a generation they did not ask
+   * for.
+   */
+  initialValue?: string;
 }
 
-export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' }: ChatInputProps) {
-  const [value, setValue] = useState('');
+export function ChatInput({
+  onSend,
+  disabled,
+  placeholder = 'Type a message...',
+  initialValue = '',
+}: ChatInputProps) {
+  const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {

@@ -14,6 +14,23 @@ function timeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
+// Keyed maps rather than a growing ternary chain: four types made the inline
+// conditional unreadable, and an unknown type now falls back instead of
+// silently rendering as a suggestion.
+const NOTIF_ICONS: Record<string, string> = {
+  favorite: '❤️',
+  suggestion: '💡',
+  suggestion_approved: '✅',
+  suggestion_rejected: '🙏',
+};
+
+const NOTIF_VERBS: Record<string, string> = {
+  favorite: 'favorited your recipe',
+  suggestion: 'suggested a change to',
+  suggestion_approved: 'approved your suggestion on',
+  suggestion_rejected: 'passed on your suggestion for',
+};
+
 export function NotificationBell() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
@@ -113,24 +130,14 @@ export function NotificationBell() {
                       {notif.fromUid ? (
                         <Avatar uid={notif.fromUid} name={notif.fromDisplayName} size="sm" />
                       ) : (
-                        <span className="text-lg">{notif.type === 'favorite' ? '❤️' : '💡'}</span>
+                        <span className="text-lg">{NOTIF_ICONS[notif.type] ?? '💡'}</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary">
-                        {notif.type === 'favorite' ? (
-                          <>
-                            <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
-                            favorited your recipe{' '}
-                            <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
-                          </>
-                        ) : (
-                          <>
-                            <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
-                            suggested a change to{' '}
-                            <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
-                          </>
-                        )}
+                        <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
+                        {NOTIF_VERBS[notif.type] ?? 'suggested a change to'}{' '}
+                        <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
                       </p>
                       {notif.message && (
                         <p className="text-xs text-text-tertiary mt-0.5 truncate">

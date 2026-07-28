@@ -689,12 +689,41 @@ that failure mode entirely, so it is not listed.
       Note the local library is not lost on sign-out — `canManageRecipe` returns true for
       `source === 'local'` regardless of uid, so device recipes stay manageable. Only control
       of already-published copies goes, which is what the dialog says.)
-- [ ] **UX-6** The collaboration loop dead-ends. Approve writes `status` and adds a
+- [x] **UX-6** The collaboration loop dead-ends. Approve writes `status` and adds a
       collaborator but does not change the recipe, does not open a variation, and sends the
       suggester no notification (`AppNotification.type` has no outcome variant). Owner presses
       Approve, nothing visibly happens, suggester never learns. Fatal for the app's
       differentiating mechanic. (`useSuggestions.ts:21-34`, `firestore.ts:339-357`,
       `types/social.ts:15`)
+      (fixed in two parts.
+      **The suggester now learns the outcome.** Added `suggestion_approved` /
+      `suggestion_rejected` notification types, written on both outcomes — rejection matters
+      as much as approval, since silence is what makes people stop contributing. The
+      notification echoes the original suggestion text, so it still makes sense weeks later
+      instead of reading "your suggestion was approved" with no context. Required storing
+      `recipeEmoji` on the suggestion doc; older docs lack it and fall back to a neutral
+      emoji rather than rendering blank.
+      Also restructured `updateSuggestionStatus` to read the suggestion *before* writing the
+      status. It previously returned early on rejection without ever loading the doc, so the
+      suggester's identity was unavailable on exactly the path that needed it.
+      **Approve now leads somewhere.** It carries the owner into the variation composer with
+      the suggestion prefilled. Deliberately prefilled and *not* auto-sent: auto-sending would
+      spend a billed Gemini call the owner never asked for and give them no chance to edit.
+      One judgement call worth flagging: the finding says approve "does not change the
+      recipe". I did not make it mutate the recipe automatically. A suggestion is free text
+      like "add more garlic" — there is no reliable way to apply that to a structured recipe
+      without generating, and silently rewriting someone's recipe from another user's text is
+      worse than doing nothing. Routing into the variation flow is the app's own mechanic for
+      exactly this, and keeps the owner in control.
+      `NotificationBell` moved from a two-way ternary to keyed icon/verb maps — four types
+      made the inline conditional unreadable, and unknown types now fall back instead of
+      silently rendering as "suggested a change to".
+      Verified: composer seeding confirmed in-browser at 390px (textarea prefilled, nothing
+      sent). **The notification write itself is not verified end to end** — it needs a second
+      account to suggest and a first to review, which this single-user setup cannot produce.
+      Rules were checked and permit it: `notifications` create requires only
+      `fromUid == request.auth.uid`, which the reviewer satisfies, and does not constrain
+      `type`, so no rules redeploy is needed.)
 - [ ] **UX-7** Suggestion review is below ingredients, instructions, notes, tags, credits,
       collaborators and variations; the only entry point is an 8px dot on a "More options"
       button whose menu contains only Delete. The count is visual-only.
