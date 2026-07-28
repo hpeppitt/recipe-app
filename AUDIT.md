@@ -1004,19 +1004,47 @@ that failure mode entirely, so it is not listed.
 - [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
       emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
       Requested by the user 2026-07-28.
-      Convert at display time only — never rewrite the stored recipe, or a shared link would
-      change meaning depending on who last viewed it. The obstacle is that `ingredients[].amount`
-      is a free-text string ("1¼ cups"), so converting means parsing prose, which is lossy for
-      things like "a splash" or "2 large onions". Preferred approach: extend the generation
-      schema so the model emits a structured `{ quantity, unit }` alongside the display string,
-      convert from that, and fall back to showing the original text unchanged when it is absent
-      — which also covers every recipe already saved, since backfilling is not possible without
-      re-generating. Preference belongs in Settings next to Theme and should persist via
-      `storage.ts`. Note weight/volume are not interchangeable (flour cups → grams depends on
-      the ingredient), so a genuine cups↔grams conversion needs per-ingredient density and
-      should be scoped down to weight↔weight and volume↔volume unless that data is added.
-      (`types/recipe.ts` Ingredient, `schemas/recipe.schema.ts`, `lib/prompts.ts`,
-      `components/recipe/IngredientList.tsx`, `SettingsPage.tsx`)
+
+      **Correction to the first version of this entry**: it claimed `ingredients[].amount` is
+      free text like "1¼ cups" and therefore needed a prose parser and a schema change. That is
+      wrong. `Ingredient` is already `{ amount: number | null, unit: string | null, name, notes,
+      group }` — the quantity is a number and the unit is a separate field. There is no parsing
+      problem and **no schema change is required**. `IngredientList.formatAmount` already turns
+      the number back into fractions for display, so a converted value renders correctly with
+      no extra work.
+
+      **Approach (recommended, not yet decided): a static conversion module in `src/lib`, not a
+      Dexie table, and not a Gemini call.**
+
+      Most of this needs no ingredient knowledge at all. g↔oz, ml↔fl oz and cups↔ml are pure
+      arithmetic on a number already in hand. The only ingredient-dependent case is
+      volume↔weight (cups→grams), where ~30 densities — flour, sugars, butter, rice, oats,
+      cocoa, honey, water/milk — cover nearly all baking, which is the only place the precision
+      matters. Savoury cooking tolerates approximation.
+
+      A table is right; a *database* table is the overkill part. The data is identical for every
+      user, never mutates, and needs no queries or sync. A plain TS constant ships in a few kB,
+      needs no migration, works offline, and is directly unit-testable — which matters, because
+      this is arithmetic that should be covered by tests rather than checked by eye.
+
+      **Rejected: converting via a Gemini call when the toggle is engaged.** Tempting because it
+      handles the long tail, but (a) it is non-deterministic, so the same recipe shows different
+      numbers on different views, devices, or to the person it was shared with — a measurement
+      toggle that is not stable is not trustworthy; (b) a wrong conversion is undetectable and
+      ruins the dish (200g flour returned as 1 cup rather than 1⅔ fails a bake), which is the
+      same confidently-wrong failure mode flagged in UX-39; (c) it puts latency, quota and a
+      failure state behind a toggle that should be instant, and cannot be tested.
+
+      **Fallback must not guess.** For an unknown ingredient, do volume→volume (cups→ml, always
+      correct) or leave the line untouched. Never invent a density.
+
+      Other constraints: convert at display time only, never rewriting the stored recipe, or a
+      shared link changes meaning depending on who last viewed it. Preference lives in Settings
+      beside Theme and persists via `storage.ts`. Unit strings from the model are free text, so
+      normalise synonyms (tbsp/tablespoon/T) before matching. Temperatures in instruction text
+      (°C/°F) are a separate problem and out of scope unless raised.
+      (`types/recipe.ts` Ingredient, `components/recipe/IngredientList.tsx`, `SettingsPage.tsx`,
+      new `lib/units.ts` + tests)
 - [ ] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
       protein/carbs/fat, presumably per serving so it composes with the existing `servings`
       field.
