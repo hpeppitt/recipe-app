@@ -948,9 +948,30 @@ that failure mode entirely, so it is not listed.
       by making the throw conditional. An earlier attempt also appeared to show Try again
       missing, when in fact HMR had already re-run the lookup and recovered on its own — the
       button was gone because it was no longer needed.)
-- [ ] **UX-17** Saving gives no confirmation, and a failed cloud publish is console-only, so
+- [x] **UX-17** Saving gives no confirmation, and a failed cloud publish is console-only, so
       the recipe is local while the user believes it is shared. A toast pattern already exists.
       (`useRecipeChat.ts:246-253`, `RecipeDetailPage.tsx:448-461`)
+      (fixed: a toast on the destination page, reusing the Share toast treatment as the finding
+      suggested. Two outcomes, because "saved" and "saved but not shared" are different facts:
+      "Recipe saved" or "Saved on this device" with an explanation that others can't see it yet
+      and that sharing will retry. The local-only toast stays up 8s rather than 3s — it carries a
+      consequence worth reading.
+      **The structural change is that the publish is no longer fire-and-forget.** The outcome has
+      to be known *before* navigating, since the confirmation appears on the destination, and
+      claiming "saved and shared" when the write never landed is exactly the false belief this
+      finding is about. It is bounded by `withTimeout(4s)` rather than awaited outright, because
+      an unreachable Firestore retries instead of rejecting — the same trap hit in FUN-5 and
+      UI-12. A timeout is reported as local-only, which is the honest reading.
+      Verified both branches against the real backend, including a genuinely forced publish
+      failure rather than only checking that the toast renders: a real save with publishing
+      broken produced "Saved on this device", and a normal save produced "Recipe saved".
+      Note the 'cloud' toast auto-dismisses at 3s, and my first check waited 3.5s and saw
+      nothing — that was the timing of my own probe, not a missing toast. A later attempt to
+      re-trigger it via `popstate` also showed nothing, because the toast's initial state is read
+      at mount and React does not remount on a same-route navigation; forcing a real remount
+      showed both variants correctly.
+      Cleaned up both test recipes through the app's own delete so the published one cascaded out
+      of Firestore; feed back to 7 cards, local storage to 0.)
 - [ ] **UX-18** The Following filter swaps in a different, information-poorer card (no time,
       difficulty, variation count or favourite marker) and reimplements the nested-link
       pattern UI-9 fixed. Reuse `RecipeCard`. (`LibraryPage.tsx:174-192`)

@@ -8,6 +8,7 @@ import {
   searchPublishedVariations,
 } from '../services/firestore';
 import { mergeDedupById } from '../lib/search';
+import { withTimeout } from '../lib/utils';
 import {
   describeGenerationError,
   GENERATION_UNAVAILABLE,
@@ -18,6 +19,9 @@ import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
 import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
+
+/** How long a save waits for the cloud publish before reporting local-only. */
+const PUBLISH_TIMEOUT_MS = 4000;
 
 /** A dedup match, which may live only in the shared cloud library. */
 export type SimilarRecipe = {
@@ -285,18 +289,34 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         createdBy
       );
 
-      // Publish to Firestore for sharing/social features. Deliberately not
-      // awaited so a slow network doesn't hold up navigation, but no longer
-      // silently swallowed: Share reconciles a failed publish on demand, and
-      // this leaves a trace when it doesn't land.
+      // Bounded wait on the publish rather than fire-and-forget. The outcome has
+      // to be known before navigating, because the confirmation is shown on the
+      // destination page and "Saved and shared" is a claim we should not make
+      // when the write never landed. Bounded because an unreachable Firestore
+      // retries instead of rejecting, so an unbounded await would hang the save.
+      let published = false;
       if (isFirebaseConfigured) {
-        publishRecipe(recipe).catch((err) => {
-          console.error('Publishing recipe to the cloud failed; it stays local until shared', err);
-        });
+        published = await withTimeout(
+          publishRecipe(recipe)
+            .then(() => true)
+            .catch((err) => {
+              console.error(
+                'Publishing recipe to the cloud failed; it stays local until shared',
+                err
+              );
+              return false;
+            }),
+          PUBLISH_TIMEOUT_MS,
+          false
+        );
       }
 
       trackRecipeCreated(recipe.id, !!parentRecipe);
-      navigate(`/recipe/${recipe.id}`);
+      // The destination reads this to confirm what actually happened. Local-only
+      // mode reports 'local' too, which is accurate: nothing was shared.
+      navigate(`/recipe/${recipe.id}`, {
+        state: { saved: published ? 'cloud' : 'local' },
+      });
       // Deliberately stays locked after a successful save: the page is
       // navigating away and re-enabling would briefly re-arm the button.
     } catch (err) {
