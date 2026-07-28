@@ -116,6 +116,11 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const chatRef = useRef<ChatSession | null>(null);
   const sendingRef = useRef(false);
   const generatingRef = useRef(false);
+  // Dedup is a once-per-chat check, but "once" has to mean "once a recipe
+  // actually exists", not "once a message was typed". Keyed off messages.length
+  // it was spent by the first send even if that send failed, so every retry
+  // after an error silently skipped dedup for the rest of the session.
+  const generatedOnceRef = useRef(false);
   const savingRef = useRef(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -148,6 +153,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         }
 
         const generated = await chatRef.current.sendMessage(text);
+        generatedOnceRef.current = true;
         setLatestRecipe(generated);
 
         const assistantMessage: ChatMessage = {
@@ -172,14 +178,13 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      // The dedup check now hits the network, so a second send while it is in
-      // flight would skip dedup (messages.length is no longer 0) and race a
-      // second generation against the pending search.
+      // The dedup check hits the network, so a second send while it is in flight
+      // would race a second generation against the pending search.
       if (sendingRef.current) return;
       sendingRef.current = true;
 
       try {
-        const isFirstMessage = messages.length === 0;
+        const shouldCheckDuplicates = !generatedOnceRef.current;
         const userMessage: ChatMessage = {
           role: 'user',
           content: text,
@@ -187,8 +192,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         };
         setMessages((prev) => [...prev, userMessage]);
 
-        // Only check for duplicates on the first message
-        if (isFirstMessage) {
+        // Check for duplicates until a recipe has actually been generated.
+        if (shouldCheckDuplicates) {
           // Covers the cloud round trip: disables the input and shows the
           // typing indicator instead of leaving the chat looking idle.
           setIsLoading(true);
@@ -214,7 +219,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         sendingRef.current = false;
       }
     },
-    [messages.length, parentRecipe, generateRecipe, user?.uid]
+    [parentRecipe, generateRecipe, user?.uid]
   );
 
   const dismissSimilar = useCallback(async () => {

@@ -501,9 +501,21 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Not relying on the panel unmounting: `generateRecipe` clears `similarRecipes`
       synchronously, which does hide the button, but only after React re-renders. Clicks
       inside the same tick all land first, which is exactly what the measurement shows.)
-- [ ] **FUN-15** A failed first message (e.g. no API key) consumes the one-shot dedup
+- [x] **FUN-15** A failed first message (e.g. no API key) consumes the one-shot dedup
       check; dedup is permanently skipped for the rest of that chat session.
       (`useRecipeChat.ts:64-93`)
+      (fixed: the gate was `messages.length === 0`, which is spent the moment a message is
+      *typed* rather than when a recipe is *produced*. Now gated on a `generatedOnceRef` set
+      only after a generation actually returns, so "once per chat" means once a recipe exists.
+      `messages.length` also dropped out of the sendMessage deps, which stops the callback
+      being rebuilt on every message.
+      Measured in-browser, two sends after a forced generation failure: dedup ran **1** time
+      before the fix and **2** after. Also checked the opposite direction, since making dedup
+      run more often risks it running when it shouldn't: after a *successful* generation, the
+      follow-up "make it vegan" correctly did not re-trigger dedup (1 check total).
+      Note the first pre-fix reproduction was invalid and reported 2 — the temporary revert
+      changed the gate but left `messages.length` out of the deps, so the old expression read
+      a stale 0. Restoring the dep as well gave the true pre-fix result of 1.)
 - [ ] **UI-13** Inconsistent feedback patterns: native `alert()` in Settings import, three
       different empty-state styles, ad hoc Button reimplementations on ProfilePage.
       (`SettingsPage.tsx:55-57`, `ProfilePage.tsx:308-318`, `:408-413`)
