@@ -765,10 +765,29 @@ that failure mode entirely, so it is not listed.
       thrown error proved the alert renders, no navigation happens, and the buttons re-enable.
       **Deferred: reply.** That is a new feature — a message model, a thread UI and its own
       notification type — not a fix to this screen. Logged as UX-37 rather than smuggled in.)
-- [ ] **UX-9** First-run framing is missing. The feed merges all published cloud recipes, so
+- [x] **UX-9** First-run framing is missing. The feed merges all published cloud recipes, so
       "No recipes yet" is nearly unreachable and a new user's actual first screen is an
       unlabelled list of strangers' recipes — no "Mine" filter, no statement of what the app
       is. (`LibraryPage.tsx:226-231`, `useRecipeLibrary.ts:89-110`)
+      (fixed all three parts.
+      **Framing**: a first-run card saying what the app does and that the list below is
+      everyone's shared recipes, with a "Create your first recipe" button. Gated on the user
+      owning no recipes, so it disappears permanently once they have one — no dismiss state to
+      persist, and no way to get it stuck on screen.
+      **Label**: once the intro is gone, a one-line "Recipes shared by everyone using Recipe
+      Lab" sits above the list, so "All" is never mistaken for "mine". Hidden on Mine,
+      Following, search and cloud-error, where it would be wrong.
+      **Mine filter**: added, matching on `createdBy.uid`, and treating the pre-auth 'local'
+      placeholder as the user's own — the same rule `canManageRecipe` uses, so the two cannot
+      disagree about what "mine" means. The chip only appears once it would contain something:
+      showing a new user a filter guaranteed to be empty is worse than not offering it. It
+      still gets an empty state, since search can empty it.
+      Verified both branches at 390px, since one user account only exercises one: with 0 own
+      recipes the intro shows, no Mine chip, no label; with ownership forced the intro is
+      gone, chips read All/Mine/Favorites, the label appears, and switching to Mine filters
+      the list and hides the label.
+      Deliberately not touched: the feed hardcodes `childCount: 0` for cloud recipes, which is
+      the other half of why the app looks flat to a newcomer. That is UX-10's subject.)
 - [ ] **UX-10** The central concept (recipes branch into a version tree) is never
       communicated where a newcomer would see it. Only hint is inert "3 variations" tertiary
       text — and cloud feed entries hardcode `childCount: 0`, so it is absent on exactly the

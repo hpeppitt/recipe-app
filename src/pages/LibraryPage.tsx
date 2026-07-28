@@ -15,7 +15,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { APP_NAME } from '../lib/constants';
 
-type Filter = 'all' | 'favorites' | 'following' | string; // string = specific uid
+type Filter = 'all' | 'mine' | 'favorites' | 'following' | string; // string = specific uid
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
@@ -41,7 +41,24 @@ export function LibraryPage() {
   const navigate = useNavigate();
 
   const showFollowing = filter === 'following';
-  const displayRecipes = showFollowing ? undefined : recipes;
+
+  // A recipe is the user's own if they created it, or if it predates auth and
+  // carries the 'local' placeholder uid — the same rule canManageRecipe uses.
+  const isOwnRecipe = (uid: string | undefined) =>
+    uid === 'local' || (!!user && uid === user.uid);
+  const ownRecipes = (recipes ?? []).filter((r) => isOwnRecipe(r.createdBy?.uid));
+
+  // The feed merges everyone's published recipes, so "no recipes" almost never
+  // happens and a newcomer's first screen is a wall of strangers' cooking with
+  // nothing saying what they are looking at. Frame it until they have one of
+  // their own.
+  const isFirstRun = !isLoading && ownRecipes.length === 0 && !search;
+
+  const displayRecipes = showFollowing
+    ? undefined
+    : filter === 'mine'
+      ? ownRecipes
+      : recipes;
   const displayLoading = showFollowing ? followingLoading : isLoading;
 
   return (
@@ -96,7 +113,15 @@ export function LibraryPage() {
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Favourites are keyed by uid, so with no signed-in user the filter
                 is permanently empty — don't offer it at all (FUN-16). */}
-            {(canFavorite ? (['all', 'favorites'] as const) : (['all'] as const)).map((f) => (
+            {/* "Mine" only appears once there is something in it: offering an
+                always-empty filter to a new user is worse than not offering it. */}
+            {((ownRecipes.length > 0
+              ? canFavorite
+                ? (['all', 'mine', 'favorites'] as const)
+                : (['all', 'mine'] as const)
+              : canFavorite
+                ? (['all', 'favorites'] as const)
+                : (['all'] as const)) as readonly Filter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -106,7 +131,7 @@ export function LibraryPage() {
                     : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
                 }`}
               >
-                {f === 'all' ? 'All' : 'Favorites'}
+                {f === 'all' ? 'All' : f === 'mine' ? 'Mine' : 'Favorites'}
               </button>
             ))}
             {followingProfiles.length > 0 && (
@@ -146,6 +171,35 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
+        {/* First-run framing. The feed is everyone's published recipes, so
+            without this a newcomer sees an unexplained list of strangers'
+            cooking and no statement of what the app does. Disappears for good
+            once they have a recipe of their own. */}
+        {isFirstRun && !cloudError && (
+          <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-text-primary">
+                Welcome to {APP_NAME}
+              </p>
+              <p className="text-xs text-text-secondary">
+                Describe a dish and it writes you a recipe. Below are recipes
+                shared by everyone using {APP_NAME} — browse them, or start your own.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => navigate('/create')}>
+              Create your first recipe
+            </Button>
+          </div>
+        )}
+
+        {/* Names the list once the intro is gone, so "All" is never mistaken
+            for "mine". Only meaningful when the shared library is reachable. */}
+        {!isFirstRun && !showFollowing && filter === 'all' && !search && !cloudError && (
+          <p className="text-xs text-text-tertiary">
+            Recipes shared by everyone using {APP_NAME}
+          </p>
+        )}
+
         {/* Shown above the list, not instead of it: local recipes did load, and
             the previous behaviour claimed "No recipes yet" when the shared
             library was merely unreachable. */}
@@ -209,6 +263,12 @@ export function LibraryPage() {
               isFavorite={favoriteIds.has(recipe.id)}
             />
           ))
+        ) : filter === 'mine' ? (
+          <EmptyState
+            icon="🍳"
+            title="You haven't created a recipe yet"
+            description="Tap the + button to make your first one"
+          />
         ) : filter === 'favorites' ? (
           <EmptyState
             icon="❤️"
