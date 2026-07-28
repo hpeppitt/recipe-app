@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { decodeRecipeFromHash, type SharedRecipe } from '../lib/share';
 import { getPublishedRecipe } from '../services/firestore';
+import { createRecipe } from '../db/recipes';
+import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCloudFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -38,6 +40,41 @@ export function SharedRecipePage() {
   const [showAuth, setShowAuth] = useState(false);
   const { isFavorite, toggleFavorite } = useCloudFavorite(paramId);
   const { submit: submitSuggestion } = useSubmitSuggestion();
+  // createRecipe mints a fresh UUID per call, so every tap makes another copy.
+  // The guard has to be a ref, not the `saving` state: three synchronous taps all
+  // land before React re-renders, and measured against the state-only version
+  // that produced 3 saved copies. Same failure mode as saveRecipe (FUN-14).
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+
+  const handleSaveCopy = async () => {
+    if (!recipe || savingRef.current || savedId) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      // Deliberately not published: this is the recipient's private copy of
+      // someone else's recipe, and the original creator is preserved in
+      // createdBy rather than being overwritten with the saver's identity.
+      const saved = await createRecipe(
+        recipe as unknown as GeneratedRecipe,
+        '',
+        [],
+        null,
+        null,
+        -1,
+        recipe.createdBy ?? { uid: 'local', displayName: null }
+      );
+      setSavedId(saved.id);
+    } catch (err) {
+      console.error('Saving the shared recipe failed', err);
+      // Only released on failure: after a success the button becomes a link to
+      // the saved recipe, so re-arming it would invite a duplicate.
+      savingRef.current = false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const recipeOwnerId = recipe?.createdBy?.uid;
   const isOwner = user && recipeOwnerId ? user.uid === recipeOwnerId : false;
@@ -190,9 +227,14 @@ export function SharedRecipePage() {
                 )}
               </button>
             )}
-            <span className="text-xs font-medium text-text-tertiary bg-surface-secondary rounded-full px-2.5 py-0.5">
-              View only
-            </span>
+            {/* Only the hash link is genuinely read-only. On /shared/:id the
+                badge sat directly beside a working favourite button and a
+                Suggest a Change action, flatly contradicting both. */}
+            {!paramId && (
+              <span className="text-xs font-medium text-text-tertiary bg-surface-secondary rounded-full px-2.5 py-0.5">
+                Read-only copy
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -280,6 +322,26 @@ export function SharedRecipePage() {
             >
               Suggest a Change
             </button>
+          ) : !paramId ? (
+            // A hash link carries the whole recipe in the URL and nothing else:
+            // no Firestore doc to favourite, no owner to suggest to. Without a
+            // save action the recipient could only read it and close the tab,
+            // which is the one moment they most want to keep it.
+            <div className="space-y-2">
+              {savedId ? (
+                <Button fullWidth onClick={() => navigate(`/recipe/${savedId}`)}>
+                  Saved — open it
+                </Button>
+              ) : (
+                <Button fullWidth onClick={handleSaveCopy} disabled={saving}>
+                  {saving ? <Spinner size="sm" /> : 'Save to my library'}
+                </Button>
+              )}
+              <p className="text-xs text-text-tertiary text-center">
+                Saves a copy on this device. You can then branch it into your own
+                variations.
+              </p>
+            </div>
           ) : (
             <p className="text-xs text-text-tertiary text-center">
               Shared from{' '}

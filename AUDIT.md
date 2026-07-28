@@ -833,11 +833,28 @@ that failure mode entirely, so it is not listed.
       Verified: skeleton → tree with no intermediate state, a bogus id still lands on "Recipe
       not found" rather than hanging, and a multi-variation tree renders without the
       single-version hint.)
-- [ ] **UX-12** Shared page shows "View only" unconditionally, contradicting the favourite
+- [x] **UX-12** Shared page shows "View only" unconditionally, contradicting the favourite
       and Suggest controls beside it on `/shared/:id`. The genuinely view-only hash link gets
       the same badge with no explanation and no way to save the recipe — the recipient's
       highest-value conversion moment is a dead end. (`SharedRecipePage.tsx:193-195`,
       `:274-292`)
+      (fixed both halves. The badge is now shown only on the hash path, where it is true, and
+      reworded to "Read-only copy" — on `/shared/:id` it sat directly beside a working
+      favourite button and a Suggest a Change action, contradicting both.
+      The hash path gained "Save to my library". A hash link carries the whole recipe in the
+      URL and nothing else: no Firestore doc to favourite, no owner to suggest to, so the
+      recipient could previously only read it and close the tab. The copy is local-only and
+      deliberately not published, and `createdBy` keeps the original creator rather than being
+      rewritten to the saver.
+      **Found a bug in my own first version by checking the database rather than the UI.**
+      Three synchronous taps produced **3 saved copies**: I had guarded with the `saving`
+      state, which does not exist yet when clicks land in the same tick. Switched to a
+      `savingRef`, same as `saveRecipe` (FUN-14) — re-measured at **1 copy** from three taps.
+      The button had shown "Saved — open it" in both cases, so the UI looked correct while the
+      library was quietly accumulating duplicates.
+      Cleaned up the 3 stray copies the failed attempt wrote to local Dexie, and the 1 from the
+      passing run; local recipe count back to 0. Verified `/shared/:id` shows no badge and
+      keeps both actions.)
 - [ ] **UX-13** The dedup panel omits the product's whole point: it offers "open this one" or
       "create anyway" but not "make a variation of this". It also runs behind a
       "Generating recipe..." indicator, so it breaks a promise it just made, gives no reason
