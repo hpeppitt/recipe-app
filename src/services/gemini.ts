@@ -1,24 +1,40 @@
-import { GoogleGenAI } from '@google/genai';
+import { getAI, getGenerativeModel, GoogleAIBackend, type ChatSession as AIChatSession } from 'firebase/ai';
 import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
 import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
+import { firebaseApp } from './firebase';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-function getClient(apiKey: string): GoogleGenAI {
-  return new GoogleGenAI({ apiKey });
-}
+// gemini-2.0-flash was shut down on 2026-06-01 and returns 404. Keep this in
+// step with the Firebase AI Logic supported-models list; a retired model breaks
+// generation completely and the only symptom is a 404 in the console.
+const MODEL = 'gemini-3.6-flash';
 
-export async function testConnection(apiKey: string): Promise<boolean> {
-  try {
-    const ai = getClient(apiKey);
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: 'Say "ok"',
-    });
-    return !!response.text;
-  } catch {
-    return false;
+/**
+ * Generation goes through Firebase AI Logic rather than calling Gemini directly.
+ *
+ * The key never reaches the browser: AI Logic proxies the request and holds a
+ * Gemini key that Firebase provisions and manages server-side. Previously the app
+ * asked each user for their own key and stored it in localStorage, which also
+ * meant `getApiKey()` was the gate on the whole create flow.
+ *
+ * App Check is enforced on this path (see services/firebase.ts), so the request is
+ * rejected unless it carries a valid app attestation.
+ */
+function buildModel(systemInstruction: string) {
+  if (!firebaseApp) {
+    // Local-only mode has no Firebase project, so there is no proxy to call.
+    throw new Error('Firebase is not configured, so recipes cannot be generated.');
   }
+  const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+  return getGenerativeModel(ai, {
+    model: MODEL,
+    systemInstruction,
+    // Kept as prompt-requested JSON rather than a responseSchema for now — see
+    // RISK-1 mitigation 1 in AUDIT.md. The schema lives in lib/prompts.ts as a
+    // string and converting it to the SDK's Schema builders is untested work.
+    generationConfig: { responseMimeType: 'application/json' },
+  });
 }
 
 export interface ChatSession {
@@ -36,33 +52,21 @@ function parseRecipeJson(text: string): GeneratedRecipe {
   return GeneratedRecipeSchema.parse(parsed);
 }
 
-export function createRecipeChat(apiKey: string): ChatSession {
-  const ai = getClient(apiKey);
-  const history: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
-
+/** Wraps an AI Logic chat so multi-turn history is managed by the SDK. */
+function toChatSession(chat: AIChatSession): ChatSession {
   return {
     async sendMessage(message: string): Promise<GeneratedRecipe> {
-      history.push({ role: 'user', parts: [{ text: message }] });
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        config: {
-          systemInstruction: RECIPE_SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-        },
-        contents: history,
-      });
-
-      const text = response.text ?? '';
-      history.push({ role: 'model', parts: [{ text }] });
-
-      return parseRecipeJson(text);
+      const result = await chat.sendMessage(message);
+      return parseRecipeJson(result.response.text());
     },
   };
 }
 
-export function createVariationChat(apiKey: string, parentRecipe: Recipe): ChatSession {
-  const ai = getClient(apiKey);
+export function createRecipeChat(): ChatSession {
+  return toChatSession(buildModel(RECIPE_SYSTEM_PROMPT).startChat());
+}
+
+export function createVariationChat(parentRecipe: Recipe): ChatSession {
   const parentJson = JSON.stringify({
     title: parentRecipe.title,
     description: parentRecipe.description,
@@ -77,26 +81,6 @@ export function createVariationChat(apiKey: string, parentRecipe: Recipe): ChatS
     tags: parentRecipe.tags,
     emoji: parentRecipe.emoji,
   });
-  const systemPrompt = getVariationSystemPrompt(parentJson);
-  const history: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
 
-  return {
-    async sendMessage(message: string): Promise<GeneratedRecipe> {
-      history.push({ role: 'user', parts: [{ text: message }] });
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: 'application/json',
-        },
-        contents: history,
-      });
-
-      const text = response.text ?? '';
-      history.push({ role: 'model', parts: [{ text }] });
-
-      return parseRecipeJson(text);
-    },
-  };
+  return toChatSession(buildModel(getVariationSystemPrompt(parentJson)).startChat());
 }

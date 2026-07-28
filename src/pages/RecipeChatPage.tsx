@@ -26,7 +26,7 @@ export function RecipeChatPage() {
     isLoading,
     isSaving,
     error,
-    needsApiKey,
+    generationUnavailable,
     latestRecipe,
     similarRecipes,
     sendMessage,
@@ -77,22 +77,17 @@ export function RecipeChatPage() {
 
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-lg mx-auto p-4 space-y-4">
-          {/* Surfaced before composing: generation is impossible without a key */}
-          {needsApiKey && (
+          {/* Surfaced before composing rather than after. There is nothing the user
+              can do about this one — no key to paste any more — so it links nowhere. */}
+          {generationUnavailable && (
             <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-2">
               <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
-                A Gemini API key is required
+                Recipe generation is unavailable
               </p>
               <p className="text-xs text-warning-700 dark:text-warning-300">
-                Recipes are generated with Gemini, so you'll need to add your own key before
-                you can create one.
+                This build has no Firebase configuration, so it can't reach the recipe
+                generator. Your saved recipes are unaffected.
               </p>
-              <Link
-                to="/settings"
-                className="inline-block text-sm font-medium text-primary-600 dark:text-primary-300 underline underline-offset-2"
-              >
-                Add a key in Settings
-              </Link>
             </div>
           )}
 
@@ -240,10 +235,10 @@ export function RecipeChatPage() {
 
       <ChatInput
         onSend={sendMessage}
-        disabled={isLoading || needsApiKey || (isVarying && !parentRecipe)}
+        disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
         placeholder={
-          needsApiKey
-            ? 'Add a Gemini API key in Settings first'
+          generationUnavailable
+            ? 'Recipe generation is unavailable'
             : isVarying
               ? 'Describe the modification...'
               : 'Describe what you want to cook...'
