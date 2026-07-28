@@ -52,7 +52,11 @@ export function LibraryPage() {
   // happens and a newcomer's first screen is a wall of strangers' cooking with
   // nothing saying what they are looking at. Frame it until they have one of
   // their own.
-  const isFirstRun = !isLoading && ownRecipes.length === 0 && !search;
+  // Gated to the All feed. On Following or Favorites the copy ("below are
+  // recipes shared by everyone") describes a different list than the one on
+  // screen — a contradiction introduced when UX-9 added this card.
+  const isFirstRun =
+    filter === 'all' && !isLoading && ownRecipes.length === 0 && !search;
 
   const displayRecipes = showFollowing
     ? undefined
@@ -232,26 +236,16 @@ export function LibraryPage() {
           ))
         ) : showFollowing ? (
           followingRecipes.length > 0 ? (
+            // Was a hand-rolled card missing time, difficulty, the variation
+            // count and the favourite marker, and it reimplemented the nested-link
+            // pattern UI-9 already fixed — a <button> wrapping the creator, so the
+            // creator was not separately reachable. RecipeCard covers all of it.
             followingRecipes.map((r) => (
-              <button
+              <RecipeCard
                 key={r.id}
-                onClick={() => navigate(`/recipe/${r.id}`)}
-                className="w-full text-left bg-surface rounded-2xl border border-border p-4 hover:border-border-strong transition-colors active:scale-[0.99]"
-              >
-                <div className="flex gap-3">
-                  <span className="text-3xl flex-shrink-0 mt-0.5">{r.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-text-primary truncate">{r.title}</h3>
-                    <p className="text-sm text-text-secondary line-clamp-2 mt-0.5">{r.description}</p>
-                    {r.createdBy?.displayName && (
-                      <div className="flex items-center gap-1 mt-1.5 text-xs text-text-tertiary">
-                        <Avatar uid={r.createdBy.uid} name={r.createdBy.displayName} size="sm" />
-                        <span>{r.createdBy.displayName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
+                recipe={r}
+                isFavorite={favoriteIds.has(r.id)}
+              />
             ))
           ) : (
             <EmptyState

@@ -972,9 +972,28 @@ that failure mode entirely, so it is not listed.
       showed both variants correctly.
       Cleaned up both test recipes through the app's own delete so the published one cascaded out
       of Firestore; feed back to 7 cards, local storage to 0.)
-- [ ] **UX-18** The Following filter swaps in a different, information-poorer card (no time,
+- [x] **UX-18** The Following filter swaps in a different, information-poorer card (no time,
       difficulty, variation count or favourite marker) and reimplements the nested-link
       pattern UI-9 fixed. Reuse `RecipeCard`. (`LibraryPage.tsx:174-192`)
+      (fixed by reusing `RecipeCard`, which required understanding *why* the duplicate existed:
+      the card demanded a full `RecipeWithChildren`, and a cloud feed entry cannot satisfy that
+      (no rootId, depth, prompt or chatHistory). So the prop type is now `RecipeCardRecipe` —
+      exactly the eight fields the component reads — and any feed can pass through it. Fixing
+      the type was the actual fix; without it the duplicate card was unavoidable.
+      That restores time, difficulty, the favourite marker, and the accessible nested-link
+      structure UI-9 established: the old hand-rolled version was a `<button>` wrapping the
+      creator's avatar and name, so the creator was not separately reachable at all.
+      `childCount` is now optional and the chip is omitted when absent, which is the honest
+      outcome here: `CloudRecipe` has no `rootId`, so the variation count genuinely cannot be
+      derived for followed users' recipes. Showing 0 would have been a claim rather than a gap.
+      **Also fixed a contradiction I introduced in UX-9** and spotted in this screen: the
+      first-run card was rendering on the Following filter, where "below are recipes shared by
+      everyone" describes a different list than the one on screen. Now gated to the All feed.
+      Verified by actually following a user, since with nobody followed the filter chip does not
+      exist: cards render with time, difficulty and creator links, no variation chips, and the
+      intro appears only on All. Unfollowed afterwards and confirmed on a fresh load that the
+      count is back to 0 — the immediate post-unfollow reading of 1 was stale UI, not a failed
+      write.)
 - [ ] **UX-19** Detail header crushes the title (~55px at 320px with five 44px buttons), and
       the footer makes Create Variation primary even on someone else's recipe where Suggest a
       Change is the contextually right action. Favourite count is never shown.

@@ -3,10 +3,28 @@ import { formatTime } from '../../lib/utils';
 import { DIFFICULTY_LABELS } from '../../lib/constants';
 import { pluralize } from '../../lib/utils';
 import { Avatar } from '../ui/Avatar';
-import type { RecipeWithChildren } from '../../types/recipe';
+/**
+ * Exactly the fields this card reads — not a full `Recipe`.
+ *
+ * It previously required `RecipeWithChildren`, which a cloud feed entry cannot
+ * satisfy (no rootId, depth, prompt or chatHistory). That is why the Following
+ * filter grew a second, poorer card instead of reusing this one. Narrowing the
+ * prop makes it usable by any feed.
+ */
+export type RecipeCardRecipe = {
+  id: string;
+  emoji: string;
+  title: string;
+  description: string;
+  totalTime: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  /** Absent when the source cannot supply it; the chip is then omitted. */
+  childCount?: number;
+  createdBy?: { uid: string; displayName: string | null };
+};
 
 interface RecipeCardProps {
-  recipe: RecipeWithChildren;
+  recipe: RecipeCardRecipe;
   isFavorite?: boolean;
 }
 
@@ -44,7 +62,7 @@ export function RecipeCard({ recipe, isFavorite }: RecipeCardProps) {
             <span>{formatTime(recipe.totalTime)}</span>
             <span>·</span>
             <span>{DIFFICULTY_LABELS[recipe.difficulty]}</span>
-            {recipe.childCount > 0 && (
+            {!!recipe.childCount && recipe.childCount > 0 && (
               <>
                 <span>·</span>
                 <span className="text-primary-600 font-medium">
