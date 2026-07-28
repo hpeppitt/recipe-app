@@ -2,6 +2,12 @@ export interface FriendlyError {
   message: string;
   /** Which affordance to offer alongside the message. */
   action?: 'settings';
+  /**
+   * Whether running the same request again could plausibly succeed. Offering
+   * Try Again on a misconfiguration would just reproduce the failure and blame
+   * the user for it, so the flag is opt-in per branch rather than default-true.
+   */
+  retryable?: boolean;
 }
 
 /**
@@ -32,6 +38,7 @@ export function describeGenerationError(err: unknown): FriendlyError {
     return {
       message:
         "This app couldn't verify itself with the recipe service. Reload the page and try again.",
+      retryable: true,
     };
   }
 
@@ -53,6 +60,7 @@ export function describeGenerationError(err: unknown): FriendlyError {
   if (raw.includes('429') || raw.includes('quota') || raw.includes('rate limit')) {
     return {
       message: 'Gemini is rate-limiting requests right now. Wait a moment and try again.',
+      retryable: true,
     };
   }
 
@@ -63,7 +71,10 @@ export function describeGenerationError(err: unknown): FriendlyError {
     raw.includes('load failed') ||
     raw.includes('timeout')
   ) {
-    return { message: "Couldn't reach Gemini. Check your connection and try again." };
+    return {
+      message: "Couldn't reach Gemini. Check your connection and try again.",
+      retryable: true,
+    };
   }
 
   // Zod validation or JSON.parse failure on the model's output.
@@ -75,12 +86,20 @@ export function describeGenerationError(err: unknown): FriendlyError {
   ) {
     return {
       message: 'Gemini returned a recipe we could not read. Try rephrasing your request.',
+      // Model output is non-deterministic, so the same prompt can parse next time.
+      retryable: true,
     };
   }
 
   if (raw.includes('500') || raw.includes('503') || raw.includes('unavailable')) {
-    return { message: 'Gemini is temporarily unavailable. Try again in a moment.' };
+    return {
+      message: 'Gemini is temporarily unavailable. Try again in a moment.',
+      retryable: true,
+    };
   }
 
-  return { message: 'Something went wrong generating the recipe. Please try again.' };
+  return {
+    message: 'Something went wrong generating the recipe. Please try again.',
+    retryable: true,
+  };
 }

@@ -46,6 +46,7 @@ export function RecipeChatPage() {
     loadingPhase,
     pendingQuery,
     sendMessage,
+    retryGeneration,
     dismissSimilar,
     saveRecipe,
   } = useRecipeChat(isVarying ? parentRecipe : undefined);
@@ -276,6 +277,15 @@ export function RecipeChatPage() {
           {error && (
             <div className="bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 text-sm px-4 py-3 rounded-xl space-y-2">
               <p>{error.message}</p>
+              {/* The prompt is sitting in the transcript directly above, so
+                  recovery used to mean retyping something already on screen.
+                  Only offered where retrying could actually succeed — on a
+                  misconfiguration it would just reproduce the failure. */}
+              {error.retryable && (
+                <Button size="sm" variant="secondary" onClick={retryGeneration} disabled={isLoading}>
+                  Try again
+                </Button>
+              )}
               {error.action === 'settings' && (
                 <Link
                   to="/settings"

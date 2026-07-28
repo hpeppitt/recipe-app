@@ -230,6 +230,17 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     [parentRecipe, generateRecipe, user?.uid]
   );
 
+  /**
+   * Re-run the last prompt after a failure. The prompt is still on screen in the
+   * transcript, so making the user retype it was pure friction — and it goes
+   * straight to generation rather than back through dedup, which already ran.
+   */
+  const retryGeneration = useCallback(async () => {
+    const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    await generateRecipe(lastUser.content);
+  }, [messages, generateRecipe]);
+
   const dismissSimilar = useCallback(async () => {
     if (pendingQuery) {
       await generateRecipe(pendingQuery);
@@ -301,6 +312,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     /** The prompt that produced the current matches, so the UI can carry it forward. */
     pendingQuery,
     sendMessage,
+    retryGeneration,
     dismissSimilar,
     saveRecipe,
   };

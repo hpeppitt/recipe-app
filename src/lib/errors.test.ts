@@ -82,3 +82,28 @@ describe('describeGenerationError', () => {
     expect(GENERATION_UNAVAILABLE.message).toMatch(/unavailable/i);
   });
 });
+
+describe('describeGenerationError retryability', () => {
+  it('marks transient failures retryable', () => {
+    expect(describeGenerationError(new Error('Failed to fetch')).retryable).toBe(true);
+    expect(describeGenerationError(new Error('429 quota exceeded')).retryable).toBe(true);
+    expect(describeGenerationError(new Error('503 unavailable')).retryable).toBe(true);
+    expect(describeGenerationError(new Error('something odd')).retryable).toBe(true);
+  });
+
+  it('marks a bad model response retryable, since output is non-deterministic', () => {
+    expect(describeGenerationError(new Error('Unexpected token < in JSON')).retryable).toBe(
+      true
+    );
+  });
+
+  it('does NOT offer retry on a misconfiguration', () => {
+    // Retrying reproduces the failure and implies the user did something wrong.
+    expect(describeGenerationError(new Error('API_KEY_INVALID')).retryable).toBeFalsy();
+    expect(describeGenerationError(new Error('403 permission_denied')).retryable).toBeFalsy();
+  });
+
+  it('does NOT offer retry when generation is unavailable at all', () => {
+    expect(GENERATION_UNAVAILABLE.retryable).toBeFalsy();
+  });
+});

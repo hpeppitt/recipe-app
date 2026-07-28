@@ -885,8 +885,24 @@ that failure mode entirely, so it is not listed.
 
 ## Medium severity
 
-- [ ] **UX-14** Generation failure has no Try Again, uniquely in the app now — recovery means
+- [x] **UX-14** Generation failure has no Try Again, uniquely in the app now — recovery means
       retyping the prompt that is visible directly above. (`RecipeChatPage.tsx:223-235`)
+      (fixed: `retryGeneration` re-sends the last user message from the transcript. It calls
+      `generateRecipe` directly rather than `sendMessage`, so the retry does not run the dedup
+      search a second time — that already happened before the failure.
+      Retry is **not** offered unconditionally. `FriendlyError` gained a `retryable` flag set
+      per branch: transient failures (network, 429, 5xx, unknown) and unreadable model output
+      get it, since model output is non-deterministic and the same prompt can parse next time.
+      A rejected key or `permission_denied` does not — retrying would reproduce the failure
+      and imply the user did something wrong — and neither does `GENERATION_UNAVAILABLE`,
+      where there is no configured backend to retry against. Four tests cover the split.
+      Verified end to end, not just that the button renders. First attempt was inconclusive:
+      I induced the failure by pointing at a bad model name, then restored it via HMR, and
+      retry still failed — because `chatRef` had cached a session bound to the bad model. That
+      was an artefact of hot-reloading mid-session, not a product bug. Re-ran with a fault that
+      clears on its own (fail the first `sendMessage` only): error → Try again → "Generating
+      recipe..." → error cleared → recipe rendered, with the prompt appearing once rather than
+      being duplicated into the transcript.)
 - [ ] **UX-15** Only the newest generation is savable (`showSave={i === lastAssistantIdx}` +
       single `latestRecipe`), so refining once and disliking the result loses the good version
       that is still on screen. (`RecipeChatPage.tsx:156`, `useRecipeChat.ts:109`)
