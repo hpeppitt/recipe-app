@@ -454,8 +454,20 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
 
 ## Low severity
 
-- [ ] **FUN-12** `incrementRecipeViews` in useEffect under StrictMode double-counts every
+- [x] **FUN-12** `incrementRecipeViews` in useEffect under StrictMode double-counts every
       view in dev. (`RecipeDetailPage.tsx:76-81`, `main.tsx:7`)
+      (fixed: `viewCountedRef` guard so the effect body runs at most once per recipe per
+      mount. The ref survives StrictMode's remount because React reuses the component
+      instance, which is what makes it the right tool for a one-shot side effect — a state
+      flag would reset.
+      Measured rather than assumed: instrumented the effect and counted fires on a real
+      navigation — 2 without the guard, 1 with it. Removed the instrumentation after.
+      Worth noting this stopped being dev-only cosmetics once `.env` pointed dev at the live
+      project: every local page view was inflating real `viewCount` values by 2.
+      `SharedRecipePage` also increments but is already safe — its increment sits behind the
+      `cancelled` check inside an async load, so StrictMode's first pass is discarded. That is
+      incidental rather than deliberate, so it is worth a comment if that file is touched again.
+      StrictMode itself left enabled; it is doing its job here by surfacing the bug.)
 - [ ] **FUN-13** Cloud fallback gated on an arbitrary 100ms setTimeout instead of awaiting
       the Dexie query. (`useRecipe.ts:24-45`)
 - [ ] **FUN-14** "Create New Anyway" has no in-flight guard; double-click runs two

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
@@ -166,12 +166,20 @@ export function RecipeDetailPage() {
     });
   };
 
-  // Track view
+  // Track view, at most once per recipe per mount.
+  //
+  // StrictMode runs effects twice in dev (mount, cleanup, mount again), which
+  // fired two increments for every page view. Since dev now points at the real
+  // Firestore project, that inflated live view counts. The ref survives the
+  // remount because React reuses the same component instance, so it is the
+  // standard guard for a genuinely one-shot side effect.
+  const viewCountedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (id && isFirebaseConfigured) {
-      incrementRecipeViews(id);
-      trackRecipeViewed(id);
-    }
+    if (!id || !isFirebaseConfigured) return;
+    if (viewCountedRef.current === id) return;
+    viewCountedRef.current = id;
+    incrementRecipeViews(id);
+    trackRecipeViewed(id);
   }, [id]);
 
   const creatorName = recipe?.createdBy?.displayName;
