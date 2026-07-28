@@ -1001,6 +1001,34 @@ that failure mode entirely, so it is not listed.
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
       Needs a message model, thread UI and a notification type, so it is a feature rather
       than a fix. (`RecipeDetailPage.tsx` suggestions section, `types/social.ts`)
+- [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
+      emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
+      Requested by the user 2026-07-28.
+      Convert at display time only — never rewrite the stored recipe, or a shared link would
+      change meaning depending on who last viewed it. The obstacle is that `ingredients[].amount`
+      is a free-text string ("1¼ cups"), so converting means parsing prose, which is lossy for
+      things like "a splash" or "2 large onions". Preferred approach: extend the generation
+      schema so the model emits a structured `{ quantity, unit }` alongside the display string,
+      convert from that, and fall back to showing the original text unchanged when it is absent
+      — which also covers every recipe already saved, since backfilling is not possible without
+      re-generating. Preference belongs in Settings next to Theme and should persist via
+      `storage.ts`. Note weight/volume are not interchangeable (flour cups → grams depends on
+      the ingredient), so a genuine cups↔grams conversion needs per-ingredient density and
+      should be scoped down to weight↔weight and volume↔volume unless that data is added.
+      (`types/recipe.ts` Ingredient, `schemas/recipe.schema.ts`, `lib/prompts.ts`,
+      `components/recipe/IngredientList.tsx`, `SettingsPage.tsx`)
+- [ ] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
+      protein/carbs/fat, presumably per serving so it composes with the existing `servings`
+      field.
+      Two possible sources, and the choice matters. Asking Gemini for macros in the same call
+      is nearly free but the numbers are plausible-looking guesses, which is the worst failure
+      mode for nutrition data — wrong and confident. Computing from a food database is accurate
+      but needs ingredient matching and a data source. Whichever is chosen, macros must be
+      visibly labelled as estimates, and per-serving must be stated rather than implied.
+      Schema change plus `MetadataPills`/`RecipeContent` display; existing recipes have no
+      macros and need an absent state rather than zeros, which would read as "no calories".
+      (`schemas/recipe.schema.ts`, `types/recipe.ts`, `lib/prompts.ts`,
+      `components/recipe/RecipeContent.tsx`)
 
 ---
 
