@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 interface EmptyStateProps {
   icon?: string;
   title: string;
@@ -8,9 +10,25 @@ interface EmptyStateProps {
    * to, which is why these spots had grown their own bare-paragraph styles.
    */
   compact?: boolean;
+  /**
+   * The way out of this empty state.
+   *
+   * A `ReactNode` rather than a label/onClick pair so callers keep control of the
+   * variant, and so a state with no sensible next step can simply omit it. Without
+   * this slot, callers either described a button in prose ("Tap the + button") or
+   * wrapped the component in their own flex container to sit one beside it — both
+   * of which happened here.
+   */
+  action?: ReactNode;
 }
 
-export function EmptyState({ icon = '📖', title, description, compact = false }: EmptyStateProps) {
+export function EmptyState({
+  icon = '📖',
+  title,
+  description,
+  compact = false,
+  action,
+}: EmptyStateProps) {
   return (
     <div
       className={`flex flex-col items-center justify-center text-center ${
@@ -30,6 +48,7 @@ export function EmptyState({ icon = '📖', title, description, compact = false 
           {description}
         </p>
       )}
+      {action && <div className={compact ? 'mt-3' : 'mt-4'}>{action}</div>}
     </div>
   );
 }

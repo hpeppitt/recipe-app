@@ -41,16 +41,16 @@ export function VersionTreePage() {
               at the same dead-end string, telling the user their recipe had no
               versions when the network was the actual problem. */}
           {cloudError ? (
-            <div className="text-center py-8 space-y-3">
-              <EmptyState
-                icon="📡"
-                title="Couldn't load the version tree"
-                description="The shared library is unreachable right now. Your recipe is fine."
-              />
-              <Button variant="secondary" onClick={retry}>
-                Try again
-              </Button>
-            </div>
+            <EmptyState
+              icon="📡"
+              title="Couldn't load the version tree"
+              description="The shared library is unreachable right now. Your recipe is fine."
+              action={
+                <Button variant="secondary" onClick={retry}>
+                  Try again
+                </Button>
+              }
+            />
           ) : tree ? (
             <div className="space-y-4">
               <TreeNodeView node={tree} currentId={id} onNavigate={(rid) => navigate(`/recipe/${rid}`)} depth={0} />

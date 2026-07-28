@@ -337,15 +337,17 @@ function PublicProfile({ uid }: { uid: string }) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
         <TopBar title="Couldn't load" showBack />
-        <div className="p-8 max-w-lg mx-auto w-full text-center space-y-3">
+        <div className="p-8 max-w-lg mx-auto w-full">
           <EmptyState
             icon="📡"
             title="Couldn't load this profile"
             description="The connection failed. The account is probably fine."
+            action={
+              <Button variant="secondary" onClick={retryProfile}>
+                Try again
+              </Button>
+            }
           />
-          <Button variant="secondary" onClick={retryProfile}>
-            Try again
-          </Button>
         </div>
       </div>
     );

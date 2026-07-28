@@ -1357,8 +1357,23 @@ that failure mode entirely, so it is not listed.
       specifically, not the helper.
       Verified: own profile with 0 recipes shows no stats row at all; a profile with data shows
       `14 recipes / 109 views / 2 favorites / 0 followers`, with no singular form anywhere.)
-- [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
+- [x] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
       describes a button instead of offering one. (`EmptyState.tsx:1-15`)
+      (fixed: added an `action` slot taking a `ReactNode` rather than a label/onClick pair, so
+      callers keep control of the button variant and a state with no sensible next step can just
+      omit it.
+      **The finding understates the symptom: it was not only prose, it was also duplication I
+      introduced earlier in this session.** Three call sites (VersionTreePage's cloud error,
+      ProfilePage's profile error, LibraryPage's no-results) had each hand-rolled a flex wrapper
+      to sit a Button beside the component — my own workaround for the missing slot, written
+      across UX-11, UX-23 and UX-33. All three now pass `action` and the wrappers are gone.
+      Three more genuinely described a button in prose and now offer one: "Tap the + button" on
+      both the Mine and library-empty states became a Create a recipe button, and the Following
+      empty state gained Browse recipes. The Favorites state keeps "Tap the heart on any recipe"
+      because that explains a *mechanism* rather than substituting for a missing button — there is
+      no single control to press — but it now offers Browse recipes as the way forward.
+      Verified in-browser: Browse recipes switches the filter and restores 7 recipes, Clear search
+      restores the list, and the action renders inside the EmptyState box rather than as a sibling.)
 - [x] **UX-36** RecipeDetailPage header actions wrap off-screen for owners. At 390px with a
       long title the four action buttons (Favorite, Share, Version tree, More options) wrap
       into a column inside the `h-14` header; 4x44px centred in 56px puts the first two at

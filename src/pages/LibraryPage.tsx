@@ -270,7 +270,12 @@ export function LibraryPage() {
             <EmptyState
               icon="👥"
               title="No recipes from followed users"
-              description="Follow other users to see their recipes here"
+              description="Open a recipe you like and follow its creator to see more here."
+              action={
+                <Button variant="secondary" onClick={() => setFilter('all')}>
+                  Browse recipes
+                </Button>
+              }
             />
           )
         ) : displayRecipes && displayRecipes.length > 0 ? (
@@ -285,27 +290,33 @@ export function LibraryPage() {
           <EmptyState
             icon="🍳"
             title="You haven't created a recipe yet"
-            description="Tap the + button to make your first one"
+            description="Describe something you'd like to cook and it writes the recipe."
+            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
           />
         ) : filter === 'favorites' ? (
           <EmptyState
             icon="❤️"
             title="No favorites yet"
-            description="Tap the heart on a recipe to add it to your favorites"
+            description="Tap the heart on any recipe to keep it here."
+            action={
+              <Button variant="secondary" onClick={() => setFilter('all')}>
+                Browse recipes
+              </Button>
+            }
           />
         ) : search ? (
           // Previously a dead end: the only escape was selecting the field and
           // deleting the text.
-          <div className="space-y-3 text-center">
-            <EmptyState
-              icon="🔍"
-              title="No results"
-              description={`Nothing matches "${search}" in titles, ingredients or tags.`}
-            />
-            <Button variant="secondary" onClick={() => setSearch('')}>
-              Clear search
-            </Button>
-          </div>
+          <EmptyState
+            icon="🔍"
+            title="No results"
+            description={`Nothing matches "${search}" in titles, ingredients or tags.`}
+            action={
+              <Button variant="secondary" onClick={() => setSearch('')}>
+                Clear search
+              </Button>
+            }
+          />
         ) : cloudError ? (
           // The banner above already explains why the list is empty. Claiming
           // "No recipes yet" here would contradict it and blame the user for a
@@ -315,7 +326,8 @@ export function LibraryPage() {
           <EmptyState
             icon="👨‍🍳"
             title="No recipes yet"
-            description="Tap the + button to create your first recipe"
+            description="Describe something you'd like to cook and it writes the recipe."
+            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
           />
         )}
       </div>
