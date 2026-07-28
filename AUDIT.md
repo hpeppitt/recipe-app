@@ -1128,9 +1128,29 @@ that failure mode entirely, so it is not listed.
       because **StrictMode double-invokes the effect**, so the second invocation succeeded. Only
       a console-controlled flag isolated the retry path. A one-shot fault is unreliable in dev
       for anything reached through an effect.)
-- [ ] **UX-24** The follow loop is write-only: no notification on gaining a follower (the
+- [x] **UX-24** The follow loop is write-only: no notification on gaining a follower (the
       strongest retention signal a creator gets), follower/following counts aren't tappable,
       and no follower list exists anywhere. (`firestore.ts:460-485`, `ProfilePage.tsx:201`)
+      (fixed the notification, which is the part with a real consequence. `followUser` now writes
+      a `follow` notification, fire-and-forget like the others so a failed notification never
+      fails the follow.
+      This needed a shape change: `recipeId`/`recipeTitle`/`recipeEmoji` are now optional on
+      `AppNotification`, because a follow is about a person, not a recipe. Kept as one type with
+      optional fields rather than a separate model so a single subscription and list still cover
+      everything. Two consequences handled: the bell omits the trailing title instead of
+      rendering "undefined", and clicking routes to `/profile/:fromUid` rather than
+      `/recipe/undefined`, which would have been a dead end.
+      Verified against the real backend by temporarily addressing the notification to the
+      follower, since with one account it otherwise goes to a uid whose notifications the rules
+      correctly forbid me from reading. Result: rules accepted the write (no failure logged), the
+      bell read "Notifications, 1 unread", the row rendered "SilkyBaker started following you"
+      with no dangling recipe, and clicking landed on the profile route. Then restored the real
+      recipient and unfollowed; follower count back to 0.
+      **Residue disclosed:** that test left one self-addressed notification in the account. It is
+      marked read so it does not nag, but there is no delete-notification UI to remove it.
+      **Deferred as UX-40: tappable counts and the follower list.** Those need a `follows`
+      query by `followingId`, a new list screen and routing — a feature, not a fix, and the
+      counts cannot become tappable before the destination exists.)
 - [ ] **UX-25** Notifications: no `isLoading`, so "No notifications yet" shows during the
       initial subscription and a failure reads as "nobody cares"; unread count is visual-only;
       badge uses raw `bg-red-500` instead of the danger token.
@@ -1196,6 +1216,13 @@ that failure mode entirely, so it is not listed.
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
       Needs a message model, thread UI and a notification type, so it is a feature rather
       than a fix. (`RecipeDetailPage.tsx` suggestions section, `types/social.ts`)
+- [ ] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
+      out of UX-24, which added the missing follow notification. Needs a `follows` query by
+      `followingId` (and by `followerId` for following), a list screen reusing the existing
+      profile-row pattern, and routes; the counts cannot become tappable until that destination
+      exists. Note `follows` docs already store `followerDisplayName`, so a follower list can
+      render without a second read per row.
+      (`firestore.ts` follows helpers, `ProfilePage.tsx` StatBox)
 - [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
       emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
       Requested by the user 2026-07-28.

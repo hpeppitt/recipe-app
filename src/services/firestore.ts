@@ -508,6 +508,18 @@ export async function followUser(
   });
 
   await batch.commit();
+  // Gaining a follower was the one social event that produced no notification,
+  // which is odd given it is the strongest signal a creator gets. Fire-and-forget
+  // like the others, so a failed notification never fails the follow itself.
+  addDoc(collection(firestore, 'notifications'), {
+    recipientUid: followingId,
+    type: 'follow',
+    fromUid: followerId,
+    fromDisplayName: followerDisplayName,
+    message: null,
+    read: false,
+    createdAt: Date.now(),
+  }).catch(() => {});
 }
 
 export async function unfollowUser(

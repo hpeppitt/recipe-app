@@ -18,10 +18,20 @@ export interface AppNotification {
    * `suggestion_approved` / `suggestion_rejected` close the loop back to the
    * suggester, who previously never learned what happened to their suggestion.
    */
-  type: 'favorite' | 'suggestion' | 'suggestion_approved' | 'suggestion_rejected';
-  recipeId: string;
-  recipeTitle: string;
-  recipeEmoji: string;
+  type:
+    | 'favorite'
+    | 'suggestion'
+    | 'suggestion_approved'
+    | 'suggestion_rejected'
+    | 'follow';
+  /**
+   * Absent on `follow`, which is about a person rather than a recipe. Optional
+   * rather than a separate type so one subscription and one list still cover
+   * every notification.
+   */
+  recipeId?: string;
+  recipeTitle?: string;
+  recipeEmoji?: string;
   fromUid: string;
   fromDisplayName: string | null;
   message: string | null;

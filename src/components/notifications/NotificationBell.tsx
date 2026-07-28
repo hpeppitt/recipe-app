@@ -12,6 +12,7 @@ const NOTIF_ICONS: Record<string, string> = {
   suggestion: '💡',
   suggestion_approved: '✅',
   suggestion_rejected: '🙏',
+  follow: '👤',
 };
 
 const NOTIF_VERBS: Record<string, string> = {
@@ -19,6 +20,7 @@ const NOTIF_VERBS: Record<string, string> = {
   suggestion: 'suggested a change to',
   suggestion_approved: 'approved your suggestion on',
   suggestion_rejected: 'passed on your suggestion for',
+  follow: 'started following you',
 };
 
 export function NotificationBell() {
@@ -41,7 +43,9 @@ export function NotificationBell() {
   const handleNotificationClick = async (notif: (typeof notifications)[0]) => {
     if (!notif.read) await markRead(notif.id);
     setOpen(false);
-    navigate(`/recipe/${notif.recipeId}`);
+    // A follow is about a person, so it leads to their profile. Sending it to
+    // /recipe/undefined would have been a dead end.
+    navigate(notif.recipeId ? `/recipe/${notif.recipeId}` : `/profile/${notif.fromUid}`);
   };
 
   return (
@@ -126,8 +130,17 @@ export function NotificationBell() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary">
                         <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
-                        {NOTIF_VERBS[notif.type] ?? 'suggested a change to'}{' '}
-                        <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
+                        {NOTIF_VERBS[notif.type] ?? 'suggested a change to'}
+                        {/* Follow notifications carry no recipe, so the trailing
+                            title is omitted rather than rendering "undefined". */}
+                        {notif.recipeTitle && (
+                          <>
+                            {' '}
+                            <strong>
+                              {notif.recipeEmoji} {notif.recipeTitle}
+                            </strong>
+                          </>
+                        )}
                       </p>
                       {notif.message && (
                         <p className="text-xs text-text-tertiary mt-0.5 truncate">
