@@ -15,7 +15,7 @@ Recipe Lab — a recipe management app with AI-powered recipe generation and bra
 - **Firebase Auth** — anonymous + email link (passwordless) authentication
 - **Firebase Firestore** — shared cloud storage for published recipes, favorites, suggestions, notifications, profiles, follows
 - **Firebase Analytics (GA4)** — event-based analytics tracking via `src/services/analytics.ts`
-- **Firebase AI Logic** (`firebase/ai`) — Gemini access (model: `gemini-2.0-flash`) via a
+- **Firebase AI Logic** (`firebase/ai`) — Gemini access (model: `gemini-3.6-flash`) via a
   Google-hosted proxy that holds the API key server-side. The browser never sees a Gemini
   key, and App Check is enforced on this path. Replaced direct `@google/genai` calls.
 - **Zod** — structured AI output validation

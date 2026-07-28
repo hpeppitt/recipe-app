@@ -5,7 +5,10 @@ import { firebaseApp } from './firebase';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-const MODEL = 'gemini-2.0-flash';
+// gemini-2.0-flash was shut down on 2026-06-01 and returns 404. Keep this in
+// step with the Firebase AI Logic supported-models list; a retired model breaks
+// generation completely and the only symptom is a 404 in the console.
+const MODEL = 'gemini-3.6-flash';
 
 /**
  * Generation goes through Firebase AI Logic rather than calling Gemini directly.
