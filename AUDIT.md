@@ -485,8 +485,22 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Verified all three paths in-browser: a cloud-only recipe loads with no false not-found
       flash, a nonexistent id resolves immediately to "Recipe not found" with no stuck
       skeleton and no network blame, and a Dexie-only recipe renders with owner actions.)
-- [ ] **FUN-14** "Create New Anyway" has no in-flight guard; double-click runs two
+- [x] **FUN-14** "Create New Anyway" has no in-flight guard; double-click runs two
       concurrent Gemini generations. (`useRecipeChat.ts:95-99`)
+      (fixed: `generatingRef` guard placed inside `generateRecipe` rather than at the call
+      site, because that is the chokepoint both entry paths funnel through. `sendMessage`
+      already had `sendingRef` from FUN-1, but `dismissSimilar` bypasses it entirely and calls
+      `generateRecipe` directly, so the existing guard gave no cover here.
+      Measured: three synchronous clicks started **3** concurrent generations without the
+      guard and **1** with it. Each of those is a billed Gemini call, and each would have
+      raced an assistant message into the transcript, so the user could end up with several
+      recipes appearing from one tap.
+      Note this only became a real cost rather than a theoretical one once generation
+      actually worked again (see FUN-12's sibling finding on the retired model) — the app had
+      been failing every generation since 2026-06-01, so a double-fire cost nothing.
+      Not relying on the panel unmounting: `generateRecipe` clears `similarRecipes`
+      synchronously, which does hide the button, but only after React re-renders. Clicks
+      inside the same tick all land first, which is exactly what the measurement shows.)
 - [ ] **FUN-15** A failed first message (e.g. no API key) consumes the one-shot dedup
       check; dedup is permanently skipped for the rest of that chat session.
       (`useRecipeChat.ts:64-93`)

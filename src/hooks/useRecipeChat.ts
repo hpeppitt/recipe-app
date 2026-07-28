@@ -115,6 +115,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const [isSaving, setIsSaving] = useState(false);
   const chatRef = useRef<ChatSession | null>(null);
   const sendingRef = useRef(false);
+  const generatingRef = useRef(false);
   const savingRef = useRef(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -125,6 +126,14 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         setError(GENERATION_UNAVAILABLE);
         return;
       }
+
+      // Guarded here rather than at the call sites because this is the chokepoint
+      // both entry paths funnel through. `sendMessage` has its own `sendingRef`,
+      // but "Create New Anyway" (dismissSimilar) bypasses it and calls straight in,
+      // so a synchronous double-fire started two concurrent generations — two
+      // billed Gemini calls, and two assistant messages racing into the transcript.
+      if (generatingRef.current) return;
+      generatingRef.current = true;
 
       setError(null);
       setSimilarRecipes([]);
@@ -155,6 +164,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         setError(describeGenerationError(err));
       } finally {
         setIsLoading(false);
+        generatingRef.current = false;
       }
     },
     [parentRecipe]
