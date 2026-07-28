@@ -516,9 +516,25 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       Note the first pre-fix reproduction was invalid and reported 2 — the temporary revert
       changed the gate but left `messages.length` out of the deps, so the old expression read
       a stale 0. Restoring the dep as well gave the true pre-fix result of 1.)
-- [ ] **UI-13** Inconsistent feedback patterns: native `alert()` in Settings import, three
+- [x] **UI-13** Inconsistent feedback patterns: native `alert()` in Settings import, three
       different empty-state styles, ad hoc Button reimplementations on ProfilePage.
       (`SettingsPage.tsx:55-57`, `ProfilePage.tsx:308-318`, `:408-413`)
+      (fixed: the `alert()` was already gone — replaced by the inline `role="status"` message
+      when `describeImport` landed, so only the ProfilePage half remained.
+      Two ad hoc CTAs (Follow, Sign In) now use `Button`, which also gets them the shared
+      focus-visible ring and disabled styling they were missing — the hand-rolled Follow
+      button had a `disabled` attribute but no disabled *appearance*, so it looked live while
+      a follow was in flight.
+      Empty states: added a `compact` variant to `EmptyState` rather than reusing the
+      full-page one, whose 6xl icon and 4rem padding would dwarf a list inside a section —
+      that mismatch is why these two spots grew bare-paragraph styles instead. `compact`
+      renders the title as a `<p>`, since a section empty state sits under an existing
+      heading and an `h2` would misreport the document outline. `description` is now optional.
+      Verified at 390px: compact empty state on both profile variants, plus the Follow and
+      Sign In buttons. Neither of those two states is reachable as the sole user with no
+      second account, so both were forced with temporary edits and reverted after; the
+      "Following" (secondary) state was left unclicked to avoid writing a bogus self-follow
+      to Firestore. No console errors.)
 - [ ] **UI-14** Modal/dropdown a11y gaps: dialogs missing `aria-labelledby`, bell missing
       `aria-expanded` and unread count announcement, unlabeled search input, ChatInput
       autofocus fights AuthModal focus. (`AuthModal.tsx`, `NotificationBell.tsx`,

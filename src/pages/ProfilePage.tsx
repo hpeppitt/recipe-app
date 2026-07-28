@@ -11,6 +11,7 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { EmptyState } from '../components/ui/EmptyState';
 import { pluralize } from '../lib/utils';
 
 function StatBox({ label, value }: { label: string; value: number }) {
@@ -228,9 +229,7 @@ function OwnProfile() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-text-tertiary text-center py-4">
-                No published recipes yet
-              </p>
+              <EmptyState compact icon="🍳" title="No published recipes yet" />
             )}
           </div>
 
@@ -305,17 +304,14 @@ function PublicProfile({ uid }: { uid: string }) {
             </h2>
 
             {user && !isSelf && (
-              <button
+              <Button
                 onClick={toggleFollow}
                 disabled={followLoading}
-                className={`px-6 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  isFollowing
-                    ? 'bg-surface-secondary text-text-secondary border border-border hover:bg-surface-tertiary'
-                    : 'bg-primary-600 text-white hover:bg-primary-700'
-                }`}
+                variant={isFollowing ? 'secondary' : 'primary'}
+                className="px-6"
               >
                 {isFollowing ? 'Following' : 'Follow'}
-              </button>
+              </Button>
             )}
           </div>
 
@@ -351,9 +347,7 @@ function PublicProfile({ uid }: { uid: string }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-text-tertiary text-center py-4">
-                No recipes yet
-              </p>
+              <EmptyState compact icon="🍳" title="No recipes yet" />
             )}
           </div>
         </div>
@@ -405,12 +399,9 @@ export function ProfilePage() {
                 Track your recipe stats and customize your avatar
               </p>
             </div>
-            <button
-              onClick={() => setShowAuth(true)}
-              className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
-            >
+            <Button onClick={() => setShowAuth(true)} className="px-6">
               Sign In
-            </button>
+            </Button>
           </div>
         </div>
 
