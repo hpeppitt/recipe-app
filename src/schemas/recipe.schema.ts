@@ -14,6 +14,20 @@ export const InstructionSchema = z.object({
   group: z.string().nullable(),
 });
 
+/**
+ * Per-serving macros.
+ *
+ * Optional throughout: every recipe generated before this field existed has none,
+ * and an import of an older export must still validate. Absent is rendered as
+ * "no data", never as zero — "0 calories" is a claim, not a gap.
+ */
+export const NutritionSchema = z.object({
+  calories: z.number(),
+  protein: z.number(),
+  carbs: z.number(),
+  fat: z.number(),
+});
+
 export const GeneratedRecipeSchema = z.object({
   title: z.string(),
   description: z.string(),
@@ -27,6 +41,7 @@ export const GeneratedRecipeSchema = z.object({
   difficulty: z.enum(['easy', 'medium', 'hard']),
   tags: z.array(z.string()),
   emoji: z.string(),
+  nutrition: NutritionSchema.nullish(),
 });
 
 export type GeneratedRecipeOutput = z.infer<typeof GeneratedRecipeSchema>;

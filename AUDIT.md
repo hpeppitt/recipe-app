@@ -1516,7 +1516,7 @@ that failure mode entirely, so it is not listed.
       so "1 cup Brown Rice" becomes "237 ml Brown Rice" rather than grams. Grams would need the
       density data this deliberately does not invent.)
 
-- [ ] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
+- [x] **UX-39** Recipes carry no macros. Requested by the user 2026-07-28: calories and
       protein/carbs/fat, presumably per serving so it composes with the existing `servings`
       field.
       Two possible sources, and the choice matters. Asking Gemini for macros in the same call
@@ -1528,6 +1528,28 @@ that failure mode entirely, so it is not listed.
       macros and need an absent state rather than zeros, which would read as "no calories".
       (`schemas/recipe.schema.ts`, `types/recipe.ts`, `lib/prompts.ts`,
       `components/recipe/RecipeContent.tsx`)
+      (**implemented 2026-07-28, taking the conservative option and flagging the decision.**
+      The open question was model-generated vs a food database. Went with model-generated, since
+      it ships now and needs no data source, but with the guardrails that choice demands:
+      **Labelled, never authoritative.** The panel reads "estimated, per serving (of N)". These are
+      the model's approximations from typical ingredient values, not measurements.
+      **Absent is absent, never zero.** `nutrition` is optional/nullish throughout the Zod schema,
+      the `Recipe` type and `GeneratedRecipe`, so every recipe generated before this validates
+      unchanged and older exports still import. `NutritionPanel` renders nothing without data —
+      "0 kcal" would be a claim rather than a gap. Verified on an existing recipe: no panel, no
+      zeros.
+      **Per serving, stated explicitly**, so it composes with `servings` rather than leaving the
+      reader to guess whether it describes the whole dish.
+      Shown on the detail page, the shared page and the chat preview card — macros are part of
+      deciding whether this is the recipe you want, so withholding them until after saving would be
+      odd. Also added to `SharedRecipe`, so a hash link carries them.
+      Verified end to end with a real generation: "simple scrambled eggs on toast" returned
+      340 kcal / 16g protein / 22g carbs / 20g fat for one serving, plausible for two eggs, butter
+      and a slice of toast. The test recipe was discarded rather than saved.
+      **Still open for the owner:** if you want accuracy rather than estimates, the alternative is
+      ingredient matching against a food database — a larger change (data source, matching,
+      per-ingredient quantities) that would replace the numbers, not the presentation. The
+      labelling and absent-state handling carry over unchanged.)
 
 ---
 

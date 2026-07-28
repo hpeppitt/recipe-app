@@ -12,6 +12,14 @@ export interface Instruction {
   group: string | null;
 }
 
+/** Per-serving macro estimates. Absent on recipes generated before this existed. */
+export interface Nutrition {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
 export interface CreatedBy {
   uid: string;
   displayName: string | null;
@@ -54,6 +62,8 @@ export interface Recipe {
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
   emoji: string;
+  /** Optional: recipes predate this field, so absence is normal. */
+  nutrition?: Nutrition | null;
   prompt: string;
   chatHistory: ChatMessage[];
   createdAt: number;

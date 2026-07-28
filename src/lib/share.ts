@@ -15,6 +15,7 @@ export type SharedRecipe = Pick<
   | 'servings'
   | 'difficulty'
   | 'tags'
+  | 'nutrition'
   | 'createdBy'
 >;
 
@@ -32,6 +33,7 @@ function toShareable(recipe: Recipe): SharedRecipe {
     servings: recipe.servings,
     difficulty: recipe.difficulty,
     tags: recipe.tags,
+    nutrition: recipe.nutrition ?? null,
     createdBy: recipe.createdBy,
   };
 }

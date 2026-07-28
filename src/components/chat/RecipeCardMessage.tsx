@@ -1,8 +1,9 @@
 import type { GeneratedRecipe } from '../../types/api';
-import type { Recipe } from '../../types/recipe';
+import type { Recipe, Nutrition } from '../../types/recipe';
 import { MetadataPills } from '../recipe/MetadataPills';
 import { IngredientList } from '../recipe/IngredientList';
 import { InstructionList } from '../recipe/InstructionList';
+import { NutritionPanel } from '../recipe/NutritionPanel';
 import { Button } from '../ui/Button';
 
 interface RecipeCardMessageProps {
@@ -36,6 +37,13 @@ export function RecipeCardMessage({
         totalTime={recipe.totalTime}
         servings={recipe.servings}
         difficulty={recipe.difficulty}
+      />
+
+      {/* Shown before saving: macros are part of deciding whether this is the
+          recipe you want, so withholding them until after the save would be odd. */}
+      <NutritionPanel
+        nutrition={(recipe as { nutrition?: Nutrition | null }).nutrition}
+        servings={recipe.servings}
       />
 
       <IngredientList ingredients={recipe.ingredients} />

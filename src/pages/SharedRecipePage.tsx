@@ -9,6 +9,7 @@ import { useCloudFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import { MetadataPills } from '../components/recipe/MetadataPills';
 import { IngredientList } from '../components/recipe/IngredientList';
+import { NutritionPanel } from '../components/recipe/NutritionPanel';
 import { InstructionList } from '../components/recipe/InstructionList';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -280,6 +281,8 @@ export function SharedRecipePage() {
             servings={recipe.servings}
             difficulty={recipe.difficulty}
           />
+
+          <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
 
           <IngredientList ingredients={recipe.ingredients} checkable />
           <InstructionList instructions={recipe.instructions} checkable />

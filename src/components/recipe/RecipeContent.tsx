@@ -2,6 +2,7 @@ import type { Recipe } from '../../types/recipe';
 import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
 import { InstructionList } from './InstructionList';
+import { NutritionPanel } from './NutritionPanel';
 
 interface RecipeContentProps {
   recipe: Recipe;
@@ -33,6 +34,13 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
 
       {/* Cook-along ticks only on the full view. In the collapsed parent-recipe
           preview the recipe is context, not something being cooked. */}
+      {/* Above the ingredients: someone deciding whether to cook this wants the
+          macros before the shopping list, not after the method. Renders nothing
+          when the recipe has no estimates. */}
+      {!compact && (
+        <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
+      )}
+
       <IngredientList ingredients={recipe.ingredients} checkable={!compact} />
       <InstructionList instructions={recipe.instructions} checkable={!compact} />
 

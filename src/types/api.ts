@@ -19,6 +19,13 @@ export interface GeneratedRecipe {
   totalTime: number;
   servings: number;
   difficulty: 'easy' | 'medium' | 'hard';
+  /** Per-serving estimates. Optional: older generations have none. */
+  nutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  } | null;
   tags: string[];
   emoji: string;
 }
