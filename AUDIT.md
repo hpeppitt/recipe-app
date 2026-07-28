@@ -1304,9 +1304,22 @@ that failure mode entirely, so it is not listed.
       Verified by measuring the live DOM in dark mode rather than by inspection: **zero elements
       still paint `rgb(79,70,229)`**, and no remaining low-contrast text uses a primary token.
       Theme restored to System.)
-- [ ] **UX-32** Dialogs render a heading they never associate with the dialog
+- [x] **UX-32** Dialogs render a heading they never associate with the dialog
       (`aria-labelledby`), and AuthModal's email step doesn't autofocus its single input.
       (`AuthModal.tsx:68-72`, `ConfirmDialog.tsx:33-37`, `SuggestChangeModal.tsx`)
+      (**the `aria-labelledby` half was already done** — UI-14 added it to all three dialogs via
+      `useId`, plus `aria-describedby` on `ConfirmDialog`. Verified at runtime rather than by
+      grep count: the AuthModal announced "Sign in with Email" and the confirm dialog resolved
+      both its name and its description text. No change made.
+      Fixed the autofocus. `Input` is a plain function component that does not forward a ref, so
+      this uses the `autoFocus` attribute instead of adding ref plumbing — the email step
+      remounts when `step` changes, so it fires reliably. Verified: choosing "Sign in with Email"
+      moves focus from the button to `INPUT:email`.
+      Note this is the opposite decision to UX-29, deliberately. There, autofocus was *removed*
+      on touch because the keyboard covered the suggestion chips. Here the user has just chosen
+      "Sign in with Email" and typing an address is the only remaining action, so the keyboard
+      appearing is the desired outcome rather than an obstruction. The distinction is whether
+      there is still content to read.)
 - [ ] **UX-33** Library search matches title, description and tags but NOT ingredients, so
       searching "chicken" misses recipes full of it — the opposite of what a recipe app user
       expects. Also no label, no clear button, no result count, and the no-results state

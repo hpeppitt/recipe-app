@@ -135,6 +135,11 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
+            // Focused deliberately, unlike the composer in UX-29: the user has
+            // just chosen "Sign in with Email" and typing an address is the only
+            // thing left to do, so the keyboard appearing is the desired outcome
+            // rather than something covering content they still need to read.
+            autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSendEmail();
             }}
