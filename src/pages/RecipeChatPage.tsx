@@ -16,6 +16,7 @@ import { SUGGESTION_CHIPS } from '../lib/constants';
 import { queryWords } from '../lib/search';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
+import type { ChatMessage } from '../types/recipe';
 
 /**
  * The query words this match actually shares, so the panel can say why it is
@@ -28,6 +29,20 @@ function matchedWords(
   if (!query) return [];
   const haystack = `${recipe.title} ${recipe.description}`.toLowerCase();
   return queryWords(query).filter((w) => haystack.includes(w));
+}
+
+/**
+ * The user message that produced the assistant message at `index`.
+ *
+ * Saving an older version should record the prompt that actually created it, not
+ * the first thing typed in the session — otherwise a refined version and the one
+ * it replaced both claim the same origin.
+ */
+function promptFor(messages: ChatMessage[], index: number): string {
+  for (let i = index - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') return messages[i].content;
+  }
+  return '';
 }
 
 export function RecipeChatPage() {
@@ -169,9 +184,25 @@ export function RecipeChatPage() {
               ) : (
                 <RecipeCardMessage
                   recipe={msg.recipe as unknown as GeneratedRecipe}
-                  showSave={i === lastAssistantIdx && !isLoading}
-                  saveLabel={isVarying ? 'Save Variation' : 'Save Recipe'}
-                  onSave={saveRecipe}
+                  // Every version is savable, not just the newest. Refining and
+                  // disliking the result used to discard the good version that
+                  // is still sitting on screen.
+                  showSave={!isLoading}
+                  saveLabel={
+                    i === lastAssistantIdx
+                      ? isVarying
+                        ? 'Save Variation'
+                        : 'Save Recipe'
+                      : // Distinguishes an older card from the newest one, so
+                        // saving a superseded version is a deliberate choice.
+                        'Save This Version'
+                  }
+                  onSave={() =>
+                    saveRecipe({
+                      recipe: msg.recipe as unknown as GeneratedRecipe,
+                      prompt: promptFor(messages, i),
+                    })
+                  }
                   saving={isSaving}
                 />
               )}

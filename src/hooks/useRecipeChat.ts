@@ -247,8 +247,18 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     }
   }, [pendingQuery, generateRecipe]);
 
-  const saveRecipe = useCallback(async () => {
-    if (!latestRecipe) return;
+  /**
+   * Save a specific generation, defaulting to the newest.
+   *
+   * Every generated version stays on screen, so pinning save to `latestRecipe`
+   * meant refining once and disliking the result discarded the good version the
+   * user was still looking at. The caller passes the version it rendered, along
+   * with the prompt that produced it, so the saved recipe's `prompt` describes
+   * that version rather than the first thing typed in the session.
+   */
+  const saveRecipe = useCallback(async (target?: { recipe: GeneratedRecipe; prompt: string }) => {
+    const toSave = target?.recipe ?? latestRecipe;
+    if (!toSave) return;
     // createRecipe mints a fresh UUID per call, so a double-tap would write two
     // distinct recipes to Dexie and publish both. The ref guards the gap before
     // the isSaving re-render lands.
@@ -258,7 +268,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
     try {
       const firstUserMessage = messages.find((m) => m.role === 'user');
-      const prompt = firstUserMessage?.content ?? '';
+      const prompt = target?.prompt ?? firstUserMessage?.content ?? '';
 
       const createdBy = {
         uid: user?.uid ?? 'local',
@@ -266,7 +276,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       };
 
       const recipe = await createRecipe(
-        latestRecipe,
+        toSave,
         prompt,
         messages,
         parentRecipe?.id ?? null,

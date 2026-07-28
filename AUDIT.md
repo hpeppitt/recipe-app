@@ -903,9 +903,27 @@ that failure mode entirely, so it is not listed.
       clears on its own (fail the first `sendMessage` only): error → Try again → "Generating
       recipe..." → error cleared → recipe rendered, with the prompt appearing once rather than
       being duplicated into the transcript.)
-- [ ] **UX-15** Only the newest generation is savable (`showSave={i === lastAssistantIdx}` +
+- [x] **UX-15** Only the newest generation is savable (`showSave={i === lastAssistantIdx}` +
       single `latestRecipe`), so refining once and disliking the result loses the good version
       that is still on screen. (`RecipeChatPage.tsx:156`, `useRecipeChat.ts:109`)
+      (fixed: `saveRecipe` now takes the version to save, defaulting to `latestRecipe`, and
+      every assistant card offers a save button rather than only the last one. Older cards read
+      "Save This Version" instead of "Save Recipe", so saving a superseded generation is a
+      deliberate act and not a mis-tap.
+      Also fixed a second-order bug the finding did not mention: the saved recipe's `prompt`
+      came from the *first* user message in the session. Saving an older version would have
+      stamped it with whatever was typed first, so a refined version and the one it replaced
+      both claimed the same origin. A `promptFor(messages, index)` helper walks back to the user
+      message that actually produced that card.
+      Verified against real generations rather than fixtures: generated a cucumber salad, refined
+      it to "make it spicy with chilli", then saved the *older* card. Checked IndexedDB rather
+      than the UI — the stored recipe was the non-spicy version (no chili/spicy tags) with
+      `prompt` = "simple cucumber salad with dill", not the refinement. Pre-fix that save was
+      impossible to reach at all.
+      Cleaned up afterwards through the app's own delete so the Firestore doc cascaded too;
+      confirmed on a fresh load that the feed is back to 7 cards and local storage to 0. Note the
+      first check looked like the delete had failed — the already-mounted feed was showing cloud
+      data fetched before the delete, not a stale document.)
 - [ ] **UX-16** `/recipe/:id/vary` for an uncached parent can leave a permanently dead
       composer: only `recipe` is destructured, discarding the `isLoading` and `cloudError`
       that `useRecipe` now exposes. Looks functional, does nothing.
