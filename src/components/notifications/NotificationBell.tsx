@@ -100,7 +100,7 @@ export function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="min-h-11 px-2 -mr-2 text-xs text-primary-600 font-medium"
+                className="min-h-11 px-2 -mr-2 text-xs text-primary-600 dark:text-primary-400 font-medium"
               >
                 Mark all read
               </button>

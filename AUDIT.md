@@ -1291,8 +1291,19 @@ that failure mode entirely, so it is not listed.
       the finding missed one. Logged as UX-41 rather than fixed here, since extracting a component
       is a different change from adding dark variants.
       Theme left on System, as it was.)
-- [ ] **UX-31** `text-primary-600` on the dark surface is ~2.8:1, below AA. Use
+- [x] **UX-31** `text-primary-600` on the dark surface is ~2.8:1, below AA. Use
       `dark:text-primary-400`. (`RecipeCard.tsx:50`, `RecipeDetailPage.tsx:328`)
+      (fixed. Confirmed the figure first by computing it rather than trusting it: primary-600 on
+      `#111827` is **2.82:1**, and primary-400 is **5.95:1** — so the prescribed token clears AA's
+      4.5:1 for body text with margin.
+      **Two files were cited; eleven occurrences existed**, across `SharedRecipePage`,
+      `RecipeDetailPage`, `RecipeCard`, `LineageBreadcrumb`, `BottomNav` and `NotificationBell`.
+      Notably the active tab colour in `BottomNav` was among them — a persistent, always-visible
+      element the finding did not mention. Handled `hover:` variants separately so a hover colour
+      did not get turned into an unconditional dark colour.
+      Verified by measuring the live DOM in dark mode rather than by inspection: **zero elements
+      still paint `rgb(79,70,229)`**, and no remaining low-contrast text uses a primary token.
+      Theme restored to System.)
 - [ ] **UX-32** Dialogs render a heading they never associate with the dialog
       (`aria-labelledby`), and AuthModal's email step doesn't autofocus its single input.
       (`AuthModal.tsx:68-72`, `ConfirmDialog.tsx:33-37`, `SuggestChangeModal.tsx`)
@@ -1338,6 +1349,17 @@ that failure mode entirely, so it is not listed.
       Noted while fixing UX-30; kept separate because extraction is a different change from
       adding dark variants.
       (`RecipeContent.tsx`, `RecipeCardMessage.tsx`, `SharedRecipePage.tsx`)
+- [ ] **UX-42** The dark theme's grey text tokens fail AA for body text, app-wide. Measured on
+      `#111827`: `--color-text-tertiary` (#6b7280) is **3.67:1** and `--color-text-secondary`
+      (#9ca3af) is **4.06:1**, both under the 4.5:1 needed at the 12-14px sizes they are used at.
+      25 failing elements on the library alone — recipe metadata (time, difficulty, creator),
+      helper text, the version line — so this is a token change, not a per-component one.
+      Note the light and dark values are swapped (secondary/tertiary trade places between
+      themes), so darkening one token naively will regress the other theme; the fix is to pick
+      dark-mode-specific values that clear 4.5:1 against `#111827`, e.g. #9ca3af for tertiary and
+      something nearer #cbd5e1 for secondary, then re-measure both themes.
+      Found while verifying UX-31, which was specifically about a primary token; logged separately
+      because this is the neutral scale and affects every screen. (`index.css` dark block)
 - [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
       emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
       Requested by the user 2026-07-28.

@@ -176,7 +176,7 @@ export function SharedRecipePage() {
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
           {status === 'loading' ? (
-            <Spinner className="text-primary-600" />
+            <Spinner className="text-primary-600 dark:text-primary-400" />
           ) : (
             <div className="text-center space-y-3">
               <p className="text-4xl">{status === 'failed' ? '📡' : '🔗'}</p>
@@ -191,7 +191,7 @@ export function SharedRecipePage() {
                 )}
                 <button
                   onClick={() => navigate('/')}
-                  className="text-primary-600 text-sm font-medium py-2 px-3"
+                  className="text-primary-600 dark:text-primary-400 text-sm font-medium py-2 px-3"
                 >
                   Go to Recipe Lab
                 </button>
@@ -254,7 +254,7 @@ export function SharedRecipePage() {
                   >
                     <Avatar uid={recipe.createdBy.uid} name={recipe.createdBy.displayName} size="sm" />
                     <p className="text-xs text-text-tertiary">
-                      Added by <span className="text-primary-600 font-medium">{recipe.createdBy.displayName}</span>
+                      Added by <span className="text-primary-600 dark:text-primary-400 font-medium">{recipe.createdBy.displayName}</span>
                     </p>
                   </button>
                 )}
@@ -318,7 +318,7 @@ export function SharedRecipePage() {
           {paramId && !isOwner ? (
             <button
               onClick={handleSuggestClick}
-              className="w-full py-2.5 min-h-11 rounded-xl border border-primary-600 text-primary-600 text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
+              className="w-full py-2.5 min-h-11 rounded-xl border border-primary-600 text-primary-600 dark:text-primary-400 text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
             >
               Suggest a Change
             </button>
@@ -345,7 +345,7 @@ export function SharedRecipePage() {
           ) : (
             <p className="text-xs text-text-tertiary text-center">
               Shared from{' '}
-              <button onClick={() => navigate('/')} className="text-primary-600 font-medium">
+              <button onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-medium">
                 Recipe Lab
               </button>
             </p>
