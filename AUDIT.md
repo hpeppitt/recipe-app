@@ -1023,11 +1023,28 @@ that failure mode entirely, so it is not listed.
       One false alarm while verifying: the menu appeared to show Delete for a non-owner. That
       was the closed `ConfirmDialog`'s confirm button, which is always in the DOM; scoping the
       query to the menu panel showed only Share and Version tree, as intended.)
-- [ ] **UX-20** Share can silently do nothing: `navigator.clipboard.writeText` sits in a `try`
+- [x] **UX-20** Share can silently do nothing: `navigator.clipboard.writeText` sits in a `try`
       with only a `finally`, so an insecure context or denied permission produces no signal
       at all. The up-to-4s publish wait shows only `disabled:opacity-50` on a 20px icon.
       (`RecipeDetailPage.tsx:76-114`) — introduced by my own FUN-5 fix; add a catch with a
       selectable-URL fallback and a Spinner.
+      (fixed as prescribed. The clipboard write now has its own catch, and on rejection the URL
+      is shown in a read-only input that selects on focus, so the user can copy it by hand.
+      Showing the link beats reporting an error — they came here to get a URL.
+      **Confirmed the failure mode without simulating it.** The Chrome automation window is not
+      focused, so `navigator.clipboard.writeText` genuinely rejects with
+      "Document is not focused". Pre-fix that produced **two unhandled promise rejections and
+      zero UI signal** — no toast, no alert, nothing. Post-fix the same conditions show the
+      fallback with the real link. That is the exact silent-failure the finding describes,
+      observed rather than mocked.
+      **The progress indicator had become worse than the finding described, through my own
+      UX-19 change.** Moving Share into a menu that closes on tap meant the menu item's
+      "Preparing link..." label was never visible for even one frame, so there was no progress
+      indication at all rather than a faint one. Added a spinner toast; verified with an
+      artificially slowed lookup that it appears during the wait and clears after.
+      Note the toast is usually invisible in practice because an already-published recipe
+      resolves in well under a second — that is correct, not a missing indicator. It only earns
+      its keep on the slow path the 4s timeout exists for.)
 - [ ] **UX-21** Cloud recipes still lose their lineage: `useRecipeChildren` and
       `useRecipeAncestors` remain Dexie-only, so browsed-from-feed recipes get an empty
       Variations carousel, a floating "Prompt:" quote with nothing saying what it varies, and

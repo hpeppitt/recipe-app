@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { Skeleton } from '../components/ui/Skeleton';
+import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
 
@@ -46,6 +47,12 @@ export function RecipeDetailPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
   const [isSharing, setIsSharing] = useState(false);
+  // Holds the link when the clipboard is unavailable, so it can be shown for
+  // manual copying instead of the action silently failing.
+  const [shareFallback, setShareFallback] = useState<{
+    url: string;
+    mode: 'cloud' | 'self-contained';
+  } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   // Set by the save flow via navigation state. 'local' means the recipe is on
@@ -114,7 +121,19 @@ export function RecipeDetailPage() {
         firebaseConfigured: isFirebaseConfigured,
         isPublished,
       });
-      await navigator.clipboard.writeText(url);
+
+      // The clipboard write was inside a try with only a finally, so a rejection
+      // — insecure context, denied permission, unfocused document — produced no
+      // signal whatsoever: the tap simply did nothing. Surfacing the URL is
+      // better than reporting failure, since the user can still copy it by hand.
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (err) {
+        console.error('Copying the share link to the clipboard failed', err);
+        setShareFallback({ url, mode });
+        return;
+      }
+
       setShareMode(mode);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 3000);
@@ -609,6 +628,50 @@ export function RecipeDetailPage() {
               Sharing this recipe will retry.
             </p>
           )}
+        </div>
+      )}
+
+      {/* The publish step can take up to 4s and its only previous indication was
+          disabled:opacity-50 on a 20px icon. Share now lives in a menu that
+          closes on tap, so the menu item's own label is not visible either —
+          this is the only progress the user can actually see. */}
+      {isSharing && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <Spinner size="sm" />
+          <p className="text-sm font-medium text-text-primary">Preparing share link...</p>
+        </div>
+      )}
+
+      {/* Clipboard refused. Show the link rather than an error: the user came
+          here to get a URL, and they can still select this one. */}
+      {shareFallback && (
+        <div
+          role="alert"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg space-y-2"
+        >
+          <p className="text-sm font-medium text-text-primary">Copy this link</p>
+          <p className="text-xs text-text-secondary">
+            This browser wouldn't let the app use the clipboard, so copy it yourself.
+          </p>
+          <input
+            readOnly
+            value={shareFallback.url}
+            aria-label="Share link"
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full px-2 py-1.5 rounded-lg border border-border bg-surface text-xs text-text-primary"
+          />
+          {shareFallback.mode === 'self-contained' && (
+            <p className="text-xs text-text-secondary">
+              This link carries the whole recipe, so it works without the cloud — but
+              recipients can't favourite it or suggest changes.
+            </p>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => setShareFallback(null)}>
+            Done
+          </Button>
         </div>
       )}
 
