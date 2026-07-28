@@ -666,11 +666,29 @@ that failure mode entirely, so it is not listed.
       Verified: redirect lands on `/profile` with nav present, email form above "My Recipes".
       The finding also mentions Settings as a route to Profile; the nav tab makes that
       redundant, so it was not added.)
-- [ ] **UX-5** Anonymous users are trapped: no sign-out by design, and AuthModal
+- [x] **UX-5** Anonymous users are trapped: no sign-out by design, and AuthModal
       auto-dismisses whenever any user exists, so the email screen is unreachable again. A
       user on a shared device cannot leave; someone with an existing email account cannot
       sign into it here and their identities diverge permanently.
       (`ProfilePage.tsx:238-244`, `AuthContext.tsx:158-161`, `AuthModal.tsx:22-26`)
+      (fixed: `handleSignOut` threw for anonymous users. The intent was protective — the
+      account cannot be signed back into — but removing the exit did not prevent the loss, it
+      just stranded people. Sign Out is now offered to everyone, with a `ConfirmDialog` that
+      states the consequence plainly: no way back in, local recipes stay, published copies
+      become unmanageable, and adding an email first keeps the account.
+      No change needed to AuthModal's auto-dismiss: it is conditioned on a user existing, so
+      once sign-out works the email screen is reachable again. That is the second half of the
+      finding, resolved by the first fix rather than separately.
+      Verified end to end by actually signing out, not just opening the dialog — the previous
+      behaviour was a thrown error, so anything short of completing it would not have proven
+      the fix. Sign-out completed with no unhandled rejection, the signed-out profile
+      rendered, Sign In reopened AuthModal, and the email step was reachable. Then signed
+      back in anonymously to leave the app in a working state. Safe to do here because the
+      test account held 0 recipes; on an account with content this is destructive, which is
+      exactly why the confirmation says so.
+      Note the local library is not lost on sign-out — `canManageRecipe` returns true for
+      `source === 'local'` regardless of uid, so device recipes stay manageable. Only control
+      of already-published copies goes, which is what the dialog says.)
 - [ ] **UX-6** The collaboration loop dead-ends. Approve writes `status` and adds a
       collaborator but does not change the recipe, does not open a variation, and sends the
       suggester no notification (`AppNotification.type` has no outcome variant). Owner presses

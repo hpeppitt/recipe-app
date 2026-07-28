@@ -12,6 +12,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { pluralize } from '../lib/utils';
 
 function StatBox({ label, value }: { label: string; value: number }) {
@@ -100,6 +101,7 @@ function OwnProfile() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   if (!user) return null;
 
@@ -254,14 +256,36 @@ function OwnProfile() {
 
           {/* Account actions. Sign Out stays at the bottom — it is a deliberate
               exit, not something to surface urgently. The anonymous branch moved
-              up above the recipe list. */}
-          {!user.isAnonymous && (
-            <Button variant="ghost" fullWidth onClick={signOut}>
-              Sign Out
-            </Button>
-          )}
+              up above the recipe list.
+
+              Anonymous users get this too. Withholding it did not protect them,
+              it stranded them: no way off a shared device, and no way into an
+              existing email account. The confirmation carries the warning. */}
+          <Button
+            variant="ghost"
+            fullWidth
+            onClick={() => (user.isAnonymous ? setShowSignOutConfirm(true) : signOut())}
+          >
+            Sign Out
+          </Button>
         </div>
       </main>
+
+      {/* Anonymous accounts have no credential, so signing out is one-way. Says
+          so plainly rather than relying on the user to infer it, and names the
+          safer alternative sitting further up the page. */}
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        title="Sign out of this anonymous account?"
+        message="There's no way to sign back in to an anonymous account. Recipes on this device stay here, but you won't be able to manage the copies you've already shared. Adding an email first keeps the account."
+        confirmLabel="Sign Out"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          signOut();
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </div>
   );
 }
