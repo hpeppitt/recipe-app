@@ -4,6 +4,7 @@ import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '../components/ui/Button';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
 import { TopBar } from '../components/layout/TopBar';
@@ -111,21 +112,16 @@ export function SettingsPage() {
         {/* Appearance */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Appearance</h2>
-          <div className="flex rounded-xl border border-border overflow-hidden">
-            {(['system', 'light', 'dark'] as const).map((option) => (
-              <button
-                key={option}
-                onClick={() => setTheme(option)}
-                className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                  theme === option
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-surface text-text-secondary hover:bg-surface-tertiary'
-                }`}
-              >
-                {option.charAt(0).toUpperCase() + option.slice(1)}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label="Theme"
+            value={theme}
+            onChange={setTheme}
+            options={[
+              { value: 'system', label: 'System' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' },
+            ]}
+          />
         </section>
 
         {/* Data */}

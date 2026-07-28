@@ -1195,12 +1195,31 @@ that failure mode entirely, so it is not listed.
       `package.json` was 0.0.0, which would have displayed as "v0.0.0", so I set it to **0.1.0**
       — a small project decision, flagged here: it reads as pre-1.0 and in testing, which matches
       where the app actually is. Renders "Recipe Lab v0.1.0", and can no longer drift.)
-- [ ] **UX-27** Design-system drift: hand-rolled primary buttons instead of `Button`
+- [x] **UX-27** Design-system drift: hand-rolled primary buttons instead of `Button`
       (ProfilePage Follow/Sign In, AvatarEditor Save/Choose), the segmented control built
       twice with different metrics, filter pills that duplicate `Chip` with a different
       selected treatment (so "selected pill" means two things), and `EmptyState` bypassed on
       Profile. `Chip`'s `active` prop is dead code. (`ProfilePage.tsx:308-318`, `:408-413`,
       `AvatarEditor.tsx:105-123`, `LibraryPage.tsx:96-140`, `Chip.tsx`)
+      (fixed. **Two of the five items were already done** and I verified that rather than
+      re-doing them: ProfilePage's Follow/Sign In became `Button`s, and Profile's empty states
+      became `EmptyState`, both under UI-13. Checked by grep before touching anything.
+      Remaining three:
+      **Segmented control** extracted to `ui/SegmentedControl` and used by both callers. The two
+      copies differed only in padding (`px-4 py-2 text-sm` vs `px-3 py-2 text-xs`), which is
+      exactly how they drifted, so that difference is now a `compact` prop rather than a second
+      implementation. Also upgraded on the way: `role="radiogroup"` + `aria-checked`, so the
+      options are announced as one choice instead of three unrelated buttons. Verified both
+      instances — labels "Theme" and "Avatar type", correct checked state, and selection moving
+      on click.
+      **AvatarEditor** Save and Choose Image now use `Button`, which also gives them the shared
+      focus ring and disabled styling they lacked.
+      **Filter pills → `Chip`**, which is what makes `active` a live prop rather than dead code.
+      The treatments genuinely conflicted: `Chip.active` was `bg-primary-100 text-primary-700`
+      while the pills were `bg-primary-600 text-white`. Unified on the filled version — the
+      stronger signal for an active filter — and safe to change because `active` had no existing
+      consumer. Added `aria-pressed` so a filter's state is not colour-only. Verified toggling
+      All → Favorites swaps both the background and `aria-pressed`.)
 - [ ] **UX-28** Touch targets still under 44px outside the areas UI-10 fixed: library header
       icons (~26-30px) and the scrolling filter row, `Button size="sm"` (~30px) used for
       standalone account actions, Show/Hide, Mark all read, theme buttons, AvatarEditor's

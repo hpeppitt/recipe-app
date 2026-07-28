@@ -13,6 +13,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
+import { Chip } from '../components/ui/Chip';
 import { APP_NAME } from '../lib/constants';
 
 type Filter = 'all' | 'mine' | 'favorites' | 'following' | string; // string = specific uid
@@ -126,30 +127,24 @@ export function LibraryPage() {
               : canFavorite
                 ? (['all', 'favorites'] as const)
                 : (['all'] as const)) as readonly Filter[]).map((f) => (
-              <button
+              // Uses Chip rather than a look-alike, which is also what gives
+              // Chip's `active` prop a real consumer instead of being dead code.
+              <Chip
                 key={f}
+                label={f === 'all' ? 'All' : f === 'mine' ? 'Mine' : 'Favorites'}
+                active={filter === f}
+                pressed={filter === f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                  filter === f
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
-                }`}
-              >
-                {f === 'all' ? 'All' : f === 'mine' ? 'Mine' : 'Favorites'}
-              </button>
+              />
             ))}
             {followingProfiles.length > 0 && (
               <>
-                <button
+                <Chip
+                  label="Following"
+                  active={filter === 'following'}
+                  pressed={filter === 'following'}
                   onClick={() => setFilter('following')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                    filter === 'following'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
-                  }`}
-                >
-                  Following
-                </button>
+                />
                 {followingProfiles.map((fp) => (
                   <button
                     key={fp.uid}
