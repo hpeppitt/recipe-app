@@ -10,7 +10,17 @@ import type { Recipe } from '../types/recipe';
 const RECIPE_CLOUD_TIMEOUT_MS = 6000;
 
 export function useRecipe(id: string | undefined) {
-  const localRecipe = useLiveQuery(() => (id ? getRecipe(id) : undefined), [id]);
+  // Wrapping the result is what lets us tell "Dexie is still loading" (the hook
+  // returns undefined) apart from "Dexie resolved and there is no such recipe"
+  // ({ value: undefined }). A bare useLiveQuery collapses both to undefined,
+  // which is why the cloud fallback used to guess with a 100ms setTimeout.
+  const localQuery = useLiveQuery(
+    async () => ({ value: id ? await getRecipe(id) : undefined }),
+    [id]
+  );
+  const localSettled = localQuery !== undefined;
+  const localRecipe = localQuery?.value;
+
   const [cloudRecipe, setCloudRecipe] = useState<Recipe | null>(null);
   const [cloudChecked, setCloudChecked] = useState(false);
   // A failed lookup used to be reported as "Recipe not found", which tells the
@@ -24,62 +34,68 @@ export function useRecipe(id: string | undefined) {
     setCloudError(false);
   }, [id, reloadKey]);
 
-  // Fall back to Firestore if not found locally
+  // Fall back to Firestore only once Dexie has definitively said "not here".
   useEffect(() => {
-    if (!id || localRecipe !== undefined || cloudChecked) return;
-    // localRecipe is undefined during Dexie loading — wait for it to resolve
-    // useLiveQuery returns undefined while loading, then the value (or undefined if not found)
-    // We use a short delay to let Dexie resolve first
-    const timer = setTimeout(() => {
-      // Local-only mode: there is no cloud to consult, and the delay above has
-      // given Dexie time to settle, so record the check as done. Without this the
-      // page sat on a loading skeleton forever for any missing recipe.
-      if (!isFirebaseConfigured) {
-        setCloudChecked(true);
-        return;
-      }
-      // Bounded for the same reason as the library feed: an unreachable Firestore
-      // retries instead of rejecting, so without a deadline this never resolves
-      // and the page shows a spinner indefinitely.
-      withTimeout(
-        getPublishedRecipe(id).then((r) => ({ published: r })),
-        RECIPE_CLOUD_TIMEOUT_MS,
-        null
-      )
-        .then((result) => {
-          if (result === null) {
-            console.error('Timed out loading the published recipe');
-            setCloudError(true);
-            setCloudChecked(true);
-            return;
-          }
-          const published = result.published;
-          if (published) {
-            // Convert SharedRecipe to Recipe-like shape for display
-            setCloudRecipe({
-              ...published,
-              parentId: (published as Record<string, unknown>).parentId as string | null ?? null,
-              rootId: ((published as Record<string, unknown>).rootId as string) ?? id,
-              depth: ((published as Record<string, unknown>).depth as number) ?? 0,
-              collaborators: (published as Record<string, unknown>).collaborators as Recipe['collaborators'] ?? [],
-              // Published docs do carry the prompt — publishRecipe strips only
-              // chatHistory — and the tree and lineage views display it.
-              prompt: ((published as Record<string, unknown>).prompt as string) ?? '',
-              chatHistory: [],
-              createdAt: ((published as Record<string, unknown>).createdAt as number) ?? 0,
-              updatedAt: ((published as Record<string, unknown>).updatedAt as number) ?? 0,
-            } as Recipe);
-          }
-          setCloudChecked(true);
-        })
-        .catch((err) => {
-          console.error('Loading the published recipe failed', err);
+    // localSettled is the whole point: before it is true we genuinely do not know
+    // whether the recipe is local, so consulting the cloud would be premature.
+    if (!id || !localSettled || localRecipe !== undefined || cloudChecked) return;
+
+    // Local-only mode: there is no cloud to consult, so the lookup is complete.
+    // Without this the page sat on a loading skeleton forever for a missing recipe.
+    if (!isFirebaseConfigured) {
+      setCloudChecked(true);
+      return;
+    }
+
+    let cancelled = false;
+    // Bounded for the same reason as the library feed: an unreachable Firestore
+    // retries instead of rejecting, so without a deadline this never resolves
+    // and the page shows a spinner indefinitely.
+    withTimeout(
+      getPublishedRecipe(id).then((r) => ({ published: r })),
+      RECIPE_CLOUD_TIMEOUT_MS,
+      null
+    )
+      .then((result) => {
+        if (cancelled) return;
+        if (result === null) {
+          console.error('Timed out loading the published recipe');
           setCloudError(true);
           setCloudChecked(true);
-        });
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [id, localRecipe, cloudChecked]);
+          return;
+        }
+        const published = result.published;
+        if (published) {
+          // Convert SharedRecipe to Recipe-like shape for display
+          setCloudRecipe({
+            ...published,
+            parentId: (published as Record<string, unknown>).parentId as string | null ?? null,
+            rootId: ((published as Record<string, unknown>).rootId as string) ?? id,
+            depth: ((published as Record<string, unknown>).depth as number) ?? 0,
+            collaborators: (published as Record<string, unknown>).collaborators as Recipe['collaborators'] ?? [],
+            // Published docs do carry the prompt — publishRecipe strips only
+            // chatHistory — and the tree and lineage views display it.
+            prompt: ((published as Record<string, unknown>).prompt as string) ?? '',
+            chatHistory: [],
+            createdAt: ((published as Record<string, unknown>).createdAt as number) ?? 0,
+            updatedAt: ((published as Record<string, unknown>).updatedAt as number) ?? 0,
+          } as Recipe);
+        }
+        setCloudChecked(true);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Loading the published recipe failed', err);
+        setCloudError(true);
+        setCloudChecked(true);
+      });
+
+    // Guards a late response landing after the id changed, which the old
+    // clearTimeout happened to cover.
+    return () => {
+      cancelled = true;
+    };
+  }, [id, localSettled, localRecipe, cloudChecked]);
 
   const recipe = localRecipe ?? cloudRecipe ?? undefined;
 

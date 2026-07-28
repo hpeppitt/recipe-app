@@ -468,8 +468,23 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       `cancelled` check inside an async load, so StrictMode's first pass is discarded. That is
       incidental rather than deliberate, so it is worth a comment if that file is touched again.
       StrictMode itself left enabled; it is doing its job here by surfacing the bug.)
-- [ ] **FUN-13** Cloud fallback gated on an arbitrary 100ms setTimeout instead of awaiting
+- [x] **FUN-13** Cloud fallback gated on an arbitrary 100ms setTimeout instead of awaiting
       the Dexie query. (`useRecipe.ts:24-45`)
+      (fixed: the timing guess is gone. Root cause was that `useLiveQuery` returns `undefined`
+      both while loading AND when the row is missing, so the code could not tell the two
+      apart and slept 100ms hoping Dexie had settled. Wrapping the result
+      (`async () => ({ value: await getRecipe(id) })`) makes the states distinct: the hook
+      returning `undefined` now means "still loading", `{ value: undefined }` means "resolved,
+      not here". The cloud effect gates on `localSettled` instead of a clock.
+      Replaced the `clearTimeout` cleanup with a `cancelled` flag, which covers the same
+      staleness case — a late cloud response landing after the id changed — that the timeout
+      teardown happened to cover.
+      Was a real correctness bug, not just inelegance: on a slow device Dexie could take
+      longer than 100ms, so a local recipe would trigger a pointless cloud lookup, and a
+      cloud recipe on a fast device would briefly render "not found".
+      Verified all three paths in-browser: a cloud-only recipe loads with no false not-found
+      flash, a nonexistent id resolves immediately to "Recipe not found" with no stuck
+      skeleton and no network blame, and a Dexie-only recipe renders with owner actions.)
 - [ ] **FUN-14** "Create New Anyway" has no in-flight guard; double-click runs two
       concurrent Gemini generations. (`useRecipeChat.ts:95-99`)
 - [ ] **FUN-15** A failed first message (e.g. no API key) consumes the one-shot dedup
