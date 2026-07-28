@@ -22,7 +22,24 @@ export function ChatInput({
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  /**
+   * Autofocus only where it is free.
+   *
+   * On a touch device focusing the composer opens the on-screen keyboard, which
+   * covers the suggestion chips — the only concrete instruction a first-time user
+   * gets. On a pointer device focus costs the user nothing and saves a click, so
+   * it is kept there.
+   *
+   * `(pointer: coarse)` rather than a user-agent check: it describes the input
+   * device, which is the thing that actually determines whether a keyboard
+   * appears. Guarded for environments without matchMedia (jsdom, SSR).
+   */
   useEffect(() => {
+    const coarse =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+    if (coarse) return;
     inputRef.current?.focus();
   }, []);
 

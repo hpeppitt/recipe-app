@@ -1249,10 +1249,25 @@ that failure mode entirely, so it is not listed.
       inside the card's dense metadata row would inflate every card. 32px clears WCAG 2.2 SC
       2.5.8 (AA, 24x24), it is a secondary link, and the whole card is a large target for the
       primary action. Deliberate, not overlooked.)
-- [ ] **UX-29** Competing autofocus on `/create`: `ChatInput` focuses unconditionally on
+- [x] **UX-29** Competing autofocus on `/create`: `ChatInput` focuses unconditionally on
       mount, so the keyboard opens then AuthModal steals focus; for signed-in users the
       keyboard covers the suggestion chips, which are the only concrete instruction a new
       user gets. (`ChatInput.tsx:13-15`, `RecipeChatPage.tsx:59-63`)
+      (fixed the second half. **The first half does not happen** — the AuthModal focus conflict
+      is the same claim UI-14 made, which I tested and disproved then: `showModal()` runs after
+      ChatInput's mount effect and pulls focus into the dialog, and native `<dialog>` restores
+      focus on close. Re-checked rather than assumed; no change, and no `autoFocus` prop
+      reintroduced (I built one for UI-14 and reverted it for exactly this reason).
+      The second half is real and distinct: on a touch device, focusing the composer opens the
+      on-screen keyboard, which covers the suggestion chips — the only concrete instruction a
+      first-time user gets. Autofocus is now gated on `(pointer: coarse)`: skipped on touch,
+      kept on pointer devices where focus costs nothing and saves a click.
+      Chose a pointer media query over a user-agent check because it describes the input device,
+      which is what actually determines whether a keyboard appears — a touchscreen laptop gets
+      the right behaviour either way. Guarded for environments without `matchMedia`.
+      Verified both branches: on this desktop browser (`pointer: fine`) the composer still holds
+      focus at mount; with a coarse pointer forced, focus stays on `body` and the chips are
+      visible and unobstructed.)
 
 ## Low severity
 
