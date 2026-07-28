@@ -13,7 +13,8 @@ initializeApp();
  */
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
-const MODEL = 'gemini-2.0-flash';
+// Kept in step with the client: gemini-2.0-flash was shut down 2026-06-01.
+const MODEL = 'gemini-3.6-flash';
 
 // Abuse limits. Every caller is authenticated, so these are per-account rather
 // than per-IP, which is far harder to work around than bot heuristics.
