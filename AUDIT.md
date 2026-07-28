@@ -1455,7 +1455,7 @@ that failure mode entirely, so it is not listed.
       ("rice, pressure cooker, side dish, vegetarian, gluten-free, healthy" on both), and that a
       repo-wide grep finds the tag styling in one file. Reviewed the diff on `SharedRecipePage`
       specifically, since that replacement used a regex rather than an exact string match.)
-- [ ] **UX-42** The dark theme's grey text tokens fail AA for body text, app-wide. Measured on
+- [x] **UX-42** The dark theme's grey text tokens fail AA for body text, app-wide. Measured on
       `#111827`: `--color-text-tertiary` (#6b7280) is **3.67:1** and `--color-text-secondary`
       (#9ca3af) is **4.06:1**, both under the 4.5:1 needed at the 12-14px sizes they are used at.
       25 failing elements on the library alone — recipe metadata (time, difficulty, creator),
@@ -1587,7 +1587,33 @@ that failure mode entirely, so it is not listed.
       ingredient matching against a food database — a larger change (data source, matching,
       per-ingredient quantities) that would replace the numbers, not the presentation. The
       labelling and absent-state handling carry over unchanged.)
-
+      (fixed at the token level, as diagnosed. New values, all measured against every surface a
+      theme actually uses (surface, -secondary, -tertiary):
+      light `--color-text-secondary` #6b7280 → **#4b5563** (7.56 / 7.23 / 6.87),
+      light `--color-text-tertiary` #9ca3af → **#646b7a** (5.35 / 5.12 / 4.86),
+      dark secondary #9ca3af → **#cbd5e1** (11.95 / 9.89 / 6.94),
+      dark tertiary #6b7280 → **#b0b7c3** (8.79 / 7.27 / 5.11). Everything clears 4.5:1.
+      **My own finding text was wrong: this was never dark-only.** Light `text-tertiary` was
+      **2.54:1 on white** — worse than anything in dark mode — and light `text-secondary` was 4.39
+      on surface-tertiary. Measuring both themes before editing is what caught it; had I trusted
+      the finding I would have fixed half the problem and closed it.
+      Also note dark secondary at #9ca3af was *not* uniformly failing: 6.99 on surface, but 4.06
+      on surface-tertiary. Per-surface measurement, rather than one representative background, is
+      what makes that visible.
+      **The hierarchy is necessarily compressed** and that is a real trade-off, recorded in a
+      comment in `index.css`: "tertiary" was pale *because* it was de-emphasised, and de-emphasis
+      by low contrast is exactly what fails AA. The remaining gap still reads as two levels.
+      Verified by sweeping every rendered element on the library, settings, profile, detail and
+      shared pages in **both** themes: zero failures. The only sub-4.5 results left are the 💡
+      emoji bullets, which render in their own glyph colours regardless of the `color` property,
+      so the computed value is not what is displayed.
+      **A measurement trap worth recording:** the first dark sweep reported the nav labels at
+      2.35:1 using the *light* token value. The compiled CSS was correct
+      (`.text-text-secondary{color:var(--color-text-secondary)}` with `.dark` overriding the
+      variable) — the browser was running a stale stylesheet after many HMR edits in one session.
+      A clean dev-server restart and reload gave the right colours. Reading the built CSS is what
+      distinguished "my fix is broken" from "my measurement is stale".
+      Theme left on System.)
 ---
 
 # Accepted risks (watch, not backlog)
