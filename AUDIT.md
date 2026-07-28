@@ -1433,7 +1433,7 @@ that failure mode entirely, so it is not listed.
       Two of my own lint warnings were removed rather than left to match the file's existing
       pattern: loading is derived from a uid-stamped state object, so no `setState` runs
       synchronously in the effect and the exposed list cannot outlive its session.)
-- [ ] **UX-41** Recipe tag markup is duplicated three times, identically:
+- [x] **UX-41** Recipe tag markup is duplicated three times, identically:
       `RecipeContent`, `RecipeCardMessage` and `SharedRecipePage` each hand-roll the same
       `px-2 py-0.5 rounded-full` tag pill. UX-30 had to patch all three for dark mode and its
       own finding text only listed two, which is the cost of the duplication. Extract a `Tag`
@@ -1441,6 +1441,20 @@ that failure mode entirely, so it is not listed.
       Noted while fixing UX-30; kept separate because extraction is a different change from
       adding dark variants.
       (`RecipeContent.tsx`, `RecipeCardMessage.tsx`, `SharedRecipePage.tsx`)
+      (fixed: extracted `TagList` and replaced all three copies. 33 lines removed, 6 added.
+      **Chose `TagList` over the suggested `Tag`, and it owns the container too.** A per-pill
+      component would have left each call site repeating the `flex flex-wrap gap-1.5` wrapper and
+      its own `tags.length > 0` check — so the wrapper could still drift between screens and the
+      duplication would only be half removed. `TagList` returns null when empty, which is why
+      each call site collapses to a single line.
+      Not reused `Chip`: it is an interactive control now (44px target, `aria-pressed`, hover
+      state) after UX-27 and UX-28. Tags are static text, so borrowing it would mean a
+      non-interactive variant of an interactive component — more configuration than a dedicated
+      12-line component.
+      Verified the tag rows still render identically on the detail and shared pages
+      ("rice, pressure cooker, side dish, vegetarian, gluten-free, healthy" on both), and that a
+      repo-wide grep finds the tag styling in one file. Reviewed the diff on `SharedRecipePage`
+      specifically, since that replacement used a regex rather than an exact string match.)
 - [ ] **UX-42** The dark theme's grey text tokens fail AA for body text, app-wide. Measured on
       `#111827`: `--color-text-tertiary` (#6b7280) is **3.67:1** and `--color-text-secondary`
       (#9ca3af) is **4.06:1**, both under the 4.5:1 needed at the 12-14px sizes they are used at.

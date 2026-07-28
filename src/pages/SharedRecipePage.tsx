@@ -10,6 +10,7 @@ import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import { MetadataPills } from '../components/recipe/MetadataPills';
 import { IngredientList } from '../components/recipe/IngredientList';
 import { NutritionPanel } from '../components/recipe/NutritionPanel';
+import { TagList } from '../components/recipe/TagList';
 import { InstructionList } from '../components/recipe/InstructionList';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -301,18 +302,7 @@ export function SharedRecipePage() {
             </div>
           )}
 
-          {recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {recipe.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300 text-xs"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <TagList tags={recipe.tags} />
         </div>
       </main>
 

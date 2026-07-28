@@ -3,6 +3,7 @@ import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
 import { InstructionList } from './InstructionList';
 import { NutritionPanel } from './NutritionPanel';
+import { TagList } from './TagList';
 
 interface RecipeContentProps {
   recipe: Recipe;
@@ -58,18 +59,7 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
         </div>
       )}
 
-      {!compact && recipe.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {recipe.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300 text-xs"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      {!compact && <TagList tags={recipe.tags} />}
     </div>
   );
 }

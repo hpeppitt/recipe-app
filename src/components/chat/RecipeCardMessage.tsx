@@ -4,6 +4,7 @@ import { MetadataPills } from '../recipe/MetadataPills';
 import { IngredientList } from '../recipe/IngredientList';
 import { InstructionList } from '../recipe/InstructionList';
 import { NutritionPanel } from '../recipe/NutritionPanel';
+import { TagList } from '../recipe/TagList';
 import { Button } from '../ui/Button';
 
 interface RecipeCardMessageProps {
@@ -63,15 +64,7 @@ export function RecipeCardMessage({
         </div>
       )}
 
-      {recipe.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {recipe.tags.map((tag) => (
-            <span key={tag} className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300 text-xs">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <TagList tags={recipe.tags} />
 
       {showSave && onSave && (
         <Button fullWidth onClick={onSave} disabled={saving}>
