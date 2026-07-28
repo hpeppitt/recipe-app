@@ -209,13 +209,25 @@ function OwnProfile() {
             </div>
           )}
 
-          {/* Stats */}
-          <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-            <StatBox label={pluralize(recipes.length, 'recipe')} value={recipes.length} />
-            <StatBox label="views" value={stats.totalViews} />
-            <StatBox label={pluralize(stats.totalFavorites, 'favorite')} value={stats.totalFavorites} />
-            <StatBox label={pluralize(profile?.followerCount ?? 0, 'follower')} value={profile?.followerCount ?? 0} />
-          </div>
+          {/* Stats. Hidden entirely until there is something to report: a row of
+              four zeros is a worse first impression than no row, and it is the
+              first thing a brand-new user sees on their own profile.
+
+              Labels are always plural. Previously three of the four switched to
+              the singular at exactly 1 while "views" never did, so the row was
+              both inconsistent and twitchy as counts crossed 1. With the number
+              on its own line above the label, a static plural reads correctly. */}
+          {(recipes.length > 0 ||
+            stats.totalViews > 0 ||
+            stats.totalFavorites > 0 ||
+            (profile?.followerCount ?? 0) > 0) && (
+            <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
+              <StatBox label="recipes" value={recipes.length} />
+              <StatBox label="views" value={stats.totalViews} />
+              <StatBox label="favorites" value={stats.totalFavorites} />
+              <StatBox label="followers" value={profile?.followerCount ?? 0} />
+            </div>
+          )}
 
           {/* Sits above the recipe list, not below it. This is the only thing
               standing between an anonymous user and permanent loss of their
@@ -389,10 +401,10 @@ function PublicProfile({ uid }: { uid: string }) {
 
           {/* Stats */}
           <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-            <StatBox label={pluralize(recipes.length, 'recipe')} value={recipes.length} />
+            <StatBox label="recipes" value={recipes.length} />
             <StatBox label="views" value={stats.totalViews} />
-            <StatBox label={pluralize(stats.totalFavorites, 'favorite')} value={stats.totalFavorites} />
-            <StatBox label={pluralize(profile.followerCount, 'follower')} value={profile.followerCount} />
+            <StatBox label="favorites" value={stats.totalFavorites} />
+            <StatBox label="followers" value={profile.followerCount} />
           </div>
 
           {/* Recipes */}

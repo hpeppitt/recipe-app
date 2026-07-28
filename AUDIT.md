@@ -1340,9 +1340,23 @@ that failure mode entirely, so it is not listed.
       and deleting the text. Both clear paths verified to restore all 7 recipes.
       The label was already present (added in UI-14); updated its wording to mention ingredients,
       since the placeholder now promises them.)
-- [ ] **UX-34** A new user's profile leads with a row of four zeros, and `pluralize` makes the
+- [x] **UX-34** A new user's profile leads with a row of four zeros, and `pluralize` makes the
       labels twitch as counts cross 1 while "views" never pluralizes.
       (`ProfilePage.tsx:197-202`)
+      (fixed both. The stats row is hidden entirely until at least one stat is non-zero: four
+      zeros is a worse first impression than no row, and it was the first thing a brand-new user
+      saw on their own profile. With it gone, the anonymous-account warning leads instead, which
+      is the thing that actually matters at that moment.
+      Labels are now always plural. Resolving the inconsistency required choosing a direction —
+      pluralize "views" too, or stop pluralizing the other three. Chose static plurals because the
+      number sits on its own line above the label, where "1 / recipes" reads correctly, and it
+      also removes the width shift as counts cross 1. The cost is losing "1 recipe" grammar in a
+      place where it was never really reading as a sentence.
+      `pluralize` is deliberately kept for the per-recipe rows ("3 views", "1 fav"), where the
+      count is inline with the word and the grammar does matter — this was about the stat row
+      specifically, not the helper.
+      Verified: own profile with 0 recipes shows no stats row at all; a profile with data shows
+      `14 recipes / 109 views / 2 favorites / 0 followers`, with no singular form anywhere.)
 - [ ] **UX-35** `EmptyState` has no action slot, which is why every empty state in the app
       describes a button instead of offering one. (`EmptyState.tsx:1-15`)
 - [x] **UX-36** RecipeDetailPage header actions wrap off-screen for owners. At 390px with a
