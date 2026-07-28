@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -17,6 +17,9 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Exactly one step renders at a time, so a single id can label the dialog and
+  // follow the heading from step to step.
+  const titleId = useId();
 
   // Auto-dismiss if user is already authenticated (including anonymous)
   useEffect(() => {
@@ -68,11 +71,12 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
     <dialog
       ref={dialogRef}
       onClose={onDismiss}
+      aria-labelledby={titleId}
       className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
     >
       {step === 'choose' && (
         <>
-          <h2 className="text-lg font-semibold text-text-primary">Sign in to continue</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-text-primary">Sign in to continue</h2>
           <p className="text-sm text-text-secondary mt-1 mb-6">
             Sign in to save recipes and get credited as the creator.
           </p>
@@ -98,7 +102,7 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
 
       {step === 'email' && (
         <>
-          <h2 className="text-lg font-semibold text-text-primary">Sign in with Email</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-text-primary">Sign in with Email</h2>
           <p className="text-sm text-text-secondary mt-1 mb-4">
             We'll send you a magic link — no password needed.
           </p>
@@ -133,7 +137,7 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
         <>
           <div className="text-center py-4">
             <p className="text-3xl mb-3">📧</p>
-            <h2 className="text-lg font-semibold text-text-primary">Check your email</h2>
+            <h2 id={titleId} className="text-lg font-semibold text-text-primary">Check your email</h2>
             <p className="text-sm text-text-secondary mt-2">
               We sent a sign-in link to <strong>{email}</strong>. Click the link to sign in.
             </p>

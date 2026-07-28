@@ -88,6 +88,9 @@ export function LibraryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search recipes..."
+            // Placeholder text is not an accessible name: it disappears on input
+            // and some screen readers never announce it.
+            aria-label="Search recipes"
             className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">

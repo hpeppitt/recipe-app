@@ -535,10 +535,28 @@ first chat message of a session (`useRecipeChat.ts:73-88`):
       second account, so both were forced with temporary edits and reverted after; the
       "Following" (secondary) state was left unclicked to avoid writing a bogus self-follow
       to Firestore. No console errors.)
-- [ ] **UI-14** Modal/dropdown a11y gaps: dialogs missing `aria-labelledby`, bell missing
+- [x] **UI-14** Modal/dropdown a11y gaps: dialogs missing `aria-labelledby`, bell missing
       `aria-expanded` and unread count announcement, unlabeled search input, ChatInput
       autofocus fights AuthModal focus. (`AuthModal.tsx`, `NotificationBell.tsx`,
       `LibraryPage.tsx:78-84`, `ChatInput.tsx`)
+      (fixed: all three dialogs (`ConfirmDialog`, `AuthModal`, `SuggestChangeModal`) now carry
+      `aria-labelledby` via `useId`; ConfirmDialog also gets `aria-describedby` for its
+      message, since that text carries the consequence of the action. AuthModal and
+      SuggestChangeModal swap their heading between steps, so one id follows the visible
+      heading rather than each step declaring its own — otherwise the name would go stale
+      after submitting. Bell gained `aria-expanded`, `aria-haspopup`, and the unread count
+      folded into its `aria-label`; the count previously existed only as a painted badge.
+      Search input gained an `aria-label`, since a placeholder is not an accessible name.
+      Verified against the live accessibility tree, not just the markup: the labelledby ids
+      resolve to the real heading text ("Clear All Data" / its warning), and the bell's
+      `aria-expanded` flips false→true on open.
+      **The ChatInput claim did not reproduce and no change was made for it.** Tested with
+      the modal forced open: focus lands on "Continue Anonymously" and stays inside the
+      dialog. Two things prevent the conflict — ChatInput's focus effect is mount-only so it
+      cannot fire later, and `showModal()` runs after it and pulls focus in regardless. On
+      close, native `<dialog>` restores focus to the composer on its own. I had implemented an
+      `autoFocus` prop before testing and reverted it: it added API surface for a defect that
+      does not exist. The rest of UI-14 was real.)
 
 ## Known limitation introduced by the security rules
 

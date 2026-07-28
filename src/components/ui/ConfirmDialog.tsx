@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Button } from './Button';
 
 interface ConfirmDialogProps {
@@ -21,6 +21,10 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Without these, a screen reader announces the dialog with no name at all —
+  // the visible <h2> is not connected to the dialog element by default.
+  const titleId = useId();
+  const messageId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -33,10 +37,16 @@ export function ConfirmDialog({
     <dialog
       ref={dialogRef}
       onClose={onCancel}
+      aria-labelledby={titleId}
+      aria-describedby={messageId}
       className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
     >
-      <h2 className="text-lg font-semibold text-text-primary mb-2">{title}</h2>
-      <p className="text-sm text-text-secondary mb-6">{message}</p>
+      <h2 id={titleId} className="text-lg font-semibold text-text-primary mb-2">
+        {title}
+      </h2>
+      <p id={messageId} className="text-sm text-text-secondary mb-6">
+        {message}
+      </p>
       <div className="flex gap-3 justify-end">
         <Button variant="secondary" onClick={onCancel}>
           Cancel

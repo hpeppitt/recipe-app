@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useId, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 
@@ -19,6 +19,9 @@ export function SuggestChangeModal({
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // One id follows the heading across the form and confirmation states, so the
+  // dialog keeps an accessible name after submitting.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -46,13 +49,14 @@ export function SuggestChangeModal({
     <dialog
       ref={dialogRef}
       onClose={onClose}
+      aria-labelledby={titleId}
       className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
     >
       {submitted ? (
         <>
           <div className="text-center py-4">
             <p className="text-3xl mb-3">✅</p>
-            <h2 className="text-lg font-semibold text-text-primary">Suggestion sent</h2>
+            <h2 id={titleId} className="text-lg font-semibold text-text-primary">Suggestion sent</h2>
             <p className="text-sm text-text-secondary mt-2">
               The recipe owner will be notified of your suggestion.
             </p>
@@ -63,7 +67,7 @@ export function SuggestChangeModal({
         </>
       ) : (
         <>
-          <h2 className="text-lg font-semibold text-text-primary">Suggest a Change</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-text-primary">Suggest a Change</h2>
           <p className="text-sm text-text-secondary mt-1 mb-4">
             Suggest a modification to <strong>{recipeTitle}</strong>. The owner will
             review your suggestion.
