@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
-import { useSuggestions } from '../hooks/useSuggestions';
+import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree } from '../db/recipes';
-import { deletePublishedRecipe, incrementRecipeViews } from '../services/firestore';
+import {
+  deletePublishedRecipeTree,
+  getPublishedRecipe,
+  incrementRecipeViews,
+  publishRecipe,
+} from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
-import { encodeRecipeToUrl } from '../lib/share';
+import { pickShareUrl } from '../lib/share';
+import { withTimeout } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -15,56 +21,144 @@ import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
 import { VariationChips } from '../components/recipe/VariationChips';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { AuthModal } from '../components/auth/AuthModal';
+import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
+import { canManageRecipe } from '../lib/ownership';
+
+/** How long Share waits on the cloud before falling back to a self-contained link. */
+const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
-  const { recipe, isLoading } = useRecipe(id);
+  const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
+  const location = useLocation();
   const { children } = useRecipeChildren(id);
   const { ancestors } = useRecipeAncestors(recipe);
-  const { isFavorite, toggleFavorite } = useFavorite(id);
+  const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id);
+  const { submit: submitSuggestion } = useSubmitSuggestion();
   const [showDelete, setShowDelete] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
+  const [isSharing, setIsSharing] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(false);
 
-  const isOwner =
-    !isConfigured || !user || !recipe?.createdBy
-      ? true // If no auth, treat as owner (local-only mode)
-      : recipe.createdBy.uid === user.uid || recipe.createdBy.uid === 'local';
+  // Fails closed: while the recipe is still resolving, `source` is undefined and
+  // the destructive menu stays hidden rather than flashing in.
+  const isOwner = canManageRecipe({
+    isConfigured,
+    source,
+    userUid: user?.uid,
+    createdByUid: recipe?.createdBy?.uid,
+  });
 
   const handleBack = () => {
-    if (recipe?.parentId) {
-      navigate(`/recipe/${recipe.parentId}`, { replace: true });
-    } else {
-      navigate('/');
+    // Respect real history: arriving from the version tree, a profile or a
+    // notification should return there, not jump to the parent recipe. The old
+    // handler also used `replace: true`, which discarded the current entry and
+    // left the hardware back button inconsistent with the on-screen one.
+    // React Router labels the first entry of a session 'default', so any other
+    // key means there is somewhere in-app to go back to.
+    if (location.key !== 'default') {
+      navigate(-1);
+      return;
     }
+    // Deep link with nothing behind it: go up the lineage if there is one.
+    navigate(recipe?.parentId ? `/recipe/${recipe.parentId}` : '/');
   };
 
   const handleShare = async () => {
-    if (!recipe) return;
-    const url = encodeRecipeToUrl(recipe);
-    await navigator.clipboard.writeText(url);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
-    trackRecipeShared(recipe.id);
+    if (!recipe || isSharing) return;
+    setIsSharing(true);
+    try {
+      let isPublished = false;
+      if (isFirebaseConfigured) {
+        // Bounded so an unreachable backend degrades to a self-contained link
+        // instead of leaving the user waiting on a Firestore retry loop.
+        isPublished = await withTimeout(
+          (async () => {
+            if (await getPublishedRecipe(recipe.id)) return true;
+            // Publishing at save time is fire-and-forget, so it may never have
+            // landed. Retry here rather than hand out a link that 404s.
+            // publishRecipe itself now distinguishes create from update, so a
+            // re-publish no longer resets the counters.
+            await publishRecipe(recipe);
+            return true;
+          })().catch((err) => {
+            console.error('Could not publish recipe before sharing', err);
+            return false;
+          }),
+          SHARE_PUBLISH_TIMEOUT_MS,
+          false
+        );
+      }
+
+      const { url, mode } = pickShareUrl(recipe, {
+        firebaseConfigured: isFirebaseConfigured,
+        isPublished,
+      });
+      await navigator.clipboard.writeText(url);
+      setShareMode(mode);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 3000);
+      trackRecipeShared(recipe.id);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleDelete = async () => {
     if (!id) return;
     trackRecipeDeleted(id);
-    await deleteRecipeTree(id);
+    const rootId = recipe?.rootId;
+    const deletedLocally = await deleteRecipeTree(id);
     if (isFirebaseConfigured) {
-      deletePublishedRecipe(id).catch(() => {});
+      // Cascade to the cloud so published variations aren't left orphaned and
+      // still reachable via /shared/:id. Descendants owned by other users are
+      // denied by the rules and stay published; that needs a Cloud Function.
+      deletePublishedRecipeTree(id, rootId ?? id, deletedLocally).catch(() => {});
     }
     navigate('/', { replace: true });
   };
 
+  // Only cloud recipes belonging to someone else can be suggested against:
+  // canManageRecipe treats anything in this device's library as the user's own,
+  // and a suggestion needs a published doc to reference.
+  const canSuggest = isConfigured && !isOwner && source === 'cloud';
+
+  const handleSuggestClick = () => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+    setShowSuggest(true);
+  };
+
+  const handleSubmitSuggestion = async (message: string) => {
+    if (!recipe || !id) return;
+    await submitSuggestion({
+      recipeId: id,
+      recipeOwnerId: recipe.createdBy?.uid ?? 'local',
+      recipeTitle: recipe.title,
+      recipeEmoji: recipe.emoji,
+      message,
+    });
+  };
+
   const handleFavoriteToggle = () => {
     if (!recipe) return;
+    // Favourites are keyed by uid. Signed out with Firebase available, offer to
+    // sign in rather than no-op silently, matching SharedRecipePage (FUN-16).
+    if (!canFavorite) {
+      setShowAuth(true);
+      return;
+    }
     toggleFavorite({
       ownerId: recipe.createdBy?.uid ?? 'local',
       title: recipe.title,
@@ -98,10 +192,20 @@ export function RecipeDetailPage() {
   }
 
   if (!recipe) {
+    // Absence after a failed lookup is not the same as absence: telling someone
+    // their recipe doesn't exist when the network broke is actively misleading.
     return (
       <div className="max-w-lg mx-auto">
-        <TopBar title="Not found" showBack />
-        <div className="p-8 text-center text-text-secondary">Recipe not found</div>
+        <TopBar title={cloudError ? "Couldn't load" : 'Not found'} showBack />
+        <div className="p-8 text-center space-y-3">
+          <p className="text-4xl">{cloudError ? '📡' : '🔍'}</p>
+          <p className="text-text-secondary">
+            {cloudError
+              ? "We couldn't reach the recipe library. Check your connection and try again."
+              : 'Recipe not found.'}
+          </p>
+          {cloudError && <Button onClick={retry}>Try Again</Button>}
+        </div>
       </div>
     );
   }
@@ -114,9 +218,14 @@ export function RecipeDetailPage() {
         onBack={handleBack}
         right={
           <div className="relative">
+            {/* Hidden entirely in local-only mode: favourites need a uid and no
+                account can be created without Firebase, so the control could
+                never do anything (FUN-16). When Firebase is available but the
+                user is signed out, it stays and prompts sign-in. */}
+            {isConfigured && (
             <button
               onClick={handleFavoriteToggle}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
               aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               {isFavorite ? (
@@ -129,9 +238,11 @@ export function RecipeDetailPage() {
                 </svg>
               )}
             </button>
+            )}
             <button
               onClick={handleShare}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              disabled={isSharing}
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors disabled:opacity-50"
               aria-label="Share recipe"
             >
               {shareCopied ? (
@@ -146,7 +257,7 @@ export function RecipeDetailPage() {
             </button>
             <button
               onClick={() => navigate(`/recipe/${recipe.id}/tree`)}
-              className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
               aria-label="Version tree"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -157,14 +268,14 @@ export function RecipeDetailPage() {
               <>
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors relative"
+                  className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
                   aria-label="More options"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
                   </svg>
                   {pendingSuggestions.length > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary-500" />
+                    <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500" />
                   )}
                 </button>
                 {showMenu && (
@@ -246,7 +357,7 @@ export function RecipeDetailPage() {
                     key={s.id}
                     className={`border rounded-xl p-3 ${
                       s.status === 'pending'
-                        ? 'border-primary-200 bg-primary-50/30'
+                        ? 'border-primary-200 bg-primary-50/30 dark:border-primary-800 dark:bg-primary-950/30'
                         : 'border-border bg-surface-secondary'
                     }`}
                   >
@@ -266,16 +377,19 @@ export function RecipeDetailPage() {
                       )}
                     </p>
                     {s.status === 'pending' && (
-                      <div className="flex gap-2 mt-2">
+                      // Padded to a 44px target. The -ml-3 offsets the first
+                      // button's padding so its label stays flush with the text
+                      // above rather than looking indented.
+                      <div className="flex gap-1 mt-1 -ml-3">
                         <button
                           onClick={() => approve(s.id)}
-                          className="text-xs font-medium text-success-600 hover:underline"
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors"
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => reject(s.id)}
-                          className="text-xs font-medium text-text-tertiary hover:underline"
+                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-text-secondary hover:underline hover:bg-surface-tertiary transition-colors"
                         >
                           Reject
                         </button>
@@ -290,10 +404,17 @@ export function RecipeDetailPage() {
       </main>
 
       <div className="sticky bottom-0 p-4 bg-surface border-t border-border">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-lg mx-auto space-y-2">
           <Button fullWidth onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
             Create Variation
           </Button>
+          {/* Suggesting a change used to exist only on /shared/:id, so anyone who
+              reached another user's recipe through the library never saw it. */}
+          {canSuggest && (
+            <Button variant="secondary" fullWidth onClick={handleSuggestClick}>
+              Suggest a Change
+            </Button>
+          )}
         </div>
       </div>
 
@@ -310,6 +431,34 @@ export function RecipeDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setShowDelete(false)}
       />
+
+      <AuthModal
+        open={showAuth}
+        onAuthenticated={() => setShowAuth(false)}
+        onDismiss={() => setShowAuth(false)}
+      />
+
+      <SuggestChangeModal
+        open={showSuggest}
+        recipeTitle={recipe.title}
+        onSubmit={handleSubmitSuggestion}
+        onClose={() => setShowSuggest(false)}
+      />
+
+      {shareCopied && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="text-sm font-medium text-text-primary">Link copied</p>
+          {shareMode === 'self-contained' && (
+            <p className="mt-0.5 text-xs text-text-secondary">
+              This link carries the whole recipe, so it works without the cloud — but
+              recipients can't favourite it or suggest changes.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

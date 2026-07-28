@@ -10,9 +10,16 @@ interface RecipeCardMessageProps {
   showSave?: boolean;
   saveLabel?: string;
   onSave?: () => void;
+  saving?: boolean;
 }
 
-export function RecipeCardMessage({ recipe, showSave, saveLabel = 'Save Recipe', onSave }: RecipeCardMessageProps) {
+export function RecipeCardMessage({
+  recipe,
+  showSave,
+  saveLabel = 'Save Recipe',
+  onSave,
+  saving = false,
+}: RecipeCardMessageProps) {
   return (
     <div className="bg-surface border border-border rounded-2xl p-4 space-y-4">
       <div className="flex items-start gap-3">
@@ -59,8 +66,8 @@ export function RecipeCardMessage({ recipe, showSave, saveLabel = 'Save Recipe',
       )}
 
       {showSave && onSave && (
-        <Button fullWidth onClick={onSave}>
-          {saveLabel}
+        <Button fullWidth onClick={onSave} disabled={saving}>
+          {saving ? 'Saving…' : saveLabel}
         </Button>
       )}
     </div>

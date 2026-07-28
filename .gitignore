@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+
+# Cloud Functions build output
+functions/lib/
 __pycache__/
 *.pyc
 venv/
@@ -27,3 +30,7 @@ build/
 
 # Firebase local cache
 .firebase/
+
+# Claude Code: personal permission grants and ephemeral run state, not shared
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

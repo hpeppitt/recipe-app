@@ -31,10 +31,11 @@ export function useNotifications() {
     []
   );
 
+  const uid = user?.uid;
   const markAllRead = useCallback(async () => {
-    if (!user) return;
-    await markAllNotificationsRead(user.uid);
-  }, [user?.uid]);
+    if (!uid) return;
+    await markAllNotificationsRead(uid);
+  }, [uid]);
 
   return { notifications, unreadCount, markRead, markAllRead };
 }

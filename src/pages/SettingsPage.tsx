@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getApiKey, setApiKey } from '../services/storage';
 import { testConnection } from '../services/gemini';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
+import { describeImport } from '../lib/import';
 import { useTheme } from '../hooks/useTheme';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -15,6 +16,7 @@ export function SettingsPage() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<boolean | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [importStatus, setImportStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const { theme, setTheme } = useTheme();
 
   const handleSaveKey = () => {
@@ -48,13 +50,18 @@ export function SettingsPage() {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      setImportStatus(null);
       try {
-        const text = await file.text();
-        const recipes = JSON.parse(text);
-        await importRecipes(recipes);
-        alert('Recipes imported successfully!');
+        const result = await importRecipes(JSON.parse(await file.text()));
+        setImportStatus({
+          ok: result.added + result.replaced > 0,
+          message: describeImport(result),
+        });
       } catch {
-        alert('Failed to import recipes. Please check the file format.');
+        setImportStatus({
+          ok: false,
+          message: "That file couldn't be read as a Recipe Lab export.",
+        });
       }
     };
     input.click();
@@ -141,6 +148,18 @@ export function SettingsPage() {
             <Button variant="secondary" fullWidth onClick={handleImport}>
               Import Recipes
             </Button>
+            {importStatus && (
+              <p
+                role="status"
+                className={`text-xs ${
+                  importStatus.ok
+                    ? 'text-success-700 dark:text-success-400'
+                    : 'text-danger-700 dark:text-danger-300'
+                }`}
+              >
+                {importStatus.message}
+              </p>
+            )}
             <Button variant="danger" fullWidth onClick={() => setShowClearConfirm(true)}>
               Clear All Data
             </Button>

@@ -1,0 +1,25 @@
+{
+  "name": "recipe-lab-functions",
+  "description": "Server-side Gemini proxy for Recipe Lab",
+  "private": true,
+  "type": "commonjs",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "@google/genai": "^1.30.0",
+    "firebase-admin": "^13.0.2",
+    "firebase-functions": "^6.6.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

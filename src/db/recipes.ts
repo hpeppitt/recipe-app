@@ -1,5 +1,8 @@
 import { db } from './database';
-import type { Recipe, RecipeWithChildren, CreatedBy } from '../types/recipe';
+import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
+import { collectSubtreeIds } from '../lib/tree';
+import { parseImportedRecipes } from '../lib/import';
+import type { Recipe, RecipeWithChildren, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
@@ -68,30 +71,42 @@ export async function getRecipeAncestors(recipe: Recipe): Promise<Recipe[]> {
   return ancestors;
 }
 
-export async function deleteRecipeTree(id: string): Promise<void> {
+/** Deletes a recipe and all its descendants, returning the ids removed. */
+export async function deleteRecipeTree(id: string): Promise<string[]> {
   const recipe = await db.recipes.get(id);
-  if (!recipe) return;
+  if (!recipe) return [];
 
-  // Get all recipes in the tree
   const treeRecipes = await db.recipes.where('rootId').equals(recipe.rootId).toArray();
+  const toDelete = collectSubtreeIds(treeRecipes, id);
 
-  // Build a set of IDs to delete: the recipe and all its descendants
-  const toDelete = new Set<string>();
-  toDelete.add(id);
+  await db.recipes.bulkDelete(toDelete);
+  return toDelete;
+}
 
-  // Iteratively find all descendants
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const r of treeRecipes) {
-      if (r.parentId && toDelete.has(r.parentId) && !toDelete.has(r.id)) {
-        toDelete.add(r.id);
-        changed = true;
-      }
-    }
-  }
+/**
+ * Mirror an approved collaborator onto the local copy of a recipe.
+ *
+ * Approval only wrote to the Firestore doc, but `useRecipe` prefers the local
+ * Dexie record, so the owner — who always has one — never saw the collaborator
+ * they had just approved. Idempotent on uid, matching Firestore's `arrayUnion`.
+ * A no-op when the recipe isn't held locally.
+ */
+export async function addLocalCollaborator(
+  recipeId: string,
+  collaborator: Collaborator
+): Promise<boolean> {
+  const recipe = await db.recipes.get(recipeId);
+  if (!recipe) return false;
 
-  await db.recipes.bulkDelete([...toDelete]);
+  const existing = recipe.collaborators ?? [];
+  if (existing.some((c) => c.uid === collaborator.uid)) return false;
+
+  await db.recipes.put({
+    ...recipe,
+    collaborators: [...existing, collaborator],
+    updatedAt: Date.now(),
+  });
+  return true;
 }
 
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {
@@ -100,8 +115,37 @@ export async function updateRecipe(id: string, updates: Partial<Recipe>): Promis
   await db.recipes.put({ ...recipe, ...updates, updatedAt: Date.now() });
 }
 
-export async function importRecipes(recipes: Recipe[]): Promise<void> {
+export interface ImportResult {
+  added: number;
+  replaced: number;
+  skipped: number;
+  duplicatesInFile: number;
+}
+
+/**
+ * Import recipes from an untrusted export file.
+ *
+ * Takes the raw parsed JSON rather than `Recipe[]`: validation is part of the
+ * job, not the caller's responsibility. Existing ids are overwritten (bulkPut
+ * is keyed on the inbound id), so re-importing the same file is idempotent.
+ */
+export async function importRecipes(raw: unknown): Promise<ImportResult> {
+  const { recipes, skipped, duplicatesInFile } = parseImportedRecipes(raw);
+  if (recipes.length === 0) {
+    return { added: 0, replaced: 0, skipped, duplicatesInFile };
+  }
+
+  const existing = await db.recipes.bulkGet(recipes.map((r: Recipe) => r.id));
+  const replaced = existing.filter(Boolean).length;
+
   await db.recipes.bulkPut(recipes);
+
+  return {
+    added: recipes.length - replaced,
+    replaced,
+    skipped,
+    duplicatesInFile,
+  };
 }
 
 export async function exportAllRecipes(): Promise<Recipe[]> {
@@ -116,31 +160,12 @@ export async function searchRecipes(
   query: string,
   excludeRootId?: string
 ): Promise<Recipe[]> {
-  const words = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-  if (words.length === 0) return [];
-
   const all = await db.recipes.toArray();
-  const scored = all
-    .filter((r) => !excludeRootId || r.rootId !== excludeRootId)
-    .map((r) => {
-      const haystack = [
-        r.title,
-        r.description,
-        ...r.tags,
-        ...r.ingredients.map((i) => i.name),
-      ]
-        .join(' ')
-        .toLowerCase();
-      const hits = words.filter((w) => haystack.includes(w)).length;
-      return { recipe: r, score: hits / words.length };
-    })
-    .filter((s) => s.score >= 0.5)
-    .sort((a, b) => b.score - a.score);
-
-  return scored.slice(0, 5).map((s) => s.recipe);
+  return rankByQuery(
+    all.filter((r) => !excludeRootId || r.rootId !== excludeRootId),
+    query,
+    { haystack: recipeHaystack, threshold: 0.5, limit: 5 }
+  );
 }
 
 export async function searchVariations(
@@ -149,25 +174,11 @@ export async function searchVariations(
   excludeId?: string
 ): Promise<Recipe[]> {
   const tree = await db.recipes.where('rootId').equals(rootId).toArray();
-  const words = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-  if (words.length === 0) return [];
-
-  const scored = tree
-    .filter((r) => r.id !== excludeId)
-    .map((r) => {
-      const haystack = [r.title, r.description, r.prompt, ...r.tags]
-        .join(' ')
-        .toLowerCase();
-      const hits = words.filter((w) => haystack.includes(w)).length;
-      return { recipe: r, score: hits / words.length };
-    })
-    .filter((s) => s.score >= 0.4)
-    .sort((a, b) => b.score - a.score);
-
-  return scored.slice(0, 3).map((s) => s.recipe);
+  return rankByQuery(
+    tree.filter((r) => r.id !== excludeId),
+    query,
+    { haystack: variationHaystack, threshold: 0.4, limit: 3 }
+  );
 }
 
 export async function migrateRecipesUid(

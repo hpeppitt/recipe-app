@@ -12,21 +12,29 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
 import { APP_NAME } from '../lib/constants';
 
 type Filter = 'all' | 'favorites' | 'following' | string; // string = specific uid
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [selectedFilter, setSelectedFilter] = useState<Filter>('all');
   const { user, isConfigured } = useAuth();
   const { profile } = useOwnProfile();
-  const { favoriteIds } = useFavoriteIds();
+  const { favoriteIds, canFavorite } = useFavoriteIds();
   const { followingIds, followingProfiles } = useFollowingList();
+
+  // Signing out while Favorites is active removes its chip, which would otherwise
+  // strand the user on an empty list with no way back to All.
+  const filter: Filter =
+    selectedFilter === 'favorites' && !canFavorite ? 'all' : selectedFilter;
+  const setFilter = setSelectedFilter;
+
   const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
     filter === 'following' ? followingIds : []
   );
-  const { recipes, isLoading } = useRecipeLibrary(
+  const { recipes, isLoading, cloudError, retryCloud } = useRecipeLibrary(
     search,
     filter === 'favorites' ? favoriteIds : undefined
   );
@@ -83,7 +91,9 @@ export function LibraryPage() {
             className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
-            {(['all', 'favorites'] as const).map((f) => (
+            {/* Favourites are keyed by uid, so with no signed-in user the filter
+                is permanently empty — don't offer it at all (FUN-16). */}
+            {(canFavorite ? (['all', 'favorites'] as const) : (['all'] as const)).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -133,6 +143,27 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
+        {/* Shown above the list, not instead of it: local recipes did load, and
+            the previous behaviour claimed "No recipes yet" when the shared
+            library was merely unreachable. */}
+        {cloudError && (
+          <div
+            role="status"
+            className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-3 flex items-center gap-3"
+          >
+            <div className="flex-1">
+              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+                Showing only recipes on this device
+              </p>
+              <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">
+                The shared library couldn't be reached.
+              </p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={retryCloud}>
+              Retry
+            </Button>
+          </div>
+        )}
         {displayLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
@@ -187,6 +218,11 @@ export function LibraryPage() {
             title="No results"
             description={`No recipes matching "${search}"`}
           />
+        ) : cloudError ? (
+          // The banner above already explains why the list is empty. Claiming
+          // "No recipes yet" here would contradict it and blame the user for a
+          // network problem — the exact UI-12 symptom.
+          null
         ) : (
           <EmptyState
             icon="👨‍🍳"

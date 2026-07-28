@@ -41,7 +41,7 @@ export function NotificationBell() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors relative"
+        className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
         aria-label="Notifications"
       >
         <svg
@@ -57,15 +57,23 @@ export function NotificationBell() {
             d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
           />
         </svg>
+        {/* Badge is positioned against the 20px icon, not the 44px hit area, so
+            the larger touch target doesn't push it out to the corner. */}
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
+      {/*
+        A fixed 20rem panel anchored to the bell overflowed the left edge on narrow
+        phones. Below sm it spans the viewport with 1rem insets instead, so clipping
+        is impossible regardless of where the bell sits; the anchored dropdown
+        returns at sm and up. top-16 clears the h-14 sticky header.
+      */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-surface border border-border rounded-2xl shadow-xl z-50">
+        <div className="fixed inset-x-4 top-16 max-h-96 overflow-y-auto bg-surface border border-border rounded-2xl shadow-xl z-50 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <h3 className="text-sm font-semibold text-text-primary">Notifications</h3>
             {unreadCount > 0 && (
@@ -89,7 +97,7 @@ export function NotificationBell() {
                   key={notif.id}
                   onClick={() => handleNotificationClick(notif)}
                   className={`w-full text-left px-4 py-3 hover:bg-surface-secondary transition-colors ${
-                    !notif.read ? 'bg-primary-50/50' : ''
+                    !notif.read ? 'bg-primary-50/50 dark:bg-primary-950/50' : ''
                   }`}
                 >
                   <div className="flex gap-2.5">

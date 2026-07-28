@@ -5,6 +5,7 @@ import {
   updateSuggestionStatus,
   createSuggestion,
 } from '../services/firestore';
+import { addLocalCollaborator } from '../db/recipes';
 import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
 import type { Suggestion } from '../types/social';
 
@@ -18,7 +19,12 @@ export function useSuggestions(recipeId: string | undefined) {
   }, [isConfigured, recipeId]);
 
   const approve = useCallback(async (id: string) => {
-    await updateSuggestionStatus(id, 'approved');
+    const approved = await updateSuggestionStatus(id, 'approved');
+    // Dual-write, as with favourites: the owner's UI reads the local copy first,
+    // so a cloud-only collaborator would be invisible on their own device.
+    if (approved) {
+      await addLocalCollaborator(approved.recipeId, approved.collaborator);
+    }
     trackSuggestionReviewed(id, 'approved');
   }, []);
 

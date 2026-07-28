@@ -17,28 +17,47 @@ import {
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
-import type { Recipe } from '../types/recipe';
+import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
+import { collectSubtreeIds } from '../lib/tree';
+import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, AppNotification } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
 
 // --- Recipes ---
 
+/**
+ * Publish (or re-publish) a recipe to the shared library.
+ *
+ * Distinguishes create from update, which the previous unconditional `setDoc`
+ * did not. On a re-publish it must NOT write `favoriteCount`/`viewCount`: those
+ * belong to other people's favourites and views, and resetting them to 0 silently
+ * destroys that data. The profile `recipeCount` is likewise only bumped on first
+ * publish, or a retry would inflate it.
+ */
 export async function publishRecipe(recipe: Recipe): Promise<void> {
   if (!firestore) return;
+
   const { chatHistory, ...data } = recipe;
-  await setDoc(doc(firestore, 'recipes', recipe.id), {
-    ...data,
-    collaborators: data.collaborators ?? [],
-    favoriteCount: 0,
-    viewCount: 0,
-  });
+  const ref = doc(firestore, 'recipes', recipe.id);
+  const content = { ...data, collaborators: data.collaborators ?? [] };
+
+  const existing = await getDoc(ref);
+  if (existing.exists()) {
+    await setDoc(ref, content, { merge: true });
+    return;
+  }
+
+  // Rules require both counters present and zero on create.
+  await setDoc(ref, { ...content, favoriteCount: 0, viewCount: 0 });
 
   // Increment the creator's recipeCount on their profile
   if (recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
     updateDoc(doc(firestore, 'profiles', recipe.createdBy.uid), {
       recipeCount: increment(1),
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error('Incrementing profile recipeCount failed', err);
+    });
   }
 }
 
@@ -62,6 +81,12 @@ export type PublishedRecipe = SharedRecipe & {
   favoriteCount: number;
   viewCount: number;
   createdAt: number;
+  /**
+   * `publishRecipe` strips only `chatHistory`, so published docs do carry the
+   * originating prompt. Optional because older docs may predate it.
+   */
+  prompt?: string;
+  collaborators?: Collaborator[];
 };
 
 export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
@@ -77,9 +102,97 @@ export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
   );
 }
 
-export async function deletePublishedRecipe(id: string): Promise<void> {
-  if (!firestore) return;
-  await deleteDoc(doc(firestore, 'recipes', id));
+/**
+ * Dedup check against the shared cloud library.
+ *
+ * Firestore has no full-text search, so this scores the most recent published
+ * recipes client-side over the same window the library feed uses. Recipes past
+ * that window are not considered — an accepted limit until dedup moves server-side.
+ */
+export async function searchPublishedRecipes(
+  prompt: string,
+  maxResults = 5
+): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const all = await getAllPublishedRecipes();
+  return rankByQuery(all, prompt, {
+    haystack: recipeHaystack,
+    threshold: 0.5,
+    limit: maxResults,
+  });
+}
+
+/**
+ * Every published recipe in one variation tree.
+ *
+ * The tree UI and variation dedup previously read local Dexie only, so viewing or
+ * varying someone else's recipe showed an empty tree and detected no duplicates.
+ */
+export async function getPublishedRecipeTree(rootId: string): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+}
+
+/** Dedup check for a new variation, against the published siblings in its tree. */
+export async function searchPublishedVariations(
+  rootId: string,
+  prompt: string,
+  excludeId?: string,
+  maxResults = 3
+): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const tree = await getPublishedRecipeTree(rootId);
+  return rankByQuery(
+    tree.filter((r) => r.id !== excludeId),
+    prompt,
+    { haystack: variationHaystack, threshold: 0.4, limit: maxResults }
+  );
+}
+
+/**
+ * Delete a published recipe and every published descendant of it.
+ *
+ * The cloud tree is queried rather than derived from the local one, so variations
+ * published from another device (or by another user) are still found. Deletes run
+ * individually, not in a `writeBatch`: the rules only permit deleting your own
+ * recipes, and one denied descendant would abort an atomic batch and leave the
+ * whole subtree published.
+ *
+ * `extraIds` covers ids known to be part of the subtree locally but missing from
+ * the cloud query, e.g. when a doc's rootId was never backfilled.
+ */
+export async function deletePublishedRecipeTree(
+  id: string,
+  rootId: string,
+  extraIds: string[] = []
+): Promise<{ deleted: number; failed: number }> {
+  if (!firestore) return { deleted: 0, failed: 0 };
+
+  let subtreeIds: string[];
+  try {
+    const snap = await getDocs(
+      query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
+    );
+    const nodes = snap.docs.map((d) => ({
+      id: d.id,
+      parentId: (d.data().parentId as string | null) ?? null,
+    }));
+    subtreeIds = collectSubtreeIds(nodes, id);
+  } catch {
+    // Tree query failed — still make a best effort on what the caller knows.
+    subtreeIds = [id];
+  }
+
+  const targets = [...new Set([...subtreeIds, ...extraIds])];
+  const results = await Promise.allSettled(
+    targets.map((target) => deleteDoc(doc(firestore!, 'recipes', target)))
+  );
+
+  const failed = results.filter((r) => r.status === 'rejected').length;
+  return { deleted: results.length - failed, failed };
 }
 
 // --- Cloud Favorites ---
@@ -127,21 +240,28 @@ export async function addCloudFavorite(
   }
 }
 
-export async function removeCloudFavorite(
-  uid: string,
-  recipeId: string
-): Promise<void> {
+/**
+ * Unfavourite a recipe.
+ *
+ * Deliberately NOT a batch. `update` on a missing document rejects, and in a
+ * batch that rolls back the favourite deletion too — so once the recipe was
+ * deleted, the favourite could never be removed (FUN-8). The favourite record is
+ * the user's own data and must come off regardless; the counter lives on a doc
+ * that may no longer exist, so its decrement is best-effort.
+ */
+export async function removeCloudFavorite(uid: string, recipeId: string): Promise<void> {
   if (!firestore) return;
 
-  const batch = writeBatch(firestore);
-  const favoriteId = `${uid}_${recipeId}`;
+  await deleteDoc(doc(firestore, 'favorites', `${uid}_${recipeId}`));
 
-  batch.delete(doc(firestore, 'favorites', favoriteId));
-  batch.update(doc(firestore, 'recipes', recipeId), {
-    favoriteCount: increment(-1),
-  });
-
-  await batch.commit();
+  try {
+    await updateDoc(doc(firestore, 'recipes', recipeId), {
+      favoriteCount: increment(-1),
+    });
+  } catch (err) {
+    // Expected when the recipe has been deleted; there is no counter to adjust.
+    console.error('Could not decrement favoriteCount (recipe may be deleted)', err);
+  }
 }
 
 export async function isCloudFavorite(
@@ -209,27 +329,44 @@ export function subscribeRecipeSuggestions(
   });
 }
 
+/**
+ * Approve or reject a suggestion.
+ *
+ * Returns the collaborator added on approval so the caller can mirror it onto
+ * the local Dexie copy — the owner's UI reads that copy first, so a cloud-only
+ * write left them unable to see the collaborator they just approved (FUN-7).
+ */
 export async function updateSuggestionStatus(
   suggestionId: string,
   status: 'approved' | 'rejected'
-): Promise<void> {
-  if (!firestore) return;
+): Promise<{ recipeId: string; collaborator: Collaborator } | null> {
+  if (!firestore) return null;
   await updateDoc(doc(firestore, 'suggestions', suggestionId), { status });
 
+  if (status !== 'approved') return null;
+
   // When approved, add the suggester as a collaborator on the recipe
-  if (status === 'approved') {
-    const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
-    if (suggestionSnap.exists()) {
-      const suggestion = suggestionSnap.data() as Suggestion;
-      const collaborator = {
-        uid: suggestion.suggestedBy.uid,
-        displayName: suggestion.suggestedBy.displayName,
-      };
-      await updateDoc(doc(firestore, 'recipes', suggestion.recipeId), {
-        collaborators: arrayUnion(collaborator),
-      }).catch(() => {});
-    }
+  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
+  if (!suggestionSnap.exists()) return null;
+
+  const suggestion = suggestionSnap.data() as Suggestion;
+  const collaborator: Collaborator = {
+    uid: suggestion.suggestedBy.uid,
+    displayName: suggestion.suggestedBy.displayName,
+  };
+
+  try {
+    await updateDoc(doc(firestore, 'recipes', suggestion.recipeId), {
+      collaborators: arrayUnion(collaborator),
+    });
+  } catch (err) {
+    // Don't mirror locally if the cloud write was rejected, or the two stores
+    // would disagree about who collaborated.
+    console.error('Adding collaborator to the published recipe failed', err);
+    return null;
   }
+
+  return { recipeId: suggestion.recipeId, collaborator };
 }
 
 // --- Notifications ---

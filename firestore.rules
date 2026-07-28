@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // --- Recipes: public feed, owner-controlled writes ---
+    match /recipes/{recipeId} {
+      // Library feed and shared pages are browsable without signing in
+      allow read: if true;
+
+      // Publish: must be signed in, must stamp yourself as creator,
+      // counters must start at zero
+      allow create: if signedIn()
+        && request.resource.data.createdBy.uid == request.auth.uid
+        && request.resource.data.favoriteCount == 0
+        && request.resource.data.viewCount == 0;
+
+      allow update: if isViewIncrement()
+        || isFavoriteCountBump()
+        || isOwnerUpdate();
+
+      allow delete: if signedIn()
+        && resource.data.createdBy.uid == request.auth.uid;
+
+      // Anyone (including signed-out visitors) may bump viewCount by
+      // exactly 1 and touch nothing else
+      function isViewIncrement() {
+        return changedKeys().hasOnly(['viewCount'])
+          && request.resource.data.viewCount == resource.data.viewCount + 1;
+      }
+
+      // Favorite/unfavorite batch from any signed-in user: favoriteCount
+      // moves by exactly +/-1 and nothing else changes
+      function isFavoriteCountBump() {
+        return signedIn()
+          && changedKeys().hasOnly(['favoriteCount'])
+          && (request.resource.data.favoriteCount == resource.data.favoriteCount + 1
+              || request.resource.data.favoriteCount == resource.data.favoriteCount - 1);
+      }
+
+      // Owner may edit their recipe (e.g. collaborators arrayUnion on
+      // suggestion approval) but can never reassign ownership
+      function isOwnerUpdate() {
+        return signedIn()
+          && resource.data.createdBy.uid == request.auth.uid
+          && request.resource.data.createdBy.uid == resource.data.createdBy.uid;
+      }
+    }
+
+    // --- Favorites: doc id is {uid}_{recipeId}, owned by the favoriting user ---
+    match /favorites/{favoriteId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && favoriteId == request.auth.uid + '_' + request.resource.data.recipeId;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update: if false;
+    }
+
+    // --- Suggestions: anyone signed in may suggest; only the recipe owner reviews ---
+    match /suggestions/{suggestionId} {
+      // Read is any-signed-in because the client subscribes by recipeId only;
+      // tighten to owner/suggester if the query adds a recipeOwnerId filter
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.suggestedBy.uid == request.auth.uid
+        && request.resource.data.status == 'pending';
+      allow update: if signedIn()
+        && resource.data.recipeOwnerId == request.auth.uid
+        && changedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['approved', 'rejected'];
+      allow delete: if false;
+    }
+
+    // --- Notifications: written by the acting user, readable by the recipient ---
+    match /notifications/{notificationId} {
+      allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.read == false;
+      // Recipient may only flip the read flag
+      allow update: if signedIn()
+        && resource.data.recipientUid == request.auth.uid
+        && changedKeys().hasOnly(['read']);
+      allow delete: if signedIn() && resource.data.recipientUid == request.auth.uid;
+    }
+
+    // --- Profiles: public read; own doc writable; others may only bump followerCount ---
+    match /profiles/{uid} {
+      allow read: if true;
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn()
+        && (request.auth.uid == uid || isFollowerCountBump());
+      allow delete: if signedIn() && request.auth.uid == uid;
+
+      function isFollowerCountBump() {
+        return changedKeys().hasOnly(['followerCount'])
+          && (request.resource.data.followerCount == resource.data.followerCount + 1
+              || request.resource.data.followerCount == resource.data.followerCount - 1);
+      }
+    }
+
+    // --- Rate limits: server-only ---
+    // Written exclusively by the generateRecipe Cloud Function via the Admin SDK,
+    // which bypasses these rules. Denying everything to clients is what stops a
+    // user resetting their own quota, so this must stay closed.
+    match /rateLimits/{uid} {
+      allow read, write: if false;
+    }
+
+    // --- Follows: doc id is {followerId}_{followingId}, controlled by the follower ---
+    match /follows/{followId} {
+      allow read: if signedIn()
+        && (resource.data.followerId == request.auth.uid
+            || resource.data.followingId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.followerId == request.auth.uid
+        && followId == request.auth.uid + '_' + request.resource.data.followingId;
+      allow delete: if signedIn() && resource.data.followerId == request.auth.uid;
+      allow update: if false;
+    }
+  }
+}

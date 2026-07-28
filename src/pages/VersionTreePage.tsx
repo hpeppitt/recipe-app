@@ -54,17 +54,19 @@ function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps)
   return (
     <div className="relative">
       {/* Connector line from parent */}
+      {/* Stub joining this node up to the parent's vertical rule; tracks the
+          indent, so it moved with ml-6 -> ml-3. */}
       {depth > 0 && (
-        <div className="absolute left-6 -top-4 w-px h-4 bg-border" />
+        <div className="absolute left-3 -top-4 w-px h-4 bg-border" />
       )}
 
       <button
         onClick={() => onNavigate(node.recipe.id)}
-        className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
+        className={`w-full min-w-56 text-left p-3 rounded-xl border-2 transition-all ${
           isCurrent
-            ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
+            ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200 dark:bg-primary-950 dark:ring-primary-800'
             : isRoot
-            ? 'border-primary-200 bg-primary-50/50 hover:border-primary-300'
+            ? 'border-primary-200 bg-primary-50/50 hover:border-primary-300 dark:border-primary-800 dark:bg-primary-950/50 dark:hover:border-primary-700'
             : 'border-border bg-surface hover:border-border-strong'
         }`}
       >
@@ -75,7 +77,11 @@ function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps)
               {node.recipe.title}
             </p>
             <p className="text-xs text-text-tertiary truncate">
-              {node.recipe.depth === 0 ? 'Original' : `"${node.recipe.prompt}"`}
+              {node.recipe.depth === 0
+                ? 'Original'
+                : node.recipe.prompt
+                  ? `"${node.recipe.prompt}"`
+                  : 'Variation'}
             </p>
           </div>
           {isCurrent && (
@@ -87,7 +93,9 @@ function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps)
       </button>
 
       {node.children.length > 0 && (
-        <div className="ml-6 mt-4 space-y-4 border-l-2 border-border pl-6">
+        // 24px per level, halved from 48px. Combined with the cards' min-width,
+        // a deep chain now scrolls horizontally instead of crushing the cards.
+        <div className="ml-3 mt-4 space-y-4 border-l-2 border-border pl-3">
           {node.children.map((child) => (
             <TreeNodeView
               key={child.recipe.id}
