@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { useRecipe, useRecipeChildren, useRecipeAncestors } from '../hooks/useRecipe';
+import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,8 +37,9 @@ export function RecipeDetailPage() {
   const { user, isConfigured } = useAuth();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   const location = useLocation();
-  const { children } = useRecipeChildren(id);
-  const { ancestors } = useRecipeAncestors(recipe);
+  // One hook, and cloud-aware: a feed-browsed recipe now shows its real
+  // variations, lineage and descendant count instead of local-only emptiness.
+  const { children, ancestors, descendantCount } = useRecipeLineage(recipe);
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id);
   const { submit: submitSuggestion } = useSubmitSuggestion();
@@ -567,8 +568,8 @@ export function RecipeDetailPage() {
         open={showDelete}
         title="Delete Recipe"
         message={
-          children.length > 0
-            ? `This will delete "${recipe.title}" and all ${children.length} variation(s). This cannot be undone.`
+          descendantCount > 0
+            ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
             : `Delete "${recipe.title}"? This cannot be undone.`
         }
         confirmLabel="Delete"

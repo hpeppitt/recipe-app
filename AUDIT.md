@@ -1045,12 +1045,28 @@ that failure mode entirely, so it is not listed.
       Note the toast is usually invisible in practice because an already-published recipe
       resolves in well under a second — that is correct, not a missing indicator. It only earns
       its keep on the slow path the 4s timeout exists for.)
-- [ ] **UX-21** Cloud recipes still lose their lineage: `useRecipeChildren` and
+- [x] **UX-21** Cloud recipes still lose their lineage: `useRecipeChildren` and
       `useRecipeAncestors` remain Dexie-only, so browsed-from-feed recipes get an empty
       Variations carousel, a floating "Prompt:" quote with nothing saying what it varies, and
       a delete warning that undercounts variations. (`useRecipe.ts:100-122`,
       `RecipeDetailPage.tsx:305-312`, `:346`, `:425-427`) — a real gap in my FUN-11 fix, which
       merged cloud data into `useRecipeTree` only.
+      (fixed: the two Dexie-only hooks are replaced by one `useRecipeLineage`, **derived from
+      `useRecipeTree` rather than issuing its own queries**. That hook already merges the local
+      and published tree for the root, so lineage and the tree view now cannot disagree about
+      what exists — which was the underlying reason FUN-11 fixed one and missed the other.
+      Also returns `descendantCount`, which fixes an undercount the finding understates: the
+      delete warning used `children.length` (direct children only) while `deleteRecipeTree`
+      removes the entire subtree. A variation with its own variation was silently uncounted even
+      for purely local recipes. Now counts the whole subtree via `collectSubtreeIds`.
+      The ancestor walk carries a cycle guard; a corrupted `parentId` chain would otherwise spin
+      forever, and the merged set spans two stores that could in principle disagree.
+      Measured before and after on the same cloud recipe: pre-fix a nested variation rendered a
+      bare `Prompt: "Use a pressure cooker"` with no breadcrumb chain and no Variations section
+      at all; post-fix its parent chain renders and the root shows "Variations (3)". Exactly the
+      symptom described.
+      Removed the old hooks rather than leaving them: the page was their only caller, so keeping
+      them would have left Dexie-only lineage available to be wired up again by mistake.)
 - [ ] **UX-22** Cooking ergonomics: instructions and ingredients are `text-sm` (14px) — the
       one screen where type size matters most — with no way to check off a gathered
       ingredient or completed step, and a sticky footer eating ~72px for a CTA nobody needs

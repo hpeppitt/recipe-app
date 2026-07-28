@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getRecipe, getRecipeChildren, getRecipeAncestors } from '../db/recipes';
+import { getRecipe } from '../db/recipes';
+import { collectSubtreeIds } from '../lib/tree';
+import { useRecipeTree } from './useRecipeTree';
 import { getPublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
@@ -124,26 +126,54 @@ export function useRecipe(id: string | undefined) {
   };
 }
 
-export function useRecipeChildren(parentId: string | undefined) {
-  const children = useLiveQuery(
-    () => (parentId ? getRecipeChildren(parentId) : []),
-    [parentId]
+/**
+ * Children, ancestors and full descendant count for a recipe, across both stores.
+ *
+ * Replaces separate Dexie-only `useRecipeChildren`/`useRecipeAncestors` hooks.
+ * Those read local IndexedDB exclusively, so a recipe browsed from the shared
+ * feed had no variations carousel and a lineage breadcrumb that rendered a bare
+ * "Prompt:" quote with no parent to attribute it to — FUN-11 merged cloud data
+ * into `useRecipeTree` only, and this is the half it missed.
+ *
+ * Derived from `useRecipeTree` rather than issuing its own queries: that hook
+ * already merges the local and published tree for this root, so lineage and the
+ * tree view cannot disagree about what exists.
+ */
+export function useRecipeLineage(recipe: Recipe | undefined) {
+  const { recipes, isLoading } = useRecipeTree(recipe?.rootId);
+
+  const children = useMemo(
+    () => (recipe ? recipes.filter((r) => r.parentId === recipe.id) : []),
+    [recipes, recipe]
   );
 
-  return {
-    children: children ?? [],
-    isLoading: children === undefined,
-  };
-}
+  const ancestors = useMemo(() => {
+    if (!recipe) return [];
+    const byId = new Map(recipes.map((r) => [r.id, r]));
+    const chain: Recipe[] = [];
+    const seen = new Set<string>([recipe.id]);
+    let current: Recipe | undefined = recipe;
+    while (current?.parentId) {
+      const parent = byId.get(current.parentId);
+      // Cycle guard: a corrupted parentId chain would otherwise spin forever.
+      if (!parent || seen.has(parent.id)) break;
+      seen.add(parent.id);
+      chain.unshift(parent);
+      current = parent;
+    }
+    return chain;
+  }, [recipes, recipe]);
 
-export function useRecipeAncestors(recipe: Recipe | undefined) {
-  const ancestors = useLiveQuery(
-    () => (recipe ? getRecipeAncestors(recipe) : []),
-    [recipe?.id]
-  );
+  /**
+   * Every descendant, not just direct children. The delete warning counted
+   * `children.length` while `deleteRecipeTree` removes the whole subtree, so it
+   * undercounted whenever a variation had its own variation.
+   */
+  const descendantCount = useMemo(() => {
+    if (!recipe) return 0;
+    const nodes = recipes.map((r) => ({ id: r.id, parentId: r.parentId }));
+    return Math.max(0, collectSubtreeIds(nodes, recipe.id).length - 1);
+  }, [recipes, recipe]);
 
-  return {
-    ancestors: ancestors ?? [],
-    isLoading: ancestors === undefined,
-  };
+  return { children, ancestors, descendantCount, isLoading };
 }
