@@ -38,7 +38,7 @@ export function InstructionList({ instructions, checkable = false }: Instruction
                   className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
                     isDone
                       ? 'bg-primary-600 text-white'
-                      : 'bg-primary-100 text-primary-700'
+                      : 'bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
                   }`}
                 >
                   {isDone ? '✓' : inst.step}

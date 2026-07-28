@@ -131,7 +131,7 @@ export function AvatarEditor({
                 key={e}
                 onClick={() => setEmoji(e)}
                 className={`w-11 h-11 flex items-center justify-center rounded-lg text-xl transition-colors ${
-                  emoji === e ? 'bg-primary-100 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
+                  emoji === e ? 'bg-primary-100 dark:bg-primary-950 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
                 }`}
               >
                 {e}

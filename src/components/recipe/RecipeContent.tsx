@@ -55,7 +55,7 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
           {recipe.tags.map((tag) => (
             <span
               key={tag}
-              className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 text-xs"
+              className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 dark:bg-primary-950 dark:text-primary-300 text-xs"
             >
               {tag}
             </span>

@@ -1271,11 +1271,26 @@ that failure mode entirely, so it is not listed.
 
 ## Low severity
 
-- [ ] **UX-30** Light-only tints inside dark theme: recipe tags and the instruction step
+- [x] **UX-30** Light-only tints inside dark theme: recipe tags and the instruction step
       badge pair a hardcoded light background with dark indigo text. Legible but visually
       loud against `#111827`, and the only elements ignoring the theme. Add
       `dark:bg-primary-950 dark:text-primary-300`, matching the pending-suggestion card.
       (`RecipeContent.tsx:56`, `InstructionList.tsx:21`, `RecipeCardMessage.tsx:61`)
+      (fixed, using the prescribed `dark:bg-primary-950 dark:text-primary-300`.
+      **Grepped for the pattern instead of trusting the three cited lines, and found six.**
+      The list missed the tag row on `SharedRecipePage` (a *third* copy of the same tag markup),
+      the selected emoji cell in `AvatarEditor`, and a `hover:bg-primary-50` on the shared page's
+      Suggest button. Fixing only the named three would have left the shared page — the screen
+      strangers actually see — still glaring in dark mode.
+      Measured rather than eyeballed: in dark mode both tags and step badges now paint
+      `rgb(30,27,75)` on `rgb(165,180,252)`, about **8:1** contrast, and light mode is unchanged
+      (`rgb(224,231,255)`/`rgb(238,242,255)` with `rgb(67,56,202)` text). Confirmed visually too.
+      Left alone deliberately: the unread dot's `bg-primary-500` is a saturated mid-tone that
+      reads correctly on both surfaces, so it is not a light-only tint.
+      **Observation for later:** the tag markup now exists in three places, which is precisely why
+      the finding missed one. Logged as UX-41 rather than fixed here, since extracting a component
+      is a different change from adding dark variants.
+      Theme left on System, as it was.)
 - [ ] **UX-31** `text-primary-600` on the dark surface is ~2.8:1, below AA. Use
       `dark:text-primary-400`. (`RecipeCard.tsx:50`, `RecipeDetailPage.tsx:328`)
 - [ ] **UX-32** Dialogs render a heading they never associate with the dialog
@@ -1315,6 +1330,14 @@ that failure mode entirely, so it is not listed.
       exists. Note `follows` docs already store `followerDisplayName`, so a follower list can
       render without a second read per row.
       (`firestore.ts` follows helpers, `ProfilePage.tsx` StatBox)
+- [ ] **UX-41** Recipe tag markup is duplicated three times, identically:
+      `RecipeContent`, `RecipeCardMessage` and `SharedRecipePage` each hand-roll the same
+      `px-2 py-0.5 rounded-full` tag pill. UX-30 had to patch all three for dark mode and its
+      own finding text only listed two, which is the cost of the duplication. Extract a `Tag`
+      component (or reuse `Chip` non-interactively) so the next visual change touches one file.
+      Noted while fixing UX-30; kept separate because extraction is a different change from
+      adding dark variants.
+      (`RecipeContent.tsx`, `RecipeCardMessage.tsx`, `SharedRecipePage.tsx`)
 - [ ] **UX-38** No unit system toggle. Recipes render whatever units the model happened to
       emit, so a metric cook gets cups and an imperial one gets grams, with no way to switch.
       Requested by the user 2026-07-28.
