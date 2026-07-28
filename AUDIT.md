@@ -604,11 +604,24 @@ that failure mode entirely, so it is not listed.
       390px; the dialog was cancelled rather than confirmed, so no data was destroyed.
       If you would rather it also unpublished your own Firestore docs, that is a
       straightforward follow-up — say so and I will add it.)
-- [ ] **UX-2** Avatar and display-name editing are hover-only
+- [x] **UX-2** Avatar and display-name editing are hover-only
       (`opacity-0 group-hover:opacity-100`), so on touch the entire AvatarEditor feature —
       3 tabs, 40 emoji, image upload — is unreachable on the primary platform. The avatar
       button also has no accessible name (Avatar is `aria-hidden`, pencil svg unlabelled).
       (`ProfilePage.tsx:133-137`, `:166-168`, `:123`)
+      (fixed: the avatar's hover-reveal pencil is replaced by a persistent badge pinned to the
+      bottom-right of the avatar — a standing affordance rather than one that only exists for
+      a pointer. The hover tint is kept on top as a pointer-only nicety, so mice lose nothing.
+      The name pencil is simply always visible now.
+      Both buttons gained accessible names; the avatar had none at all, since `Avatar` is
+      `aria-hidden` and the pencil svg was unlabelled, so it announced as an empty button.
+      Avatar also gets `aria-expanded`, since it toggles the editor panel inline.
+      Went beyond the finding on one point: the name button measured 32px tall, below the
+      44px touch minimum. Since the whole finding is about touch reachability, leaving a
+      known-undersized target would have half-fixed it. Now 44px exactly.
+      Verified at 390px: badge and pencil both visible with no hover, tapping each opens its
+      editor, `aria-expanded` flips, and a repo-wide grep confirms no `opacity-0
+      group-hover:` affordances remain anywhere.)
 - [ ] **UX-3** AuthModal states a difference that is false: email sign-in "lets your name
       appear on recipes you share", but anonymous users also get an auto-generated display
       name on theirs. The differences that matter (tied to this browser, clearing site data

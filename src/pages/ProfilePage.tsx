@@ -121,7 +121,16 @@ function OwnProfile() {
         <div className="p-4 space-y-6">
           {/* Avatar + Name */}
           <div className="flex flex-col items-center space-y-3">
-            <button onClick={() => setEditingAvatar(!editingAvatar)} className="relative group">
+            {/* The edit affordance used to appear only on hover, which on a phone
+                meant the entire avatar editor was invisible and undiscoverable.
+                A persistent badge replaces it; the hover tint is kept as a
+                pointer-only nicety on top. */}
+            <button
+              onClick={() => setEditingAvatar(!editingAvatar)}
+              className="relative group rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              aria-label="Change avatar"
+              aria-expanded={editingAvatar}
+            >
               <Avatar
                 uid={user.uid}
                 name={user.displayName}
@@ -131,11 +140,12 @@ function OwnProfile() {
                 photoBgColor={profile?.photoBgColor}
                 photoURL={profile?.photoURL}
               />
-              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors" />
+              <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 border-2 border-surface flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
                 </svg>
-              </div>
+              </span>
             </button>
 
             {editingName ? (
@@ -159,12 +169,15 @@ function OwnProfile() {
                   setNameInput(user.displayName ?? '');
                   setEditingName(true);
                 }}
-                className="group flex items-center gap-1"
+                className="flex items-center gap-1.5 rounded-lg px-2 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                aria-label={`Edit display name, currently ${user.displayName ?? 'Anonymous'}`}
               >
                 <h2 className="text-xl font-bold text-text-primary">
                   {user.displayName ?? 'Anonymous'}
                 </h2>
-                <svg className="w-4 h-4 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                {/* Always visible for the same reason as the avatar badge: on touch
+                    there is no hover, so a hover-only pencil is no affordance at all. */}
+                <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
                 </svg>
               </button>
