@@ -19,6 +19,11 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<LibraryPage />} />
+            {/* Own profile is a top-level destination now that it has a nav tab;
+                without this the tab would lead somewhere with no way back to it.
+                Public profiles stay outside the shell — they are a detail view
+                reached from a recipe, and they carry their own back button. */}
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="/create" element={<RecipeChatPage />} />
@@ -27,7 +32,6 @@ export default function App() {
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
           <Route path="/shared" element={<SharedRecipePage />} />
           <Route path="/shared/:id" element={<SharedRecipePage />} />
-          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:uid" element={<ProfilePage />} />
         </Routes>
       </BrowserRouter>

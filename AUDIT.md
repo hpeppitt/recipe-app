@@ -644,10 +644,28 @@ that failure mode entirely, so it is not listed.
       options and their copy fit without overflow, and the email step still reaches Back /
       Send Link. Deliberately not addressed here: anonymous users having no sign-out is
       UX-5's subject.)
-- [ ] **UX-4** The only safeguard against permanent recipe loss is triple-buried:
+- [x] **UX-4** The only safeguard against permanent recipe loss is triple-buried:
       `EmailLinkingForm` renders *after* the whole recipe list, so the more you stand to lose
       the further you scroll; Profile is reachable only via a 20px avatar and is absent from
       BottomNav and Settings. (`ProfilePage.tsx:238-239`, `BottomNav.tsx:4-7`)
+      (fixed both halves. `EmailLinkingForm` moved above the recipe list, directly under the
+      stats — measured at 390px it now sits at y=352 and is fully visible without scrolling,
+      where before its position grew with the recipe count. Profile added to BottomNav.
+      Two knock-on problems the finding did not mention, both created by adding the tab:
+      1. `/profile` was not inside `AppShell`, so the new tab led to a page with no bottom nav
+         — a dead end. Moved it into the shell. Public profiles (`/profile/:uid`) stay outside
+         deliberately: they are a detail view reached from a recipe and carry their own back
+         button.
+      2. That move then produced exactly 64px of phantom scroll, because OwnProfile's own
+         `min-h-dvh` stacked on the shell's `min-h-dvh` + `pb-16`. Caught by measuring
+         `scrollHeight - innerHeight`, not by eye — 64px looks like nothing in a screenshot.
+         Dropped the duplicated height; overflow is now 32px of real content.
+      Also changed `/profile/:uid`-when-it-is-you from rendering `<OwnProfile/>` in place to a
+      real `<Navigate to="/profile" replace/>`. Rendering it in place would have put the
+      shell-dependent component outside the shell again, reintroducing (1) by another route.
+      Verified: redirect lands on `/profile` with nav present, email form above "My Recipes".
+      The finding also mentions Settings as a route to Profile; the nav tab makes that
+      redundant, so it was not added.)
 - [ ] **UX-5** Anonymous users are trapped: no sign-out by design, and AuthModal
       auto-dismisses whenever any user exists, so the email screen is unreachable again. A
       user on a shared device cannot leave; someone with an existing email account cannot

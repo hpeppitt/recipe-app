@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
@@ -114,8 +114,8 @@ function OwnProfile() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar title="My Profile" showBack />
+    <div className="flex flex-col bg-surface">
+      <TopBar title="My Profile" />
 
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="p-4 space-y-6">
@@ -215,6 +215,12 @@ function OwnProfile() {
             <StatBox label={pluralize(profile?.followerCount ?? 0, 'follower')} value={profile?.followerCount ?? 0} />
           </div>
 
+          {/* Sits above the recipe list, not below it. This is the only thing
+              standing between an anonymous user and permanent loss of their
+              recipes, and rendering it after the list meant the more you had to
+              lose, the further you had to scroll to find it. */}
+          {user.isAnonymous && <EmailLinkingForm />}
+
           {/* My Recipes */}
           <div className="space-y-3">
             <h3 className="font-semibold text-text-primary">My Recipes</h3>
@@ -246,10 +252,10 @@ function OwnProfile() {
             )}
           </div>
 
-          {/* Account actions */}
-          {user.isAnonymous ? (
-            <EmailLinkingForm />
-          ) : (
+          {/* Account actions. Sign Out stays at the bottom — it is a deliberate
+              exit, not something to surface urgently. The anonymous branch moved
+              up above the recipe list. */}
+          {!user.isAnonymous && (
             <Button variant="ghost" fullWidth onClick={signOut}>
               Sign Out
             </Button>
@@ -376,9 +382,11 @@ export function ProfilePage() {
 
   // Public profile
   if (uid) {
-    // If viewing own profile via UID, redirect to own profile view
+    // A real redirect rather than rendering OwnProfile in place. OwnProfile now
+    // lives inside AppShell and relies on it for height and nav; rendering it
+    // here would drop it outside the shell with no bottom nav.
     if (user && user.uid === uid) {
-      return <OwnProfile />;
+      return <Navigate to="/profile" replace />;
     }
     return <PublicProfile uid={uid} />;
   }
