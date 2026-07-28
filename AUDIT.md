@@ -1087,9 +1087,27 @@ that failure mode entirely, so it is not listed.
       Footer un-stuck, reclaiming ~72px. Branching or suggesting is a before/after action, and
       the end of the recipe is where that decision actually gets made. Verified the wrapper is
       now `position: static` and no longer occupies the viewport while reading.)
-- [ ] **UX-23** A profile fetch failure renders "User not found" with no retry, so a dropped
+- [x] **UX-23** A profile fetch failure renders "User not found" with no retry, so a dropped
       connection is indistinguishable from a deleted account — the same class UI-12 fixed
       elsewhere. (`ProfilePage.tsx:275-284`, `useProfile.ts:68-71`)
+      (fixed: `usePublicProfile` now exposes `error` and `retry`, and the page shows a distinct
+      "Couldn't load this profile" state with Try again. Genuine absence keeps "User not found"
+      and deliberately gets *no* retry button — retrying a deleted account only reproduces the
+      result.
+      **The actual pre-fix behaviour was worse than the finding says.** `getProfile(uid).then()`
+      had no `.catch` at all, so a rejection did not render "User not found" — it left
+      `isLoading` stuck true (skeleton forever) *and* raised an unhandled rejection. Bounded with
+      `withTimeout(6s)` too, since an unreachable Firestore retries rather than rejecting and a
+      catch alone would never fire.
+      Saying "User not found" for a network failure is worth fixing beyond consistency: it tells
+      the visitor something untrue about *another person's* account.
+      Verified both branches — a forced failure shows the error state and Try again recovers to
+      the real profile; a non-existent uid shows "User not found" with no retry offered.
+      Getting a testable failure took three attempts, each worth noting: a per-call one-shot was
+      consumed by `useOwnProfile` calling `getProfile` first; keying it per-uid still passed
+      because **StrictMode double-invokes the effect**, so the second invocation succeeded. Only
+      a console-controlled flag isolated the retry path. A one-shot fault is unreliable in dev
+      for anything reached through an effect.)
 - [ ] **UX-24** The follow loop is write-only: no notification on gaining a follower (the
       strongest retention signal a creator gets), follower/following counts aren't tappable,
       and no follower list exists anywhere. (`firestore.ts:460-485`, `ProfilePage.tsx:201`)

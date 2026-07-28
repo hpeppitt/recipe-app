@@ -292,7 +292,12 @@ function OwnProfile() {
 
 function PublicProfile({ uid }: { uid: string }) {
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading } = usePublicProfile(uid);
+  const {
+    profile,
+    isLoading: profileLoading,
+    error: profileError,
+    retry: retryProfile,
+  } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
   const { isFollowing, toggleFollow, loading: followLoading } = useFollow(uid);
   const navigate = useNavigate();
@@ -314,12 +319,36 @@ function PublicProfile({ uid }: { uid: string }) {
     );
   }
 
+  // A dropped connection is not a deleted account. Saying "User not found" for a
+  // network failure tells the visitor something untrue about another person.
+  if (!profile && profileError) {
+    return (
+      <div className="min-h-dvh flex flex-col bg-surface">
+        <TopBar title="Couldn't load" showBack />
+        <div className="p-8 max-w-lg mx-auto w-full text-center space-y-3">
+          <EmptyState
+            icon="📡"
+            title="Couldn't load this profile"
+            description="The connection failed. The account is probably fine."
+          />
+          <Button variant="secondary" onClick={retryProfile}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
         <TopBar title="Profile" showBack />
-        <div className="p-8 text-center text-text-secondary max-w-lg mx-auto">
-          User not found
+        <div className="p-8 max-w-lg mx-auto w-full">
+          <EmptyState
+            icon="🔍"
+            title="User not found"
+            description="This account may have been deleted."
+          />
         </div>
       </div>
     );
