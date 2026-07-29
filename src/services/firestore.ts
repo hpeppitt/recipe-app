@@ -289,6 +289,9 @@ export async function createSuggestion(params: {
     recipeId: params.recipeId,
     recipeOwnerId: params.recipeOwnerId,
     recipeTitle: params.recipeTitle,
+    // Stored so the approve/reject notification can be built from the
+    // suggestion alone, without refetching the recipe.
+    recipeEmoji: params.recipeEmoji,
     suggestedBy: params.suggestedBy,
     message: params.message,
     status: 'pending',
@@ -338,18 +341,41 @@ export function subscribeRecipeSuggestions(
  */
 export async function updateSuggestionStatus(
   suggestionId: string,
-  status: 'approved' | 'rejected'
+  status: 'approved' | 'rejected',
+  reviewer?: { uid: string; displayName: string | null }
 ): Promise<{ recipeId: string; collaborator: Collaborator } | null> {
   if (!firestore) return null;
+
+  // Read before writing: the suggester's identity is needed to notify them of
+  // either outcome, and a rejection used to return early without ever loading it.
+  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
+  if (!suggestionSnap.exists()) return null;
+  const suggestion = suggestionSnap.data() as Suggestion;
+
   await updateDoc(doc(firestore, 'suggestions', suggestionId), { status });
+
+  // Close the loop back to the suggester. Fire-and-forget like the other
+  // notification writes, so a failure here never blocks the review itself.
+  if (reviewer && reviewer.uid !== suggestion.suggestedBy.uid) {
+    addDoc(collection(firestore, 'notifications'), {
+      recipientUid: suggestion.suggestedBy.uid,
+      type: status === 'approved' ? 'suggestion_approved' : 'suggestion_rejected',
+      recipeId: suggestion.recipeId,
+      recipeTitle: suggestion.recipeTitle,
+      recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
+      fromUid: reviewer.uid,
+      fromDisplayName: reviewer.displayName,
+      // Echo the original suggestion so the notification is self-explanatory
+      // weeks later, rather than "your suggestion was approved" with no context.
+      message: suggestion.message,
+      read: false,
+      createdAt: Date.now(),
+    }).catch(() => {});
+  }
 
   if (status !== 'approved') return null;
 
   // When approved, add the suggester as a collaborator on the recipe
-  const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
-  if (!suggestionSnap.exists()) return null;
-
-  const suggestion = suggestionSnap.data() as Suggestion;
   const collaborator: Collaborator = {
     uid: suggestion.suggestedBy.uid,
     displayName: suggestion.suggestedBy.displayName,
@@ -373,7 +399,9 @@ export async function updateSuggestionStatus(
 
 export function subscribeNotifications(
   uid: string,
-  callback: (notifications: AppNotification[]) => void
+  callback: (notifications: AppNotification[]) => void,
+  /** Called if the subscription fails, e.g. a missing index or denied read. */
+  onError?: (err: Error) => void
 ): () => void {
   if (!firestore) return () => {};
   const q = query(
@@ -382,11 +410,20 @@ export function subscribeNotifications(
     orderBy('createdAt', 'desc'),
     limit(50)
   );
-  return onSnapshot(q, (snap) => {
-    callback(
-      snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification)
-    );
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      callback(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification)
+      );
+    },
+    // Without this, a failed subscription was silent and the panel sat on its
+    // empty state, which reads as "nobody has interacted with your recipes".
+    (err) => {
+      console.error('Notification subscription failed', err);
+      onError?.(err);
+    }
+  );
 }
 
 export async function markNotificationRead(
@@ -482,6 +519,18 @@ export async function followUser(
   });
 
   await batch.commit();
+  // Gaining a follower was the one social event that produced no notification,
+  // which is odd given it is the strongest signal a creator gets. Fire-and-forget
+  // like the others, so a failed notification never fails the follow itself.
+  addDoc(collection(firestore, 'notifications'), {
+    recipientUid: followingId,
+    type: 'follow',
+    fromUid: followerId,
+    fromDisplayName: followerDisplayName,
+    message: null,
+    read: false,
+    createdAt: Date.now(),
+  }).catch(() => {});
 }
 
 export async function unfollowUser(
@@ -534,6 +583,44 @@ export async function getFollowingProfiles(uid: string): Promise<UserProfile[]> 
     if (p) profiles.push(p);
   }
   return profiles;
+}
+
+/** A follower, as recorded on the follow document itself. */
+export interface FollowerSummary {
+  uid: string;
+  displayName: string | null;
+  createdAt: number;
+}
+
+/**
+ * Who follows `uid`.
+ *
+ * Only ever called for the signed-in user's own profile: the rules allow reading
+ * a follow doc only when the caller is one of its two parties, so another user's
+ * follower graph is deliberately private and this query would be denied for it.
+ *
+ * `followerDisplayName` is stored on the follow doc, so a follower list needs no
+ * second read per row — unlike the following list, which has to fetch profiles
+ * because the doc carries the follower's name rather than the followed user's.
+ *
+ * Sorted client-side. Adding `orderBy('createdAt')` would require a composite
+ * index, and an index deploy is a worse dependency than sorting a short list here.
+ */
+export async function getFollowers(uid: string): Promise<FollowerSummary[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'follows'), where('followingId', '==', uid))
+  );
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as Follow & { followerDisplayName?: string | null };
+      return {
+        uid: data.followerId,
+        displayName: data.followerDisplayName ?? null,
+        createdAt: (data as { createdAt?: number }).createdAt ?? 0,
+      };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function getRecipeStats(recipeIds: string[]): Promise<Map<string, { viewCount: number; favoriteCount: number }>> {

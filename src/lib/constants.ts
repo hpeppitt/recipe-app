@@ -1,6 +1,7 @@
 export const APP_NAME = 'Recipe Lab';
 
 export const STORAGE_KEYS = {
+  UNIT_SYSTEM: 'recipe-lab-unit-system',
   THEME: 'recipe-app-theme',
   DEVICE_ID: 'recipe-app-device-id',
   ANONYMOUS_UID: 'recipe-app-anonymous-uid',

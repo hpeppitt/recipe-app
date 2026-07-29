@@ -30,26 +30,39 @@ export function useRecipeTree(rootId: string | undefined) {
 
   // Variations published by other users (or from another device) are not in this
   // device's Dexie, so a local-only read showed an empty tree for them.
-  const [cloudRecipes, setCloudRecipes] = useState<Recipe[] | null>(null);
+  //
+  // Stamped with the rootId it belongs to so a result from the previous tree is
+  // never mistaken for this one's, and so "still fetching" is distinguishable
+  // from "fetched, nothing there".
+  const [cloud, setCloud] = useState<{ rootId: string | undefined; recipes: Recipe[] | null }>({
+    rootId: undefined,
+    recipes: null,
+  });
 
   useEffect(() => {
     if (!rootId || !isFirebaseConfigured) {
-      setCloudRecipes(null);
+      // Nothing to wait for: mark this rootId settled so the caller does not
+      // sit on a spinner forever in local-only mode.
+      setCloud({ rootId, recipes: null });
       return;
     }
+    setCloud({ rootId: undefined, recipes: null });
     let cancelled = false;
     getPublishedRecipeTree(rootId)
       .then((published) => {
-        if (!cancelled) setCloudRecipes(published.map(toRecipeLike));
+        if (!cancelled) setCloud({ rootId, recipes: published.map(toRecipeLike) });
       })
       .catch(() => {
         // Degrade to the local tree rather than losing the whole view.
-        if (!cancelled) setCloudRecipes(null);
+        if (!cancelled) setCloud({ rootId, recipes: null });
       });
     return () => {
       cancelled = true;
     };
   }, [rootId]);
+
+  const cloudSettled = cloud.rootId === rootId;
+  const cloudRecipes = cloudSettled ? cloud.recipes : null;
 
   // Local wins on id: it has the full record, including chat history.
   const recipes = mergeDedupById(localRecipes ?? [], cloudRecipes ?? [], {
@@ -61,6 +74,10 @@ export function useRecipeTree(rootId: string | undefined) {
   return {
     recipes,
     tree,
-    isLoading: localRecipes === undefined,
+    // The cloud fetch counts as loading. It previously did not, so for a recipe
+    // that is not in local Dexie the tree reported "loaded, empty" while its
+    // variations were still in flight — which is what actually rendered the
+    // page's dead-end state mid-load.
+    isLoading: localRecipes === undefined || !cloudSettled,
   };
 }

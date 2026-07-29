@@ -2,6 +2,8 @@ import type { Recipe } from '../../types/recipe';
 import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
 import { InstructionList } from './InstructionList';
+import { NutritionPanel } from './NutritionPanel';
+import { TagList } from './TagList';
 
 interface RecipeContentProps {
   recipe: Recipe;
@@ -31,8 +33,17 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
         difficulty={recipe.difficulty}
       />
 
-      <IngredientList ingredients={recipe.ingredients} />
-      <InstructionList instructions={recipe.instructions} />
+      {/* Cook-along ticks only on the full view. In the collapsed parent-recipe
+          preview the recipe is context, not something being cooked. */}
+      {/* Above the ingredients: someone deciding whether to cook this wants the
+          macros before the shopping list, not after the method. Renders nothing
+          when the recipe has no estimates. */}
+      {!compact && (
+        <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
+      )}
+
+      <IngredientList ingredients={recipe.ingredients} checkable={!compact} />
+      <InstructionList instructions={recipe.instructions} checkable={!compact} />
 
       {recipe.notes.length > 0 && (
         <div className="space-y-2">
@@ -48,18 +59,7 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
         </div>
       )}
 
-      {!compact && recipe.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {recipe.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 text-xs"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      {!compact && <TagList tags={recipe.tags} />}
     </div>
   );
 }

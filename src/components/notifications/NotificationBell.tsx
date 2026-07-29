@@ -2,20 +2,31 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../hooks/useNotifications';
 import { Avatar } from '../ui/Avatar';
+import { Spinner } from '../ui/Spinner';
+import { timeAgo } from '../../lib/utils';
 
-function timeAgo(timestamp: number): string {
-  const seconds = Math.floor((Date.now() - timestamp) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+// Keyed maps rather than a growing ternary chain: four types made the inline
+// conditional unreadable, and an unknown type now falls back instead of
+// silently rendering as a suggestion.
+const NOTIF_ICONS: Record<string, string> = {
+  favorite: '❤️',
+  suggestion: '💡',
+  suggestion_approved: '✅',
+  suggestion_rejected: '🙏',
+  follow: '👤',
+};
+
+const NOTIF_VERBS: Record<string, string> = {
+  favorite: 'favorited your recipe',
+  suggestion: 'suggested a change to',
+  suggestion_approved: 'approved your suggestion on',
+  suggestion_rejected: 'passed on your suggestion for',
+  follow: 'started following you',
+};
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, isLoading, error, markRead, markAllRead } =
+    useNotifications();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -34,7 +45,9 @@ export function NotificationBell() {
   const handleNotificationClick = async (notif: (typeof notifications)[0]) => {
     if (!notif.read) await markRead(notif.id);
     setOpen(false);
-    navigate(`/recipe/${notif.recipeId}`);
+    // A follow is about a person, so it leads to their profile. Sending it to
+    // /recipe/undefined would have been a dead end.
+    navigate(notif.recipeId ? `/recipe/${notif.recipeId}` : `/profile/${notif.fromUid}`);
   };
 
   return (
@@ -42,7 +55,15 @@ export function NotificationBell() {
       <button
         onClick={() => setOpen(!open)}
         className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative"
-        aria-label="Notifications"
+        // The count is painted into a badge, which is invisible to a screen
+        // reader unless it is part of the button's name.
+        aria-label={
+          unreadCount > 0
+            ? `Notifications, ${unreadCount} unread`
+            : 'Notifications'
+        }
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         <svg
           className="w-5 h-5 text-text-secondary"
@@ -60,7 +81,7 @@ export function NotificationBell() {
         {/* Badge is positioned against the 20px icon, not the 44px hit area, so
             the larger touch target doesn't push it out to the corner. */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1">
+          <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-danger-600 text-white text-[10px] font-bold px-1">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -79,14 +100,30 @@ export function NotificationBell() {
             {unreadCount > 0 && (
               <button
                 onClick={markAllRead}
-                className="text-xs text-primary-600 font-medium"
+                className="min-h-11 px-2 -mr-2 text-xs text-primary-600 dark:text-primary-400 font-medium"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          {notifications.length === 0 ? (
+          {isLoading ? (
+            <div className="px-4 py-8 flex items-center justify-center gap-3">
+              <Spinner size="sm" />
+              <span className="text-sm text-text-tertiary">Loading...</span>
+            </div>
+          ) : error ? (
+            // Distinct from empty: "nothing here" and "we couldn't check" are
+            // very different messages to send a creator.
+            <div className="px-4 py-6 text-center space-y-1">
+              <p className="text-sm font-medium text-text-primary">
+                Couldn't load notifications
+              </p>
+              <p className="text-xs text-text-secondary">
+                The connection failed. Reopen this to try again.
+              </p>
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-text-tertiary">
               No notifications yet
             </div>
@@ -105,22 +142,21 @@ export function NotificationBell() {
                       {notif.fromUid ? (
                         <Avatar uid={notif.fromUid} name={notif.fromDisplayName} size="sm" />
                       ) : (
-                        <span className="text-lg">{notif.type === 'favorite' ? '❤️' : '💡'}</span>
+                        <span className="text-lg">{NOTIF_ICONS[notif.type] ?? '💡'}</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary">
-                        {notif.type === 'favorite' ? (
+                        <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
+                        {NOTIF_VERBS[notif.type] ?? 'suggested a change to'}
+                        {/* Follow notifications carry no recipe, so the trailing
+                            title is omitted rather than rendering "undefined". */}
+                        {notif.recipeTitle && (
                           <>
-                            <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
-                            favorited your recipe{' '}
-                            <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
-                          </>
-                        ) : (
-                          <>
-                            <strong>{notif.fromDisplayName ?? 'Someone'}</strong>{' '}
-                            suggested a change to{' '}
-                            <strong>{notif.recipeEmoji} {notif.recipeTitle}</strong>
+                            {' '}
+                            <strong>
+                              {notif.recipeEmoji} {notif.recipeTitle}
+                            </strong>
                           </>
                         )}
                       </p>

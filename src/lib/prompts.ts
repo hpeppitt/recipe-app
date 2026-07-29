@@ -36,9 +36,19 @@ const RECIPE_JSON_SCHEMA = `{
     "servings": { "type": "number" },
     "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
     "tags": { "type": "array", "items": { "type": "string" } },
-    "emoji": { "type": "string" }
+    "emoji": { "type": "string" },
+    "nutrition": {
+      "type": "object",
+      "properties": {
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fat": { "type": "number" }
+      },
+      "required": ["calories", "protein", "carbs", "fat"]
+    }
   },
-  "required": ["title", "description", "ingredients", "instructions", "notes", "prepTime", "cookTime", "totalTime", "servings", "difficulty", "tags", "emoji"]
+  "required": ["title", "description", "ingredients", "instructions", "notes", "prepTime", "cookTime", "totalTime", "servings", "difficulty", "tags", "emoji", "nutrition"]
 }`;
 
 export const RECIPE_SYSTEM_PROMPT = `You are a professional chef and recipe developer. When the user asks you to create or modify a recipe, respond with ONLY a valid JSON object matching this schema (no markdown, no code fences, no extra text):
@@ -56,6 +66,9 @@ Rules:
 - Add relevant tags (cuisine type, dietary, meal type, etc.)
 - For ingredient groups, use null if not applicable (no subgroups needed)
 - For instruction groups, use null if not applicable
+- Estimate nutrition PER SERVING, not for the whole dish: grams for protein, carbs
+  and fat, kcal for calories. These are approximations from typical ingredient
+  values and are shown to the user as estimates
 
 When the user asks to modify a recipe, apply the requested changes while keeping the rest of the recipe intact. Always return the FULL updated recipe.`;
 

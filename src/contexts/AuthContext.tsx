@@ -155,10 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendEmailLinkForLinking(email);
   };
 
+  // Anonymous sign-out used to throw. The intent was protective — an anonymous
+  // account cannot be signed back into — but it left people genuinely stuck:
+  // no way off a shared device, and no way to reach an existing email account,
+  // since AuthModal auto-dismisses while any user exists. The consequences are
+  // now spelled out in a confirmation instead of the exit being removed.
   const handleSignOut = async () => {
-    if (user?.isAnonymous) {
-      throw new Error('Anonymous users cannot sign out. Add an email to secure your account first.');
-    }
     trackSignOut();
     clearAnonymousUid();
     await signOut();

@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { decodeRecipeFromHash, type SharedRecipe } from '../lib/share';
 import { getPublishedRecipe } from '../services/firestore';
+import { createRecipe } from '../db/recipes';
+import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCloudFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import { MetadataPills } from '../components/recipe/MetadataPills';
 import { IngredientList } from '../components/recipe/IngredientList';
+import { NutritionPanel } from '../components/recipe/NutritionPanel';
+import { TagList } from '../components/recipe/TagList';
 import { InstructionList } from '../components/recipe/InstructionList';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -38,6 +42,41 @@ export function SharedRecipePage() {
   const [showAuth, setShowAuth] = useState(false);
   const { isFavorite, toggleFavorite } = useCloudFavorite(paramId);
   const { submit: submitSuggestion } = useSubmitSuggestion();
+  // createRecipe mints a fresh UUID per call, so every tap makes another copy.
+  // The guard has to be a ref, not the `saving` state: three synchronous taps all
+  // land before React re-renders, and measured against the state-only version
+  // that produced 3 saved copies. Same failure mode as saveRecipe (FUN-14).
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const [savedId, setSavedId] = useState<string | null>(null);
+
+  const handleSaveCopy = async () => {
+    if (!recipe || savingRef.current || savedId) return;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      // Deliberately not published: this is the recipient's private copy of
+      // someone else's recipe, and the original creator is preserved in
+      // createdBy rather than being overwritten with the saver's identity.
+      const saved = await createRecipe(
+        recipe as unknown as GeneratedRecipe,
+        '',
+        [],
+        null,
+        null,
+        -1,
+        recipe.createdBy ?? { uid: 'local', displayName: null }
+      );
+      setSavedId(saved.id);
+    } catch (err) {
+      console.error('Saving the shared recipe failed', err);
+      // Only released on failure: after a success the button becomes a link to
+      // the saved recipe, so re-arming it would invite a duplicate.
+      savingRef.current = false;
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const recipeOwnerId = recipe?.createdBy?.uid;
   const isOwner = user && recipeOwnerId ? user.uid === recipeOwnerId : false;
@@ -139,7 +178,7 @@ export function SharedRecipePage() {
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
           {status === 'loading' ? (
-            <Spinner className="text-primary-600" />
+            <Spinner className="text-primary-600 dark:text-primary-400" />
           ) : (
             <div className="text-center space-y-3">
               <p className="text-4xl">{status === 'failed' ? '📡' : '🔗'}</p>
@@ -154,7 +193,7 @@ export function SharedRecipePage() {
                 )}
                 <button
                   onClick={() => navigate('/')}
-                  className="text-primary-600 text-sm font-medium py-2 px-3"
+                  className="text-primary-600 dark:text-primary-400 text-sm font-medium py-2 px-3"
                 >
                   Go to Recipe Lab
                 </button>
@@ -176,7 +215,7 @@ export function SharedRecipePage() {
             {paramId && !isOwner && (
               <button
                 onClick={handleFavoriteClick}
-                className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
                 aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
                 {isFavorite ? (
@@ -190,9 +229,14 @@ export function SharedRecipePage() {
                 )}
               </button>
             )}
-            <span className="text-xs font-medium text-text-tertiary bg-surface-secondary rounded-full px-2.5 py-0.5">
-              View only
-            </span>
+            {/* Only the hash link is genuinely read-only. On /shared/:id the
+                badge sat directly beside a working favourite button and a
+                Suggest a Change action, flatly contradicting both. */}
+            {!paramId && (
+              <span className="text-xs font-medium text-text-tertiary bg-surface-secondary rounded-full px-2.5 py-0.5">
+                Read-only copy
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -208,11 +252,11 @@ export function SharedRecipePage() {
                 {recipe.createdBy?.displayName && (
                   <button
                     onClick={() => navigate(`/profile/${recipe.createdBy!.uid}`)}
-                    className="flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
+                    className="min-h-11 flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
                   >
                     <Avatar uid={recipe.createdBy.uid} name={recipe.createdBy.displayName} size="sm" />
                     <p className="text-xs text-text-tertiary">
-                      Added by <span className="text-primary-600 font-medium">{recipe.createdBy.displayName}</span>
+                      Added by <span className="text-primary-600 dark:text-primary-400 font-medium">{recipe.createdBy.displayName}</span>
                     </p>
                   </button>
                 )}
@@ -239,8 +283,10 @@ export function SharedRecipePage() {
             difficulty={recipe.difficulty}
           />
 
-          <IngredientList ingredients={recipe.ingredients} />
-          <InstructionList instructions={recipe.instructions} />
+          <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
+
+          <IngredientList ingredients={recipe.ingredients} checkable />
+          <InstructionList instructions={recipe.instructions} checkable />
 
           {recipe.notes.length > 0 && (
             <div className="space-y-2">
@@ -256,18 +302,7 @@ export function SharedRecipePage() {
             </div>
           )}
 
-          {recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {recipe.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="px-2 py-0.5 rounded-full bg-primary-50 text-primary-700 text-xs"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <TagList tags={recipe.tags} />
         </div>
       </main>
 
@@ -276,14 +311,34 @@ export function SharedRecipePage() {
           {paramId && !isOwner ? (
             <button
               onClick={handleSuggestClick}
-              className="w-full py-2.5 rounded-xl border border-primary-600 text-primary-600 text-sm font-medium hover:bg-primary-50 transition-colors"
+              className="w-full py-2.5 min-h-11 rounded-xl border border-primary-600 text-primary-600 dark:text-primary-400 text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
             >
               Suggest a Change
             </button>
+          ) : !paramId ? (
+            // A hash link carries the whole recipe in the URL and nothing else:
+            // no Firestore doc to favourite, no owner to suggest to. Without a
+            // save action the recipient could only read it and close the tab,
+            // which is the one moment they most want to keep it.
+            <div className="space-y-2">
+              {savedId ? (
+                <Button fullWidth onClick={() => navigate(`/recipe/${savedId}`)}>
+                  Saved — open it
+                </Button>
+              ) : (
+                <Button fullWidth onClick={handleSaveCopy} disabled={saving}>
+                  {saving ? <Spinner size="sm" /> : 'Save to my library'}
+                </Button>
+              )}
+              <p className="text-xs text-text-tertiary text-center">
+                Saves a copy on this device. You can then branch it into your own
+                variations.
+              </p>
+            </div>
           ) : (
             <p className="text-xs text-text-tertiary text-center">
               Shared from{' '}
-              <button onClick={() => navigate('/')} className="text-primary-600 font-medium">
+              <button onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-medium">
                 Recipe Lab
               </button>
             </p>

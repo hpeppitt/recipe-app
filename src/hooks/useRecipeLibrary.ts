@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { getCoreRecipes } from '../db/recipes';
+import { getAllRecipes } from '../db/recipes';
+import { countDescendantsByRoot } from '../lib/tree';
+import { recipeHaystack } from '../lib/search';
 import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
@@ -20,13 +22,20 @@ interface FeedRecipe {
   totalTime: number;
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  /**
+   * Carried purely so search can match them. Searching "chicken" and missing
+   * every recipe full of chicken is the opposite of what a recipe app should do.
+   */
+  ingredients: { name: string }[];
   createdBy: { uid: string; displayName: string | null };
   childCount: number;
   createdAt: number;
 }
 
 export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<string>) {
-  const localRecipes = useLiveQuery(() => getCoreRecipes(), []);
+  // All local recipes, not just roots: the descendant counts are computed here
+  // now, from local and cloud records together, so the whole set is needed.
+  const localRecipes = useLiveQuery(() => getAllRecipes(), []);
   const [cloudRecipes, setCloudRecipes] = useState<PublishedRecipe[] | null>(null);
   const [cloudLoading, setCloudLoading] = useState(isFirebaseConfigured);
   // Failing to reach the shared library used to be indistinguishable from it
@@ -64,9 +73,18 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
 
     const byId = new Map<string, FeedRecipe>();
 
-    // Add local recipes first
+    // Variation counts span both stores: a root saved locally can have
+    // variations that only exist in the cloud, and vice versa. Counting one
+    // store at a time is what left cloud feed entries showing zero.
+    const childCounts = countDescendantsByRoot([
+      ...(localRecipes ?? []).map((r) => ({ id: r.id, rootId: r.rootId })),
+      ...(cloudRecipes ?? []).map((r) => ({ id: r.id, rootId: r.rootId ?? r.id })),
+    ]);
+
+    // Add local recipes first (roots only — the rest exist just for the counts)
     if (localRecipes) {
       for (const r of localRecipes) {
+        if (r.parentId) continue;
         byId.set(r.id, {
           id: r.id,
           parentId: r.parentId,
@@ -78,8 +96,9 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
           totalTime: r.totalTime,
           difficulty: r.difficulty,
           tags: r.tags,
+          ingredients: r.ingredients ?? [],
           createdBy: r.createdBy,
-          childCount: r.childCount,
+          childCount: childCounts.get(r.id) ?? 0,
           createdAt: r.createdAt,
         });
       }
@@ -101,8 +120,9 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
             totalTime: r.totalTime,
             difficulty: r.difficulty,
             tags: r.tags,
+            ingredients: r.ingredients ?? [],
             createdBy: r.createdBy,
-            childCount: 0,
+            childCount: childCounts.get(r.id) ?? 0,
             createdAt: r.createdAt ?? 0,
           });
         }
@@ -122,12 +142,10 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q))
-      );
+      // Same haystack the dedup check uses, so "already exists" and "I can find
+      // it" cannot disagree about what a recipe contains. Adds ingredients,
+      // which title/description/tags alone were missing.
+      result = result.filter((r) => recipeHaystack(r).toLowerCase().includes(q));
     }
     return result;
   }, [merged, favoriteIds, searchQuery]);

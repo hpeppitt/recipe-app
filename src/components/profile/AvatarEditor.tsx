@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react';
 import { Avatar } from '../ui/Avatar';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { Button } from '../ui/Button';
 
 const FOOD_EMOJIS = [
   '🍕', '🍔', '🌮', '🍣', '🍜', '🍰', '🧁', '🍩', '🍪', '🍫',
@@ -102,25 +104,17 @@ export function AvatarEditor({
       </div>
 
       {/* Tabs */}
-      <div className="flex rounded-xl border border-border overflow-hidden">
-        {([
-          ['generated', 'Auto'],
-          ['emoji', 'Emoji'],
-          ['upload', 'Upload'],
-        ] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-              tab === key
-                ? 'bg-primary-600 text-white'
-                : 'bg-surface text-text-secondary hover:bg-surface-tertiary'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        compact
+        label="Avatar type"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: 'generated', label: 'Auto' },
+          { value: 'emoji', label: 'Emoji' },
+          { value: 'upload', label: 'Upload' },
+        ]}
+      />
 
       {/* Tab content */}
       {tab === 'generated' && (
@@ -136,8 +130,8 @@ export function AvatarEditor({
               <button
                 key={e}
                 onClick={() => setEmoji(e)}
-                className={`w-8 h-8 flex items-center justify-center rounded-lg text-lg transition-colors ${
-                  emoji === e ? 'bg-primary-100 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
+                className={`w-11 h-11 flex items-center justify-center rounded-lg text-xl transition-colors ${
+                  emoji === e ? 'bg-primary-100 dark:bg-primary-950 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
                 }`}
               >
                 {e}
@@ -149,7 +143,7 @@ export function AvatarEditor({
               <button
                 key={c}
                 onClick={() => setBgColor(c)}
-                className={`w-7 h-7 rounded-full transition-transform ${
+                className={`w-11 h-11 rounded-full transition-transform ${
                   bgColor === c ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''
                 }`}
                 style={{ backgroundColor: c }}
@@ -168,12 +162,9 @@ export function AvatarEditor({
             onChange={handleImageUpload}
             className="hidden"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full py-2 rounded-xl border border-dashed border-border text-sm text-text-secondary hover:bg-surface-secondary transition-colors"
-          >
+          <Button variant="secondary" fullWidth onClick={() => fileInputRef.current?.click()}>
             {imageURL ? 'Choose Different Image' : 'Choose Image'}
-          </button>
+          </Button>
           {!imageURL && (
             <p className="text-xs text-text-tertiary text-center">
               Image will be cropped to a square and scaled to 128x128
@@ -183,13 +174,13 @@ export function AvatarEditor({
       )}
 
       {/* Save */}
-      <button
+      <Button
+        fullWidth
         onClick={handleSave}
         disabled={saving || (tab === 'upload' && !imageURL)}
-        className="w-full py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
       >
         {saving ? 'Saving...' : 'Save Avatar'}
-      </button>
+      </Button>
     </div>
   );
 }

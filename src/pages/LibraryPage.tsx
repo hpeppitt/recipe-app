@@ -13,9 +13,11 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
+import { Chip } from '../components/ui/Chip';
 import { APP_NAME } from '../lib/constants';
+import { pluralize } from '../lib/utils';
 
-type Filter = 'all' | 'favorites' | 'following' | string; // string = specific uid
+type Filter = 'all' | 'mine' | 'favorites' | 'following' | string; // string = specific uid
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
@@ -41,7 +43,28 @@ export function LibraryPage() {
   const navigate = useNavigate();
 
   const showFollowing = filter === 'following';
-  const displayRecipes = showFollowing ? undefined : recipes;
+
+  // A recipe is the user's own if they created it, or if it predates auth and
+  // carries the 'local' placeholder uid — the same rule canManageRecipe uses.
+  const isOwnRecipe = (uid: string | undefined) =>
+    uid === 'local' || (!!user && uid === user.uid);
+  const ownRecipes = (recipes ?? []).filter((r) => isOwnRecipe(r.createdBy?.uid));
+
+  // The feed merges everyone's published recipes, so "no recipes" almost never
+  // happens and a newcomer's first screen is a wall of strangers' cooking with
+  // nothing saying what they are looking at. Frame it until they have one of
+  // their own.
+  // Gated to the All feed. On Following or Favorites the copy ("below are
+  // recipes shared by everyone") describes a different list than the one on
+  // screen — a contradiction introduced when UX-9 added this card.
+  const isFirstRun =
+    filter === 'all' && !isLoading && ownRecipes.length === 0 && !search;
+
+  const displayRecipes = showFollowing
+    ? undefined
+    : filter === 'mine'
+      ? ownRecipes
+      : recipes;
   const displayLoading = showFollowing ? followingLoading : isLoading;
 
   return (
@@ -52,7 +75,7 @@ export function LibraryPage() {
           {isConfigured && user && <NotificationBell />}
           <button
             onClick={() => navigate('/profile')}
-            className="p-1 rounded-lg hover:bg-surface-tertiary transition-colors ml-1"
+            className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors ml-1"
             aria-label="Profile"
           >
             {user ? (
@@ -73,7 +96,7 @@ export function LibraryPage() {
           </button>
           <button
             onClick={() => navigate('/settings')}
-            className="p-1.5 rounded-lg hover:bg-surface-tertiary transition-colors"
+            className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
             aria-label="Settings"
           >
             <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -83,46 +106,66 @@ export function LibraryPage() {
           </button>
         </div>
         <div className="px-4 pb-3 space-y-2">
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search recipes..."
-            className="w-full px-3 py-2 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
+          <div className="relative">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search recipes and ingredients..."
+              // Placeholder text is not an accessible name: it disappears on input
+              // and some screen readers never announce it.
+              aria-label="Search recipes and ingredients"
+              className="w-full px-3 py-2.5 pr-11 min-h-11 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+            {/* type="search" gives a native clear affordance in some browsers and
+                none at all in others, so it cannot be relied on. */}
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                className="absolute right-0 top-0 h-full w-11 flex items-center justify-center text-text-tertiary hover:text-text-primary"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Favourites are keyed by uid, so with no signed-in user the filter
                 is permanently empty — don't offer it at all (FUN-16). */}
-            {(canFavorite ? (['all', 'favorites'] as const) : (['all'] as const)).map((f) => (
-              <button
+            {/* "Mine" only appears once there is something in it: offering an
+                always-empty filter to a new user is worse than not offering it. */}
+            {((ownRecipes.length > 0
+              ? canFavorite
+                ? (['all', 'mine', 'favorites'] as const)
+                : (['all', 'mine'] as const)
+              : canFavorite
+                ? (['all', 'favorites'] as const)
+                : (['all'] as const)) as readonly Filter[]).map((f) => (
+              // Uses Chip rather than a look-alike, which is also what gives
+              // Chip's `active` prop a real consumer instead of being dead code.
+              <Chip
                 key={f}
+                label={f === 'all' ? 'All' : f === 'mine' ? 'Mine' : 'Favorites'}
+                active={filter === f}
+                pressed={filter === f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                  filter === f
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
-                }`}
-              >
-                {f === 'all' ? 'All' : 'Favorites'}
-              </button>
+              />
             ))}
             {followingProfiles.length > 0 && (
               <>
-                <button
+                <Chip
+                  label="Following"
+                  active={filter === 'following'}
+                  pressed={filter === 'following'}
                   onClick={() => setFilter('following')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                    filter === 'following'
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-surface-secondary text-text-secondary hover:bg-surface-tertiary'
-                  }`}
-                >
-                  Following
-                </button>
+                />
                 {followingProfiles.map((fp) => (
                   <button
                     key={fp.uid}
                     onClick={() => navigate(`/profile/${fp.uid}`)}
-                    className="flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-text-secondary hover:bg-surface-tertiary transition-colors whitespace-nowrap"
+                    className="min-h-11 flex items-center gap-1 px-2 py-1 rounded-full bg-surface-secondary text-text-secondary hover:bg-surface-tertiary transition-colors whitespace-nowrap"
                   >
                     <Avatar
                       uid={fp.uid}
@@ -143,6 +186,48 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
+        {/* First-run framing. The feed is everyone's published recipes, so
+            without this a newcomer sees an unexplained list of strangers'
+            cooking and no statement of what the app does. Disappears for good
+            once they have a recipe of their own. */}
+        {isFirstRun && !cloudError && (
+          <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-text-primary">
+                Welcome to {APP_NAME}
+              </p>
+              <p className="text-xs text-text-secondary">
+                Describe a dish and it writes you a recipe. Any recipe — yours or
+                someone else's — can branch into variations, so a recipe grows a
+                tree of versions instead of being overwritten.
+              </p>
+              <p className="text-xs text-text-secondary">
+                Below are recipes shared by everyone using {APP_NAME}. Browse them,
+                or start your own.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => navigate('/create')}>
+              Create your first recipe
+            </Button>
+          </div>
+        )}
+
+        {/* A count confirms the search did something, and how much. Without it a
+            filtered list is indistinguishable from a short library. */}
+        {search && !displayLoading && displayRecipes && (
+          <p role="status" className="text-xs text-text-tertiary">
+            {displayRecipes.length} {pluralize(displayRecipes.length, 'result')} for "{search}"
+          </p>
+        )}
+
+        {/* Names the list once the intro is gone, so "All" is never mistaken
+            for "mine". Only meaningful when the shared library is reachable. */}
+        {!isFirstRun && !showFollowing && filter === 'all' && !search && !cloudError && (
+          <p className="text-xs text-text-tertiary">
+            Recipes shared by everyone using {APP_NAME}
+          </p>
+        )}
+
         {/* Shown above the list, not instead of it: local recipes did load, and
             the previous behaviour claimed "No recipes yet" when the shared
             library was merely unreachable. */}
@@ -170,32 +255,27 @@ export function LibraryPage() {
           ))
         ) : showFollowing ? (
           followingRecipes.length > 0 ? (
+            // Was a hand-rolled card missing time, difficulty, the variation
+            // count and the favourite marker, and it reimplemented the nested-link
+            // pattern UI-9 already fixed — a <button> wrapping the creator, so the
+            // creator was not separately reachable. RecipeCard covers all of it.
             followingRecipes.map((r) => (
-              <button
+              <RecipeCard
                 key={r.id}
-                onClick={() => navigate(`/recipe/${r.id}`)}
-                className="w-full text-left bg-surface rounded-2xl border border-border p-4 hover:border-border-strong transition-colors active:scale-[0.99]"
-              >
-                <div className="flex gap-3">
-                  <span className="text-3xl flex-shrink-0 mt-0.5">{r.emoji}</span>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-text-primary truncate">{r.title}</h3>
-                    <p className="text-sm text-text-secondary line-clamp-2 mt-0.5">{r.description}</p>
-                    {r.createdBy?.displayName && (
-                      <div className="flex items-center gap-1 mt-1.5 text-xs text-text-tertiary">
-                        <Avatar uid={r.createdBy.uid} name={r.createdBy.displayName} size="sm" />
-                        <span>{r.createdBy.displayName}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </button>
+                recipe={r}
+                isFavorite={favoriteIds.has(r.id)}
+              />
             ))
           ) : (
             <EmptyState
               icon="👥"
               title="No recipes from followed users"
-              description="Follow other users to see their recipes here"
+              description="Open a recipe you like and follow its creator to see more here."
+              action={
+                <Button variant="secondary" onClick={() => setFilter('all')}>
+                  Browse recipes
+                </Button>
+              }
             />
           )
         ) : displayRecipes && displayRecipes.length > 0 ? (
@@ -206,17 +286,36 @@ export function LibraryPage() {
               isFavorite={favoriteIds.has(recipe.id)}
             />
           ))
+        ) : filter === 'mine' ? (
+          <EmptyState
+            icon="🍳"
+            title="You haven't created a recipe yet"
+            description="Describe something you'd like to cook and it writes the recipe."
+            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
+          />
         ) : filter === 'favorites' ? (
           <EmptyState
             icon="❤️"
             title="No favorites yet"
-            description="Tap the heart on a recipe to add it to your favorites"
+            description="Tap the heart on any recipe to keep it here."
+            action={
+              <Button variant="secondary" onClick={() => setFilter('all')}>
+                Browse recipes
+              </Button>
+            }
           />
         ) : search ? (
+          // Previously a dead end: the only escape was selecting the field and
+          // deleting the text.
           <EmptyState
             icon="🔍"
             title="No results"
-            description={`No recipes matching "${search}"`}
+            description={`Nothing matches "${search}" in titles, ingredients or tags.`}
+            action={
+              <Button variant="secondary" onClick={() => setSearch('')}>
+                Clear search
+              </Button>
+            }
           />
         ) : cloudError ? (
           // The banner above already explains why the list is empty. Claiming
@@ -227,7 +326,8 @@ export function LibraryPage() {
           <EmptyState
             icon="👨‍🍳"
             title="No recipes yet"
-            description="Tap the + button to create your first recipe"
+            description="Describe something you'd like to cook and it writes the recipe."
+            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
           />
         )}
       </div>

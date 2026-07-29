@@ -20,8 +20,21 @@
   --color-surface-secondary: #f9fafb;
   --color-surface-tertiary: #f3f4f6;
   --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-tertiary: #9ca3af;
+  /*
+   * De-emphasised greys, chosen against contrast rather than by eye.
+   *
+   * The previous pair failed WCAG AA for body text at the 12-14px sizes they are
+   * used at: light tertiary #9ca3af was 2.54:1 on white, and dark tertiary
+   * #6b7280 was 3.67:1 on #111827. Measured against every surface a theme uses
+   * (surface, -secondary, -tertiary); every value below clears 4.5:1 on all three.
+   *
+   * Hierarchy is necessarily compressed by this: "tertiary" was pale precisely
+   * because it was de-emphasised, and de-emphasis by low contrast is the thing
+   * that fails. The remaining gap (light 7.6:1 vs 4.9:1) still reads as two
+   * levels without either being unreadable.
+   */
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #646b7a;
   --color-border: #e5e7eb;
   --color-border-strong: #d1d5db;
 
@@ -61,8 +74,10 @@
   --color-surface-secondary: #1f2937;
   --color-surface-tertiary: #374151;
   --color-text-primary: #f9fafb;
-  --color-text-secondary: #9ca3af;
-  --color-text-tertiary: #6b7280;
+  /* 11.95:1 and 8.79:1 on #111827; 9.89 and 7.27 on surface-secondary; 6.94 and
+     5.11 on surface-tertiary. See the light-theme note above. */
+  --color-text-secondary: #cbd5e1;
+  --color-text-tertiary: #b0b7c3;
   --color-border: #374151;
   --color-border-strong: #4b5563;
 }
@@ -90,3 +105,4 @@ body {
   background: var(--color-border-strong);
   border-radius: 9999px;
 }
+

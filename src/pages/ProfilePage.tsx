@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
-import { useFollow } from '../hooks/useFollow';
+import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
 import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
@@ -11,14 +11,71 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { EmptyState } from '../components/ui/EmptyState';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { pluralize } from '../lib/utils';
 
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex-1 text-center">
+/**
+ * A stat, optionally tappable.
+ *
+ * Only tappable where there is something to show. Followers and following are
+ * readable for the signed-in user's own profile; on someone else's the rules
+ * deliberately keep their follow graph private, so those counts stay inert rather
+ * than leading to a denied query.
+ */
+function StatBox({
+  label,
+  value,
+  onClick,
+  expanded,
+}: {
+  label: string;
+  value: number;
+  onClick?: () => void;
+  expanded?: boolean;
+}) {
+  const body = (
+    <>
       <p className="text-lg font-bold text-text-primary">{value}</p>
       <p className="text-xs text-text-tertiary">{label}</p>
-    </div>
+    </>
+  );
+
+  if (!onClick) return <div className="flex-1 text-center">{body}</div>;
+
+  return (
+    <button
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={`flex-1 text-center min-h-11 py-1 transition-colors hover:bg-surface-secondary ${
+        expanded ? 'bg-surface-secondary' : ''
+      }`}
+    >
+      {body}
+    </button>
+  );
+}
+
+/** One row in the followers / following list. */
+function PersonRow({
+  uid,
+  displayName,
+  onOpen,
+}: {
+  uid: string;
+  displayName: string | null;
+  onOpen: (uid: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onOpen(uid)}
+      className="w-full min-h-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-surface-secondary transition-colors text-left"
+    >
+      <Avatar uid={uid} name={displayName} size="sm" />
+      <span className="text-sm text-text-primary truncate">
+        {displayName ?? 'Anonymous'}
+      </span>
+    </button>
   );
 }
 
@@ -99,6 +156,13 @@ function OwnProfile() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  // Which list, if any, the user has opened from the stat row. Inline disclosure
+  // rather than a new route: it is a short list read in context, and a separate
+  // screen would be more navigation for less.
+  const [openList, setOpenList] = useState<'followers' | 'following' | null>(null);
+  const { followers, isLoading: followersLoading, error: followersError } = useFollowers();
+  const { followingProfiles, isLoading: followingLoading } = useFollowingList();
 
   if (!user) return null;
 
@@ -113,14 +177,23 @@ function OwnProfile() {
   };
 
   return (
-    <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar title="My Profile" showBack />
+    <div className="flex flex-col bg-surface">
+      <TopBar title="My Profile" />
 
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="p-4 space-y-6">
           {/* Avatar + Name */}
           <div className="flex flex-col items-center space-y-3">
-            <button onClick={() => setEditingAvatar(!editingAvatar)} className="relative group">
+            {/* The edit affordance used to appear only on hover, which on a phone
+                meant the entire avatar editor was invisible and undiscoverable.
+                A persistent badge replaces it; the hover tint is kept as a
+                pointer-only nicety on top. */}
+            <button
+              onClick={() => setEditingAvatar(!editingAvatar)}
+              className="relative group rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              aria-label="Change avatar"
+              aria-expanded={editingAvatar}
+            >
               <Avatar
                 uid={user.uid}
                 name={user.displayName}
@@ -130,11 +203,12 @@ function OwnProfile() {
                 photoBgColor={profile?.photoBgColor}
                 photoURL={profile?.photoURL}
               />
-              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                <svg className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors" />
+              <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 border-2 border-surface flex items-center justify-center">
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
                 </svg>
-              </div>
+              </span>
             </button>
 
             {editingName ? (
@@ -158,12 +232,15 @@ function OwnProfile() {
                   setNameInput(user.displayName ?? '');
                   setEditingName(true);
                 }}
-                className="group flex items-center gap-1"
+                className="flex items-center gap-1.5 rounded-lg px-2 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                aria-label={`Edit display name, currently ${user.displayName ?? 'Anonymous'}`}
               >
                 <h2 className="text-xl font-bold text-text-primary">
                   {user.displayName ?? 'Anonymous'}
                 </h2>
-                <svg className="w-4 h-4 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                {/* Always visible for the same reason as the avatar badge: on touch
+                    there is no hover, so a hover-only pencil is no affordance at all. */}
+                <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
                 </svg>
               </button>
@@ -193,13 +270,95 @@ function OwnProfile() {
             </div>
           )}
 
-          {/* Stats */}
-          <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-            <StatBox label={pluralize(recipes.length, 'recipe')} value={recipes.length} />
-            <StatBox label="views" value={stats.totalViews} />
-            <StatBox label={pluralize(stats.totalFavorites, 'favorite')} value={stats.totalFavorites} />
-            <StatBox label={pluralize(profile?.followerCount ?? 0, 'follower')} value={profile?.followerCount ?? 0} />
-          </div>
+          {/* Stats. Hidden entirely until there is something to report: a row of
+              four zeros is a worse first impression than no row, and it is the
+              first thing a brand-new user sees on their own profile.
+
+              Labels are always plural. Previously three of the four switched to
+              the singular at exactly 1 while "views" never did, so the row was
+              both inconsistent and twitchy as counts crossed 1. With the number
+              on its own line above the label, a static plural reads correctly. */}
+          {(recipes.length > 0 ||
+            stats.totalViews > 0 ||
+            stats.totalFavorites > 0 ||
+            (profile?.followerCount ?? 0) > 0 ||
+            followingProfiles.length > 0) && (
+            <div className="space-y-2">
+              <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
+                <StatBox label="recipes" value={recipes.length} />
+                <StatBox label="views" value={stats.totalViews} />
+                <StatBox label="favorites" value={stats.totalFavorites} />
+                <StatBox
+                  label="followers"
+                  value={profile?.followerCount ?? 0}
+                  expanded={openList === 'followers'}
+                  onClick={() =>
+                    setOpenList(openList === 'followers' ? null : 'followers')
+                  }
+                />
+                <StatBox
+                  label="following"
+                  value={profile?.followingCount ?? followingProfiles.length}
+                  expanded={openList === 'following'}
+                  onClick={() =>
+                    setOpenList(openList === 'following' ? null : 'following')
+                  }
+                />
+              </div>
+
+              {openList === 'followers' && (
+                <div className="border border-border rounded-2xl p-2">
+                  {followersLoading ? (
+                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                  ) : followersError ? (
+                    <p className="text-sm text-text-secondary text-center py-3">
+                      Couldn't load your followers.
+                    </p>
+                  ) : followers.length === 0 ? (
+                    <EmptyState compact icon="👤" title="No followers yet" />
+                  ) : (
+                    followers.map((f) => (
+                      <PersonRow
+                        key={f.uid}
+                        uid={f.uid}
+                        displayName={f.displayName}
+                        onOpen={(uid) => navigate(`/profile/${uid}`)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+
+              {openList === 'following' && (
+                <div className="border border-border rounded-2xl p-2">
+                  {followingLoading ? (
+                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                  ) : followingProfiles.length === 0 ? (
+                    <EmptyState
+                      compact
+                      icon="👥"
+                      title="Not following anyone yet"
+                    />
+                  ) : (
+                    followingProfiles.map((p) => (
+                      <PersonRow
+                        key={p.uid}
+                        uid={p.uid}
+                        displayName={p.displayName}
+                        onOpen={(uid) => navigate(`/profile/${uid}`)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sits above the recipe list, not below it. This is the only thing
+              standing between an anonymous user and permanent loss of their
+              recipes, and rendering it after the list meant the more you had to
+              lose, the further you had to scroll to find it. */}
+          {user.isAnonymous && <EmailLinkingForm />}
 
           {/* My Recipes */}
           <div className="space-y-3">
@@ -228,29 +387,54 @@ function OwnProfile() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-text-tertiary text-center py-4">
-                No published recipes yet
-              </p>
+              <EmptyState compact icon="🍳" title="No published recipes yet" />
             )}
           </div>
 
-          {/* Account actions */}
-          {user.isAnonymous ? (
-            <EmailLinkingForm />
-          ) : (
-            <Button variant="ghost" fullWidth onClick={signOut}>
-              Sign Out
-            </Button>
-          )}
+          {/* Account actions. Sign Out stays at the bottom — it is a deliberate
+              exit, not something to surface urgently. The anonymous branch moved
+              up above the recipe list.
+
+              Anonymous users get this too. Withholding it did not protect them,
+              it stranded them: no way off a shared device, and no way into an
+              existing email account. The confirmation carries the warning. */}
+          <Button
+            variant="ghost"
+            fullWidth
+            onClick={() => (user.isAnonymous ? setShowSignOutConfirm(true) : signOut())}
+          >
+            Sign Out
+          </Button>
         </div>
       </main>
+
+      {/* Anonymous accounts have no credential, so signing out is one-way. Says
+          so plainly rather than relying on the user to infer it, and names the
+          safer alternative sitting further up the page. */}
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        title="Sign out of this anonymous account?"
+        message="There's no way to sign back in to an anonymous account. Recipes on this device stay here, but you won't be able to manage the copies you've already shared. Adding an email first keeps the account."
+        confirmLabel="Sign Out"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          signOut();
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </div>
   );
 }
 
 function PublicProfile({ uid }: { uid: string }) {
   const { user } = useAuth();
-  const { profile, isLoading: profileLoading } = usePublicProfile(uid);
+  const {
+    profile,
+    isLoading: profileLoading,
+    error: profileError,
+    retry: retryProfile,
+  } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
   const { isFollowing, toggleFollow, loading: followLoading } = useFollow(uid);
   const navigate = useNavigate();
@@ -272,12 +456,38 @@ function PublicProfile({ uid }: { uid: string }) {
     );
   }
 
+  // A dropped connection is not a deleted account. Saying "User not found" for a
+  // network failure tells the visitor something untrue about another person.
+  if (!profile && profileError) {
+    return (
+      <div className="min-h-dvh flex flex-col bg-surface">
+        <TopBar title="Couldn't load" showBack />
+        <div className="p-8 max-w-lg mx-auto w-full">
+          <EmptyState
+            icon="📡"
+            title="Couldn't load this profile"
+            description="The connection failed. The account is probably fine."
+            action={
+              <Button variant="secondary" onClick={retryProfile}>
+                Try again
+              </Button>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (!profile) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
         <TopBar title="Profile" showBack />
-        <div className="p-8 text-center text-text-secondary max-w-lg mx-auto">
-          User not found
+        <div className="p-8 max-w-lg mx-auto w-full">
+          <EmptyState
+            icon="🔍"
+            title="User not found"
+            description="This account may have been deleted."
+          />
         </div>
       </div>
     );
@@ -305,26 +515,23 @@ function PublicProfile({ uid }: { uid: string }) {
             </h2>
 
             {user && !isSelf && (
-              <button
+              <Button
                 onClick={toggleFollow}
                 disabled={followLoading}
-                className={`px-6 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  isFollowing
-                    ? 'bg-surface-secondary text-text-secondary border border-border hover:bg-surface-tertiary'
-                    : 'bg-primary-600 text-white hover:bg-primary-700'
-                }`}
+                variant={isFollowing ? 'secondary' : 'primary'}
+                className="px-6"
               >
                 {isFollowing ? 'Following' : 'Follow'}
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Stats */}
           <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-            <StatBox label={pluralize(recipes.length, 'recipe')} value={recipes.length} />
+            <StatBox label="recipes" value={recipes.length} />
             <StatBox label="views" value={stats.totalViews} />
-            <StatBox label={pluralize(stats.totalFavorites, 'favorite')} value={stats.totalFavorites} />
-            <StatBox label={pluralize(profile.followerCount, 'follower')} value={profile.followerCount} />
+            <StatBox label="favorites" value={stats.totalFavorites} />
+            <StatBox label="followers" value={profile.followerCount} />
           </div>
 
           {/* Recipes */}
@@ -351,9 +558,7 @@ function PublicProfile({ uid }: { uid: string }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-text-tertiary text-center py-4">
-                No recipes yet
-              </p>
+              <EmptyState compact icon="🍳" title="No recipes yet" />
             )}
           </div>
         </div>
@@ -369,9 +574,11 @@ export function ProfilePage() {
 
   // Public profile
   if (uid) {
-    // If viewing own profile via UID, redirect to own profile view
+    // A real redirect rather than rendering OwnProfile in place. OwnProfile now
+    // lives inside AppShell and relies on it for height and nav; rendering it
+    // here would drop it outside the shell with no bottom nav.
     if (user && user.uid === uid) {
-      return <OwnProfile />;
+      return <Navigate to="/profile" replace />;
     }
     return <PublicProfile uid={uid} />;
   }
@@ -405,12 +612,9 @@ export function ProfilePage() {
                 Track your recipe stats and customize your avatar
               </p>
             </div>
-            <button
-              onClick={() => setShowAuth(true)}
-              className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
-            >
+            <Button onClick={() => setShowAuth(true)} className="px-6">
               Sign In
-            </button>
+            </Button>
           </div>
         </div>
 

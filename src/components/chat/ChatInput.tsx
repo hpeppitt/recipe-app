@@ -4,13 +4,42 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * Seed text for the composer. Used when approving a suggestion hands the
+   * owner into the variation flow — the suggestion is prefilled but not sent,
+   * so they can edit it and are never billed for a generation they did not ask
+   * for.
+   */
+  initialValue?: string;
 }
 
-export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' }: ChatInputProps) {
-  const [value, setValue] = useState('');
+export function ChatInput({
+  onSend,
+  disabled,
+  placeholder = 'Type a message...',
+  initialValue = '',
+}: ChatInputProps) {
+  const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  /**
+   * Autofocus only where it is free.
+   *
+   * On a touch device focusing the composer opens the on-screen keyboard, which
+   * covers the suggestion chips — the only concrete instruction a first-time user
+   * gets. On a pointer device focus costs the user nothing and saves a click, so
+   * it is kept there.
+   *
+   * `(pointer: coarse)` rather than a user-agent check: it describes the input
+   * device, which is the thing that actually determines whether a keyboard
+   * appears. Guarded for environments without matchMedia (jsdom, SSR).
+   */
   useEffect(() => {
+    const coarse =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(pointer: coarse)').matches;
+    if (coarse) return;
     inputRef.current?.focus();
   }, []);
 

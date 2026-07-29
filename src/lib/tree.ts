@@ -63,3 +63,32 @@ export function buildTree(recipes: Recipe[]): TreeNode | null {
 
   return buildNode(root);
 }
+
+/**
+ * Descendant count per root, across a mixed set of local and published records.
+ *
+ * The library feed merges two stores, and a recipe can appear in both. Counting
+ * each list separately and adding would double-count anything saved locally and
+ * also published, so this dedupes by id first. Cloud feed entries previously
+ * hardcoded a count of 0, which hid variations on exactly the recipes a new
+ * user browses (UX-10).
+ *
+ * Counts the whole subtree, not just direct children, matching how the local
+ * count was derived (`rootId` match rather than `parentId`).
+ */
+export function countDescendantsByRoot(
+  records: Array<{ id: string; rootId: string }>
+): Map<string, number> {
+  const seen = new Set<string>();
+  const counts = new Map<string, number>();
+
+  for (const r of records) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    // A root is not its own descendant.
+    if (r.rootId === r.id) continue;
+    counts.set(r.rootId, (counts.get(r.rootId) ?? 0) + 1);
+  }
+
+  return counts;
+}

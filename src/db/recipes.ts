@@ -2,7 +2,7 @@ import { db } from './database';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { parseImportedRecipes } from '../lib/import';
-import type { Recipe, RecipeWithChildren, CreatedBy, Collaborator } from '../types/recipe';
+import type { Recipe, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
@@ -40,15 +40,6 @@ export async function getRecipe(id: string): Promise<Recipe | undefined> {
 
 export async function getAllRecipes(): Promise<Recipe[]> {
   return db.recipes.orderBy('createdAt').reverse().toArray();
-}
-
-export async function getCoreRecipes(): Promise<RecipeWithChildren[]> {
-  const all = await getAllRecipes();
-  const cores = all.filter((r) => r.parentId === null);
-  return cores.map((core) => ({
-    ...core,
-    childCount: all.filter((r) => r.rootId === core.id && r.id !== core.id).length,
-  }));
 }
 
 export async function getRecipeChildren(parentId: string): Promise<Recipe[]> {
@@ -152,8 +143,21 @@ export async function exportAllRecipes(): Promise<Recipe[]> {
   return db.recipes.toArray();
 }
 
+/**
+ * Wipes every local table, not just recipes. Favourites used to survive, so
+ * "Clear All Data" left rows keyed to recipes that no longer existed — and
+ * re-signing in resurrected a favourites list for a library that was gone.
+ *
+ * Deliberately local-only: published recipes are not touched. Deleting them is
+ * both irreversible and not purely the user's to do, since other people may
+ * have favourited or branched from them. The Settings copy now says so, and
+ * per-recipe delete remains the way to remove a published recipe.
+ */
 export async function clearAllRecipes(): Promise<void> {
-  await db.recipes.clear();
+  await db.transaction('rw', db.recipes, db.favorites, async () => {
+    await db.recipes.clear();
+    await db.favorites.clear();
+  });
 }
 
 export async function searchRecipes(

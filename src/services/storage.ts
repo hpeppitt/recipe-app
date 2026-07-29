@@ -1,4 +1,5 @@
 import { STORAGE_KEYS } from '../lib/constants';
+import type { UnitSystem } from '../lib/units';
 
 export function getTheme(): 'system' | 'light' | 'dark' {
   return (localStorage.getItem(STORAGE_KEYS.THEME) as 'system' | 'light' | 'dark') ?? 'system';
@@ -6,6 +7,18 @@ export function getTheme(): 'system' | 'light' | 'dark' {
 
 export function setTheme(theme: 'system' | 'light' | 'dark'): void {
   localStorage.setItem(STORAGE_KEYS.THEME, theme);
+}
+
+/**
+ * Display unit preference. 'original' shows whatever the recipe stored, which is
+ * the honest default — the app should not silently convert until asked.
+ */
+export function getUnitSystem(): UnitSystem {
+  return (localStorage.getItem(STORAGE_KEYS.UNIT_SYSTEM) as UnitSystem) ?? 'original';
+}
+
+export function setUnitSystem(system: UnitSystem): void {
+  localStorage.setItem(STORAGE_KEYS.UNIT_SYSTEM, system);
 }
 
 // --- Device + Anonymous Identity Persistence ---
