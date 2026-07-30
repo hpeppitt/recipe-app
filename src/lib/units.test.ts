@@ -52,11 +52,57 @@ describe('convertAmount', () => {
     expect(convertAmount(15, 'ml', 'imperial')?.unit).toBe('tbsp');
   });
 
-  it('refuses volume-to-weight rather than guessing a density', () => {
+  it('refuses volume-to-weight when the ingredient is unknown', () => {
     // A cup of flour and a cup of honey differ by more than 2x, so there is no
-    // correct generic answer. Returning null leaves the original text.
-    expect(convertAmount(1, 'cup', 'metric')).not.toEqual({ amount: 120, unit: 'g' });
+    // correct generic answer. With no name, or an unlisted one, the volume answer
+    // stands rather than an invented density being applied.
     expect(convertAmount(1, 'cup', 'metric')?.unit).toBe('ml');
+    expect(convertAmount(1, 'cup', 'metric', 'gochujang')?.unit).toBe('ml');
+  });
+
+  it('converts a cup of a known dry ingredient to grams, not millilitres', () => {
+    // Regression: this returned 473 ml for two cups of flour. Arithmetically
+    // right, and not a measure any cook uses.
+    expect(convertAmount(2, 'cups', 'metric', 'plain flour')).toEqual({ amount: 250, unit: 'g' });
+    expect(convertAmount(1, 'cup', 'metric', 'caster sugar')).toEqual({ amount: 200, unit: 'g' });
+    expect(convertAmount(1, 'cup', 'metric', 'honey')).toEqual({ amount: 339, unit: 'g' });
+  });
+
+  it('goes back the other way, so grams become cups for an imperial cook', () => {
+    // Previously 8.82 oz, which is a scale reading, not how flour is measured.
+    expect(convertAmount(250, 'g', 'imperial', 'plain flour')).toEqual({ amount: 2, unit: 'cup' });
+    expect(convertAmount(227, 'g', 'imperial', 'butter')).toEqual({ amount: 1, unit: 'cup' });
+  });
+
+  it('steps down to spoons when a weight is less than a quarter cup', () => {
+    // 15 g of flour is 0.12 cups, which reads as nothing useful.
+    expect(convertAmount(15, 'g', 'imperial', 'plain flour')?.unit).toBe('tbsp');
+    expect(convertAmount(2, 'g', 'imperial', 'cocoa powder')?.unit).toBe('tsp');
+  });
+
+  it('leaves true liquids in millilitres, which is already idiomatic', () => {
+    // Deliberately absent from the density table: 240 ml of milk needs no fixing.
+    expect(convertAmount(1, 'cup', 'metric', 'whole milk')?.unit).toBe('ml');
+    expect(convertAmount(1, 'cup', 'metric', 'olive oil')?.unit).toBe('ml');
+  });
+
+  it('matches the longest ingredient key, so a qualifier beats the bare word', () => {
+    // "flour" is 125 g/cup and "chickpea flour" is 92; the qualified form must win
+    // or every specialist flour silently gets the wrong density.
+    expect(convertAmount(1, 'cup', 'metric', 'chickpea flour')).toEqual({ amount: 92, unit: 'g' });
+    expect(convertAmount(1, 'cup', 'metric', 'wholemeal flour')).toEqual({ amount: 120, unit: 'g' });
+    expect(convertAmount(1, 'cup', 'metric', 'icing sugar')).toEqual({ amount: 120, unit: 'g' });
+  });
+
+  it('matches whole words only', () => {
+    // "flourless" must not be read as "flour".
+    expect(convertAmount(1, 'cup', 'metric', 'flourless cake mix')?.unit).toBe('ml');
+  });
+
+  it('still never converts away from spoons, even with a known density', () => {
+    // NEUTRAL wins: "1 tsp salt" has a density in the table but stays a teaspoon.
+    expect(convertAmount(1, 'tsp', 'metric', 'salt')).toBeNull();
+    expect(convertAmount(2, 'tbsp', 'metric', 'plain flour')).toBeNull();
   });
 
   it('leaves counts and unknown units alone', () => {

@@ -1614,7 +1614,7 @@ that failure mode entirely, so it is not listed.
       A clean dev-server restart and reload gave the right colours. Reading the built CSS is what
       distinguished "my fix is broken" from "my measurement is stale".
       Theme left on System.)
-- [ ] **UX-43** `convertAmount` refuses every volume↔weight conversion, so the unit toggle
+- [x] **UX-43** `convertAmount` refuses every volume↔weight conversion, so the unit toggle
       silently does nothing for the most common baking case. "2 cups flour" stays "2 cups"
       under Metric, because grams-per-cup is ingredient-specific and `units.ts` deliberately
       returns `null` rather than inventing a density (a cup of flour and a cup of honey differ
@@ -1662,6 +1662,52 @@ that failure mode entirely, so it is not listed.
       Note this argument does *not* apply to UX-43. There, an unmatched ingredient falls back to
       today's behaviour of not converting, so the failure stays silent-and-correct rather than
       silent-and-wrong.
+      (fixed: added `GRAMS_PER_CUP` (58 keys, ~35 distinct ingredients) and `gramsPerCup()` to
+      `units.ts`; `convertAmount` gained an optional `ingredient` argument, passed from
+      `IngredientList`.
+
+      **Correction to this finding's own premise.** It claimed "2 cups flour" *stays* "2 cups"
+      under Metric. It does not: it became **473 ml**, and 250 g became **8.82 oz** going the
+      other way. The refusal I described never happens, because a volume unit always maps to
+      another volume unit, so nothing crosses. The real defect was therefore a useless *result*
+      rather than a missing one, which changes the fix: it redirects an existing conversion
+      instead of filling a gap. Verified by probing the shipped function before touching it.
+
+      **Scoped to dry goods and fats; true liquids deliberately excluded.** Millilitres already
+      are the idiomatic metric measure for milk, water, cream, oil and vinegar, so 237 ml of milk
+      needs no improvement and a density entry would only swap one good answer for another. This
+      halves the table and removes any question of what "1 cup stock" should become.
+      Every value is measured from USDA SR Legacy (public domain), none estimated. Spoon measures
+      need no densities because NEUTRAL already prevents converting away from tsp/tbsp, so
+      "1 tsp salt" is untouched despite salt having an entry.
+      Longest-key-first matching with word boundaries, so "chickpea flour" (92) beats bare
+      "flour" (125) and "flourless" matches nothing. Both are tested, because the failure would
+      otherwise be a silently wrong density.
+      7 new tests (136 → 143). Confirmed 4 of them fail against the pre-fix function by stubbing
+      the density lookup to null; the other 3 assert deliberately-unchanged behaviour and pass in
+      both states, which is the point of including them.
+      Browser-verified at 390px, both directions on throwaway local recipes: 2 cups flour →
+      250 g, 1 cup caster sugar → 200 g, ½ cup cocoa → 43 g, and in reverse 250 g flour → 2 cup,
+      227 g butter → 1 cup, 15 g flour → 1.92 tbsp, 2 g cocoa → 1.12 tsp. Non-entries behaved as
+      designed: whole milk stayed 237 ml, gochujang stayed 237 ml, beef mince stayed 1.1 lb,
+      3 eggs and 1 tsp salt untouched. Clean console on a fresh load. Both probe recipes deleted
+      and the unit preference restored to Original.)
+- [ ] **UX-44** Converted units are never pluralised, so a cup measure reads "2 cup plain
+      flour". `convertAmount` returns a bare canonical key (`cup`, `tbsp`, `lb`) and
+      `IngredientList` renders it verbatim, so any amount above 1 is ungrammatical.
+      Pre-existing and not introduced by UX-43: the same singular appears on the untouched
+      volume-to-volume branch, confirmed with "1.06 cup whole milk" for an ingredient that has no
+      density entry and so never reaches the new code. UX-43 makes it far more visible, because
+      common dry ingredients now land on the cup path where before they became millilitres.
+      Fix is display-only: pluralise in `IngredientList` (or return a display label alongside the
+      canonical unit) for `cup`, `lb`, `oz`, `pint`, `quart`. Leave `g`/`ml`/`kg`/`tsp`/`tbsp`
+      alone, since those are symbols and do not take an s.
+      While here, consider whether "1.92 tbsp" should read as a fraction: `formatAmount` already
+      renders fractions for stored amounts, so a converted 1.92 could show as 2 tbsp and match
+      how the rest of the list looks. That is a judgement call about precision versus
+      readability, so it needs a decision rather than a default.
+      Found while browser-verifying UX-43; logged separately because pluralisation is a display
+      concern in a different file from the conversion arithmetic.
 ---
 
 # Accepted risks (watch, not backlog)
