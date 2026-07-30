@@ -1468,7 +1468,7 @@ that failure mode entirely, so it is not listed.
       process stops. The earlier UX-43/44 probe recipes were local-only ids, and
       `incrementRecipeViews` uses `updateDoc`, which fails on a missing doc rather than creating
       one, so those did not write to Firestore either.)
-- [ ] **UX-45** `NOTIF_ICONS` in `NotificationBell.tsx` is unreachable. It renders only when
+- [x] **UX-45** `NOTIF_ICONS` in `NotificationBell.tsx` is unreachable. It renders only when
       `notif.fromUid` is falsy, but the Firestore rules require
       `request.resource.data.fromUid == request.auth.uid` on every notification create, so the
       field is always present and the `Avatar` branch always wins. All six entries are dead, and
@@ -1478,6 +1478,20 @@ that failure mode entirely, so it is not listed.
       Second option is a product call, so the conservative fix is deletion.
       Found while verifying UX-37, where an entry was added to the map and observed not to render.
       Low priority: dead code, no user-visible defect. (`NotificationBell.tsx:11-17,149`)
+      (fixed: deleted the map and collapsed the conditional to the `Avatar` branch. 13 lines
+      removed, 3 added. **Took the conservative option of the two the finding offered** — showing
+      the icon alongside the avatar is a design change, and nobody has asked for the type to be
+      conveyed twice.
+      Re-verified unreachable before deleting rather than trusting the finding: `git log -S` shows
+      `fromUid` was introduced in `d0497f5`, the *same commit* that introduced the notifications
+      collection, so no notification has ever been written without it and the branch has been dead
+      since the feature shipped. That is stronger than the rules argument alone, which only covers
+      documents written after the rules were deployed.
+      Verified against the emulator with one notification of every type seeded to the signed-in
+      user. All six render an avatar with the right verb: favorited your recipe / suggested a
+      change to / approved your suggestion on / passed on your suggestion for / replied about /
+      started following you, with `follow` correctly omitting the recipe title. No layout gap where
+      the icon branch used to be, badge count 6, clean console.)
 - [x] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing
