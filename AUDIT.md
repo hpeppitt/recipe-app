@@ -1403,6 +1403,35 @@ that failure mode entirely, so it is not listed.
       participant (`recipeOwnerId` or `suggestedBy.uid`) with `fromUid == request.auth.uid`, then
       `firebase deploy --only firestore`. Deployment affects the live project, so it is the
       owner's call rather than something to do mid-loop.)
+      (**implemented 2026-07-30, awaiting deploy + verification.** Box stays unchecked until the
+      flow is verified against deployed rules, since nothing here has been exercised end to end.
+      Shape approved by the user: `messages` subcollection, notifications on reply, replies still
+      allowed after approval or rejection.
+      `firestore.rules`: `match /suggestions/{suggestionId}/messages/{messageId}`, create by
+      either participant with `fromUid == request.auth.uid`, `update`/`delete` denied so a sent
+      message cannot be rewritten. The parent's owner-only, status-only update rule is untouched,
+      which was the whole reason for preferring a subcollection: relaxing it to allow an array
+      append would also have permitted rewriting the suggestion body. Compiles clean against
+      `firebase deploy --only firestore:rules --dry-run`. Costs 2 document reads per reply, since
+      each `get()` on the parent bills one.
+      `types/social.ts`: `SuggestionMessage`, plus `suggestion_reply` on `AppNotification.type`.
+      `firestore.ts`: `addSuggestionMessage` (notifies whichever participant did not write it,
+      fire-and-forget like the other notification writes) and `subscribeSuggestionMessages`
+      (ascending, so it reads as a conversation).
+      `useSuggestions.ts`: `useSuggestionThread`. State is stamped with its suggestion id and
+      derived, not cleared inside the effect — the linter rejects synchronous setState in an
+      effect as a cascading-render antipattern, and the id stamp also closes the window where one
+      thread's replies could render under another's heading. Same pattern as `useRecipe`.
+      `SuggestionThread.tsx`: collapsed by default, because an owner triaging a list would
+      otherwise have the approve/reject actions buried under expanded threads.
+      **Scope added beyond the finding:** the suggestions section was gated on `isOwner`, so a
+      suggester could not see their own suggestion at all and would have had no way into the
+      thread. Replies would have been one-sided. The gate is now "owner sees all, others see
+      their own", and `isOwner` moved onto the approve/reject buttons themselves so a non-owner
+      cannot see review controls. The Firestore read rule already permitted any signed-in read,
+      so this exposes nothing that was not already fetched.
+      Not yet verified: the full send/receive/notify round trip, and the permission-denied error
+      path. Both need deployed rules.)
 - [x] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing

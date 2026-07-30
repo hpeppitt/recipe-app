@@ -13,6 +13,7 @@ const NOTIF_ICONS: Record<string, string> = {
   suggestion: '💡',
   suggestion_approved: '✅',
   suggestion_rejected: '🙏',
+  suggestion_reply: '💬',
   follow: '👤',
 };
 
@@ -21,6 +22,9 @@ const NOTIF_VERBS: Record<string, string> = {
   suggestion: 'suggested a change to',
   suggestion_approved: 'approved your suggestion on',
   suggestion_rejected: 'passed on your suggestion for',
+  // Works in both directions: the owner and the suggester each receive this when
+  // the other replies, so the verb cannot assume which side is reading.
+  suggestion_reply: 'replied about',
   follow: 'started following you',
 };
 

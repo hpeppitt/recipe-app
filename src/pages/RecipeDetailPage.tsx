@@ -23,6 +23,7 @@ import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
+import { SuggestionThread } from '../components/recipe/SuggestionThread';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
@@ -258,6 +259,16 @@ export function RecipeDetailPage() {
     (recipe as unknown as { favoriteCount?: number } | undefined)?.favoriteCount ?? 0;
   const pendingSuggestions = suggestions.filter((s) => s.status === 'pending');
 
+  // The owner sees every suggestion; anyone else sees only their own.
+  //
+  // Non-owners previously saw none at all, so a suggester had no view of what
+  // they had sent and no way into its reply thread — which would have made
+  // replies one-sided. The Firestore read rule already permits any signed-in
+  // read, so this reveals nothing that was not already fetched.
+  const visibleSuggestions = isOwner
+    ? suggestions
+    : suggestions.filter((s) => s.suggestedBy.uid === user?.uid);
+
   if (isLoading) {
     return (
       <div className="max-w-lg mx-auto">
@@ -406,10 +417,12 @@ export function RecipeDetailPage() {
               action item on their own page; it was previously below ingredients,
               instructions, notes, tags, credits, collaborators and variations. */}
           {/* Suggestions section (owner only) */}
-          {isOwner && suggestions.length > 0 && (
+          {visibleSuggestions.length > 0 && (
             <div className="space-y-3">
               <h3 className="font-semibold text-text-primary">
-                Suggestions ({pendingSuggestions.length} pending)
+                {isOwner
+                  ? `Suggestions (${pendingSuggestions.length} pending)`
+                  : 'Your suggestion'}
               </h3>
               {/* A failed review used to be entirely silent: the row stayed
                   pending and the owner had no idea the write had been rejected. */}
@@ -419,7 +432,7 @@ export function RecipeDetailPage() {
                 </p>
               )}
               <div className="space-y-2">
-                {suggestions.map((s) => (
+                {visibleSuggestions.map((s) => (
                   <div
                     key={s.id}
                     className={`border rounded-xl p-3 ${
@@ -455,7 +468,10 @@ export function RecipeDetailPage() {
                         </span>
                       )}
                     </p>
-                    {s.status === 'pending' && (
+                    {/* `isOwner` is checked here, not on the section: the section
+                        now also renders for the suggester so they can reach the
+                        reply thread, and only the owner reviews. */}
+                    {isOwner && s.status === 'pending' && (
                       // Padded to a 44px target. The -ml-3 offsets the first
                       // button's padding so its label stays flush with the text
                       // above rather than looking indented.
@@ -483,6 +499,7 @@ export function RecipeDetailPage() {
                         </button>
                       </div>
                     )}
+                    <SuggestionThread suggestion={s} />
                   </div>
                 ))}
               </div>
