@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Ingredient } from '../../types/recipe';
 import { useUnitSystem } from '../../hooks/useUnitSystem';
-import { convertAmount } from '../../lib/units';
+import { convertAmount, formatUnit } from '../../lib/units';
 
 interface IngredientListProps {
   ingredients: Ingredient[];
@@ -43,11 +43,16 @@ export function IngredientList({ ingredients, checkable = false }: IngredientLis
               // counter, which is the one place 14px is least defensible.
               // Converted at display time only; the stored recipe is untouched so a
               // shared link means the same thing to everyone. `null` means the
-              // conversion was not reliable (unknown unit, a count, or a
-              // volume-weight crossing), in which case the original is shown.
-              const converted = convertAmount(ing.amount, ing.unit, unitSystem);
+              // conversion was not reliable (unknown unit, or a count), in which
+              // case the original is shown.
+              // The name is passed so a cup of a known dry ingredient can become
+              // grams rather than millilitres; an unrecognised name simply keeps
+              // the volume-to-volume answer.
+              const converted = convertAmount(ing.amount, ing.unit, unitSystem, ing.name);
               const shownAmount = converted ? converted.amount : ing.amount;
-              const shownUnit = converted ? converted.unit : ing.unit;
+              // Pluralised against the amount actually shown, not the stored one,
+              // so a converted value gets the agreement its own number implies.
+              const shownUnit = formatUnit(converted ? converted.unit : ing.unit, shownAmount);
 
               const body = (
                 <span className={isChecked ? 'line-through opacity-60' : undefined}>

@@ -10,6 +10,7 @@ import {
   EmailAuthProvider,
   updateProfile,
   signOut as fbSignOut,
+  connectAuthEmulator,
   type Auth,
   type User,
 } from 'firebase/auth';
@@ -18,7 +19,7 @@ import {
   setEmailForLinking,
   clearEmailForLinking,
 } from './storage';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
@@ -63,6 +64,23 @@ if (isFirebaseConfigured) {
 
   auth = getAuth(app);
   firestore = getFirestore(app);
+
+  // Point at the local emulator suite when VITE_USE_EMULATORS is set.
+  //
+  // Exists so features whose data cannot be undone are testable. Suggestions are
+  // `allow delete: if false`, so verifying a reply thread against the live project
+  // would leave an undeletable record in it permanently. Emulator data is thrown
+  // away when the process stops.
+  //
+  // Double-guarded on `import.meta.env.DEV` as well as the flag: a production
+  // build must never be able to redirect writes away from the real project, even
+  // if the variable leaks into a build environment.
+  if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+    console.info('[firebase] using local emulators; no live data is being touched');
+  }
+
   if (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) {
     getAnalytics(app);
   }

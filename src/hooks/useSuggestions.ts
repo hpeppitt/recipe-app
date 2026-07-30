@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   subscribeRecipeSuggestions,
+  subscribeSuggestionMessages,
+  addSuggestionMessage,
   updateSuggestionStatus,
   createSuggestion,
 } from '../services/firestore';
 import { addLocalCollaborator } from '../db/recipes';
 import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
-import type { Suggestion } from '../types/social';
+import type { Suggestion, SuggestionMessage } from '../types/social';
 
 export function useSuggestions(recipeId: string | undefined) {
   const { isConfigured, user } = useAuth();
@@ -43,6 +45,56 @@ export function useSuggestions(recipeId: string | undefined) {
   }, [reviewer]);
 
   return { suggestions, approve, reject };
+}
+
+/**
+ * Live reply thread for one suggestion, plus a send.
+ *
+ * Keyed on the suggestion id: the message list is cleared when the id changes so
+ * a slow subscription cannot deliver one thread's replies under another's
+ * heading, which is the same trap `useRecipe` guards against for cloud recipes.
+ */
+export function useSuggestionThread(suggestion: Suggestion | null) {
+  const { isConfigured, user } = useAuth();
+  // Stamped with the id it belongs to, then derived below. Clearing state inside
+  // the effect instead is a cascading-render antipattern the linter rejects, and
+  // it leaves a window where one thread's replies render under another's id.
+  const [thread, setThread] = useState<{
+    id: string;
+    messages: SuggestionMessage[];
+    error: string | null;
+  }>({ id: '', messages: [], error: null });
+  const suggestionId = suggestion?.id;
+
+  useEffect(() => {
+    if (!isConfigured || !suggestionId) return;
+    return subscribeSuggestionMessages(
+      suggestionId,
+      (messages) => setThread({ id: suggestionId, messages, error: null }),
+      () =>
+        // Most likely cause is the rules not being deployed yet, which is silent
+        // otherwise: an empty thread and a working-looking input.
+        setThread({ id: suggestionId, messages: [], error: "Couldn't load replies." })
+    );
+  }, [isConfigured, suggestionId]);
+
+  // A result for a different suggestion is not this one's answer.
+  const messages = thread.id === suggestionId ? thread.messages : [];
+  const error = thread.id === suggestionId ? thread.error : null;
+
+  const send = useCallback(
+    async (text: string) => {
+      if (!user || !suggestion) return;
+      await addSuggestionMessage(
+        suggestion,
+        { uid: user.uid, displayName: user.displayName },
+        text
+      );
+    },
+    [suggestion, user]
+  );
+
+  return { messages, error, send };
 }
 
 export function useSubmitSuggestion() {

@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "emulators": "firebase emulators:start --only auth,firestore",
+    "dev:emulated": "VITE_USE_EMULATORS=true vite"
   },
   "dependencies": {
     "@google/genai": "^1.41.0",

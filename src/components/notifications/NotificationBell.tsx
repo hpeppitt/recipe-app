@@ -5,22 +5,23 @@ import { Avatar } from '../ui/Avatar';
 import { Spinner } from '../ui/Spinner';
 import { timeAgo } from '../../lib/utils';
 
-// Keyed maps rather than a growing ternary chain: four types made the inline
+// A keyed map rather than a growing ternary chain: four types made the inline
 // conditional unreadable, and an unknown type now falls back instead of
 // silently rendering as a suggestion.
-const NOTIF_ICONS: Record<string, string> = {
-  favorite: '❤️',
-  suggestion: '💡',
-  suggestion_approved: '✅',
-  suggestion_rejected: '🙏',
-  follow: '👤',
-};
-
+//
+// There was a parallel NOTIF_ICONS map, removed as dead code: it rendered only
+// when a notification had no `fromUid`, and `fromUid` has been written by every
+// notification since the collection was introduced (d0497f5) and is required by
+// the Firestore rules, so the avatar branch always won. The type says as much —
+// `fromUid: string`, not optional, unlike `recipeId?`.
 const NOTIF_VERBS: Record<string, string> = {
   favorite: 'favorited your recipe',
   suggestion: 'suggested a change to',
   suggestion_approved: 'approved your suggestion on',
   suggestion_rejected: 'passed on your suggestion for',
+  // Works in both directions: the owner and the suggester each receive this when
+  // the other replies, so the verb cannot assume which side is reading.
+  suggestion_reply: 'replied about',
   follow: 'started following you',
 };
 
@@ -139,11 +140,7 @@ export function NotificationBell() {
                 >
                   <div className="flex gap-2.5">
                     <div className="flex-shrink-0 mt-0.5">
-                      {notif.fromUid ? (
-                        <Avatar uid={notif.fromUid} name={notif.fromDisplayName} size="sm" />
-                      ) : (
-                        <span className="text-lg">{NOTIF_ICONS[notif.type] ?? '💡'}</span>
-                      )}
+                      <Avatar uid={notif.fromUid} name={notif.fromDisplayName} size="sm" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-text-primary">

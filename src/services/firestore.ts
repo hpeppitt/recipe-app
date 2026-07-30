@@ -19,9 +19,10 @@ import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
+import { replyRecipient } from '../lib/suggestions';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
-import type { Suggestion, AppNotification } from '../types/social';
+import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
 
 // --- Recipes ---
@@ -330,6 +331,70 @@ export function subscribeRecipeSuggestions(
       snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Suggestion)
     );
   });
+}
+
+/**
+ * Post a reply on a suggestion thread.
+ *
+ * Notifies the other participant, whichever side that is: the owner replying
+ * notifies the suggester and vice versa, since a reply nobody is told about is
+ * a message into the void.
+ *
+ * Deliberately allowed after approval or rejection. A rejection is exactly when
+ * the suggester wants to ask why.
+ */
+export async function addSuggestionMessage(
+  suggestion: Suggestion,
+  from: { uid: string; displayName: string | null },
+  text: string
+): Promise<void> {
+  if (!firestore) return;
+
+  await addDoc(collection(firestore, 'suggestions', suggestion.id, 'messages'), {
+    fromUid: from.uid,
+    fromDisplayName: from.displayName,
+    text,
+    createdAt: Date.now(),
+  });
+
+  const recipientUid = replyRecipient(suggestion, from.uid);
+
+  // Fire-and-forget, matching the other notification writes: a failed
+  // notification must not make a sent reply look like it failed.
+  if (recipientUid) {
+    addDoc(collection(firestore, 'notifications'), {
+      recipientUid,
+      type: 'suggestion_reply',
+      recipeId: suggestion.recipeId,
+      recipeTitle: suggestion.recipeTitle,
+      recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
+      fromUid: from.uid,
+      fromDisplayName: from.displayName,
+      message: text,
+      read: false,
+      createdAt: Date.now(),
+    }).catch(() => {});
+  }
+}
+
+/** Live reply thread for one suggestion, oldest first so it reads as a conversation. */
+export function subscribeSuggestionMessages(
+  suggestionId: string,
+  callback: (messages: SuggestionMessage[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  if (!firestore) return () => {};
+  const q = query(
+    collection(firestore, 'suggestions', suggestionId, 'messages'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SuggestionMessage));
+    },
+    (error) => onError?.(error)
+  );
 }
 
 /**

@@ -1386,7 +1386,7 @@ that failure mode entirely, so it is not listed.
       container had no flex direction, so the buttons were block-level and stacked. Adding
       `flex` resolves it; reducing to two visible controls makes a recurrence impossible.
       See UX-19 for the measurements, which also correct that finding's premise.)
-- [ ] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
+- [x] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
       clarification ("which part is too salty?") is impossible and the suggester cannot
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
       Needs a message model, thread UI and a notification type, so it is a feature rather
@@ -1403,6 +1403,95 @@ that failure mode entirely, so it is not listed.
       participant (`recipeOwnerId` or `suggestedBy.uid`) with `fromUid == request.auth.uid`, then
       `firebase deploy --only firestore`. Deployment affects the live project, so it is the
       owner's call rather than something to do mid-loop.)
+      (**implemented 2026-07-30, awaiting deploy + verification.** Box stays unchecked until the
+      flow is verified against deployed rules, since nothing here has been exercised end to end.
+      Shape approved by the user: `messages` subcollection, notifications on reply, replies still
+      allowed after approval or rejection.
+      `firestore.rules`: `match /suggestions/{suggestionId}/messages/{messageId}`, create by
+      either participant with `fromUid == request.auth.uid`, `update`/`delete` denied so a sent
+      message cannot be rewritten. The parent's owner-only, status-only update rule is untouched,
+      which was the whole reason for preferring a subcollection: relaxing it to allow an array
+      append would also have permitted rewriting the suggestion body. Compiles clean against
+      `firebase deploy --only firestore:rules --dry-run`. Costs 2 document reads per reply, since
+      each `get()` on the parent bills one.
+      `types/social.ts`: `SuggestionMessage`, plus `suggestion_reply` on `AppNotification.type`.
+      `firestore.ts`: `addSuggestionMessage` (notifies whichever participant did not write it,
+      fire-and-forget like the other notification writes) and `subscribeSuggestionMessages`
+      (ascending, so it reads as a conversation).
+      `useSuggestions.ts`: `useSuggestionThread`. State is stamped with its suggestion id and
+      derived, not cleared inside the effect — the linter rejects synchronous setState in an
+      effect as a cascading-render antipattern, and the id stamp also closes the window where one
+      thread's replies could render under another's heading. Same pattern as `useRecipe`.
+      `SuggestionThread.tsx`: collapsed by default, because an owner triaging a list would
+      otherwise have the approve/reject actions buried under expanded threads.
+      **Scope added beyond the finding:** the suggestions section was gated on `isOwner`, so a
+      suggester could not see their own suggestion at all and would have had no way into the
+      thread. Replies would have been one-sided. The gate is now "owner sees all, others see
+      their own", and `isOwner` moved onto the approve/reject buttons themselves so a non-owner
+      cannot see review controls. The Firestore read rule already permitted any signed-in read,
+      so this exposes nothing that was not already fetched.
+      Not yet verified: the full send/receive/notify round trip, and the permission-denied error
+      path. Both need deployed rules.)
+      (**verified 2026-07-30 against the emulator suite; rules deployed by the user.**
+      Verified on the emulator rather than the live project because a suggestion is
+      `allow delete: if false`, so a test one would have been permanent. Added a dev-only
+      `VITE_USE_EMULATORS` branch to `firebase.ts` (double-guarded on `import.meta.env.DEV`, so a
+      production build cannot redirect writes away from the real project), emulator ports in
+      `firebase.json`, and `npm run emulators` / `npm run dev:emulated`. The Firestore emulator
+      needs Java; installed via `brew install openjdk` (the Temurin cask wanted a sudo password).
+      Note openjdk is keg-only and was NOT added to `~/.zshrc`: prefix with
+      `PATH="/opt/homebrew/opt/openjdk/bin:$PATH"` or add it yourself.
+      Rules probed with real ID tokens over the REST API, which enforces rules (unlike the
+      `Bearer owner` seeding path). 7 of 7 as intended: participant create allowed; stranger
+      create denied; stranger spoofing `fromUid` to a participant denied; participant spoofing
+      `fromUid` to the owner denied; author editing their own message denied; author deleting it
+      denied; and the suggester editing the parent suggestion body still denied, which is the rule
+      a `replies` array would have forced open.
+      **Both notification directions verified in the real code path, not just the unit test.** As
+      the suggester, replying produced a notification to the owner; as the owner, replying produced
+      one to the suggester. Same author uid, different recipient by role — the case a hardcoded
+      "notify the owner" would get right only half the time. Also extracted `replyRecipient` to
+      `lib/suggestions.ts` with 4 tests (149 → 153), including the both-sides-same-person case
+      that must not self-notify.
+      UI verified at 390px in dark and light: non-owner sees "Your suggestion" with only their own
+      (a third party's suggestion on the same recipe stayed hidden) and no Approve/Reject; owner
+      sees "Suggestions (1 pending)" with both; thread collapsed by default; send works by button
+      and by Enter; input clears; own messages tinted; real-time delivery confirmed by writing a
+      message externally while the thread was open, arriving in correct oldest-first order. Clean
+      console.
+      **Known dead code, logged as UX-45:** the `suggestion_reply` entry added to `NOTIF_ICONS`
+      is unreachable. That map is only a fallback for a notification with no `fromUid`, and the
+      rules make `fromUid` mandatory, so the avatar branch always wins. The verb in `NOTIF_VERBS`
+      is what renders, and that was confirmed on screen. Left in place for consistency with its
+      equally-unreachable siblings rather than removing one entry in isolation.
+      No live-project residue: every write went to the emulator, whose data is discarded when the
+      process stops. The earlier UX-43/44 probe recipes were local-only ids, and
+      `incrementRecipeViews` uses `updateDoc`, which fails on a missing doc rather than creating
+      one, so those did not write to Firestore either.)
+- [x] **UX-45** `NOTIF_ICONS` in `NotificationBell.tsx` is unreachable. It renders only when
+      `notif.fromUid` is falsy, but the Firestore rules require
+      `request.resource.data.fromUid == request.auth.uid` on every notification create, so the
+      field is always present and the `Avatar` branch always wins. All six entries are dead, and
+      the `?? '💡'` fallback with them.
+      Either delete the map and the fallback branch, or decide the icon should show *alongside*
+      the avatar (the type is otherwise conveyed only by the verb, which is easy to skim past).
+      Second option is a product call, so the conservative fix is deletion.
+      Found while verifying UX-37, where an entry was added to the map and observed not to render.
+      Low priority: dead code, no user-visible defect. (`NotificationBell.tsx:11-17,149`)
+      (fixed: deleted the map and collapsed the conditional to the `Avatar` branch. 13 lines
+      removed, 3 added. **Took the conservative option of the two the finding offered** — showing
+      the icon alongside the avatar is a design change, and nobody has asked for the type to be
+      conveyed twice.
+      Re-verified unreachable before deleting rather than trusting the finding: `git log -S` shows
+      `fromUid` was introduced in `d0497f5`, the *same commit* that introduced the notifications
+      collection, so no notification has ever been written without it and the branch has been dead
+      since the feature shipped. That is stronger than the rules argument alone, which only covers
+      documents written after the rules were deployed.
+      Verified against the emulator with one notification of every type seeded to the signed-in
+      user. All six render an avatar with the right verb: favorited your recipe / suggested a
+      change to / approved your suggestion on / passed on your suggestion for / replied about /
+      started following you, with `follow` correctly omitting the recipe title. No layout gap where
+      the icon branch used to be, badge count 6, clean console.)
 - [x] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing
@@ -1614,6 +1703,125 @@ that failure mode entirely, so it is not listed.
       A clean dev-server restart and reload gave the right colours. Reading the built CSS is what
       distinguished "my fix is broken" from "my measurement is stale".
       Theme left on System.)
+- [x] **UX-43** `convertAmount` refuses every volume↔weight conversion, so the unit toggle
+      silently does nothing for the most common baking case. "2 cups flour" stays "2 cups"
+      under Metric, because grams-per-cup is ingredient-specific and `units.ts` deliberately
+      returns `null` rather than inventing a density (a cup of flour and a cup of honey differ
+      by more than 2x). That refusal is correct as a default, but it means the toggle is least
+      useful exactly where a cook most wants it.
+      Fix: a small curated `INGREDIENT_DENSITY` table in `src/lib` mapping a normalised
+      ingredient name to grams per cup/tbsp/tsp, consulted by `convertAmount` before it gives
+      up. Keep the `null` fallback for anything not in the table, so an unlisted ingredient
+      behaves exactly as it does today. Scope to roughly 100 common baking and cooking
+      ingredients; do not attempt general coverage.
+      **Source data is already downloaded and verified.** USDA FoodData Central SR Legacy
+      (7,793 foods, public domain / CC0) yields **2,238 foods with a usable cup/tbsp/tsp gram
+      weight**. Spot-checked against known references and correct: flour 125 g/cup, butter
+      227 g/cup and 14.2 g/tbsp, honey 339 g/cup, olive oil 216 g/cup. Pruned to five macros
+      plus volumetric weights it is 858 KB raw, 199 KB gzipped; the curated subset needed here
+      is ~5 KB, so ship it as a literal module, not a Dexie table or a fetch.
+      Gotcha for whoever builds this: SR Legacy sets `measure_unit_id` to 9999 on **all**
+      14,449 `food_portion` rows and puts the unit in `modifier` as free text ("cup",
+      "cup (8 fl oz)", "cup slices"). Parsing the modifier is required; a first pass keyed on
+      `measure_unit` measured 0% coverage. Reject modifiers describing a prepared state
+      ("cup slices", "cup, chopped") since their density differs from the whole ingredient.
+      Requested by the user 2026-07-30 as the salvage from a rejected macros investigation.
+
+      **Rejected in the same investigation: replacing the model-estimated macros (UX-39) with a
+      database lookup.** Recorded here because the evidence is what justifies UX-43's narrow
+      scope, and to stop the idea being re-proposed.
+      Naive string matching of ingredient names onto SR Legacy descriptions scores 90% but is
+      unusable: ~30% of those are confident hits on the *wrong* food, and the errors are large
+      because dried/canned/juice variants sit next to the fresh ingredient in the index.
+      Measured: "whole milk" → "Milk, buttermilk, dried" (387 vs 61 kcal/100g, **6.3x**);
+      "canned chopped tomatoes" → "Tomatoes, sun-dried" (258 vs 16, **16x**); "plain flour" →
+      "Snacks, pretzels, hard, plain"; "basmati rice" → "Rice crackers"; "double cream" →
+      "Cheese, cream"; "yellow onion" → "Hominy, canned, yellow".
+      Restricting to Foundation Foods (the basic-foods data type) does not rescue it: only
+      **340 foods, 83 with portions**, and it still contains "Onion rings, breaded" and
+      "Frankfurter, beef". SR Legacy has the right breadth but is dominated by 954 beef entries
+      and 517 baked products, which is the noise that hijacks matching.
+      Decisive point: a lookup would **introduce** a silent-failure mode the model estimate does
+      not have. A mismatched row produces an authoritative-looking wrong number and an unmatched
+      ingredient contributes zero, whereas a whole-recipe estimate cannot be wrong by 16x on one
+      tin of tomatoes. The user confirmed this is not a strict health app, so the existing
+      "estimated, per serving" disclaimer (`NutritionPanel.tsx:35`) is the proportionate answer.
+      Getting a lookup right would need Gemini to resolve food IDs per ingredient plus a curated
+      subset: real work, for accuracy the product does not require.
+      Note this argument does *not* apply to UX-43. There, an unmatched ingredient falls back to
+      today's behaviour of not converting, so the failure stays silent-and-correct rather than
+      silent-and-wrong.
+      (fixed: added `GRAMS_PER_CUP` (58 keys, ~35 distinct ingredients) and `gramsPerCup()` to
+      `units.ts`; `convertAmount` gained an optional `ingredient` argument, passed from
+      `IngredientList`.
+
+      **Correction to this finding's own premise.** It claimed "2 cups flour" *stays* "2 cups"
+      under Metric. It does not: it became **473 ml**, and 250 g became **8.82 oz** going the
+      other way. The refusal I described never happens, because a volume unit always maps to
+      another volume unit, so nothing crosses. The real defect was therefore a useless *result*
+      rather than a missing one, which changes the fix: it redirects an existing conversion
+      instead of filling a gap. Verified by probing the shipped function before touching it.
+
+      **Scoped to dry goods and fats; true liquids deliberately excluded.** Millilitres already
+      are the idiomatic metric measure for milk, water, cream, oil and vinegar, so 237 ml of milk
+      needs no improvement and a density entry would only swap one good answer for another. This
+      halves the table and removes any question of what "1 cup stock" should become.
+      Every value is measured from USDA SR Legacy (public domain), none estimated. Spoon measures
+      need no densities because NEUTRAL already prevents converting away from tsp/tbsp, so
+      "1 tsp salt" is untouched despite salt having an entry.
+      Longest-key-first matching with word boundaries, so "chickpea flour" (92) beats bare
+      "flour" (125) and "flourless" matches nothing. Both are tested, because the failure would
+      otherwise be a silently wrong density.
+      7 new tests (136 → 143). Confirmed 4 of them fail against the pre-fix function by stubbing
+      the density lookup to null; the other 3 assert deliberately-unchanged behaviour and pass in
+      both states, which is the point of including them.
+      Browser-verified at 390px, both directions on throwaway local recipes: 2 cups flour →
+      250 g, 1 cup caster sugar → 200 g, ½ cup cocoa → 43 g, and in reverse 250 g flour → 2 cup,
+      227 g butter → 1 cup, 15 g flour → 1.92 tbsp, 2 g cocoa → 1.12 tsp. Non-entries behaved as
+      designed: whole milk stayed 237 ml, gochujang stayed 237 ml, beef mince stayed 1.1 lb,
+      3 eggs and 1 tsp salt untouched. Clean console on a fresh load. Both probe recipes deleted
+      and the unit preference restored to Original.)
+- [x] **UX-44** Converted units are never pluralised, so a cup measure reads "2 cup plain
+      flour". `convertAmount` returns a bare canonical key (`cup`, `tbsp`, `lb`) and
+      `IngredientList` renders it verbatim, so any amount above 1 is ungrammatical.
+      Pre-existing and not introduced by UX-43: the same singular appears on the untouched
+      volume-to-volume branch, confirmed with "1.06 cup whole milk" for an ingredient that has no
+      density entry and so never reaches the new code. UX-43 makes it far more visible, because
+      common dry ingredients now land on the cup path where before they became millilitres.
+      Fix is display-only: pluralise in `IngredientList` (or return a display label alongside the
+      canonical unit) for `cup`, `lb`, `oz`, `pint`, `quart`. Leave `g`/`ml`/`kg`/`tsp`/`tbsp`
+      alone, since those are symbols and do not take an s.
+      While here, consider whether "1.92 tbsp" should read as a fraction: `formatAmount` already
+      renders fractions for stored amounts, so a converted 1.92 could show as 2 tbsp and match
+      how the rest of the list looks. That is a judgement call about precision versus
+      readability, so it needs a decision rather than a default.
+      Found while browser-verifying UX-43; logged separately because pluralisation is a display
+      concern in a different file from the conversion arithmetic.
+      (fixed: exported `formatUnit(unit, amount)` from `units.ts`, applied in `IngredientList` to
+      the shown amount rather than the stored one, so a converted value gets the agreement its
+      own number implies. One render site covers all three consumers (`RecipeContent`,
+      `RecipeCardMessage`, `SharedRecipePage`), confirmed by grep before editing.
+
+      **Departed from this finding's own suggestion on `oz` and `lb`.** It proposed pluralising
+      them alongside `cup`/`pint`/`quart`. I did not: those are symbols, and "8 ozs" is wrong
+      however common "lbs" is in recipe prose. The rule implemented is "words take an s, symbols
+      do not", which is the line that stays defensible as units are added. `PLURAL_UNITS` is
+      therefore `cup`, `pint`, `quart` only.
+      Also went slightly wider than the finding in one respect: `formatUnit` is applied to the
+      *stored* unit too, not just converted ones. The model emits "cup" as readily as "cups", so
+      "2 cup whole milk" was reaching the page in Original mode as well, from data rather than
+      from conversion. Verified fixed.
+      Guards, each tested because they are the ways this could make things worse: a unit already
+      ending in s is left alone (else "cupss"), free text that is not a unit is never touched
+      ("cloves", "handful", "large"), and plural applies above 1 only, so "½ cup" and "1 cup"
+      stay singular the way recipes are written.
+      6 new tests (143 → 149). Only the pluralisation assertion fails pre-fix; the other 5 assert
+      unchanged behaviour and pass in both states, which is deliberate.
+      Browser-verified at 390px across four combinations: stored-plural "2 cups" unchanged,
+      stored-singular "2 cup" → "2 cups", "1 cup" and "½ cup" singular, "3 cloves garlic" and
+      "3 large eggs" untouched, "8 oz"/"1.1 lb"/"4.41 lb"/"250 g"/"2 kg" all without an s, and
+      the reverse direction now reading "2 cups plain flour" where UX-43 left "2 cup". Clean
+      console. Both probe recipes deleted, preference restored to Original.)
 ---
 
 # Accepted risks (watch, not backlog)

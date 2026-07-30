@@ -78,6 +78,34 @@ service cloud.firestore {
         && changedKeys().hasOnly(['status'])
         && request.resource.data.status in ['approved', 'rejected'];
       allow delete: if false;
+
+      // --- Reply thread on a suggestion ---
+      // A subcollection rather than a `replies` array on the parent, so the
+      // owner-only + status-only update rule above stays intact. Relaxing that
+      // rule to permit an array append would also permit rewriting the
+      // suggestion body, which is a wider grant than replying needs.
+      //
+      // Writable by the two participants only, and only for a message stamped
+      // with the writer's own uid. Immutable once sent, like notifications:
+      // there is no edit or delete UI, and allowing either would let one party
+      // silently rewrite a thread the other has already read.
+      //
+      // Replies stay allowed after approval or rejection on purpose. A
+      // rejection is exactly when the suggester wants to ask why, so gating on
+      // status == 'pending' would close the conversation at the moment it
+      // becomes most useful.
+      //
+      // Each get() bills one document read, so sending a reply costs 2 reads.
+      match /messages/{messageId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.fromUid == request.auth.uid
+          && (
+            get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.recipeOwnerId == request.auth.uid
+            || get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.suggestedBy.uid == request.auth.uid
+          );
+        allow update, delete: if false;
+      }
     }
 
     // --- Notifications: written by the acting user, readable by the recipient ---

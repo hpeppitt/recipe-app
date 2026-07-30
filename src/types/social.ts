@@ -11,6 +11,21 @@ export interface Suggestion {
   createdAt: number;
 }
 
+/**
+ * One message in a suggestion's reply thread.
+ *
+ * Stored in a `messages` subcollection under the suggestion rather than as an
+ * array on it, so the parent's owner-only, status-only update rule stays intact.
+ * Immutable once sent: there is no edit or delete path, in the rules or the UI.
+ */
+export interface SuggestionMessage {
+  id: string;
+  fromUid: string;
+  fromDisplayName: string | null;
+  text: string;
+  createdAt: number;
+}
+
 export interface AppNotification {
   id: string;
   recipientUid: string;
@@ -23,6 +38,7 @@ export interface AppNotification {
     | 'suggestion'
     | 'suggestion_approved'
     | 'suggestion_rejected'
+    | 'suggestion_reply'
     | 'follow';
   /**
    * Absent on `follow`, which is about a person rather than a recipe. Optional

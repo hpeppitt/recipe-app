@@ -34,3 +34,8 @@ build/
 # Claude Code: personal permission grants and ephemeral run state, not shared
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Firebase emulator logs
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
