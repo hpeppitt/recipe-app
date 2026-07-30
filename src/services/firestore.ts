@@ -19,6 +19,7 @@ import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
+import { replyRecipient } from '../lib/suggestions';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
@@ -356,15 +357,11 @@ export async function addSuggestionMessage(
     createdAt: Date.now(),
   });
 
-  // The recipient is whichever participant did not write this message.
-  const recipientUid =
-    from.uid === suggestion.recipeOwnerId
-      ? suggestion.suggestedBy.uid
-      : suggestion.recipeOwnerId;
+  const recipientUid = replyRecipient(suggestion, from.uid);
 
   // Fire-and-forget, matching the other notification writes: a failed
   // notification must not make a sent reply look like it failed.
-  if (recipientUid !== from.uid) {
+  if (recipientUid) {
     addDoc(collection(firestore, 'notifications'), {
       recipientUid,
       type: 'suggestion_reply',

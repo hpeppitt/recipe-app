@@ -1386,7 +1386,7 @@ that failure mode entirely, so it is not listed.
       container had no flex direction, so the buttons were block-level and stacked. Adding
       `flex` resolves it; reducing to two visible controls makes a recurrence impossible.
       See UX-19 for the measurements, which also correct that finding's premise.)
-- [ ] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
+- [x] **UX-37** No way to reply to a suggestion. The owner can only approve or reject, so any
       clarification ("which part is too salty?") is impossible and the suggester cannot
       respond to a rejection. Split out of UX-8, which fixed that screen's other five gaps.
       Needs a message model, thread UI and a notification type, so it is a feature rather
@@ -1432,6 +1432,52 @@ that failure mode entirely, so it is not listed.
       so this exposes nothing that was not already fetched.
       Not yet verified: the full send/receive/notify round trip, and the permission-denied error
       path. Both need deployed rules.)
+      (**verified 2026-07-30 against the emulator suite; rules deployed by the user.**
+      Verified on the emulator rather than the live project because a suggestion is
+      `allow delete: if false`, so a test one would have been permanent. Added a dev-only
+      `VITE_USE_EMULATORS` branch to `firebase.ts` (double-guarded on `import.meta.env.DEV`, so a
+      production build cannot redirect writes away from the real project), emulator ports in
+      `firebase.json`, and `npm run emulators` / `npm run dev:emulated`. The Firestore emulator
+      needs Java; installed via `brew install openjdk` (the Temurin cask wanted a sudo password).
+      Note openjdk is keg-only and was NOT added to `~/.zshrc`: prefix with
+      `PATH="/opt/homebrew/opt/openjdk/bin:$PATH"` or add it yourself.
+      Rules probed with real ID tokens over the REST API, which enforces rules (unlike the
+      `Bearer owner` seeding path). 7 of 7 as intended: participant create allowed; stranger
+      create denied; stranger spoofing `fromUid` to a participant denied; participant spoofing
+      `fromUid` to the owner denied; author editing their own message denied; author deleting it
+      denied; and the suggester editing the parent suggestion body still denied, which is the rule
+      a `replies` array would have forced open.
+      **Both notification directions verified in the real code path, not just the unit test.** As
+      the suggester, replying produced a notification to the owner; as the owner, replying produced
+      one to the suggester. Same author uid, different recipient by role — the case a hardcoded
+      "notify the owner" would get right only half the time. Also extracted `replyRecipient` to
+      `lib/suggestions.ts` with 4 tests (149 → 153), including the both-sides-same-person case
+      that must not self-notify.
+      UI verified at 390px in dark and light: non-owner sees "Your suggestion" with only their own
+      (a third party's suggestion on the same recipe stayed hidden) and no Approve/Reject; owner
+      sees "Suggestions (1 pending)" with both; thread collapsed by default; send works by button
+      and by Enter; input clears; own messages tinted; real-time delivery confirmed by writing a
+      message externally while the thread was open, arriving in correct oldest-first order. Clean
+      console.
+      **Known dead code, logged as UX-45:** the `suggestion_reply` entry added to `NOTIF_ICONS`
+      is unreachable. That map is only a fallback for a notification with no `fromUid`, and the
+      rules make `fromUid` mandatory, so the avatar branch always wins. The verb in `NOTIF_VERBS`
+      is what renders, and that was confirmed on screen. Left in place for consistency with its
+      equally-unreachable siblings rather than removing one entry in isolation.
+      No live-project residue: every write went to the emulator, whose data is discarded when the
+      process stops. The earlier UX-43/44 probe recipes were local-only ids, and
+      `incrementRecipeViews` uses `updateDoc`, which fails on a missing doc rather than creating
+      one, so those did not write to Firestore either.)
+- [ ] **UX-45** `NOTIF_ICONS` in `NotificationBell.tsx` is unreachable. It renders only when
+      `notif.fromUid` is falsy, but the Firestore rules require
+      `request.resource.data.fromUid == request.auth.uid` on every notification create, so the
+      field is always present and the `Avatar` branch always wins. All six entries are dead, and
+      the `?? '💡'` fallback with them.
+      Either delete the map and the fallback branch, or decide the icon should show *alongside*
+      the avatar (the type is otherwise conveyed only by the verb, which is easy to skim past).
+      Second option is a product call, so the conservative fix is deletion.
+      Found while verifying UX-37, where an entry was added to the map and observed not to render.
+      Low priority: dead code, no user-visible defect. (`NotificationBell.tsx:11-17,149`)
 - [x] **UX-40** No follower/following list, and the counts on a profile are not tappable. Split
       out of UX-24, which added the missing follow notification. Needs a `follows` query by
       `followingId` (and by `followerId` for following), a list screen reusing the existing
