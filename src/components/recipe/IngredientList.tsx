@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Ingredient } from '../../types/recipe';
 import { useUnitSystem } from '../../hooks/useUnitSystem';
-import { convertAmount } from '../../lib/units';
+import { convertAmount, formatUnit } from '../../lib/units';
 
 interface IngredientListProps {
   ingredients: Ingredient[];
@@ -50,7 +50,9 @@ export function IngredientList({ ingredients, checkable = false }: IngredientLis
               // the volume-to-volume answer.
               const converted = convertAmount(ing.amount, ing.unit, unitSystem, ing.name);
               const shownAmount = converted ? converted.amount : ing.amount;
-              const shownUnit = converted ? converted.unit : ing.unit;
+              // Pluralised against the amount actually shown, not the stored one,
+              // so a converted value gets the agreement its own number implies.
+              const shownUnit = formatUnit(converted ? converted.unit : ing.unit, shownAmount);
 
               const body = (
                 <span className={isChecked ? 'line-through opacity-60' : undefined}>

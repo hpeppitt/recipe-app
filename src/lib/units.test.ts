@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalUnit, convertAmount, convertTemperatures } from './units';
+import { canonicalUnit, convertAmount, convertTemperatures, formatUnit } from './units';
 
 describe('canonicalUnit', () => {
   it('accepts the spellings a model actually emits', () => {
@@ -118,6 +118,49 @@ describe('convertAmount', () => {
 
   it('does nothing for the original system', () => {
     expect(convertAmount(200, 'g', 'original')).toBeNull();
+  });
+});
+
+describe('formatUnit', () => {
+  it('pluralises word units above 1', () => {
+    // Regression: "2 cup plain flour" reached the page.
+    expect(formatUnit('cup', 2)).toBe('cups');
+    expect(formatUnit('pint', 3)).toBe('pints');
+    expect(formatUnit('quart', 2)).toBe('quarts');
+  });
+
+  it('leaves symbols alone, because abbreviations do not take an s', () => {
+    // "500 gs" and "8 ozs" are wrong, however common "lbs" is in recipe prose.
+    expect(formatUnit('g', 500)).toBe('g');
+    expect(formatUnit('ml', 250)).toBe('ml');
+    expect(formatUnit('kg', 2)).toBe('kg');
+    expect(formatUnit('oz', 8)).toBe('oz');
+    expect(formatUnit('lb', 2)).toBe('lb');
+    expect(formatUnit('tsp', 2)).toBe('tsp');
+    expect(formatUnit('tbsp', 3)).toBe('tbsp');
+  });
+
+  it('stays singular at or below 1, the way recipes are written', () => {
+    expect(formatUnit('cup', 1)).toBe('cup');
+    expect(formatUnit('cup', 0.5)).toBe('cup');
+  });
+
+  it('does not double up a unit that is already plural', () => {
+    // The stored unit is free text, so "cups" arrives from the model as often
+    // as "cup". Without this it became "cupss".
+    expect(formatUnit('cups', 2)).toBe('cups');
+    expect(formatUnit('tablespoons', 3)).toBe('tablespoons');
+  });
+
+  it('never mangles free text that is not a unit', () => {
+    expect(formatUnit('cloves', 3)).toBe('cloves');
+    expect(formatUnit('handful', 2)).toBe('handful');
+    expect(formatUnit('large', 3)).toBe('large');
+  });
+
+  it('passes through nothing to render', () => {
+    expect(formatUnit(null, 2)).toBeNull();
+    expect(formatUnit('cup', null)).toBe('cup');
   });
 });
 

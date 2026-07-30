@@ -1692,7 +1692,7 @@ that failure mode entirely, so it is not listed.
       designed: whole milk stayed 237 ml, gochujang stayed 237 ml, beef mince stayed 1.1 lb,
       3 eggs and 1 tsp salt untouched. Clean console on a fresh load. Both probe recipes deleted
       and the unit preference restored to Original.)
-- [ ] **UX-44** Converted units are never pluralised, so a cup measure reads "2 cup plain
+- [x] **UX-44** Converted units are never pluralised, so a cup measure reads "2 cup plain
       flour". `convertAmount` returns a bare canonical key (`cup`, `tbsp`, `lb`) and
       `IngredientList` renders it verbatim, so any amount above 1 is ungrammatical.
       Pre-existing and not introduced by UX-43: the same singular appears on the untouched
@@ -1708,6 +1708,31 @@ that failure mode entirely, so it is not listed.
       readability, so it needs a decision rather than a default.
       Found while browser-verifying UX-43; logged separately because pluralisation is a display
       concern in a different file from the conversion arithmetic.
+      (fixed: exported `formatUnit(unit, amount)` from `units.ts`, applied in `IngredientList` to
+      the shown amount rather than the stored one, so a converted value gets the agreement its
+      own number implies. One render site covers all three consumers (`RecipeContent`,
+      `RecipeCardMessage`, `SharedRecipePage`), confirmed by grep before editing.
+
+      **Departed from this finding's own suggestion on `oz` and `lb`.** It proposed pluralising
+      them alongside `cup`/`pint`/`quart`. I did not: those are symbols, and "8 ozs" is wrong
+      however common "lbs" is in recipe prose. The rule implemented is "words take an s, symbols
+      do not", which is the line that stays defensible as units are added. `PLURAL_UNITS` is
+      therefore `cup`, `pint`, `quart` only.
+      Also went slightly wider than the finding in one respect: `formatUnit` is applied to the
+      *stored* unit too, not just converted ones. The model emits "cup" as readily as "cups", so
+      "2 cup whole milk" was reaching the page in Original mode as well, from data rather than
+      from conversion. Verified fixed.
+      Guards, each tested because they are the ways this could make things worse: a unit already
+      ending in s is left alone (else "cupss"), free text that is not a unit is never touched
+      ("cloves", "handful", "large"), and plural applies above 1 only, so "½ cup" and "1 cup"
+      stay singular the way recipes are written.
+      6 new tests (143 → 149). Only the pluralisation assertion fails pre-fix; the other 5 assert
+      unchanged behaviour and pass in both states, which is deliberate.
+      Browser-verified at 390px across four combinations: stored-plural "2 cups" unchanged,
+      stored-singular "2 cup" → "2 cups", "1 cup" and "½ cup" singular, "3 cloves garlic" and
+      "3 large eggs" untouched, "8 oz"/"1.1 lb"/"4.41 lb"/"250 g"/"2 kg" all without an s, and
+      the reverse direction now reading "2 cups plain flour" where UX-43 left "2 cup". Clean
+      console. Both probe recipes deleted, preference restored to Original.)
 ---
 
 # Accepted risks (watch, not backlog)
