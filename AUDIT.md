@@ -1614,6 +1614,54 @@ that failure mode entirely, so it is not listed.
       A clean dev-server restart and reload gave the right colours. Reading the built CSS is what
       distinguished "my fix is broken" from "my measurement is stale".
       Theme left on System.)
+- [ ] **UX-43** `convertAmount` refuses every volume↔weight conversion, so the unit toggle
+      silently does nothing for the most common baking case. "2 cups flour" stays "2 cups"
+      under Metric, because grams-per-cup is ingredient-specific and `units.ts` deliberately
+      returns `null` rather than inventing a density (a cup of flour and a cup of honey differ
+      by more than 2x). That refusal is correct as a default, but it means the toggle is least
+      useful exactly where a cook most wants it.
+      Fix: a small curated `INGREDIENT_DENSITY` table in `src/lib` mapping a normalised
+      ingredient name to grams per cup/tbsp/tsp, consulted by `convertAmount` before it gives
+      up. Keep the `null` fallback for anything not in the table, so an unlisted ingredient
+      behaves exactly as it does today. Scope to roughly 100 common baking and cooking
+      ingredients; do not attempt general coverage.
+      **Source data is already downloaded and verified.** USDA FoodData Central SR Legacy
+      (7,793 foods, public domain / CC0) yields **2,238 foods with a usable cup/tbsp/tsp gram
+      weight**. Spot-checked against known references and correct: flour 125 g/cup, butter
+      227 g/cup and 14.2 g/tbsp, honey 339 g/cup, olive oil 216 g/cup. Pruned to five macros
+      plus volumetric weights it is 858 KB raw, 199 KB gzipped; the curated subset needed here
+      is ~5 KB, so ship it as a literal module, not a Dexie table or a fetch.
+      Gotcha for whoever builds this: SR Legacy sets `measure_unit_id` to 9999 on **all**
+      14,449 `food_portion` rows and puts the unit in `modifier` as free text ("cup",
+      "cup (8 fl oz)", "cup slices"). Parsing the modifier is required; a first pass keyed on
+      `measure_unit` measured 0% coverage. Reject modifiers describing a prepared state
+      ("cup slices", "cup, chopped") since their density differs from the whole ingredient.
+      Requested by the user 2026-07-30 as the salvage from a rejected macros investigation.
+
+      **Rejected in the same investigation: replacing the model-estimated macros (UX-39) with a
+      database lookup.** Recorded here because the evidence is what justifies UX-43's narrow
+      scope, and to stop the idea being re-proposed.
+      Naive string matching of ingredient names onto SR Legacy descriptions scores 90% but is
+      unusable: ~30% of those are confident hits on the *wrong* food, and the errors are large
+      because dried/canned/juice variants sit next to the fresh ingredient in the index.
+      Measured: "whole milk" → "Milk, buttermilk, dried" (387 vs 61 kcal/100g, **6.3x**);
+      "canned chopped tomatoes" → "Tomatoes, sun-dried" (258 vs 16, **16x**); "plain flour" →
+      "Snacks, pretzels, hard, plain"; "basmati rice" → "Rice crackers"; "double cream" →
+      "Cheese, cream"; "yellow onion" → "Hominy, canned, yellow".
+      Restricting to Foundation Foods (the basic-foods data type) does not rescue it: only
+      **340 foods, 83 with portions**, and it still contains "Onion rings, breaded" and
+      "Frankfurter, beef". SR Legacy has the right breadth but is dominated by 954 beef entries
+      and 517 baked products, which is the noise that hijacks matching.
+      Decisive point: a lookup would **introduce** a silent-failure mode the model estimate does
+      not have. A mismatched row produces an authoritative-looking wrong number and an unmatched
+      ingredient contributes zero, whereas a whole-recipe estimate cannot be wrong by 16x on one
+      tin of tomatoes. The user confirmed this is not a strict health app, so the existing
+      "estimated, per serving" disclaimer (`NutritionPanel.tsx:35`) is the proportionate answer.
+      Getting a lookup right would need Gemini to resolve food IDs per ingredient plus a curated
+      subset: real work, for accuracy the product does not require.
+      Note this argument does *not* apply to UX-43. There, an unmatched ingredient falls back to
+      today's behaviour of not converting, so the failure stays silent-and-correct rather than
+      silent-and-wrong.
 ---
 
 # Accepted risks (watch, not backlog)
