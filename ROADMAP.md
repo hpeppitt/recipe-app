@@ -246,7 +246,16 @@ into your circle's library.
   circuit breaker are the mitigations, and the fixed-window pattern from
   `functions/src/index.ts` is the model.
 
-- **1.3 Tell the user when their published recipes cannot follow them.**
+- **1.3 Tell the user when their published recipes cannot follow them.** **LANDED
+  2026-07-31.** Taken ahead of 1.2 and 1.4 deliberately: both of those need a production
+  rules deploy or a configured project to verify, and this was completable and verifiable
+  without either. `migrateFirestoreUid` now returns a `UidMigrationOutcome` instead of
+  failing behind `.catch(() => {})`, and it short-circuits after the recipes step because
+  every later step is denied by the same class of rule. Copy lives in `lib/migration.ts`
+  (tested, 9 cases) and renders as a dismissible banner in `AppShell`, gated on at least one
+  recipe actually being stranded. Contact route is `SUPPORT_EMAIL` in `lib/constants.ts`,
+  currently `harry@seidrlab.com` — change it before inviting anyone whose mail should not
+  reach that address.
   Why now: risk 2 is the only remaining silent data-loss path, and the honest fix is one
   screen of copy while the real fix (4.2) waits on Blaze.
   Where: `completeEmailSignIn` already returns `previousUid` (`firebase.ts:159`);

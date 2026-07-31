@@ -105,9 +105,17 @@ and the id must be `{their uid}_{followingId}`. No updates.
 `migrateFirestoreUid` (`services/firestore.ts`) tries to reassign recipes from an anonymous
 uid to an email uid after account upgrade. The rules correctly forbid it: `isOwnerUpdate()`
 requires `createdBy.uid` to be unchanged, and no client-side rule could safely allow the
-reassignment. So the migration **fails silently** today and the recipes stay under the old
-identity. Roadmap 1.3 makes that honest to the user; 4.2 is the real fix and needs the Admin
-SDK.
+reassignment. **Every** step of that migration is denied for the same reason, not just the
+recipes one — deleting the old favourite needs `resource.data.uid == request.auth.uid`,
+re-pointing a notification needs `recipientUid == request.auth.uid`, deleting the old profile
+needs to own it, and un-writing a follow needs to be its follower. All read the *old* uid,
+which the caller no longer is. So the function short-circuits after the recipes step rather
+than generating a burst of permission-denied noise for nothing.
+
+It no longer fails silently: it returns a `UidMigrationOutcome` with a count of recipes left
+behind (reads are open, so the count is reliable even when the writes are not), and
+`AuthContext` records it for the stranded-identity notice. 4.2 is the real fix and needs the
+Admin SDK; the notice is the permanent answer until then.
 
 ## Counter integrity
 

@@ -24,6 +24,14 @@ release, newest first.
 - **CI.** `.github/workflows/ci.yml` runs build, lint, and tests on every pull request and
   every push to `main`. The 0-error, 153-test baseline was previously protected by local
   habit alone.
+- **A notice when published recipes cannot follow you to a new account.** Upgrading an
+  anonymous account to an email address that already exists signs you in under the existing
+  account, and Firestore rules correctly forbid reassigning ownership of the recipes you
+  published as the old identity. That failure was previously swallowed. Now a dismissible
+  banner names how many recipes stayed behind and under which name, with a prefilled mail to
+  support carrying the old account id. Shown only when something was actually stranded.
+- `Button` accepts `as="a"`, so an action that is genuinely a link can look like a button
+  without a hand-rolled copy of its classes.
 
 ### Removed
 

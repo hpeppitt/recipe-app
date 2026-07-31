@@ -709,27 +709,65 @@ export async function getRecipeStats(recipeIds: string[]): Promise<Map<string, {
 
 // --- UID Migration ---
 
+/**
+ * What actually happened to the cloud half of a uid migration.
+ *
+ * Exists because the honest answer is usually "nothing". `firestore.rules`
+ * denies every step of this by design — `isOwnerUpdate()` requires
+ * `createdBy.uid` to be unchanged, and no client-side rule could safely permit
+ * reassigning ownership — so the migration is expected to fail against a
+ * rules-enforced project. It used to fail behind `.catch(() => {})`, which is
+ * how a user could silently lose their whole published catalog.
+ */
+export interface UidMigrationOutcome {
+  /** True only when every cloud record moved. */
+  ok: boolean;
+  /** Published recipes left under the old uid. 0 when they moved successfully. */
+  strandedRecipes: number;
+}
+
 export async function migrateFirestoreUid(
   oldUid: string,
   newUid: string,
   displayName: string | null
-): Promise<void> {
-  if (!firestore) return;
+): Promise<UidMigrationOutcome> {
+  if (!firestore) return { ok: true, strandedRecipes: 0 };
 
   // Migrate recipes (update createdBy.uid)
   const recipesQ = query(
     collection(firestore, 'recipes'),
     where('createdBy.uid', '==', oldUid)
   );
+  // Reading is allowed to anyone, so this count is reliable even when the
+  // writes below are not — which is what makes an honest notice possible.
   const recipesSnap = await getDocs(recipesQ);
   // Firestore batches limited to 500
   const recipeDocs = recipesSnap.docs;
-  for (let i = 0; i < recipeDocs.length; i += 500) {
-    const batch = writeBatch(firestore);
-    for (const d of recipeDocs.slice(i, i + 500)) {
-      batch.update(d.ref, { 'createdBy.uid': newUid, 'createdBy.displayName': displayName });
+  let movedRecipes = 0;
+  try {
+    for (let i = 0; i < recipeDocs.length; i += 500) {
+      const chunk = recipeDocs.slice(i, i + 500);
+      const batch = writeBatch(firestore);
+      for (const d of chunk) {
+        batch.update(d.ref, { 'createdBy.uid': newUid, 'createdBy.displayName': displayName });
+      }
+      await batch.commit();
+      // Tracked per chunk so the count in the user's notice is what is actually
+      // stranded. A batch is atomic, but the loop is not: with more than 500
+      // recipes an early chunk can commit and a later one be denied, and
+      // reporting the full total there would tell the user they lost recipes
+      // that in fact moved.
+      movedRecipes += chunk.length;
     }
-    await batch.commit();
+  } catch {
+    // Return here rather than pressing on. Every remaining step is denied by
+    // the same class of rule — deleting the old favorite needs
+    // `resource.data.uid == request.auth.uid`, re-pointing a notification needs
+    // `recipientUid == request.auth.uid`, deleting the old profile needs to own
+    // it, and un-writing a follow needs to be its follower. All of those read
+    // the *old* uid, which the caller no longer is. Attempting them buys a
+    // burst of permission-denied noise and moves nothing.
+    return { ok: false, strandedRecipes: recipeDocs.length - movedRecipes };
   }
 
   // Migrate favorites
@@ -805,6 +843,12 @@ export async function migrateFirestoreUid(
     batch.set(doc(firestore, 'follows', newFollowId), { ...data, followingId: newUid });
     await batch.commit();
   }
+
+  // Recipes are what the notice is about, and they moved. Anything that failed
+  // after them is a favourite, notification, follow or profile row — worth
+  // knowing about via the error beacon once it exists, but not worth telling the
+  // user their catalog is stranded when it is not.
+  return { ok: true, strandedRecipes: 0 };
 }
 
 // --- Views ---
