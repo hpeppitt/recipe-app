@@ -125,6 +125,27 @@ configured at all both mean "treat the user as owner".
 Consequence: a display name in a recipe can go stale relative to the profile. Accepted —
 the alternative is a lookup per card.
 
+### Edits apply in place, not as a new tree node (2026-07-31)
+
+Manual editing writes to the same recipe id, keeping the recipe's position in the tree.
+Edit-as-new-version — appending a child node per edit — was rejected: it burns the tree's
+legibility on typo fixes, and the branching tree is reserved for intentional variations.
+
+Consequences, both accepted: in-place edits are **not versioned**, so a favouriter can see a
+recipe change under them (as on every recipe site); and there is deliberately no second,
+hidden edit history, which would double the data model for an audit trail nobody asked for.
+
+Two boundaries worth knowing. `draftToPatch` names its twelve content fields explicitly
+rather than spreading, so an edit can never reach `createdBy`, `id`, `parentId`, `rootId`,
+`depth`, `collaborators` or `chatHistory` — identity and tree position are not editable
+content, and rules would reject a `createdBy` change anyway. And an edit re-publishes only
+when a published copy already exists: `publishRecipe` would otherwise take its create path
+and publish a recipe the user never chose to share, since editing is not a decision to
+publish.
+
+`totalTime` is derived from prep + cook rather than being a third editable field, because
+three independently editable times can disagree and the app renders the total.
+
 ### Suggestion replies as a subcollection, not an array (UX-37)
 
 `suggestions/{id}/messages` rather than a `replies` array on the parent, because the

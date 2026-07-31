@@ -4,6 +4,7 @@ import { AppShell } from './components/layout/AppShell';
 import { LibraryPage } from './pages/LibraryPage';
 import { RecipeChatPage } from './pages/RecipeChatPage';
 import { RecipeDetailPage } from './pages/RecipeDetailPage';
+import { RecipeEditPage } from './pages/RecipeEditPage';
 import { VersionTreePage } from './pages/VersionTreePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharedRecipePage } from './pages/SharedRecipePage';
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/create" element={<RecipeChatPage />} />
           <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
           <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+          <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
           <Route path="/shared" element={<SharedRecipePage />} />
           <Route path="/shared/:id" element={<SharedRecipePage />} />

@@ -33,6 +33,12 @@ release, newest first.
 - `Button` accepts `as="a"`, so an action that is genuinely a link can look like a button
   without a hand-rolled copy of its classes.
 
+- **Manual recipe editing for owners** at `/recipe/:id/edit`, reached from Edit in the recipe
+  menu. Every content field is editable; steps renumber themselves; total time is worked out
+  from prep plus cook. Edits apply in place, so the recipe keeps its position in the version
+  tree — fixing a typo no longer means spending an AI generation and forking the tree. Leaving
+  with unsaved changes asks first, including on browser back and the iOS swipe gesture.
+
 ### Changed
 
 - **Recipe generation enforces its output shape** at the model layer via `responseSchema`

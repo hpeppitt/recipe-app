@@ -20,7 +20,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 | Variations (branching) | shipped | firebase + appcheck | `/recipe/:id/vary` | Parent recipe is passed as context; child gets `parentId`, `rootId`, `depth`. |
 | Version tree view | shipped | local | `pages/VersionTreePage.tsx`, `lib/tree.ts` | Renders the whole tree from `rootId`. Cloud-only recipes (published by someone else, never local) have no local tree to draw. |
 | Lineage breadcrumb + variation chips | shipped | local | `components/recipe/LineageBreadcrumb.tsx`, `VariationChips.tsx` | |
-| Manual recipe editing | **cut for now** | — | — | The largest known product gap. Recipes are immutable except by AI variation. Roadmap item 2.1. |
+| Manual recipe editing | shipped | local (cloud re-publish needs firebase) | `pages/RecipeEditPage.tsx`, `lib/recipeEdit.ts`, `/recipe/:id/edit` | Owner only, enforced in the page and independently in rules. Edits in place on the same id, so the recipe keeps its tree position. Every content field is editable except `totalTime`, which is derived from prep + cook. Steps are renumbered on save. Re-publishes only if a published copy already exists — editing is not a decision to publish. **Not versioned**: a favouriter can see the recipe change under them, which is how every recipe site works. |
 | Recipe photos | **cut permanently** | — | — | Text-first by decision. No speculative `imageUrl` field. |
 | Delete a recipe | shipped | auth | `pages/RecipeDetailPage.tsx`, `services/firestore.ts` (`deletePublishedRecipeTree`) | Owner only. Cascades to the cloud copy and the subtree. |
 | Per-serving macro estimates | shipped | firebase + appcheck | `components/recipe/NutritionPanel.tsx`, `types/recipe.ts` (`Nutrition`) | Optional field: recipes generated before it exists render no panel. Estimates come from the model, not a nutrition database. |
@@ -76,7 +76,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 | Import recipes | shipped | local | `lib/import.ts` | Validates and reports counts; skips malformed entries rather than failing the batch. No dedup on import. |
 | Clear local recipes | shipped | local | `SettingsPage` | Named for what it does: local only. Cloud copies survive by decision — withdrawing a published recipe means deleting it individually. |
 | Local-only favorites | **cut** | — | — | Would orphan on sign-in with no migration path. The control stays hidden when signed out. |
-| GA4 analytics | shipped | firebase + `VITE_FIREBASE_MEASUREMENT_ID` | `services/analytics.ts` | Events: `sign_in`, `sign_out`, `recipe_created`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited`, `suggestion_submitted`, `suggestion_reviewed`, `profile_updated`, `user_followed`, `user_unfollowed`. |
+| GA4 analytics | shipped | firebase + `VITE_FIREBASE_MEASUREMENT_ID` | `services/analytics.ts` | Events: `sign_in`, `sign_out`, `recipe_created`, `recipe_updated`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited`, `suggestion_submitted`, `suggestion_reviewed`, `profile_updated`, `user_followed`, `user_unfollowed`. |
 | Client error reporting | **not built** | — | — | Nothing surfaces a client-side failure today. Roadmap 1.2, and the reason several limits in this table are stated as "silently". |
 | View counts | partial | firebase | `services/firestore.ts` (`incrementRecipeViews`) | Raw increments per page load, not unique per user. Deliberate. |
 
@@ -87,6 +87,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 | `/` | LibraryPage | open |
 | `/create` | RecipeChatPage | auth-gated |
 | `/recipe/:id` | RecipeDetailPage | open; owner actions conditional |
+| `/recipe/:id/edit` | RecipeEditPage | owner only; refuses with an explanation otherwise |
 | `/recipe/:id/vary` | RecipeChatPage | auth-gated |
 | `/recipe/:id/tree` | VersionTreePage | open |
 | `/settings` | SettingsPage | open |

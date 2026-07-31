@@ -128,6 +128,21 @@ Places designed to be replaced, worth knowing before you change them:
 - **`migrateFirestoreUid`** (`services/firestore.ts`) — the known-broken seam. Client-side
   cross-uid migration is correctly denied by rules; a real fix needs the Admin SDK.
 
+## The unsaved-work guard
+
+Two pages hold work that exists only in component state: `RecipeChatPage` (a generated
+recipe before it is saved) and `RecipeEditPage` (a dirty form). Both use
+`hooks/useUnsavedGuard.ts`, which parks a sentinel history entry while there is work to
+protect; the first Back pops the sentinel instead of leaving, the handler re-pushes it so the
+user stays put, and the host opens its discard dialog. `beforeunload` covers reload and tab
+close.
+
+It is a hook rather than two copies because the mechanism is subtle and the reasoning behind
+it was expensive — `useBlocker` does not work here, see [decisions.md](decisions.md). The
+callback is held in a ref so the effect's deps stay `[active]`; a changing callback identity
+would push a fresh sentinel every render and stack entries the user has to Back through one
+by one.
+
 ## Routing
 
 Plain `BrowserRouter` with `<Routes>`, not `createBrowserRouter`. That migration was

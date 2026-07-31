@@ -324,7 +324,28 @@ into your circle's library.
 Theme: the core object gains ownership and kitchen reality. Demo: edit a typo in your own
 recipe on your phone in airplane mode, scale it to 6 servings, and cook from it.
 
-- **2.1 Manual recipe editing for owners.**
+- **2.1 Manual recipe editing for owners.** **LANDED 2026-07-31.** Taken out of phase order:
+  Phase 1's remaining items (1.2, 1.6) are both blocked on a production rules deploy and an
+  invite-mechanism decision, and this needed neither — the deployed `isOwnerUpdate` rule
+  already permits it, as scoped below.
+  Shipped as a sibling `RecipeEditPage` at `/recipe/:id/edit` rather than a mode on
+  `RecipeDetailPage`, which is already ~700 lines. Pure form logic in `lib/recipeEdit.ts`
+  (24 tests): draft/patch conversion, validation, step renumbering, dirty detection through
+  a normalised draft so numeric fields do not report phantom changes. `updateRecipe` already
+  existed with the get+put pattern, and `publishRecipe`'s `{ merge: true }` update path is
+  reused, so counters survive.
+  Two decisions worth noting, both in `docs/decisions.md`: `draftToPatch` names its twelve
+  content fields rather than spreading, so an edit cannot reach `createdBy`/`rootId`/`depth`;
+  and an edit re-publishes **only if a published copy already exists**, since editing is not
+  a decision to publish.
+  Also extracted the unsaved-work guard from `RecipeChatPage` into `hooks/useUnsavedGuard.ts`
+  and shared it, rather than copying that history-sentinel logic.
+  Verified in the browser against a local fixture: load, edit, delete an ingredient, delete a
+  step, save, and confirm persistence in IndexedDB with `createdBy`, `rootId` and `depth`
+  untouched; browser-back with a dirty form intercepted and the discard dialog shown; and a
+  cloud recipe owned by someone else refused with an explanation. Found and fixed one real
+  layout bug while doing it (a `w-full` in the shared field class defeated the per-field
+  widths and pushed the ingredient name input out of view). 193 tests pass.
   Why now: the single largest product gap. Every recipe is currently immutable except by
   a billed AI variation, which punishes the most common intent (fix a quantity, reword a
   step) and pollutes the tree with correction forks.
