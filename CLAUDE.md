@@ -34,7 +34,7 @@ Recipe Lab — a recipe management app with AI-powered recipe generation and bra
 - **`AUDIT.md`** (repo root) is the working backlog: checkboxed findings with IDs (SEC/INFRA/FUN/UI) grouped by severity. Fix top-down within a band.
 - **`/audit-next`** fixes exactly one AUDIT.md finding, verifies it, checks it off, and commits (`Fix <ID>: ...`). Loopable via `/loop /audit-next`.
 - **`/preflight`** is the pre-commit gate: build + lint + tests + mobile-viewport browser smoke test of the core flows.
-- **Subagents**: `ui-reviewer` (run after UI/component changes) and `data-integrity-reviewer` (run after changes to `firestore.ts`, `src/db/`, favorites/recipe-chat hooks, or `firestore.rules`). Both read-only.
+- **Subagents**: `ui-reviewer` (run after UI/component changes) and `data-integrity-reviewer` (run after changes to `firestore.ts`, `src/db/`, favorites/recipe-chat hooks, or `firestore.rules`). Both read-only. `roadmap-architect` (Fable) reviews the whole app and writes `ROADMAP.md` — the strategic layer above AUDIT.md; use it for "what next / how to prioritise", not for individual fixes.
 - A PostToolUse hook (`.claude/hooks/typecheck-lint.sh`) runs `tsc -b` + ESLint after every edit to `src/**/*.ts(x)` and feeds errors back automatically.
 - New pure logic in `src/db`/`src/lib` should come with tests; use `src/test/factories.ts` (`makeRecipe`, `makeIngredient`).
 
