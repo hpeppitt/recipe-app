@@ -33,6 +33,9 @@ release, newest first.
 - `Button` accepts `as="a"`, so an action that is genuinely a link can look like a button
   without a hand-rolled copy of its classes.
 
+- **Serving scaling.** A stepper above the ingredients rescales the amounts for the number of
+  people you are actually cooking for. Display only, never saved, and it resets when you move
+  to another recipe. Times and the per-serving nutrition figures deliberately stay put.
 - **Manual recipe editing for owners** at `/recipe/:id/edit`, reached from Edit in the recipe
   menu. Every content field is editable; steps renumber themselves; total time is worked out
   from prep plus cook. Edits apply in place, so the recipe keeps its position in the version

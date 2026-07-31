@@ -1,16 +1,39 @@
+import { useState, useMemo } from 'react';
 import type { Recipe } from '../../types/recipe';
 import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
 import { InstructionList } from './InstructionList';
 import { NutritionPanel } from './NutritionPanel';
 import { TagList } from './TagList';
+import { ServingStepper } from './ServingStepper';
+import { scaleRecipe } from '../../lib/scale';
 
 interface RecipeContentProps {
   recipe: Recipe;
   compact?: boolean;
 }
 
-export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
+/**
+ * Keyed on the recipe id so the serving-scale state resets when the recipe
+ * changes identity.
+ *
+ * This wrapper is not ceremony. `RecipeDetailPage` stays mounted when navigating
+ * from one recipe to another — same route, different param — so without the key
+ * a scale chosen on one recipe would silently carry over to the next one, showing
+ * amounts for a serving count the new recipe never mentioned. Keying here rather
+ * than at each call site means no caller has to remember.
+ */
+export function RecipeContent(props: RecipeContentProps) {
+  return <RecipeContentBody key={props.recipe.id} {...props} />;
+}
+
+function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
+  // Display-only, and deliberately not persisted: cooking for eight tonight says
+  // nothing about next time, and a recipe that silently remembered a scale would
+  // eventually mislead.
+  const [servings, setServings] = useState(recipe.servings);
+  const scaled = useMemo(() => scaleRecipe(recipe, servings), [recipe, servings]);
+
   return (
     <div className="space-y-5">
       <div>
@@ -29,20 +52,33 @@ export function RecipeContent({ recipe, compact = false }: RecipeContentProps) {
         prepTime={recipe.prepTime}
         cookTime={recipe.cookTime}
         totalTime={recipe.totalTime}
-        servings={recipe.servings}
+        servings={scaled.servings}
         difficulty={recipe.difficulty}
       />
+
+      {/* Above the ingredients, because that is the only thing it changes.
+          Hidden in the compact preview, where the recipe is a proposal rather
+          than something being cooked from. */}
+      {!compact && (
+        <ServingStepper
+          servings={scaled.servings}
+          original={recipe.servings}
+          onChange={setServings}
+        />
+      )}
 
       {/* Cook-along ticks only on the full view. In the collapsed parent-recipe
           preview the recipe is context, not something being cooked. */}
       {/* Above the ingredients: someone deciding whether to cook this wants the
           macros before the shopping list, not after the method. Renders nothing
           when the recipe has no estimates. */}
+      {/* Nutrition is per serving, so scaling leaves the figures alone; only the
+          "of N" count it reports follows the stepper. */}
       {!compact && (
-        <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
+        <NutritionPanel nutrition={recipe.nutrition} servings={scaled.servings} />
       )}
 
-      <IngredientList ingredients={recipe.ingredients} checkable={!compact} />
+      <IngredientList ingredients={scaled.ingredients} checkable={!compact} />
       <InstructionList instructions={recipe.instructions} checkable={!compact} />
 
       {recipe.notes.length > 0 && (
