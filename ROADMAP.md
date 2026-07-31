@@ -266,7 +266,18 @@ into your circle's library.
   the rules denial is correct and AUDIT.md already documents why.
   Cost: S. Risk: none beyond copy quality.
 
-- **1.4 Enforce `responseSchema` on the AI Logic model config.**
+- **1.4 Enforce `responseSchema` on the AI Logic model config.** **LANDED 2026-07-31.**
+  Schema built with the SDK's `Schema` builders in `schemas/recipe.responseSchema.ts` and
+  passed as `responseSchema`. Went further than scoped on one point: `lib/prompts.ts` now
+  serialises that same object into the system prompt instead of keeping the hand-written
+  copy, so the two cannot drift — the old copy had nothing keeping it honest. Zod stays as
+  the gate, and a test asserts its key set matches the response schema's. `parseRecipeJson`'s
+  fence-and-comma repair is now expected to be dead code and is kept only because it is two
+  regexes on a string already in memory.
+  Verified against the live project rather than statically: two real generations, the first
+  deliberately including "salt to taste" to exercise the nullable amount/unit path, plus a
+  multi-turn refinement to cover the chat session. Both rendered correctly with no console
+  errors, and neither was saved, so nothing was published. 169 tests pass.
   Why now: RISK-1 mitigation 1, already scoped in AUDIT.md as "cheap, worth doing
   anyway"; it narrows the arbitrary-prompt surface and should remove most of the JSON
   repair in `parseRecipeJson`.

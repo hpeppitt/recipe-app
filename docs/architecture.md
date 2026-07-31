@@ -71,14 +71,24 @@ Google-hosted proxy. This is the single most important architectural fact:
   and why localhost needs a registered debug token.
 - Prompts are still constructed client-side (`lib/prompts.ts`). This is a known and
   accepted limit: a determined user can send arbitrary prompts through your quota. The
-  accepted mitigation is App Check plus enforcing `responseSchema` at the model layer
-  (roadmap 1.4). The undeployed `functions/generateRecipe` is the escalation path if abuse
-  ever appears — it owns the prompts server-side and rate-limits per account, but it needs
-  the Blaze plan and would end the free Gemini tier.
+  accepted mitigation is App Check plus a `responseSchema` on the model config, which is
+  now in place — it does not stop a misused request, it narrows what one can *return* to
+  "a valid recipe". The undeployed `functions/generateRecipe` is the escalation path if
+  abuse ever appears — it owns the prompts server-side and rate-limits per account, but it
+  needs the Blaze plan and would end the free Gemini tier.
+
+**One schema, three consumers.** `schemas/recipe.responseSchema.ts` builds the recipe shape
+with the SDK's `Schema` builders. `gemini.ts` passes it as `responseSchema`, and
+`lib/prompts.ts` serialises the *same object* into the system prompt rather than keeping a
+hand-written second copy — that copy existed until 2026-07-31 and nothing kept it in step.
+Zod (`schemas/recipe.schema.ts`) is a deliberate fourth description, hand-written because
+`zod-to-json-schema` is incompatible with Zod v4; a test asserts the two agree on their key
+set so they cannot drift silently.
 
 Output is trusted at exactly one boundary: `parseRecipeJson` strips code fences and
-trailing commas, then a Zod schema (`schemas/recipe.schema.ts`) is the gate. Keep the Zod
-pass even after 1.4 lands — a model config is a request hint, not a guarantee.
+trailing commas, then Zod is the gate. Keep the Zod pass — a model config is a request hint,
+not a guarantee. The fence-and-comma repair should now be dead code and is kept only because
+it is two regexes on a string already in memory.
 
 ## Auth and ownership
 

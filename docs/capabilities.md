@@ -14,7 +14,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 
 | Feature | Status | Gate | Where | Notes and limits |
 |---|---|---|---|---|
-| AI recipe generation from a chat prompt | shipped | firebase + appcheck + auth | `services/gemini.ts`, `pages/RecipeChatPage.tsx`, `hooks/useRecipeChat.ts` | Model is `gemini-3.6-flash` via Firebase AI Logic. In local-only mode the composer is disabled with an explanatory notice — there is no proxy to call. |
+| AI recipe generation from a chat prompt | shipped | firebase + appcheck + auth | `services/gemini.ts`, `pages/RecipeChatPage.tsx`, `hooks/useRecipeChat.ts` | Model is `gemini-3.6-flash` via Firebase AI Logic, with a `responseSchema` on the model config so the shape is enforced rather than merely requested. In local-only mode the composer is disabled with an explanatory notice — there is no proxy to call. |
 | Multi-turn refinement in one session | shipped | firebase + appcheck | `services/gemini.ts` (`toChatSession`) | History is managed by the AI Logic SDK, not reassembled client-side. |
 | Save a generated recipe | shipped | local (cloud publish needs firebase) | `hooks/useRecipeChat.ts` | Dual write: Dexie always, Firestore when configured. In-flight guard plus a disabled "Saving…" button prevents double-tap duplicates. |
 | Variations (branching) | shipped | firebase + appcheck | `/recipe/:id/vary` | Parent recipe is passed as context; child gets `parentId`, `rootId`, `depth`. |

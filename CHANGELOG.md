@@ -33,6 +33,13 @@ release, newest first.
 - `Button` accepts `as="a"`, so an action that is genuinely a link can look like a button
   without a hand-rolled copy of its classes.
 
+### Changed
+
+- **Recipe generation enforces its output shape** at the model layer via `responseSchema`
+  rather than only asking for it in the prompt. Narrows what a misused request can return to
+  a valid recipe. The prompt's schema text is now serialised from that same object, replacing
+  a hand-written second copy that nothing kept in step with it.
+
 ### Removed
 
 - Root dependency on `@google/genai`. Nothing in `src/` has imported it since generation

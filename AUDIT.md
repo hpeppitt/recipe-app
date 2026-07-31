@@ -1837,6 +1837,11 @@ that failure mode entirely, so it is not listed.
   Mitigations in increasing order of effort, if it ever bites:
   1. Enforce `responseSchema` on the model config so output must be a valid recipe — cheap,
      and worth doing anyway since `lib/prompts.ts` already hardcodes the JSON schema.
+     (DONE 2026-07-31 as roadmap 1.4. `schemas/recipe.responseSchema.ts` is now the one
+     source of the shape: the model config enforces it and `lib/prompts.ts` serialises the
+     same object into the prompt, replacing the hardcoded copy this note refers to. Zod
+     remains the gate. Verified with two live generations. Mitigation 2 is rejected outright
+     and 3 is trigger-gated, so this is the whole of the accepted mitigation for RISK-1.)
   2. Constrain input to structured fields (cuisine, ingredients, dietary dropdowns) instead
      of free text, which removes the arbitrary-prompt surface rather than policing it.
   3. Route generation through `functions/` — the Gemini proxy Cloud Function is already

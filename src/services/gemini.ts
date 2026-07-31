@@ -1,5 +1,6 @@
 import { getAI, getGenerativeModel, GoogleAIBackend, type ChatSession as AIChatSession } from 'firebase/ai';
 import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
+import { RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
 import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
 import { firebaseApp } from './firebase';
 import type { GeneratedRecipe } from '../types/api';
@@ -30,10 +31,14 @@ function buildModel(systemInstruction: string) {
   return getGenerativeModel(ai, {
     model: MODEL,
     systemInstruction,
-    // Kept as prompt-requested JSON rather than a responseSchema for now — see
-    // RISK-1 mitigation 1 in AUDIT.md. The schema lives in lib/prompts.ts as a
-    // string and converting it to the SDK's Schema builders is untested work.
-    generationConfig: { responseMimeType: 'application/json' },
+    // RISK-1 mitigation 1: the shape is enforced at the model layer, not merely
+    // asked for in the prompt. Prompts are still built client-side, so this does
+    // not stop a misused request — it narrows what one can return to "a valid
+    // recipe", which removes most of the point of trying.
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: RECIPE_RESPONSE_SCHEMA,
+    },
   });
 }
 
@@ -42,6 +47,13 @@ export interface ChatSession {
 }
 
 function parseRecipeJson(text: string): GeneratedRecipe {
+  // The repair below should now be dead code: with a responseSchema on the model
+  // config, the response is constrained JSON rather than JSON-in-prose. It stays
+  // because it costs two regexes on a string that is already in memory, and
+  // because a model config is a request hint — if a future model or a
+  // rate-limited fallback ever returns fenced output again, this is the
+  // difference between a working generation and a parse error the user sees.
+
   // Strip markdown code fences if present
   let cleaned = text.replace(/```(?:json)?\s*/g, '').replace(/```\s*/g, '').trim();
 
@@ -49,6 +61,8 @@ function parseRecipeJson(text: string): GeneratedRecipe {
   cleaned = cleaned.replace(/,\s*([}\]])/g, '$1');
 
   const parsed = JSON.parse(cleaned);
+  // Zod is the actual gate. The model config narrows what arrives; this is what
+  // refuses to trust it.
   return GeneratedRecipeSchema.parse(parsed);
 }
 

@@ -95,9 +95,16 @@ hop there is nowhere for per-account rate limiting to run.
 
 Accepted as a deliberate trade for avoiding Blaze. Watch for unexplained quota consumption
 or generations that do not look like recipes. Mitigations in order of effort: enforce
-`responseSchema` on the model config (roadmap 1.4, cheap, worth doing anyway); constrain
-input to structured fields (**rejected** — it would gut the app's best interaction to solve
-an abuse problem the other two address); route through `functions/` (needs Blaze).
+`responseSchema` on the model config (**done 2026-07-31**); constrain input to structured
+fields (**rejected** — it would gut the app's best interaction to solve an abuse problem the
+other two address); route through `functions/` (needs Blaze).
+
+The schema is one object with three consumers rather than three hand-written copies: the
+model config enforces it, the system prompt serialises it, and Zod re-describes it as the
+trust boundary (necessarily by hand, since `zod-to-json-schema` is incompatible with Zod v4 —
+a test asserts the two key sets match). Verified against the live project with two real
+generations, including an ingredient with no amount or unit ("salt to taste"), which is the
+nullable path a schema mismatch would most likely break.
 
 ### Firestore as its own error sink, not Sentry (planned, roadmap 1.2)
 
