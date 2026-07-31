@@ -99,8 +99,15 @@ surfaces at edit time rather than at commit time.
 - `roadmap-architect` — not a gate. Reviews the whole app and rewrites `ROADMAP.md`; use it
   for "what next", not for individual fixes.
 
-**CI does not exist yet.** The 0-error, 153-test baseline is currently protected by local
-habit alone; PR #4 merged with no remote gate. Roadmap 1.1.
+**CI** (`.github/workflows/ci.yml`) runs `npm ci`, `npm run build`, `npm run lint`, and
+`npm test` on every pull request and every push to `main`, on Node 22. `npm ci` rather than
+`npm install` so a `package.json`/lockfile mismatch fails the gate instead of silently
+rewriting the lockfile. In-flight runs are cancelled when the same branch is pushed again.
+
+CI deliberately does **not** replicate `/preflight`'s browser smoke test: that needs a booted
+preview server and the emulator suite, and the payoff-to-flake ratio is wrong until there are
+component tests to anchor it. The tests it does run are node plus `fake-indexeddb`, so the
+job needs no secrets and no emulators — if that changes, the job needs secrets adding.
 
 ## Backlogs
 

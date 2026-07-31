@@ -145,7 +145,15 @@ collection you scan) showing real client errors from a real device, CI badge gre
 honest in-app message on the one identity-loss path, and a stranger who cannot publish
 into your circle's library.
 
-- **1.0 Documentation knowledgebase.** (Added 2026-07-31. Numbered 1.0 deliberately: it is
+- **1.0 Documentation knowledgebase.** **LANDED 2026-07-31.** Shipped as proposed: `docs/`
+  with the five files below, `CHANGELOG.md` reconstructed from git with no retrofitted
+  semver, `README.md` rewritten as the front door, and `CLAUDE.md` demoted to a pointer. All
+  three predicted drifts were confirmed and fixed (root `@google/genai` removed;
+  `VITE_USE_EMULATORS` and the emulator scripts documented; the collection list corrected to
+  eight surfaces). The open sub-decision was resolved to the cheapest option — a pointer
+  convention in `CLAUDE.md` plus a `docs/` drift step in `/preflight` that warns rather than
+  fails — recorded in `docs/decisions.md` as an assistant's call and cheap to overrule.
+  (Added 2026-07-31. Numbered 1.0 deliberately: it is
   step one, and renumbering 1.1 through 1.6 would invalidate the cross-references in
   Sequencing Rationale and Phase 4.)
   Why now: this is the record of what the app is, what it can do, and what was decided,
@@ -209,7 +217,10 @@ into your circle's library.
   a diff against `docs/` and reports drift the way `ui-reviewer` reports UI regressions.
   Worth deciding before the docs exist, because it shapes how they are structured.
 
-- **1.1 CI: build + lint + test on every PR.**
+- **1.1 CI: build + lint + test on every PR.** **LANDED 2026-07-31.** Shipped as proposed:
+  `.github/workflows/ci.yml`, Node 22, `npm ci` (so a lockfile mismatch fails the gate) then
+  build, lint, test, on pull requests and pushes to `main`, with in-flight runs cancelled per
+  branch. Browser smoke test deliberately left out, as scoped below.
   Why now: the 153-test, 0-error baseline is the project's most valuable asset and it is
   currently protected only by local habit; PR #4 merged with no remote gate.
   Where: `.github/workflows/ci.yml` running `npm run build`, `npm run lint`, `npm test`.

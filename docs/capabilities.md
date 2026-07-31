@@ -76,7 +76,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 | Clear local recipes | shipped | local | `SettingsPage` | Named for what it does: local only. Cloud copies survive by decision — withdrawing a published recipe means deleting it individually. |
 | Local-only favorites | **cut** | — | — | Would orphan on sign-in with no migration path. The control stays hidden when signed out. |
 | GA4 analytics | shipped | firebase + `VITE_FIREBASE_MEASUREMENT_ID` | `services/analytics.ts` | Events: `sign_in`, `sign_out`, `recipe_created`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited`, `suggestion_submitted`, `suggestion_reviewed`, `profile_updated`, `user_followed`, `user_unfollowed`. |
-| Client error reporting | **not built** | — | — | Nothing surfaces a client-side failure today. Roadmap 1.2. |
+| Client error reporting | **not built** | — | — | Nothing surfaces a client-side failure today. Roadmap 1.2, and the reason several limits in this table are stated as "silently". |
 | View counts | partial | firebase | `services/firestore.ts` (`incrementRecipeViews`) | Raw increments per page load, not unique per user. Deliberate. |
 
 ## Routes

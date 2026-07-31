@@ -21,6 +21,9 @@ release, newest first.
   template as the front door. `CLAUDE.md` demoted to a pointer so each fact has one home.
 - `ROADMAP.md` and the `roadmap-architect` subagent: the strategic layer above `AUDIT.md`,
   with four phases, sequencing rationale, and an explicit not-doing list.
+- **CI.** `.github/workflows/ci.yml` runs build, lint, and tests on every pull request and
+  every push to `main`. The 0-error, 153-test baseline was previously protected by local
+  habit alone.
 
 ### Removed
 
