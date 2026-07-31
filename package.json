@@ -14,7 +14,6 @@
     "dev:emulated": "VITE_USE_EMULATORS=true vite"
   },
   "dependencies": {
-    "@google/genai": "^1.41.0",
     "dexie": "^4.3.0",
     "dexie-react-hooks": "^4.2.0",
     "firebase": "^12.9.0",
