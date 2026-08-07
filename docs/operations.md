@@ -78,6 +78,23 @@ the AI Logic path. It is kept as a written, ready escalation path — see
 Hosting serves `dist/` with a catch-all rewrite to `index.html`, which client-side routing
 requires.
 
+**Cache headers are load-bearing.** `firebase.json` sets `Cache-Control: no-cache` on
+everything and then overrides `/assets/**` to a year with `immutable`. Firebase Hosting's
+default is `max-age=3600` on every file, which is exactly wrong for a Vite SPA: `index.html`
+names the content-hashed bundle, so an hour of caching on it means a returning visitor keeps
+loading the *previous* build and a deploy appears not to have happened. This bit on
+2026-08-07. Hashed asset URLs can never change their bytes, so caching those hard is free.
+
+Verify after a deploy by checking the headers rather than trusting the CLI's success message:
+
+```bash
+curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/            # expect no-cache
+curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/assets/…js  # expect immutable
+```
+
+A deploy that changed `index.html` is confirmed live when the bundle hash it references
+matches the one in your local `dist/assets/`.
+
 ## Verification gates
 
 **`/preflight`** is the pre-commit gate: `npm run build`, `npm run lint`, `npm test`, then a
