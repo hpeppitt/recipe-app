@@ -17,6 +17,28 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "headers": [
+      {
+        "//": "Firebase Hosting defaults every file to max-age=3600. For a Vite SPA that is exactly wrong on the entry point: index.html names the hashed bundle, so an hour of caching means a returning visitor keeps loading the *previous* build and a deploy looks like it never happened. Must stay no-cache.",
+        "source": "/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "//": "Asset filenames are content-hashed by Vite, so a given URL's bytes can never change. Cache them for a year. Listed after the catch-all deliberately: for a path matching both, the later rule wins.",
+        "source": "/assets/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
+        ]
+      }
+    ],
     "rewrites": [
       {
         "source": "**",
