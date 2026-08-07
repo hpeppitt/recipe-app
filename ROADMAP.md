@@ -362,7 +362,19 @@ recipe on your phone in airplane mode, scale it to 6 servings, and cook from it.
   Risk: divergence between local and published copies on partial failure; reuse the
   FUN-5 confirm-then-write discipline, and the beacon (1.2) catches the residue.
 
-- **2.2 Serving scaling.**
+- **2.2 Serving scaling.** **LANDED 2026-07-31.** Pure `scaleRecipe`/`scaleIngredients` in
+  `lib/scale.ts` (21 tests, weighted to the ugly cases the note below names), a
+  `ServingStepper` above the ingredients, display-only and never persisted.
+  Scope is narrower than "scale the recipe", on purpose: **times do not scale** (doubling a
+  traybake does not double its roasting time), nutrition is already per serving, and
+  instruction text is untouched because "divide into 12 balls" cannot be fixed by arithmetic.
+  That last one is a stated limit of the feature.
+  Rounding is magnitude-dependent, and counts round to halves with a floor of ½ so a small
+  factor never renders as "0 eggs" — which reads as "omit this ingredient".
+  Also fixed a bug found while writing it: `RecipeContent` now keys its body on the recipe id,
+  because `RecipeDetailPage` stays mounted across a recipe-to-recipe navigation and a scale
+  chosen on one recipe would otherwise carry silently to the next. Verified by scaling a
+  variation to 4 and navigating to its parent, which correctly showed its own 2.
   Why now: cheap, high daily-use value, and the machinery is mostly built:
   `lib/units.ts` (414 lines, 218 test lines) already normalizes amounts and converts
   volume to weight.

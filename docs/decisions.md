@@ -125,6 +125,31 @@ configured at all both mean "treat the user as owner".
 Consequence: a display name in a recipe can go stale relative to the profile. Accepted —
 the alternative is a lookup per card.
 
+### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
+
+Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view
+concern, and would put the same dish in the shared library twice at different sizes.
+
+What deliberately does **not** scale is the interesting part:
+
+- **Times.** Doubling a traybake does not double its roasting time. A recipe that claimed
+  otherwise would be wrong in a way that ruins dinner.
+- **Nutrition.** Already per serving, so invariant; scaling would double-count.
+- **Instruction text.** "Divide into 12 balls" cannot be rewritten safely by arithmetic, and
+  a half-rewritten method is worse than one the cook adjusts themselves. A real limit of the
+  feature, stated rather than hidden.
+
+Rounding is deliberately coarse and magnitude-dependent, because nobody measures 237.5 g.
+Counts (an ingredient with no unit — eggs, onions) round to halves with a floor of ½: a small
+factor producing "0 eggs" reads as "omit this ingredient". Amounts under 1 snap to the
+fractions the renderer can actually draw, except below an eighth, where honest arithmetic
+beats a fraction that overstates.
+
+`RecipeContent` keys its body on the recipe id. Without that, `RecipeDetailPage` stays mounted
+across a recipe-to-recipe navigation, so a scale chosen on one recipe would silently carry to
+the next — showing amounts for a serving count that recipe never mentioned. Verified by
+scaling a variation and then navigating to its parent.
+
 ### Edits apply in place, not as a new tree node (2026-07-31)
 
 Manual editing writes to the same recipe id, keeping the recipe's position in the tree.
