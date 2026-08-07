@@ -56,6 +56,38 @@ Look for `[firebase] using local emulators; no live data is being touched` in th
 Emulator data is discarded when the process stops. Ports and the emulator UI are configured
 in `firebase.json`.
 
+**Java is required and is not on `PATH`.** The emulators are Java processes. A JDK is installed
+via Homebrew but unlinked, so `java -version` fails until you prefix:
+
+```bash
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+```
+
+### Testing magic-link sign-in without sending email
+
+This is the only practical way to test the auth flows, and it is how the 2026-08-07 upgrade bug
+was found. The Auth emulator records the link instead of mailing it:
+
+```bash
+P=recipe-lab-3832b
+# the pending magic links, newest last
+curl -s "http://127.0.0.1:9099/emulator/v1/projects/$P/oobCodes"
+# every account, to check whether an upgrade linked in place or forked
+curl -s -X POST "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/$P/accounts:query" \
+  -H "Authorization: Bearer owner" -H "Content-Type: application/json" -d '{}'
+# wipe between runs
+curl -s -X DELETE "http://127.0.0.1:9099/emulator/v1/projects/$P/accounts"
+curl -s -X DELETE "http://127.0.0.1:8080/emulator/v1/projects/$P/databases/(default)/documents"
+```
+
+Navigate to the `oobLink` value to complete a sign-in exactly as a user would. Seeding Firestore
+past the security rules needs `-H "Authorization: Bearer owner"`, which the emulator honours as a
+rules bypass. Clear `localStorage` and the `RecipeAppDB` IndexedDB database between runs too, or
+a stale anonymous session and stored address will mask the behaviour you are testing.
+
+**The success check is the account count.** An upgrade that worked leaves **one** account with
+the email attached and the original uid; a broken one leaves two, the anonymous one orphaned.
+
 ## Deploying
 
 Target project is `recipe-lab-3832b` (`.firebaserc`).

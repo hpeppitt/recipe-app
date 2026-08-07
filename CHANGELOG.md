@@ -14,6 +14,21 @@ release, newest first.
 
 ## Unreleased
 
+### Fixed (2026-08-07)
+
+- **Signing in with email no longer abandons your guest account.** Adding an email to an
+  anonymous account created a second, empty account and left the first one behind, taking
+  everything published under it. The completion ran before Firebase had restored the session, so
+  the code that attaches an email to the existing account could never run. It now waits, and the
+  account is upgraded in place with its uid, recipes, and name intact.
+- **Magic-link problems are no longer silent.** Expired links, already-used links, and links
+  opened in a different browser from the one that requested them all used to leave you on a
+  signed-out page with no explanation. Each now says what happened, and the different-browser
+  case asks for your address and carries on instead of dead-ending.
+- **An email that already has an account is reported honestly** rather than as an expired link.
+- **Hosting no longer caches `index.html` for an hour**, which made deploys look like they had not
+  happened.
+
 ### Added
 
 - **Documentation knowledgebase.** `docs/` with capabilities, architecture, data model,

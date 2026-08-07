@@ -7,6 +7,7 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   linkWithCredential,
+  fetchSignInMethodsForEmail,
   EmailAuthProvider,
   updateProfile,
   signOut as fbSignOut,
@@ -121,58 +122,196 @@ export async function sendEmailLinkForLinking(email: string) {
 export type EmailLinkResult = {
   user: User;
   previousUid: string | null;
+  /** True when the anonymous account was upgraded in place, keeping its uid. */
+  linked: boolean;
 };
 
-export async function completeEmailSignIn(): Promise<EmailLinkResult | null> {
+/**
+ * Why an email-link sign-in could not be completed.
+ *
+ * These used to be indistinguishable from "this page load had no link in the
+ * URL": every one of them ended as a `null` return or a swallowed throw, so the
+ * user clicked their magic link, landed on a signed-out app, and was told
+ * nothing at all.
+ *
+ * - `needs-email`: the link was opened in a different browser or device from the
+ *   one that requested it, so the address is not in this browser's storage.
+ *   Recoverable: ask for the address and retry. This is the single most common
+ *   real-world failure, because mail apps routinely open links in their own
+ *   webview.
+ * - `expired`: the link is expired or has already been used. Not recoverable;
+ *   send a new one.
+ * - `email-taken`: the address already belongs to another account, so the
+ *   anonymous one cannot be upgraded into it, and the attempt spent the link.
+ *   Needs a fresh link, and the user needs to know their anonymous work will not
+ *   come with them.
+ * - `failed`: anything else.
+ */
+export type EmailLinkFailure = {
+  reason: 'needs-email' | 'expired' | 'email-taken' | 'failed';
+  code?: string;
+};
+
+export class EmailLinkError extends Error {
+  // Assigned in the body rather than as a parameter property: this project sets
+  // `erasableSyntaxOnly`, which forbids the shorthand.
+  failure: EmailLinkFailure;
+
+  constructor(failure: EmailLinkFailure) {
+    super(`Email link sign-in failed: ${failure.reason}`);
+    this.name = 'EmailLinkError';
+    this.failure = failure;
+  }
+}
+
+/** True when this page load is a magic-link landing, whatever its outcome. */
+export function isEmailLinkLanding(): boolean {
+  if (!auth) return false;
+  return isSignInWithEmailLink(auth, window.location.href);
+}
+
+/**
+ * Strip the sign-in parameters from the URL.
+ *
+ * Called on failure as well as success. Previously only the success paths did
+ * this, so a failed attempt left `oobCode` in the address bar; reloading then
+ * retried an already-consumed code and failed again, forever, silently.
+ */
+function clearLinkFromUrl(): void {
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+function classifyLinkError(err: unknown): EmailLinkFailure {
+  const code = (err as { code?: string })?.code;
+  if (
+    code === 'auth/expired-action-code' ||
+    code === 'auth/invalid-action-code'
+  ) {
+    return { reason: 'expired', code };
+  }
+  return { reason: 'failed', code };
+}
+
+/**
+ * Complete a magic-link sign-in on page load.
+ *
+ * Returns `null` when this page load is not a link landing at all, which is the
+ * overwhelmingly common case. Throws `EmailLinkError` when it *was* a landing and
+ * could not be completed, so the caller can say so instead of leaving the user on
+ * a signed-out page wondering what happened.
+ *
+ * @param emailOverride Address supplied by the user after a `needs-email`
+ *   failure, for the cross-device case where this browser never stored it.
+ */
+export async function completeEmailSignIn(
+  emailOverride?: string
+): Promise<EmailLinkResult | null> {
   if (!auth) return null;
   if (!isSignInWithEmailLink(auth, window.location.href)) return null;
 
+  // Wait for persistence to be restored before reading currentUser.
+  //
+  // THIS IS THE LOAD-BEARING LINE. Firebase restores the signed-in user from
+  // IndexedDB asynchronously, so on a fresh page load `auth.currentUser` is null
+  // for a moment even when a session exists. This function runs from an effect on
+  // mount, inside that window. Without the await, the anonymous-upgrade branch
+  // below was unreachable: `currentUser` was always null, so every upgrade
+  // silently created a *second* account and abandoned the anonymous one, taking
+  // its published recipes with it. Verified against the Auth emulator, where the
+  // probe read {"currentUser":null,"hasLinkingEmail":true} every time.
+  await auth.authStateReady();
+
   const linkingEmail = getEmailForLinking();
   const signInEmail = localStorage.getItem('emailForSignIn');
+  const email = emailOverride?.trim() || linkingEmail || signInEmail;
 
-  // Try credential linking first (anonymous → email upgrade)
-  if (linkingEmail && auth.currentUser && auth.currentUser.isAnonymous) {
+  const finish = () => {
+    clearEmailForLinking();
+    localStorage.removeItem('emailForSignIn');
+    clearLinkFromUrl();
+  };
+
+  // The link was opened somewhere that never stored the address. Recoverable, so
+  // the URL is deliberately left intact: the caller prompts for the address and
+  // calls back with `emailOverride`, and the code is still needed for that retry.
+  if (!email) {
+    throw new EmailLinkError({ reason: 'needs-email' });
+  }
+
+  const current = auth.currentUser;
+
+  // Anonymous upgrade: attach the email to the existing account so the uid, and
+  // therefore everything published under it, survives.
+  if (current?.isAnonymous) {
+    // Check for an existing account BEFORE attempting to link.
+    //
+    // This ordering is not optional. A `linkWithCredential` that fails with
+    // credential-already-in-use has still consumed the single-use oobCode, so
+    // there is no second attempt available: retrying with the link, or even with
+    // the same credential object, fails with invalid-action-code and the whole
+    // collision reports itself as "expired". Verified against the Auth emulator.
+    //
+    // An empty result is ambiguous rather than conclusive: with email enumeration
+    // protection turned on, this returns [] for addresses that do exist. So a
+    // collision is still handled below, just with honest copy instead of a lie
+    // about the link being expired.
+    let existingMethods: string[] = [];
     try {
+      existingMethods = await fetchSignInMethodsForEmail(auth, email);
+    } catch {
+      // Treat an unknown answer as "probably new" and let the link attempt decide.
+    }
+
+    if (existingMethods.length === 0) {
       const credential = EmailAuthProvider.credentialWithLink(
-        linkingEmail,
+        email,
         window.location.href
       );
-      const result = await linkWithCredential(auth.currentUser, credential);
-      clearEmailForLinking();
-      localStorage.removeItem('emailForSignIn');
-      window.history.replaceState({}, '', window.location.pathname);
-      return { user: result.user, previousUid: null }; // UID stays the same
-    } catch (err: unknown) {
-      // auth/credential-already-in-use: email already has an account
-      // Fall through to regular sign-in + migration
-      const firebaseErr = err as { code?: string };
-      if (firebaseErr.code === 'auth/credential-already-in-use') {
-        const previousUid = auth.currentUser.uid;
-        const result = await signInWithEmailLink(
-          auth,
-          linkingEmail,
-          window.location.href
-        );
-        clearEmailForLinking();
-        localStorage.removeItem('emailForSignIn');
-        window.history.replaceState({}, '', window.location.pathname);
-        return { user: result.user, previousUid };
+      try {
+        const result = await linkWithCredential(current, credential);
+        finish();
+        return { user: result.user, previousUid: null, linked: true };
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        if (
+          code === 'auth/credential-already-in-use' ||
+          code === 'auth/email-already-in-use'
+        ) {
+          // Enumeration protection hid the account from the check above and the
+          // code is now spent. Say exactly that rather than blaming the link.
+          clearLinkFromUrl();
+          throw new EmailLinkError({ reason: 'email-taken', code });
+        }
+        clearLinkFromUrl();
+        throw new EmailLinkError(classifyLinkError(err));
       }
-      // Other errors: clear and fall through
-      clearEmailForLinking();
+    }
+
+    // The email already has an account. Firebase cannot merge two accounts, so
+    // signing into the existing one is the only option and the anonymous identity
+    // is left behind. previousUid drives the migration attempt and the
+    // stranded-recipe notice.
+    try {
+      const previousUid = current.uid;
+      const result = await signInWithEmailLink(auth, email, window.location.href);
+      finish();
+      return { user: result.user, previousUid, linked: false };
+    } catch (err) {
+      clearLinkFromUrl();
+      throw new EmailLinkError(classifyLinkError(err));
     }
   }
 
-  // Regular email sign-in
-  const email = linkingEmail || signInEmail;
-  if (!email) return null;
-
-  const previousUid = auth.currentUser?.isAnonymous ? auth.currentUser.uid : null;
-  const result = await signInWithEmailLink(auth, email, window.location.href);
-  clearEmailForLinking();
-  localStorage.removeItem('emailForSignIn');
-  window.history.replaceState({}, '', window.location.pathname);
-  return { user: result.user, previousUid };
+  // Plain sign-in: no anonymous session to upgrade.
+  try {
+    const previousUid = current?.isAnonymous ? current.uid : null;
+    const result = await signInWithEmailLink(auth, email, window.location.href);
+    finish();
+    return { user: result.user, previousUid, linked: false };
+  } catch (err) {
+    clearLinkFromUrl();
+    throw new EmailLinkError(classifyLinkError(err));
+  }
 }
 
 export async function setDisplayName(name: string) {

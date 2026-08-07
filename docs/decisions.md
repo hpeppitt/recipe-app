@@ -125,6 +125,38 @@ configured at all both mean "treat the user as owner".
 Consequence: a display name in a recipe can go stale relative to the profile. Accepted —
 the alternative is a lookup per card.
 
+### Email-link completion has a required order of operations (2026-08-07)
+
+Three ordering constraints, each learned by watching it fail against the Auth emulator. Change
+any of them and anonymous-account upgrade breaks silently.
+
+**1. Wait for `authStateReady()` before reading `currentUser`.** Firebase restores the signed-in
+user from IndexedDB asynchronously. `completeEmailSignIn` runs from an effect on mount, inside
+that window, so `auth.currentUser` was always `null` and the `currentUser?.isAnonymous` branch
+was unreachable. Every upgrade therefore created a *second* account and abandoned the anonymous
+one along with everything published under it. The probe read
+`{"currentUser":null,"hasLinkingEmail":true}` on every run.
+
+**2. Check for an existing account before attempting to link, not after.** A
+`linkWithCredential` that rejects with `credential-already-in-use` has still **consumed the
+single-use oobCode**. There is no second attempt: retrying with `signInWithEmailLink`, or even
+with the same credential object via `signInWithCredential`, fails `auth/invalid-action-code`,
+so the whole collision reported itself as an expired link. Both fallbacks were tried and
+observed failing. The check is `fetchSignInMethodsForEmail`, and an empty result is treated as
+*probably* new rather than conclusive, because email enumeration protection makes it return `[]`
+for addresses that do exist. That residual case gets its own honest `email-taken` message
+instead of blaming the link.
+
+**3. Clear the link from the URL on failure as well as success.** Only the success paths used to
+do it, so a failed attempt left `oobCode` in the address bar and a reload retried a spent code,
+failing again, forever. The one deliberate exception is `needs-email`, where the code is still
+needed for the retry.
+
+Consequence worth knowing: the upgrade only works when the link is opened in the **same browser**
+that requested it, because that is where the anonymous session lives. Opened elsewhere there is
+no anonymous session to upgrade, so the user gets a separate account. That is inherent to
+passwordless links, not a bug to fix.
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view
