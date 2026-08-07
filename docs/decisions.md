@@ -125,6 +125,31 @@ configured at all both mean "treat the user as owner".
 Consequence: a display name in a recipe can go stale relative to the profile. Accepted —
 the alternative is a lookup per card.
 
+### Teaching the tree, and when not to (2026-08-07)
+
+The branching tree is the product's identity, and nothing taught it. The library welcome panel
+described it in prose, which the people who most need it skip, and `Create Variation` sat on every
+recipe with no hint that it produces a child rather than editing the recipe in front of you. A user
+could work through the whole app and never discover the feature it exists for.
+
+Three timing rules, each chosen against a plausible alternative:
+
+- **Not on the first recipe.** On the first one the user is still working out what the page is, and
+  a lecture about versioning something they have not decided they like yet is noise. It waits for
+  the second.
+- **Not on a variation.** A variation is already a working example of the idea, with its lineage
+  breadcrumb and parent preview visible. An abstract explainer beside a live example is worse than
+  the example alone.
+- **Once, with no "remind me later".** Either the idea landed or it did not; re-showing it is
+  nagging. Rejected a persistent help affordance for the same reason the app has no tour.
+
+The diagram reuses the real version tree's own borders (`border-l-2 border-border`, `ml-3 pl-3`)
+so that recognising it later on `/recipe/:id/tree` is the point rather than a coincidence. It shows
+a grandchild, because depth is exactly the part prose fails to convey.
+
+Rejected an interactive tour and a modal: a modal on arrival is the thing everyone dismisses
+unread, and a tour is a lot of machinery for one idea.
+
 ### Email-link completion has a required order of operations (2026-08-07)
 
 Three ordering constraints, each learned by watching it fail against the Auth emulator. Change

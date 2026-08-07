@@ -1,6 +1,7 @@
 import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import type { StrandedIdentity } from '../lib/migration';
+import { parseIntroState, type IntroState } from '../lib/onboarding';
 
 export function getTheme(): 'system' | 'light' | 'dark' {
   return (localStorage.getItem(STORAGE_KEYS.THEME) as 'system' | 'light' | 'dark') ?? 'system';
@@ -62,6 +63,19 @@ export function addPreviousUid(uid: string): void {
     uids.push(uid);
     localStorage.setItem(STORAGE_KEYS.PREVIOUS_UIDS, JSON.stringify(uids));
   }
+}
+
+// --- One-time explainers ---
+//
+// Parsing and the show/hide rules live in lib/onboarding.ts; this is only the
+// read and write.
+
+export function getIntroState(): IntroState {
+  return parseIntroState(localStorage.getItem(STORAGE_KEYS.INTRO_STATE));
+}
+
+export function setIntroState(state: IntroState): void {
+  localStorage.setItem(STORAGE_KEYS.INTRO_STATE, JSON.stringify(state));
 }
 
 // --- Stranded identity notice ---

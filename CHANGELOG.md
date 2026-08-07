@@ -14,6 +14,14 @@ release, newest first.
 
 ## Unreleased
 
+### Added (2026-08-07)
+
+- **An explainer that teaches the branching model.** Nothing in the app taught the idea it is built
+  on: that changing a recipe makes a new version rather than overwriting it. A small diagram, using
+  the same lines as the real version tree, now appears once on a root recipe from the second recipe
+  you open onward. It is skipped on variations, which already demonstrate the idea, and it does not
+  come back once dismissed.
+
 ### Fixed (2026-08-07)
 
 - **Signing in with email no longer abandons your guest account.** Adding an email to an
