@@ -12,6 +12,7 @@ import {
 import { isFirebaseConfigured } from '../services/firebase';
 import { trackFollowToggled } from '../services/analytics';
 import type { UserProfile } from '../types/profile';
+import { reportError } from '../services/telemetry';
 
 export function useFollow(targetUid: string | undefined) {
   const { user } = useAuth();
@@ -70,6 +71,7 @@ export function useFollowers() {
       })
       .catch((err) => {
         console.error('Loading followers failed', err);
+        reportError(err, 'load-followers');
         if (!cancelled) setState({ uid, followers: [], error: true });
       });
     return () => {

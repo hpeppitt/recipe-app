@@ -7,6 +7,7 @@ import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firest
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
 import type { RecipeWithChildren } from '../types/recipe';
+import { reportError } from '../services/telemetry';
 
 /** How long the feed waits for the shared library before showing local only. */
 const LIBRARY_CLOUD_TIMEOUT_MS = 6000;
@@ -55,6 +56,7 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
         .then((r) => ({ recipes: r }))
         .catch((err) => {
           console.error('Loading the shared library failed', err);
+          reportError(err, 'load-library');
           return null;
         }),
       LIBRARY_CLOUD_TIMEOUT_MS,

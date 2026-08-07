@@ -11,6 +11,7 @@ import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { trackFavoriteToggled } from '../services/analytics';
 import { withTimeout } from '../lib/utils';
+import { reportError } from '../services/telemetry';
 
 /** Upper bound on how long a toggle stays locked waiting on the cloud write. */
 const FAVORITE_SYNC_TIMEOUT_MS = 5000;
@@ -73,6 +74,7 @@ export function useFavorite(recipeId: string | undefined) {
             await withTimeout(
               removeCloudFavorite(uid, recipeId).catch((err) => {
                 console.error('Removing cloud favourite failed', err);
+                reportError(err, 'unfavorite');
               }),
               FAVORITE_SYNC_TIMEOUT_MS,
               undefined
@@ -91,6 +93,7 @@ export function useFavorite(recipeId: string | undefined) {
                 user?.displayName ?? null
               ).catch((err) => {
                 console.error('Adding cloud favourite failed', err);
+                reportError(err, 'favorite');
               }),
               FAVORITE_SYNC_TIMEOUT_MS,
               undefined

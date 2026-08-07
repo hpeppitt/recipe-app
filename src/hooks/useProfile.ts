@@ -9,6 +9,7 @@ import { setDisplayName } from '../services/firebase';
 import { trackProfileUpdated } from '../services/analytics';
 import type { UserProfile } from '../types/profile';
 import { withTimeout } from '../lib/utils';
+import { reportError } from '../services/telemetry';
 
 /** Subscribe to the current user's own profile */
 export function useOwnProfile() {
@@ -84,6 +85,7 @@ export function usePublicProfile(uid: string | undefined) {
         .then((p) => ({ profile: p }))
         .catch((err) => {
           console.error('Loading the profile failed', err);
+          reportError(err, 'load-profile');
           return null;
         }),
       PROFILE_TIMEOUT_MS,

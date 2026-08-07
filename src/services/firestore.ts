@@ -24,6 +24,7 @@ import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
+import { reportError } from './telemetry';
 
 // --- Recipes ---
 
@@ -58,6 +59,7 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
       recipeCount: increment(1),
     }).catch((err) => {
       console.error('Incrementing profile recipeCount failed', err);
+      reportError(err, 'profile-recipe-count');
     });
   }
 }
@@ -454,6 +456,7 @@ export async function updateSuggestionStatus(
     // Don't mirror locally if the cloud write was rejected, or the two stores
     // would disagree about who collaborated.
     console.error('Adding collaborator to the published recipe failed', err);
+    reportError(err, 'add-collaborator');
     return null;
   }
 
@@ -486,6 +489,7 @@ export function subscribeNotifications(
     // empty state, which reads as "nobody has interacted with your recipes".
     (err) => {
       console.error('Notification subscription failed', err);
+      reportError(err, 'notification-subscription');
       onError?.(err);
     }
   );
