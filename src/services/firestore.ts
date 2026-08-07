@@ -11,6 +11,9 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  type QueryDocumentSnapshot,
+  type DocumentData,
   onSnapshot,
   increment,
   writeBatch,
@@ -92,12 +95,70 @@ export type PublishedRecipe = SharedRecipe & {
   collaborators?: Collaborator[];
 };
 
-export async function getAllPublishedRecipes(): Promise<PublishedRecipe[]> {
+/** Page size for the shared feed. Small enough that a first paint is cheap. */
+export const FEED_PAGE_SIZE = 30;
+
+/**
+ * An opaque cursor. Deliberately the Firestore snapshot rather than a `createdAt`
+ * value: two recipes published in the same millisecond would make a value-based
+ * cursor either skip one or repeat one, and `createdAt` is a client clock, so
+ * collisions are not hypothetical when someone imports a batch.
+ */
+export type FeedCursor = QueryDocumentSnapshot<DocumentData>;
+
+export interface PublishedRecipePage {
+  recipes: PublishedRecipe[];
+  /** Pass to the next call. Null when the end has been reached. */
+  cursor: FeedCursor | null;
+  hasMore: boolean;
+}
+
+/**
+ * One page of the shared library, newest first.
+ *
+ * Replaces a hard `limit(200)` with no way past it: beyond 200 published recipes
+ * the rest of the library was simply invisible, and every visit re-read all 200
+ * whether or not the user scrolled. This is roadmap 3.1's correctness half.
+ */
+export async function getPublishedRecipesPage(
+  cursor?: FeedCursor | null,
+  pageSize = FEED_PAGE_SIZE
+): Promise<PublishedRecipePage> {
+  if (!firestore) return { recipes: [], cursor: null, hasMore: false };
+
+  const constraints = [
+    orderBy('createdAt', 'desc'),
+    // One extra row is fetched purely to answer "is there a next page?" without a
+    // second round trip, then dropped before returning.
+    limit(pageSize + 1),
+  ];
+  const q = cursor
+    ? query(collection(firestore, 'recipes'), orderBy('createdAt', 'desc'), startAfter(cursor), limit(pageSize + 1))
+    : query(collection(firestore, 'recipes'), ...constraints);
+
+  const snap = await getDocs(q);
+  const hasMore = snap.docs.length > pageSize;
+  const docs = hasMore ? snap.docs.slice(0, pageSize) : snap.docs;
+
+  return {
+    recipes: docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe),
+    cursor: docs.length > 0 ? docs[docs.length - 1] : null,
+    hasMore,
+  };
+}
+
+/**
+ * The newest slice of the shared library, for callers that need a window rather
+ * than a page: the dedup check, and the library's first paint.
+ *
+ * Still bounded, and still an accepted limit — see `searchPublishedRecipes`.
+ */
+export async function getAllPublishedRecipes(limitTo = 200): Promise<PublishedRecipe[]> {
   if (!firestore) return [];
   const q = query(
     collection(firestore, 'recipes'),
     orderBy('createdAt', 'desc'),
-    limit(200)
+    limit(limitTo)
   );
   const snap = await getDocs(q);
   return snap.docs.map(

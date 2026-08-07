@@ -412,7 +412,17 @@ urgency because a circle-sized corpus is browsable by recency for a long while. 
 survives unchanged and on merit: the "split them" decision confirms it, and the 200-doc
 cliff is a correctness bug at any audience size.
 
-- **3.1 Split Library into "My Recipes" and "Explore".**
+- **3.1 Split Library into "My Recipes" and "Explore".** **PARTIALLY LANDED 2026-08-07** — the
+  correctness half only. `getPublishedRecipesPage` adds cursor pagination (page size 30, snapshot
+  cursors rather than `createdAt` values, so same-millisecond ties cannot skip or repeat a
+  recipe) and the feed gained a Load more button, so the 200-recipe cliff and the
+  re-read-200-per-visit cost are both gone. Verified against the emulator with 250 seeded
+  recipes: all 250 walked in 9 pages, no gaps, no duplicates, strictly descending, `hasMore`
+  false exactly once.
+  **Still open: the tabs.** Splitting My Recipes from Explore is what makes search coherent
+  across the whole library rather than across the pages fetched so far, and paging is currently
+  suppressed while a search or favourites filter is active for exactly that reason. Deferred
+  because it restructures the app's primary screen and the browser was unavailable to verify it.
   Why now: this is risk 1. One structural change fixes the product legibility problem
   (whose recipes am I looking at?), the read-cost problem, and the 200-recipe cliff at
   the same time, which is why it is one item and not three.

@@ -16,6 +16,10 @@ release, newest first.
 
 ### Added (2026-08-07)
 
+- **The shared library can be browsed past 200 recipes.** It was capped at the newest 200 with
+  no way further, and re-read all 200 on every visit whether or not you scrolled. Now paginated
+  at 30 per page with a Load more button. Paging is hidden while a search or the favourites
+  filter is active, because those only filter what has already been fetched.
 - **Client error reporting.** Nothing in the app reported a client-side failure, which is why
   several known limits were described as happening "silently". Uncaught errors and unhandled
   promise rejections, plus 12 places that previously only wrote to the console, now file a

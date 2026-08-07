@@ -36,7 +36,8 @@ export function LibraryPage() {
   const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
     filter === 'following' ? followingIds : []
   );
-  const { recipes, isLoading, cloudError, retryCloud } = useRecipeLibrary(
+  const { recipes, isLoading, cloudError, retryCloud, hasMore, loadingMore, loadMore } =
+    useRecipeLibrary(
     search,
     filter === 'favorites' ? favoriteIds : undefined
   );
@@ -279,13 +280,29 @@ export function LibraryPage() {
             />
           )
         ) : displayRecipes && displayRecipes.length > 0 ? (
-          displayRecipes.map((recipe) => (
-            <RecipeCard
-              key={recipe.id}
-              recipe={recipe}
-              isFavorite={favoriteIds.has(recipe.id)}
-            />
-          ))
+          <>
+            {displayRecipes.map((recipe) => (
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                isFavorite={favoriteIds.has(recipe.id)}
+              />
+            ))}
+            {/* The shared library used to stop dead at 200 recipes with no way
+                past it. Explicit button rather than infinite scroll: this is a
+                list people search and come back to, and infinite scroll makes the
+                end of it unreachable and the position unrememberable. */}
+            {hasMore && filter === 'all' && (
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? 'Loading…' : 'Load more recipes'}
+              </Button>
+            )}
+          </>
         ) : filter === 'mine' ? (
           <EmptyState
             icon="🍳"

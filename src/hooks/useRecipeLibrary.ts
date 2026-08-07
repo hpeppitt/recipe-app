@@ -3,7 +3,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { getAllRecipes } from '../db/recipes';
 import { countDescendantsByRoot } from '../lib/tree';
 import { recipeHaystack } from '../lib/search';
-import { getAllPublishedRecipes, type PublishedRecipe } from '../services/firestore';
+import {
+  getPublishedRecipesPage,
+  type PublishedRecipe,
+  type FeedCursor,
+} from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
 import type { RecipeWithChildren } from '../types/recipe';
@@ -39,6 +43,12 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
   const localRecipes = useLiveQuery(() => getAllRecipes(), []);
   const [cloudRecipes, setCloudRecipes] = useState<PublishedRecipe[] | null>(null);
   const [cloudLoading, setCloudLoading] = useState(isFirebaseConfigured);
+  // Cursor pagination replaces a hard `limit(200)`: beyond 200 published recipes
+  // the rest of the library was simply unreachable, and every visit re-read all
+  // 200 whether or not the user scrolled.
+  const [cursor, setCursor] = useState<FeedCursor | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   // Failing to reach the shared library used to be indistinguishable from it
   // being empty, so an offline user was told "No recipes yet" (UI-12).
   const [cloudError, setCloudError] = useState(false);
@@ -52,22 +62,49 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
     // rejecting, so a plain .catch() never fires and the feed would sit silently
     // in a partial state forever. A timeout is treated as a failure.
     withTimeout(
-      getAllPublishedRecipes()
-        .then((r) => ({ recipes: r }))
+      getPublishedRecipesPage()
         .catch((err) => {
           console.error('Loading the shared library failed', err);
           reportError(err, 'load-library');
           return null;
         }),
       LIBRARY_CLOUD_TIMEOUT_MS,
-      null as { recipes: PublishedRecipe[] } | null
+      null
     ).then((result) => {
       // Either way fall through to the local-only merge, but say so on failure.
       setCloudRecipes(result ? result.recipes : []);
+      setCursor(result?.cursor ?? null);
+      setHasMore(result?.hasMore ?? false);
       setCloudError(result === null);
       setCloudLoading(false);
     });
   }, [reloadKey]);
+
+  /**
+   * Append the next page.
+   *
+   * Guarded on `loadingMore` so a double-tap cannot fetch the same page twice and
+   * append it twice — the merge below dedups by id, so the visible symptom would
+   * be a wasted read rather than duplicates, but it is still a wasted read.
+   *
+   * A failed page load leaves the cursor untouched, so the button stays and
+   * pressing it again retries the same page rather than skipping it.
+   */
+  const loadMore = async () => {
+    if (!isFirebaseConfigured || !hasMore || loadingMore || !cursor) return;
+    setLoadingMore(true);
+    try {
+      const next = await getPublishedRecipesPage(cursor);
+      setCloudRecipes((prev) => [...(prev ?? []), ...next.recipes]);
+      setCursor(next.cursor);
+      setHasMore(next.hasMore);
+    } catch (err) {
+      console.error('Loading more of the shared library failed', err);
+      reportError(err, 'load-library-page');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Merge local + cloud, deduplicate by ID, prefer cloud data for shared fields
   const merged = useMemo<FeedRecipe[] | undefined>(() => {
@@ -158,5 +195,14 @@ export function useRecipeLibrary(searchQuery: string = '', favoriteIds?: Set<str
     /** True when the shared library could not be reached; local recipes still show. */
     cloudError,
     retryCloud: () => setReloadKey((k) => k + 1),
+    /**
+     * Paging applies to the cloud feed only. Suppressed while a search or the
+     * favourites filter is active: those filter the pages already fetched, so a
+     * "Load more" beside them would imply it searches the whole library when it
+     * cannot. The proper answer is roadmap 3.1's My Recipes / Explore split.
+     */
+    hasMore: hasMore && !searchQuery.trim() && !favoriteIds,
+    loadingMore,
+    loadMore,
   };
 }
