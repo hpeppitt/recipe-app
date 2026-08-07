@@ -9,6 +9,8 @@ import {
   sendEmailSignInLink,
   sendEmailLinkForLinking,
   completeEmailSignIn,
+  isEmailLinkLanding,
+  EmailLinkError,
   setDisplayName,
   signOut,
 } from '../services/firebase';
@@ -31,6 +33,20 @@ import {
 } from '../services/storage';
 import { trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 
+/**
+ * Progress and outcome of a magic-link landing.
+ *
+ * `idle` covers the normal page load with no link in the URL. The rest exist so
+ * the UI can report what happened: previously every one of these was a silent
+ * no-op and the user simply stayed signed out.
+ */
+export type EmailLinkState =
+  | { status: 'idle' }
+  | { status: 'completing' }
+  | { status: 'needs-email' }
+  | { status: 'error'; reason: 'expired' | 'email-taken' | 'failed' }
+  | { status: 'done'; linked: boolean };
+
 interface AuthContextType {
   user: AppUser | null;
   isLoading: boolean;
@@ -40,6 +56,11 @@ interface AuthContextType {
   linkEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
+  /** Progress of a magic-link landing, for the banner in AppShell. */
+  linkState: EmailLinkState;
+  /** Retry completion with an address the user typed (cross-device case). */
+  submitLinkEmail: (email: string) => Promise<void>;
+  dismissLinkState: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -86,7 +107,58 @@ async function runMigration(
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(isFirebaseConfigured);
+  // Seeded from the URL rather than set in the effect, so the "signing you in"
+  // state is correct on the very first render. Setting it inside the effect
+  // instead would flash the signed-out UI over a sign-in that is in flight, and
+  // trips the set-state-in-effect rule.
+  const [linkState, setLinkState] = useState<EmailLinkState>(() =>
+    isEmailLinkLanding() ? { status: 'completing' } : { status: 'idle' }
+  );
   const migrationRunRef = useRef(false);
+
+  /**
+   * Run (or retry) the magic-link completion and record the outcome.
+   *
+   * Shared by the on-mount attempt and the cross-device retry, so both paths
+   * report identically.
+   */
+  const runEmailLinkCompletion = async (emailOverride?: string) => {
+    try {
+      const result = await completeEmailSignIn(emailOverride);
+      if (!result) {
+        setLinkState({ status: 'idle' });
+        return;
+      }
+      if (result.previousUid) {
+        // The email already had an account, so the anonymous identity was left
+        // behind. Migrate what can be migrated and let the notice report the rest.
+        await runMigration(
+          result.previousUid,
+          result.user.uid,
+          result.user.displayName,
+          // Anonymous display names are a pure function of the uid
+          // (lib/identity.ts), so this reproduces exactly the name the stranded
+          // recipes were published under without having kept the old user object.
+          generateDisplayName(result.previousUid)
+        );
+        clearAnonymousUid();
+        addPreviousUid(result.user.uid);
+      }
+      setLinkState({ status: 'done', linked: result.linked });
+    } catch (err) {
+      if (err instanceof EmailLinkError) {
+        setLinkState(
+          err.failure.reason === 'needs-email'
+            ? { status: 'needs-email' }
+            : { status: 'error', reason: err.failure.reason }
+        );
+        console.error('[auth] email link completion failed ' + JSON.stringify(err.failure));
+        return;
+      }
+      console.error('[auth] email link completion failed', err);
+      setLinkState({ status: 'error', reason: 'failed' });
+    }
+  };
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
@@ -94,27 +166,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize device ID on first load
     getDeviceId();
 
-    // Handle email link completion on page load
-    completeEmailSignIn()
-      .then((result) => {
-        if (result?.previousUid) {
-          // Migration needed: data from previousUid → result.user.uid
-          runMigration(
-            result.previousUid,
-            result.user.uid,
-            result.user.displayName,
-            // The old account is always an anonymous one on every path into
-            // runMigration, and anonymous display names are derived from the uid
-            // (lib/identity.ts), so this reproduces exactly the name the stranded
-            // recipes were published under without having kept the old user
-            // object around.
-            generateDisplayName(result.previousUid)
-          );
-          clearAnonymousUid();
-          addPreviousUid(result.user.uid);
-        }
-      })
-      .catch(() => {});
+    // Handle email link completion on page load.
+    //
+    // Failures used to go into `.catch(() => {})`, so a user who clicked their
+    // magic link and hit any problem landed on a signed-out app with no
+    // explanation whatsoever. They are now surfaced as `linkState`.
+    runEmailLinkCompletion();
 
     return onAuthStateChanged((fbUser) => {
       if (fbUser) {
@@ -212,6 +269,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Retry after the cross-device prompt. Keeps `completing` on screen while it
+  // runs so the button cannot be double-submitted into two sign-in attempts.
+  const handleSubmitLinkEmail = async (email: string) => {
+    setLinkState({ status: 'completing' });
+    await runEmailLinkCompletion(email);
+  };
+
+  const handleDismissLinkState = () => setLinkState({ status: 'idle' });
+
   return (
     <AuthContext.Provider
       value={{
@@ -223,6 +289,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         linkEmail: handleLinkEmail,
         signOut: handleSignOut,
         updateDisplayName: handleUpdateDisplayName,
+        linkState,
+        submitLinkEmail: handleSubmitLinkEmail,
+        dismissLinkState: handleDismissLinkState,
       }}
     >
       {children}
