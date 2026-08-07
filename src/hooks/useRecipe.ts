@@ -7,6 +7,7 @@ import { getPublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { withTimeout } from '../lib/utils';
 import type { Recipe } from '../types/recipe';
+import { reportError } from '../services/telemetry';
 
 /** How long a cloud recipe lookup waits before reporting failure. */
 const RECIPE_CLOUD_TIMEOUT_MS = 6000;
@@ -100,6 +101,7 @@ export function useRecipe(id: string | undefined) {
       .catch((err) => {
         if (cancelled) return;
         console.error('Loading the published recipe failed', err);
+        reportError(err, 'load-published-recipe');
         setCloud({ id, recipe: null, error: true });
       });
 

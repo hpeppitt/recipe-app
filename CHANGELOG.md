@@ -16,6 +16,15 @@ release, newest first.
 
 ### Added (2026-08-07)
 
+- **Client error reporting.** Nothing in the app reported a client-side failure, which is why
+  several known limits were described as happening "silently". Uncaught errors and unhandled
+  promise rejections, plus 12 places that previously only wrote to the console, now file a
+  capped, deduplicated report to a write-only `clientErrors` collection. Reports carry the
+  route but never the full URL, since a shared-recipe hash holds an entire recipe and the
+  sign-in query holds a live link code. *Needs a `firestore:rules` deploy before it can
+  write; until then it fails closed and silently.*
+
+
 - **An explainer that teaches the branching model.** Nothing in the app taught the idea it is built
   on: that changing a recipe makes a new version rather than overwriting it. A small diagram, using
   the same lines as the real version tree, now appears once on a root recipe from the second recipe

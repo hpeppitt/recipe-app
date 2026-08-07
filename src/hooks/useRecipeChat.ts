@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
 import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
+import { reportError } from '../services/telemetry';
 
 /** How long a save waits for the cloud publish before reporting local-only. */
 const PUBLISH_TIMEOUT_MS = 4000;
@@ -176,6 +177,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         // Keep the raw SDK message out of the UI but available in the console:
         // it is developer-facing and can echo request details back.
         console.error('Recipe generation failed', err);
+        reportError(err, 'generate-recipe');
         setError(describeGenerationError(err));
       } finally {
         setIsLoading(false);
@@ -323,6 +325,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       savingRef.current = false;
       setIsSaving(false);
       console.error('Recipe save failed', err);
+      reportError(err, 'save-recipe');
       setError({ message: "Couldn't save the recipe. Please try again." });
     }
   }, [latestRecipe, messages, parentRecipe, navigate, user]);

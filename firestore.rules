@@ -136,6 +136,45 @@ service cloud.firestore {
       }
     }
 
+    // --- Client error reports: write-only drop box ---
+    //
+    // Create-only, by anyone including signed-out visitors, because a failure that
+    // happens before or during sign-in is exactly the kind currently invisible.
+    //
+    // No read, ever, from a client. These documents carry stack traces and uids;
+    // the only consumer is you, in the console. No update or delete either, so a
+    // report cannot be altered after the fact.
+    //
+    // The field constraints are the abuse control. This is an unauthenticated
+    // write path, so it is bounded in shape rather than left open: required keys
+    // must be present and correctly typed, nothing outside the known set is
+    // accepted, and the two free-text fields are length-capped so the collection
+    // cannot be used as free storage. The client caps sends per session as well,
+    // but a client-side cap protects Firestore costs from *bugs*, not from people.
+    match /clientErrors/{reportId} {
+      allow read, update, delete: if false;
+      allow create: if isWellFormedReport();
+
+      function isWellFormedReport() {
+        let d = request.resource.data;
+        return d.keys().hasOnly([
+              'source', 'message', 'stack', 'route', 'context',
+              'at', 'uid', 'receivedAt', 'userAgent'
+            ])
+          && d.keys().hasAll(['source', 'message', 'route', 'at'])
+          && d.source in ['window.onerror', 'unhandledrejection', 'handled']
+          && d.message is string && d.message.size() <= 600
+          && d.route is string && d.route.size() <= 250
+          && (!('stack' in d.keys()) || d.stack == null || (d.stack is string && d.stack.size() <= 2200))
+          && (!('context' in d.keys()) || d.context == null || (d.context is string && d.context.size() <= 150))
+          && (!('userAgent' in d.keys()) || (d.userAgent is string && d.userAgent.size() <= 350))
+          && d.at is int
+          // Either signed out, or stamped with the writer's own uid. Nobody gets
+          // to file reports against someone else's account.
+          && (!('uid' in d.keys()) || d.uid == null || d.uid == request.auth.uid);
+      }
+    }
+
     // --- Rate limits: server-only ---
     // Written exclusively by the generateRecipe Cloud Function via the Admin SDK,
     // which bypasses these rules. Denying everything to clients is what stops a

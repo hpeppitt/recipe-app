@@ -32,6 +32,7 @@ import {
   setStrandedIdentity,
 } from '../services/storage';
 import { trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
+import { reportError } from '../services/telemetry';
 
 /**
  * Progress and outcome of a magic-link landing.
@@ -153,9 +154,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             : { status: 'error', reason: err.failure.reason }
         );
         console.error('[auth] email link completion failed ' + JSON.stringify(err.failure));
+        // needs-email is a normal branch, not a fault: the user opened the link
+        // somewhere else and we are about to ask them for the address. Reporting
+        // it would bury the real failures under the commonest happy-ish path.
+        if (err.failure.reason !== 'needs-email') {
+          reportError(err, `email-link-${err.failure.reason}`);
+        }
         return;
       }
       console.error('[auth] email link completion failed', err);
+      reportError(err, 'email-link-unknown');
       setLinkState({ status: 'error', reason: 'failed' });
     }
   };

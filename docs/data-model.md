@@ -46,6 +46,7 @@ the dual store addressable by one id.
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the three counters. Uploaded avatars live here as base64 JPEG. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
+| `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
 ### Composite indexes
