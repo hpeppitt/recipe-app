@@ -33,7 +33,7 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 
 | Feature | Status | Gate | Where | Notes and limits |
 |---|---|---|---|---|
-| Browse the shared library | partial | firebase for cloud recipes | `pages/LibraryPage.tsx`, `hooks/useRecipeLibrary.ts` | The feed is every published recipe merged with the local library. Reads the newest 200 cloud docs per visit with no pagination or caching — a real cliff, roadmap item 3.1. |
+| Browse the shared library | partial | firebase for cloud recipes | `pages/LibraryPage.tsx`, `hooks/useRecipeLibrary.ts`, `getPublishedRecipesPage` | The feed merges the local library with the published one. **Cursor-paginated at 30 per page** with a Load more button, replacing a hard `limit(200)` that made everything past 200 unreachable and re-read all 200 on every visit. Paging is suppressed while a search or the favourites filter is active, since those filter only the pages already fetched. The remaining half of roadmap 3.1 (splitting My Recipes from Explore, which is what makes search-across-everything coherent) is still open. |
 | Search | partial | local | `LibraryPage`, `db/recipes.ts` | Substring match over title, description, tags, and ingredient names. No stemming or semantics; "rice" matches "licorice". |
 | Favorites filter | shipped | auth | `hooks/useFavorites.ts` | |
 | Following filter | partial | auth | `services/firestore.ts` (`getRecipesByUsers`) | Firestore `where('createdBy.uid','in',…)`, chunked at 30 uids per query. |
