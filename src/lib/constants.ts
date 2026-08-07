@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   PREVIOUS_UIDS: 'recipe-app-previous-uids',
   EMAIL_FOR_LINKING: 'recipe-app-email-for-linking',
   STRANDED_IDENTITY: 'recipe-app-stranded-identity',
+  INTRO_STATE: 'recipe-app-intro-state',
 } as const;
 
 export const SUGGESTION_CHIPS = [

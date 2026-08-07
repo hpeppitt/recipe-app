@@ -28,6 +28,9 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
+import { TreeIntro } from '../components/recipe/TreeIntro';
+import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
+import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
 
 /** How long Share waits on the cloud before falling back to a self-contained link. */
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
@@ -68,6 +71,7 @@ export function RecipeDetailPage() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<{ id: string; message: string } | null>(null);
+  const [introState, setIntroState] = useState(getIntroState);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
   // the destructive menu stays hidden rather than flashing in.
@@ -242,6 +246,29 @@ export function RecipeDetailPage() {
     const timer = setTimeout(() => setShowSavedToast(false), ms);
     return () => clearTimeout(timer);
   }, [showSavedToast, savedOutcome]);
+
+  // Counts distinct recipes opened, which is what holds the tree explainer back
+  // until the idea has somewhere to land. Ref-guarded per id for the same reason
+  // the view counter below is: StrictMode double-invokes effects in dev.
+  const introCountedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!recipe?.id) return;
+    if (introCountedRef.current === recipe.id) return;
+    introCountedRef.current = recipe.id;
+    setIntroState((prev) => {
+      const next = countRecipeViewed(prev);
+      persistIntroState(next);
+      return next;
+    });
+  }, [recipe?.id]);
+
+  const dismissTreeIntro = () => {
+    setIntroState((prev) => {
+      const next = markSeen(prev, 'recipe-tree');
+      persistIntroState(next);
+      return next;
+    });
+  };
 
   const viewCountedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -518,6 +545,22 @@ export function RecipeDetailPage() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Above the recipe body, below the suggestions: it explains what the
+              Create Variation button at the bottom of this page will do, so it
+              needs to be read before the user gets there. */}
+          {shouldShowTreeIntro(introState, recipe) && (
+            <TreeIntro
+              onDismiss={dismissTreeIntro}
+              // Only offered when there is a tree worth looking at. One node
+              // teaches nothing.
+              onOpenTree={
+                children.length > 0
+                  ? () => navigate(`/recipe/${recipe.id}/tree`)
+                  : undefined
+              }
+            />
           )}
 
           <RecipeContent recipe={recipe} />
