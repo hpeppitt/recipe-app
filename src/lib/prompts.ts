@@ -1,55 +1,10 @@
-const RECIPE_JSON_SCHEMA = `{
-  "type": "object",
-  "properties": {
-    "title": { "type": "string" },
-    "description": { "type": "string" },
-    "ingredients": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "amount": { "type": ["number", "null"] },
-          "unit": { "type": ["string", "null"] },
-          "name": { "type": "string" },
-          "notes": { "type": ["string", "null"] },
-          "group": { "type": ["string", "null"] }
-        },
-        "required": ["amount", "unit", "name", "notes", "group"]
-      }
-    },
-    "instructions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "step": { "type": "number" },
-          "text": { "type": "string" },
-          "group": { "type": ["string", "null"] }
-        },
-        "required": ["step", "text", "group"]
-      }
-    },
-    "notes": { "type": "array", "items": { "type": "string" } },
-    "prepTime": { "type": "number" },
-    "cookTime": { "type": "number" },
-    "totalTime": { "type": "number" },
-    "servings": { "type": "number" },
-    "difficulty": { "type": "string", "enum": ["easy", "medium", "hard"] },
-    "tags": { "type": "array", "items": { "type": "string" } },
-    "emoji": { "type": "string" },
-    "nutrition": {
-      "type": "object",
-      "properties": {
-        "calories": { "type": "number" },
-        "protein": { "type": "number" },
-        "carbs": { "type": "number" },
-        "fat": { "type": "number" }
-      },
-      "required": ["calories", "protein", "carbs", "fat"]
-    }
-  },
-  "required": ["title", "description", "ingredients", "instructions", "notes", "prepTime", "cookTime", "totalTime", "servings", "difficulty", "tags", "emoji", "nutrition"]
-}`;
+import { recipeSchemaAsPromptText } from '../schemas/recipe.responseSchema';
+
+// Serialised from the same Schema object the model config enforces, rather than
+// hand-written a second time. The hand-written copy that used to live here had no
+// mechanism keeping it in step with anything, and a prompt describing a shape the
+// config does not enforce is the kind of drift nothing catches.
+const RECIPE_JSON_SCHEMA = recipeSchemaAsPromptText();
 
 export const RECIPE_SYSTEM_PROMPT = `You are a professional chef and recipe developer. When the user asks you to create or modify a recipe, respond with ONLY a valid JSON object matching this schema (no markdown, no code fences, no extra text):
 

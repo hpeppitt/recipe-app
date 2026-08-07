@@ -39,6 +39,10 @@ export const trackSignOut = () =>
 export const trackRecipeCreated = (recipeId: string, isVariation: boolean) =>
   logEvent('recipe_created', { recipe_id: recipeId, is_variation: isVariation });
 
+/** A manual owner edit, as distinct from an AI variation (`recipe_created`). */
+export const trackRecipeUpdated = (recipeId: string) =>
+  logEvent('recipe_updated', { recipe_id: recipeId });
+
 export const trackRecipeViewed = (recipeId: string) =>
   logEvent('recipe_viewed', { recipe_id: recipeId });
 

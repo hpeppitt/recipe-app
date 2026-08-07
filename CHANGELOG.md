@@ -1,0 +1,118 @@
+# Changelog
+
+**Reconstructed from git history on 2026-07-31.** This project has no release history: at
+the time of writing `package.json` is `0.1.0`, there are zero git tags, and there are 105
+commits spanning 2026-02-16 to 2026-07-31. The entries below are dated milestones grouped
+from commit history, not releases that were ever cut, and no semantic version has been
+retrofitted onto them.
+
+Real tagging starts at the end of roadmap Phase 1, which will be `v0.2.0` — the first
+version this project can actually point at. From then on this file is maintained per
+release, newest first.
+
+---
+
+## Unreleased
+
+### Added
+
+- **Documentation knowledgebase.** `docs/` with capabilities, architecture, data model,
+  operations, and decisions; this changelog; `README.md` rewritten from the stock Vite
+  template as the front door. `CLAUDE.md` demoted to a pointer so each fact has one home.
+- `ROADMAP.md` and the `roadmap-architect` subagent: the strategic layer above `AUDIT.md`,
+  with four phases, sequencing rationale, and an explicit not-doing list.
+- **CI.** `.github/workflows/ci.yml` runs build, lint, and tests on every pull request and
+  every push to `main`. The 0-error, 153-test baseline was previously protected by local
+  habit alone.
+- **A notice when published recipes cannot follow you to a new account.** Upgrading an
+  anonymous account to an email address that already exists signs you in under the existing
+  account, and Firestore rules correctly forbid reassigning ownership of the recipes you
+  published as the old identity. That failure was previously swallowed. Now a dismissible
+  banner names how many recipes stayed behind and under which name, with a prefilled mail to
+  support carrying the old account id. Shown only when something was actually stranded.
+- `Button` accepts `as="a"`, so an action that is genuinely a link can look like a button
+  without a hand-rolled copy of its classes.
+
+- **Manual recipe editing for owners** at `/recipe/:id/edit`, reached from Edit in the recipe
+  menu. Every content field is editable; steps renumber themselves; total time is worked out
+  from prep plus cook. Edits apply in place, so the recipe keeps its position in the version
+  tree — fixing a typo no longer means spending an AI generation and forking the tree. Leaving
+  with unsaved changes asks first, including on browser back and the iOS swipe gesture.
+
+### Changed
+
+- **Recipe generation enforces its output shape** at the model layer via `responseSchema`
+  rather than only asking for it in the prompt. Narrows what a misused request can return to
+  a valid recipe. The prompt's schema text is now serialised from that same object, replacing
+  a hand-written second copy that nothing kept in step with it.
+
+### Removed
+
+- Root dependency on `@google/genai`. Nothing in `src/` has imported it since generation
+  moved to Firebase AI Logic; the only importer is `functions/src/index.ts`, which declares
+  it in its own `package.json`.
+
+### Fixed
+
+- Documentation drift found while writing the above: `VITE_USE_EMULATORS` and the
+  `emulators` / `dev:emulated` scripts were undocumented despite being how suggestion reply
+  threads were verified, and the Firestore collection list omitted the
+  `suggestions/{id}/messages` subcollection and the `rateLimits/{uid}` collection.
+
+---
+
+## 2026-07-30 — Audit backlog cleared
+
+All 78 findings in `AUDIT.md` closed and verified (PR #4). The last of them:
+
+- Suggestion reply threads, so a rejected suggestion can be discussed rather than
+  dead-ending. Implemented as a `messages` subcollection and verified against the Firestore
+  emulator suite, which was added for exactly this reason: suggestions cannot be deleted, so
+  testing against the live project would have left permanent records.
+- Curated ingredient densities, making volume↔weight conversion work instead of refusing
+  every such conversion.
+- Converted units are pluralised, so a scaled measure no longer reads "2 cup".
+
+## 2026-07-29 — UX sweep
+
+Second audit pass merged (PR #3), covering the 45 UX findings from three parallel reviews:
+
+- Unit system toggle (original / metric / imperial) with temperature conversion in
+  instruction text.
+- Per-serving macro estimates on generated recipes.
+- Follower and following lists on your own profile.
+- Accessibility and mobile work throughout: 44px touch targets, dark-mode contrast brought
+  to AA, dialogs associated with their headings, empty states given actions, and design-system
+  drift pulled back onto the shared `ui/` primitives.
+
+## 2026-07-28 — Firebase AI Logic; the big remediation pass
+
+- **Gemini calls moved to Firebase AI Logic** (PR #2). The API key is now held server-side by
+  a Google-hosted proxy and the browser never sees one; the user-supplied-key flow and its
+  localStorage storage were removed. App Check is enforced on this path. Model pinned to
+  `gemini-3.6-flash` after `gemini-2.0-flash` was shut down on 2026-06-01.
+- **77 audit fixes** (PR #1) across security, infrastructure, functionality, and UI:
+  Firestore rules and indexes brought into the repo, cloud-aware duplicate detection,
+  double-tap save guards, delete cascading to the cloud, ownership-aware actions,
+  unsaved-work guards, real loading and error states, and the lint gate taken to zero errors.
+- A server-side Gemini proxy Cloud Function written and committed but left inert, as the
+  escalation path if quota abuse ever appears.
+
+## 2026-02-25 — Shared library and social layer
+
+- The library feed became a shared repository of all published recipes rather than a private
+  one.
+- Anonymous auth persistence, email-link account upgrade, user profiles, follows, and GA4
+  analytics.
+- Duplicate detection at prompt time, tree-aware back navigation.
+
+## 2026-02-24 — Recipe Lab
+
+- The app: AI recipe generation, branching variations, the version tree, the local library,
+  and shareable view-only recipe links.
+- Authentication, favourites, anonymous identity, and the first social features.
+- Firebase Hosting configuration.
+
+## 2026-02-16 — Initial commit
+
+Project scaffold.

@@ -1,0 +1,41 @@
+name: CI
+
+# The 0-error, 153-test baseline is this project's most valuable asset and until
+# now it was protected only by local habit: PR #4 merged with no remote gate.
+# Deliberately does NOT replicate /preflight's browser smoke test — that needs a
+# booted preview server and the emulator suite, and the payoff-to-flake ratio is
+# wrong until there are component tests to anchor it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch makes the in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Not `npm install`: ci fails on a package.json/lock mismatch instead of
+      # silently rewriting the lockfile, which is what you want in a gate.
+      - run: npm ci
+
+      # Runs `tsc -b` before vite build, so a type error fails here.
+      - run: npm run build
+
+      - run: npm run lint
+
+      # Tests are node + fake-indexeddb, so no env vars and no emulators are
+      # needed. If that ever changes, this job needs secrets and this comment
+      # is the thing that was wrong.
+      - run: npm test

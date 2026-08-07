@@ -13,7 +13,12 @@ import {
   signOut,
 } from '../services/firebase';
 import { generateDisplayName } from '../lib/identity';
-import { createOrUpdateProfile, migrateFirestoreUid } from '../services/firestore';
+import {
+  createOrUpdateProfile,
+  migrateFirestoreUid,
+  type UidMigrationOutcome,
+} from '../services/firestore';
+import { shouldNotify } from '../lib/migration';
 import { migrateRecipesUid } from '../db/recipes';
 import { migrateFavoritesUid } from '../db/favorites';
 import {
@@ -22,6 +27,7 @@ import {
   clearAnonymousUid,
   addPreviousUid,
   getDeviceId,
+  setStrandedIdentity,
 } from '../services/storage';
 import { trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 
@@ -50,14 +56,31 @@ function toAppUser(user: User): AppUser {
 async function runMigration(
   oldUid: string,
   newUid: string,
-  displayName: string | null
+  displayName: string | null,
+  /** The name the stranded recipes were published under, for the notice copy. */
+  oldDisplayName: string | null
 ): Promise<void> {
   if (oldUid === newUid) return;
-  await Promise.all([
+  const [, , cloud] = await Promise.all([
     migrateRecipesUid(oldUid, newUid, displayName),
     migrateFavoritesUid(oldUid, newUid),
-    migrateFirestoreUid(oldUid, newUid, displayName).catch(() => {}),
+    // A throw here means a step after recipes failed, which strands no recipes.
+    migrateFirestoreUid(oldUid, newUid, displayName).catch(
+      (): UidMigrationOutcome => ({ ok: false, strandedRecipes: 0 })
+    ),
   ]);
+
+  // The cloud half of this is expected to fail: rules forbid reassigning
+  // `createdBy.uid`, deliberately. It used to fail behind `.catch(() => {})`,
+  // so a user could lose their whole published catalog and never be told.
+  if (shouldNotify(cloud)) {
+    setStrandedIdentity({
+      oldUid,
+      oldDisplayName,
+      recipeCount: cloud.strandedRecipes,
+      at: Date.now(),
+    });
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -79,7 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           runMigration(
             result.previousUid,
             result.user.uid,
-            result.user.displayName
+            result.user.displayName,
+            // The old account is always an anonymous one on every path into
+            // runMigration, and anonymous display names are derived from the uid
+            // (lib/identity.ts), so this reproduces exactly the name the stranded
+            // recipes were published under without having kept the old user
+            // object around.
+            generateDisplayName(result.previousUid)
           );
           clearAnonymousUid();
           addPreviousUid(result.user.uid);
@@ -101,7 +130,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (savedUid && savedUid !== fbUser.uid && !migrationRunRef.current) {
             // UID drift detected — auto-migrate from saved UID
             migrationRunRef.current = true;
-            runMigration(savedUid, fbUser.uid, fbUser.displayName).then(() => {
+            runMigration(
+              savedUid,
+              fbUser.uid,
+              fbUser.displayName,
+              generateDisplayName(savedUid)
+            ).then(() => {
               setAnonymousUid(fbUser.uid);
             });
           } else {
@@ -112,7 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const savedAnonUid = getAnonymousUid();
           if (savedAnonUid && savedAnonUid !== fbUser.uid && !migrationRunRef.current) {
             migrationRunRef.current = true;
-            runMigration(savedAnonUid, fbUser.uid, fbUser.displayName).then(() => {
+            runMigration(
+              savedAnonUid,
+              fbUser.uid,
+              fbUser.displayName,
+              generateDisplayName(savedAnonUid)
+            ).then(() => {
               clearAnonymousUid();
               addPreviousUid(fbUser.uid);
             });

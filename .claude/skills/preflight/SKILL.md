@@ -32,6 +32,24 @@ All three must exit 0.
 5. After the walk, read console messages and flag any errors or unhandled rejections (ignore benign dev-only noise like React DevTools suggestions).
 6. Stop the dev server if you started it.
 
-## 3. Report
+## 3. Documentation drift
 
-Output a checklist: build / lint / tests / each flow / console. State clearly PASS or FAIL overall. On FAIL, list exactly what broke with file:line pointers if identifiable; do not fix anything unless asked - preflight is a gate, not a repair step.
+`docs/` is the knowledgebase and is meant to stay true, so check it against the change under
+test rather than assuming. Read the maintenance contract table in `docs/README.md`, then
+`git diff` the working tree and ask, per changed file, whether the contract points at a doc
+that should have changed with it:
+
+- a user-visible feature -> `docs/capabilities.md`
+- a module boundary, service, or route -> `docs/architecture.md`
+- `src/db/database.ts`, `firestore.rules`, `firestore.indexes.json`, a type in `src/types/` -> `docs/data-model.md`
+- an npm script, env var, or deploy step -> `docs/operations.md`
+- reasoning worth keeping, or an approach rejected -> `docs/decisions.md`
+- anything a user would notice -> `CHANGELOG.md`
+
+Report drift as a **warning, not a failure**: list the doc that looks stale and the change
+that made it so. A doc gate that fails the build gets bypassed rather than obeyed. Do not
+edit the docs here — preflight is a gate.
+
+## 4. Report
+
+Output a checklist: build / lint / tests / each flow / console / docs. State clearly PASS or FAIL overall. On FAIL, list exactly what broke with file:line pointers if identifiable; do not fix anything unless asked - preflight is a gate, not a repair step.

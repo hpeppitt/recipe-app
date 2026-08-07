@@ -385,15 +385,29 @@ export function RecipeDetailPage() {
                     Version tree
                   </button>
                   {isOwner && (
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setShowDelete(true);
-                      }}
-                      className="w-full px-4 py-2.5 text-left text-sm text-danger-600 hover:bg-surface-secondary"
-                    >
-                      Delete
-                    </button>
+                    <>
+                      {/* Editing was the app's largest gap: a recipe could only
+                          be changed by generating a variation, which billed a
+                          Gemini call and forked the tree to fix a typo. */}
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          navigate(`/recipe/${recipe.id}/edit`);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          setShowDelete(true);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-danger-600 hover:bg-surface-secondary"
+                      >
+                        Delete
+                      </button>
+                    </>
                   )}
                 </div>
               </>
