@@ -10,7 +10,7 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run dev` | Vite dev server (default http://localhost:5173) |
 | `npm run build` | `tsc -b && vite build` — the type-check is part of the build |
 | `npm run lint` | ESLint over the repo. Baseline is **0 errors**; keep it there |
-| `npm test` | Vitest, single run. Baseline is **153 tests in 12 files, all passing** |
+| `npm test` | Vitest, single run. All tests must pass. The suite grows with each feature, so the signal to react to is a count that *shrinks*, not any particular number |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run preview` | Serve the production build locally |
 | `npm run emulators` | Firebase Auth + Firestore emulators (see below) |
