@@ -230,7 +230,18 @@ into your circle's library.
   Cost: S. Risk: near zero; watch for env-dependent test assumptions (there are none
   today, tests are node + fake-indexeddb).
 
-- **1.2 First-party error beacon.**
+- **1.2 First-party error beacon.** **LANDED 2026-08-08.** Shipped as scoped: Firestore as the
+  sink (not Sentry), `window.onerror` + `unhandledrejection` plus 12 previously console-only call
+  sites, a write-only `clientErrors` collection, per-session cap of 10, dedup on
+  source+route+message, and a circuit breaker after 3 failed sends. Reports carry the route only,
+  never the full URL, because `/shared`'s hash holds an entire recipe and the sign-in query holds a
+  live `oobCode`.
+  Rules deployed and verified against production on 2026-08-08: a valid signed-out report is
+  accepted, a malformed one is rejected, client reads are denied, and the other six collections
+  were regression-checked as unchanged (recipes and profiles still publicly readable; publish,
+  favorites, suggestions and rateLimits still closed).
+  Note the roadmap called this the explicit trigger mechanism for Phase 4 — that dependency is now
+  satisfied, so a Blaze decision would at least be made on evidence.
   Why now: risks 2 through 5 are all invisible; every subsequent phase needs eyes.
   Where: new `src/services/telemetry.ts` hooking `window.onerror`,
   `unhandledrejection`, and the existing `console.error` call sites in hooks/services;

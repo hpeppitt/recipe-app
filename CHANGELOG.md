@@ -25,8 +25,7 @@ release, newest first.
   promise rejections, plus 12 places that previously only wrote to the console, now file a
   capped, deduplicated report to a write-only `clientErrors` collection. Reports carry the
   route but never the full URL, since a shared-recipe hash holds an entire recipe and the
-  sign-in query holds a live link code. *Needs a `firestore:rules` deploy before it can
-  write; until then it fails closed and silently.*
+  sign-in query holds a live link code. Live as of 2026-08-08.
 
 
 - **An explainer that teaches the branching model.** Nothing in the app taught the idea it is built
