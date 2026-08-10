@@ -36,6 +36,15 @@ export interface AppUser {
   displayName: string | null;
   email: string | null;
   isAnonymous: boolean;
+  /**
+   * Whether this account may contribute (publish, suggest, reply).
+   *
+   * Not the same question as `!isAnonymous`, and the difference is the whole
+   * point: `firestore.rules` gates on the `email_verified` token claim, so this
+   * is the client's copy of the server's answer. Reading `isAnonymous` here
+   * instead would let the UI and the rules disagree.
+   */
+  emailVerified: boolean;
 }
 
 export interface Collaborator {

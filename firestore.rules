@@ -29,8 +29,17 @@ service cloud.firestore {
     // This would stop being true if a path ever verified an email out of band,
     // e.g. sendEmailVerification with the user clicking through in another tab.
     // Such a path would need getIdToken(true) before its first write.
+    // `.get` with a default rather than `request.auth.token.email_verified`.
+    // An anonymous token has no such property at all, and reading a missing
+    // property raises an evaluation error instead of returning false. That
+    // denies correctly here, so both forms behave identically today, but an
+    // error propagates through a disjunction: the moment anyone writes
+    // `allow x: if isSomethingElse() || verified()`, the error form would take
+    // down the whole expression for anonymous users rather than falling through
+    // to the branch that should have allowed it. Verified against the emulator:
+    // the property form logs "Property email_verified is undefined on object".
     function verified() {
-      return signedIn() && request.auth.token.email_verified == true;
+      return signedIn() && request.auth.token.get('email_verified', false) == true;
     }
 
     function changedKeys() {

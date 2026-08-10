@@ -72,6 +72,12 @@ function toAppUser(user: User): AppUser {
     displayName: user.displayName,
     email: user.email,
     isAnonymous: user.isAnonymous,
+    // Both routes to a verified email here (linkWithCredential on an anonymous
+    // account, and signInWithEmailLink) mint a fresh ID token as part of the
+    // call, so this is true the moment the rules would accept a write. No
+    // getIdToken(true) is needed. That would change if a path ever verified an
+    // address out of band, e.g. sendEmailVerification clicked through elsewhere.
+    emailVerified: user.emailVerified,
   };
 }
 

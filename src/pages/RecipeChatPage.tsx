@@ -9,7 +9,7 @@ import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { RecipeContent } from '../components/recipe/RecipeContent';
-import { AuthModal } from '../components/auth/AuthModal';
+import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
@@ -77,7 +77,6 @@ export function RecipeChatPage() {
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
   // Set when the owner arrives here by approving a suggestion, so the composer
   // opens with the suggestion already written out.
@@ -107,17 +106,77 @@ export function RecipeChatPage() {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, similarRecipes]);
 
-  // Show auth modal if Firebase is configured and user not signed in
-  useEffect(() => {
-    if (isConfigured && !authLoading && !user) {
-      setShowAuth(true);
-    }
-  }, [isConfigured, authLoading, user]);
-
   const lastAssistantIdx = messages.reduce(
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
     -1
   );
+
+  // The contribute gate, and the one place it cannot be a rule.
+  //
+  // firestore.rules stops an unverified account *publishing*, but generation
+  // never touches Firestore: gemini.ts calls Firebase AI Logic straight from the
+  // browser. So this check is the only thing between an anonymous visitor and
+  // the shared Gemini quota, and it has to sit in front of the composer rather
+  // than at save time.
+  //
+  // Blocking here rather than at save is also the kinder half. Letting someone
+  // spend a generation and then refusing the save would be a worse first meeting
+  // than asking up front, and up front is where the ask can be an offer.
+  //
+  // Signed-out and anonymous deliberately land on the same screen. This route
+  // used to open the sign-in modal for signed-out visitors, which offered
+  // "Continue Anonymously" beside email; that option is now a dead end here,
+  // since an anonymous account cannot generate, so taking it walked straight
+  // into this gate. One screen asking for the one thing that unblocks them
+  // beats a choice where half the options do not.
+  //
+  // `!authLoading` is load-bearing, not defensive. Firebase restores the
+  // session asynchronously, so `user` is null for the first frames of every
+  // reload; without this, a signed-up user refreshing the page would be shown
+  // the sign-up screen before their own session arrived.
+  if (isConfigured && !authLoading && (!user || !user.emailVerified)) {
+    return (
+      <div className="min-h-dvh flex flex-col bg-surface">
+        <TopBar
+          title={isVarying ? 'New Variation' : 'New Recipe'}
+          showBack
+          onBack={() => navigate(-1)}
+        />
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto p-4 space-y-4">
+            <div className="text-center pt-6 pb-2 space-y-2">
+              <p className="text-4xl" aria-hidden="true">
+                👩‍🍳
+              </p>
+              <h2 className="text-lg font-semibold text-text-primary">
+                Sign up to start cooking up recipes
+              </h2>
+              <p className="text-sm text-text-secondary">
+                Recipe Lab writes recipes with AI and keeps them in one shared library.
+                Add your email to create your own, suggest changes to other people's, and
+                keep everything you make across devices.
+              </p>
+            </div>
+
+            <EmailLinkingForm
+              tone="invite"
+              icon="✉️"
+              title="No password needed"
+              description="We'll email you a link. Tap it and you're in, on this device or any other."
+              submitLabel="Sign up"
+            />
+
+            <p className="text-xs text-text-tertiary text-center">
+              You can keep browsing, saving and following without signing up.
+            </p>
+            <Button variant="secondary" fullWidth onClick={() => navigate('/')}>
+              Back to recipes
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
@@ -410,14 +469,6 @@ export function RecipeChatPage() {
         }
       />
 
-      <AuthModal
-        open={showAuth}
-        onAuthenticated={() => setShowAuth(false)}
-        onDismiss={() => {
-          setShowAuth(false);
-          if (!user) navigate(-1);
-        }}
-      />
 
       <ConfirmDialog
         open={showDiscard}

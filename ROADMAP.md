@@ -304,7 +304,7 @@ into your circle's library.
   is the front door of the knowledgebase, so it is written as part of it rather than as
   separate hygiene bundled with CI.
 
-- **1.6 Enforce the contribute boundary.** **RULES LANDED 2026-08-10, CLIENT PENDING.**
+- **1.6 Enforce the contribute boundary.** **LANDED 2026-08-10.**
   Redesigned at the author's direction before implementation. The invite-vs-membership
   question below was not answered; it was dissolved. The author's requirement is a
   consume/contribute split rather than a circle: anonymous users may read, favourite and
@@ -324,12 +324,24 @@ into your circle's library.
   them for the users the split keeps open; and recipe owner-update and delete stay at
   signed-in-and-owner rather than verified, so anything published anonymously before the gate
   stays fixable by its owner instead of only deletable.
-  **Still open: the client half.** Rules produce a permission error, not an explanation, so
-  every create affordance still needs to check verification and route to the existing
-  `EmailLinkingForm` rather than failing at the end of a long flow. This also covers the one
-  thing rules structurally cannot: generation runs client-side through Firebase AI Logic, so
-  only the client can stop an anonymous account spending the shared Gemini quota. The author
-  accepted this gap knowingly on the basis of being the only current user.
+  **Client half landed the same day**, at the author's direction that the block should read as
+  a call to sign up rather than an error. `EmailLinkingForm` moved out of `ProfilePage` into
+  `components/auth/` and grew two tones: `warning` keeps the profile banner's "your account is
+  anonymous" framing, `invite` is the gate's offer. It also picks its own Firebase call now,
+  `linkEmail` for an anonymous account so the uid and everything published under it survive,
+  `sendEmailLink` for a signed-out visitor with no uid to keep.
+  The composer gate lives in `RecipeChatPage` and covers the one thing rules structurally
+  cannot: generation runs client-side through Firebase AI Logic, so Firestore never sees it.
+  It blocks in front of the composer rather than at save, so nobody spends a generation before
+  being told. The suggest dialog swaps its form for the same call to action.
+  Verified end to end in the browser against the emulators: blocked as anonymous, signed up
+  through the CTA, magic link completed as an in-place upgrade ("this is the same account you
+  were already using"), composer unlocked, and the suggest dialog showing the CTA for an
+  anonymous account. Two incidental fixes fell out of it. `RecipeChatPage` no longer opens the
+  sign-in modal, whose "Continue Anonymously" option had become a dead end on that route.
+  And `useSubmitSuggestion` now throws instead of returning silently on a null user, since a
+  silent resolve reads as success and would have shown "Suggestion sent" for a write that
+  never happened.
   Superseded reasoning, kept because it explains why the item existed:
   "private circle" was a description of who happens to have the URL, not
   a property the system holds. Verified in `firestore.rules:17`: `allow read: if true` on
