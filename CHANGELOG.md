@@ -12,7 +12,30 @@ release, newest first.
 
 ---
 
-## Unreleased
+## v0.2.0 — 2026-08-11
+
+The first tagged version, and the end of roadmap Phase 1. Everything above this line in the
+repo's history was reconstructed; this is the first entry written as a release rather than
+recovered from commits.
+
+Phase 1 set out to make the app observable, durable and bounded before anyone else was
+invited into it. All six items landed: the `docs/` knowledgebase, CI on every pull request,
+the client error beacon, an honest notice on the one identity-loss path, `responseSchema`
+enforcement on generation, and the contribute boundary below.
+
+### Added (2026-08-11)
+
+- **Contributing takes a verified email.** Anyone could publish into the shared library:
+  anonymous sign-in is one tap, and nothing anywhere enforced who was allowed in. Reading,
+  favouriting and following stay open to anonymous accounts; creating a recipe, suggesting a
+  change and replying on a suggestion now need an email you have proved you own. Enforced in
+  the security rules, so it is a property of the system rather than a check the client is
+  trusted to make.
+- **The block is an invitation, not an error.** Hitting the gate shows a sign-up screen
+  offering a passwordless link, rather than failing at the end of a long flow. Signing up
+  from an anonymous account upgrades it in place, so the recipes already published under it
+  come along. Generation is gated in front of the composer rather than at save time,
+  because spending a generation and then being refused is a worse way to meet the app.
 
 ### Added (2026-08-07)
 
@@ -33,6 +56,12 @@ release, newest first.
   the same lines as the real version tree, now appears once on a root recipe from the second recipe
   you open onward. It is skipped on variations, which already demonstrate the idea, and it does not
   come back once dismissed.
+
+### Fixed (2026-08-11)
+
+- **The suggestion dialog no longer fails in silence.** A suggestion that could not be sent
+  left the button to stop spinning and said nothing at all, with the text still sitting in
+  the box. It now says that it did not send and invites a retry.
 
 ### Fixed (2026-08-07)
 
