@@ -1824,6 +1824,54 @@ that failure mode entirely, so it is not listed.
       console. Both probe recipes deleted, preference restored to Original.)
 ---
 
+# Observed but not addressed (2026-08-11)
+
+Filed while shipping the verified-email gate (roadmap 1.6). None of these were caused by
+that work; all were seen in passing and deliberately left alone to keep the change focused.
+Each says how it was observed, so nobody has to re-derive it.
+
+## Medium severity
+
+- [ ] **FUN-17** Signing out while a suggestions listener is mounted throws an uncaught
+      `permission-denied`. `firestore.rules:114` is `allow read: if signedIn()`, and the
+      `useSuggestions` subscription is not torn down before the auth state clears, so the
+      in-flight `list` is evaluated with no auth. Surfaces as
+      `Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied] false for
+      'list' @ L114`. Pre-existing, but it matters more now than it did: the 1.2 beacon
+      reports unhandled errors, so every sign-out from a recipe page files a `clientErrors`
+      document and this will read as recurring production noise rather than a known no-op.
+      Observed in the browser 2026-08-11 while testing the contribute gate.
+      Fix shape: unsubscribe on user change in `useSuggestions` before the auth state
+      propagates, or swallow `permission-denied` specifically in that listener's error
+      handler. Prefer the former; the latter hides real denials too.
+
+- [ ] **FUN-18** A malformed recipe document blanks `RecipeDetailPage` with no error
+      boundary. `RecipeContent.tsx:103` reads `.length` on `ingredients`/`instructions`
+      without a guard, so a cloud document missing either array throws during render and the
+      user gets an entirely blank screen. Observed 2026-08-11 with a hand-written Firestore
+      document; `publishRecipe` always writes complete documents, so no real recipe triggers
+      this today. What makes it worth filing anyway is the blast radius versus the fix: any
+      partially-written or hand-edited document takes the whole page down silently, and the
+      guard is a few characters. There is no error boundary anywhere above it to catch this.
+
+## Low severity
+
+- [ ] **SEC-2** Recipes published by anonymous accounts before the verified-email gate are
+      still in the shared library, owned by accounts that can no longer publish anything new.
+      The rules deliberately keep owner update and delete at signed-in-and-owner rather than
+      `verified()` so those owners can still fix or remove their own work (see the comment on
+      `isOwnerUpdate`), which means this is a data-hygiene question, not a broken state.
+      Needs a Firebase console pass to see how many exist and a decision on whether to leave
+      them. Raised 2026-08-11; requires console access, so it is the author's call.
+
+- [ ] **INFRA-2** `npm run build` warns that a chunk exceeds 500 kB after minification. No
+      code splitting is configured, so the whole app ships as one bundle. Pre-existing and
+      harmless on a fast connection, but it works against the mobile-first premise and
+      against 2.3's offline story, where the precached shell is exactly this bundle. Worth
+      revisiting with 2.3 (PWA) rather than on its own.
+
+---
+
 # Accepted risks (watch, not backlog)
 
 - **RISK-1** Client-side prompt construction. With Firebase AI Logic the browser builds

@@ -67,18 +67,33 @@ the repo.
 `firestore.rules` is the security boundary; the client-side ownership check is UI polish.
 The full ruleset is commented — this is the summary.
 
+**The consume/contribute line (deployed 2026-08-10).** Two tiers of signed-in user now exist.
+`signedIn()` is any account, including a one-tap anonymous one. `verified()` additionally
+requires `request.auth.token.email_verified == true`. Anything that puts content in front of
+another user takes `verified()`: publishing a recipe, filing a suggestion, replying on a
+suggestion thread. Everything a user does for their own benefit stays open to anonymous
+accounts: reading, favouriting, following, and their own profile. Both of the app's routes to
+a verified email (`linkWithCredential` on an anonymous account, and `signInWithEmailLink`)
+mint a fresh ID token carrying the claim, so there is no lag between verifying and being able
+to publish; confirmed against the Auth emulator on 2026-08-10.
+
+Note that `notifications` create deliberately stays at `signedIn()`. Favouriting and following
+both write a notification as part of the action, so raising it would break two of the three
+things anonymous users are meant to keep.
+
 **recipes** — anyone may read, including signed-out visitors, deliberately: the library feed
-and shared links work without an account. Publishing requires being signed in and stamping
-your own uid as `createdBy.uid`, with both counters starting at zero. Updates are allowed
-only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by any signed-in
-user, or an owner update that changes anything *except* `createdBy.uid`. Deleting requires
-being the owner.
+and shared links work without an account. Publishing requires a **verified email** and
+stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
+allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by any
+signed-in user (anonymous included), or an owner update that changes anything *except*
+`createdBy.uid`. Owner updates and deletes require ownership but *not* verification, so a
+recipe published anonymously before the gate stays editable and deletable by whoever owns it.
 
 **favorites** — you may read, create, and delete only your own, and the document id must
 match `{your uid}_{recipeId}`. No updates.
 
-**suggestions** — any signed-in user may create one for someone else's recipe, and it must
-be stamped with their own uid and `status: 'pending'`. Only the recipe owner may update, and
+**suggestions** — any user **with a verified email** may create one for someone else's recipe,
+and it must be stamped with their own uid and `status: 'pending'`. Only the recipe owner may update, and
 only the `status` field, and only to `approved` or `rejected`. Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records — use the emulator (see [operations.md](operations.md)). Reads are any-signed-in
@@ -86,8 +101,8 @@ because the client subscribes by `recipeId` alone; tightening that needs a query
 first.
 
 **suggestions/{id}/messages** — creatable only by the two participants (checked with a
-`get()` on the parent, so a reply costs 2 document reads), only with your own `fromUid`, and
-immutable once sent. Replies stay allowed after approval or rejection on purpose.
+`get()` on the parent, so a reply costs 2 document reads), only with your own `fromUid`, with
+a verified email, and immutable once sent. Replies stay allowed after approval or rejection on purpose.
 
 **notifications** — the *acting* user writes the notification and the recipient reads it.
 Creation requires your own `fromUid` and `read: false`. The recipient may flip `read` and

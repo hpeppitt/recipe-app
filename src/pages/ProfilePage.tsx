@@ -8,6 +8,7 @@ import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { AuthModal } from '../components/auth/AuthModal';
+import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -76,74 +77,6 @@ function PersonRow({
         {displayName ?? 'Anonymous'}
       </span>
     </button>
-  );
-}
-
-function EmailLinkingForm() {
-  const { linkEmail } = useAuth();
-  const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (!email.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await linkEmail(email.trim());
-      setSent(true);
-    } catch {
-      setError('Failed to send link. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (sent) {
-    return (
-      <div className="border border-success-200 bg-success-50 dark:border-success-800 dark:bg-success-950 rounded-2xl p-4 text-center space-y-2">
-        <p className="text-sm font-medium text-success-700 dark:text-success-300">
-          Check your email!
-        </p>
-        <p className="text-xs text-success-700 dark:text-success-400">
-          We sent a link to <strong>{email}</strong>. Click it to secure your account.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-3">
-      <div className="flex items-start gap-3">
-        <svg className="w-5 h-5 text-warning-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-        </svg>
-        <div>
-          <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
-            Your account is anonymous
-          </p>
-          <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">
-            Add an email to keep your recipes safe and access them from any device.
-          </p>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="your@email.com"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSubmit();
-          }}
-        />
-        <Button size="sm" onClick={handleSubmit} disabled={loading || !email.trim()}>
-          {loading ? 'Sending...' : 'Add Email'}
-        </Button>
-      </div>
-      {error && <p className="text-xs text-danger-600">{error}</p>}
-    </div>
   );
 }
 

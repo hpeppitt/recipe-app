@@ -108,7 +108,12 @@ export function useSubmitSuggestion() {
       recipeEmoji: string;
       message: string;
     }) => {
-      if (!user) return;
+      // Throw rather than return. A silent resolve reads as success to every
+      // caller: SuggestChangeModal would show "Suggestion sent" for a write
+      // that never happened. No UI reaches this today, since both callers gate
+      // on sign-in and then on sign-up, so this is about what the next caller
+      // inherits. Reaching this line is a bug, and a bug should be loud.
+      if (!user) throw new Error('Cannot suggest a change while signed out');
       await createSuggestion({
         ...params,
         suggestedBy: {
