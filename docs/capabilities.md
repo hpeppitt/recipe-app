@@ -48,11 +48,12 @@ Gates: **local** works with no Firebase project configured; **firebase** needs
 | Share a recipe by link | shipped | local (shape differs) | `lib/share.ts` | With Firebase: `/shared/:id` reading Firestore. Without: `/shared#r=<lz-string>` with the recipe compressed into the URL. `pickShareUrl` chooses; only published recipes get a cloud link. |
 | View a shared recipe signed out | shipped | firebase | `pages/SharedRecipePage.tsx` | `firestore.rules` allows unauthenticated reads of `recipes` and `profiles` on purpose. |
 | Favorite someone's recipe | shipped | auth | `hooks/useFavorites.ts` | Dual write: local Dexie for instant UI, Firestore for the owner's notification and the counter. |
-| Suggest a change | shipped | auth | `components/recipe/SuggestChangeModal.tsx` | Any signed-in user, on the detail or shared page. |
+| Suggest a change | shipped | verified email | `components/recipe/SuggestChangeModal.tsx` | On the detail or shared page. Requires a verified email as of 2026-08-10; anonymous accounts are refused by rules. |
 | Approve / reject a suggestion | shipped | auth | `pages/RecipeDetailPage.tsx`, `services/firestore.ts` (`updateSuggestionStatus`) | Owner only, enforced in rules. Approval adds the suggester to `collaborators` via `arrayUnion` and notifies them. |
 | Reply thread on a suggestion | shipped | auth | `components/recipe/SuggestionThread.tsx`, `suggestions/{id}/messages` | Two participants only, immutable once sent, and replies stay open after approval or rejection — a rejection is exactly when the suggester wants to ask why. |
 | Reporting / moderation | **cut** | — | — | Cut with the private-circle decision. First thing to rebuild if the audience goes public. |
-| Circle membership enforcement | **not built** | — | — | Any signed-in user (anonymous auth is one tap) can publish into the shared library today. Roadmap 1.6, and a hard gate on the first invite. |
+| Verified-email gate on contributing | **rules shipped, client pending** | verified email | `firestore.rules` (`verified()`) | Deployed 2026-08-10, replacing the invite/membership design in roadmap 1.6. Publishing, suggesting and replying need `email_verified`; reading, favouriting and following stay open to anonymous accounts. **The client half is not built yet**, so an anonymous user still sees the create and suggest affordances and hits a raw permission-denied error at the end of the flow. Accepted knowingly and short-term, on the basis that there is currently one user. |
+| Generation gated to verified users | **not built** | — | — | Rules cannot reach this: Gemini is called client-side through Firebase AI Logic, so only the client can gate generating. Until it does, an anonymous account can still spend the shared Gemini quota even though it cannot publish the result. |
 
 ## Identity and social
 

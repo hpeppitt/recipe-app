@@ -7,6 +7,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Anyone who has proved they own an email address.
+    //
+    // This is the line between consuming the app and contributing to it.
+    // Anonymous sign-in is one tap and costs nothing, so `signedIn()` alone is
+    // not a meaningful barrier to anyone who wants to put a recipe in front of
+    // everybody else. Owning an inbox is a small barrier, but it is a real one,
+    // and it gives a misbehaving account a name that survives a page refresh.
+    //
+    // Reading, favouriting and following deliberately stay open to anonymous
+    // users: none of them add content anyone else has to look at.
+    //
+    // The claim rides the ID token. That would normally mean it lags
+    // verification by up to an hour, but both of this app's routes to a
+    // verified email (`linkWithCredential` on an anonymous account, and
+    // `signInWithEmailLink`) mint a fresh token as part of the call, so the
+    // claim is present the instant the user is verified. Checked against the
+    // Auth emulator 2026-08-10: both paths report email_verified == true on the
+    // cached token, with no forced refresh.
+    //
+    // This would stop being true if a path ever verified an email out of band,
+    // e.g. sendEmailVerification with the user clicking through in another tab.
+    // Such a path would need getIdToken(true) before its first write.
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -16,9 +42,9 @@ service cloud.firestore {
       // Library feed and shared pages are browsable without signing in
       allow read: if true;
 
-      // Publish: must be signed in, must stamp yourself as creator,
+      // Publish: must have a verified email, must stamp yourself as creator,
       // counters must start at zero
-      allow create: if signedIn()
+      allow create: if verified()
         && request.resource.data.createdBy.uid == request.auth.uid
         && request.resource.data.favoriteCount == 0
         && request.resource.data.viewCount == 0;
@@ -47,7 +73,14 @@ service cloud.firestore {
       }
 
       // Owner may edit their recipe (e.g. collaborators arrayUnion on
-      // suggestion approval) but can never reassign ownership
+      // suggestion approval) but can never reassign ownership.
+      //
+      // Deliberately `signedIn()` and not `verified()`, unlike create. Recipes
+      // published anonymously before the verified-email gate went in are still
+      // owned by an anonymous account, and requiring verification here would
+      // leave that owner able to delete their recipe but not correct a typo in
+      // it. Nothing new reaches the library through this path: it can only edit
+      // a document that already passed the create rule.
       function isOwnerUpdate() {
         return signedIn()
           && resource.data.createdBy.uid == request.auth.uid
@@ -70,7 +103,9 @@ service cloud.firestore {
       // Read is any-signed-in because the client subscribes by recipeId only;
       // tighten to owner/suggester if the query adds a recipeOwnerId filter
       allow read: if signedIn();
-      allow create: if signedIn()
+      // Suggesting puts text in front of another user, so it takes a verified
+      // email for the same reason publishing does.
+      allow create: if verified()
         && request.resource.data.suggestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending';
       allow update: if signedIn()
@@ -98,7 +133,11 @@ service cloud.firestore {
       // Each get() bills one document read, so sending a reply costs 2 reads.
       match /messages/{messageId} {
         allow read: if signedIn();
-        allow create: if signedIn()
+        // Both participants reached this thread through a verified-email action
+        // (publishing the recipe, or filing the suggestion), so requiring it
+        // again here costs nothing and keeps the rule honest on its own terms
+        // rather than depending on how the thread was reached.
+        allow create: if verified()
           && request.resource.data.fromUid == request.auth.uid
           && (
             get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.recipeOwnerId == request.auth.uid
@@ -109,6 +148,14 @@ service cloud.firestore {
     }
 
     // --- Notifications: written by the acting user, readable by the recipient ---
+    //
+    // Create stays `signedIn()` and must not be raised to `verified()`. Both
+    // `addCloudFavorite` and `followUser` write a notification as part of the
+    // action, and favouriting and following are two of the three things an
+    // anonymous user is still meant to be able to do. Gating this would fail
+    // those writes for exactly the users the verified-email split keeps
+    // deliberately open, and the failure would surface as a broken favourite
+    // rather than as anything mentioning notifications.
     match /notifications/{notificationId} {
       allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
       allow create: if signedIn()

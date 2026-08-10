@@ -304,8 +304,34 @@ into your circle's library.
   is the front door of the knowledgebase, so it is written as part of it rather than as
   separate hygiene bundled with CI.
 
-- **1.6 Enforce the circle boundary.** (Added 2026-07-31 by the "private circle" decision.)
-  Why now: "private circle" is currently a description of who happens to have the URL, not
+- **1.6 Enforce the contribute boundary.** **RULES LANDED 2026-08-10, CLIENT PENDING.**
+  Redesigned at the author's direction before implementation. The invite-vs-membership
+  question below was not answered; it was dissolved. The author's requirement is a
+  consume/contribute split rather than a circle: anonymous users may read, favourite and
+  follow, while creating and suggesting require a verified email. That needs no `invites`
+  collection, no `members` collection and no uid seeding, because Firebase already carries
+  the fact in the ID token. The rule is a `verified()` helper checking
+  `request.auth.token.email_verified`, applied at three call sites: `recipes` create,
+  `suggestions` create, and `suggestions/{id}/messages` create.
+  Deployed to production 2026-08-10. Verified against the Auth emulator first, because the
+  whole design rests on one assumption worth checking before shipping a lockout: both routes
+  to a verified email in this app (`linkWithCredential` on an anonymous account,
+  `signInWithEmailLink`) return `email_verified == true`, and both mint a fresh token, so the
+  claim is live immediately with no forced refresh. Firestore emulator rule assertions could
+  not be run: Java is not installed on this machine, so `npm run emulators` fails.
+  Two deliberate exclusions, both recorded in `firestore.rules`: `notifications` create stays
+  at `signedIn()`, because favouriting and following each write one and gating it would break
+  them for the users the split keeps open; and recipe owner-update and delete stay at
+  signed-in-and-owner rather than verified, so anything published anonymously before the gate
+  stays fixable by its owner instead of only deletable.
+  **Still open: the client half.** Rules produce a permission error, not an explanation, so
+  every create affordance still needs to check verification and route to the existing
+  `EmailLinkingForm` rather than failing at the end of a long flow. This also covers the one
+  thing rules structurally cannot: generation runs client-side through Firebase AI Logic, so
+  only the client can stop an anonymous account spending the shared Gemini quota. The author
+  accepted this gap knowingly on the basis of being the only current user.
+  Superseded reasoning, kept because it explains why the item existed:
+  "private circle" was a description of who happens to have the URL, not
   a property the system holds. Verified in `firestore.rules:17`: `allow read: if true` on
   every recipe doc, deliberately, so the library and shared pages work signed-out. Publish
   requires only `signedIn()`, and anonymous auth is one tap, so any visitor can put a
@@ -639,9 +665,26 @@ constraints; the phases above have been revised to match.
    flow, which is server-side work) are recorded in Explicitly Not Doing.
 6. **Local-only favorites: stay hidden.** FUN-16 stands as a decision, not a deferral.
 
-Two things that are now the author's to schedule rather than decide: whether 1.6 gates
-invites via an `invites/{email}` claim or a hand-seeded `members/{uid}` list, and whether
-Phase 2 or 1.6 goes first if no invites are imminent.
+Both of those were resolved on 2026-08-10, and the first was resolved by being discarded.
+
+7. **Audience, revised: not a private circle, but not open either.** No invite is imminent;
+   the app is being shared. The boundary is now verification, not membership: anyone may
+   read, favourite and follow anonymously, and anyone with a verified email may contribute.
+   So 1.6 ships as a `verified()` rule rather than an invite list, and the invite-claim vs
+   hand-seeded-uid question is void. Sequencing answered too: 1.6 went first, ahead of
+   Phase 2.
+   **This weakens three things decision 1 was load-bearing for, and they should be revisited
+   rather than assumed to still hold.** 3.3 (reporting) was cut because trust is social in an
+   invite-only group; an email address is a much weaker social tie. 3.2 was demoted for the
+   same reason. And Phase 4's "assume it never runs" rested on a private circle making quota
+   abuse unlikely: a verified email raises the cost of a throwaway account but does not bound
+   who joins, so RISK-1 is more live than it was, and the failure mode on Spark is a
+   generation outage for everyone rather than a bill.
+   One further consequence worth stating plainly: requiring an email to create routes **every
+   future creator** through the email-link path, which is the one path carrying the
+   `credential-already-in-use` orphaning branch that 1.3 exists to apologise for. That path
+   was optional and rare; it is now universal. If the beacon shows 1.3's notice firing, that
+   is the trigger to reopen 4.2, per the Phase 4 note.
 
 The questions themselves are preserved in the session that produced them; each decision
 above restates the question it answers, so nothing is lost by not repeating them here.
