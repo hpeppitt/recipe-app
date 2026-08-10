@@ -169,10 +169,16 @@ export function RecipeDetailPage() {
   const canSuggest = isConfigured && !isOwner && source === 'cloud';
 
   const handleSuggestClick = () => {
-    if (!user) {
-      setShowAuth(true);
-      return;
-    }
+    // Straight to the dialog, whoever you are. It shows the sign-up call to
+    // action for anyone who cannot suggest yet, signed out or anonymous alike.
+    //
+    // This used to open the sign-in modal first when there was no user, which
+    // became a three-tap detour once suggesting required a verified email: sign
+    // in modal, pick "Continue Anonymously", modal closes without reopening
+    // this one, tap Suggest again, and only then get asked for an email. Worse,
+    // the option it pushed hardest was the one account type that still cannot
+    // suggest. Anonymous accounts are offered where they actually work, which
+    // is favouriting and following, not here.
     setShowSuggest(true);
   };
 

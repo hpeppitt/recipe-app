@@ -1832,18 +1832,22 @@ Each says how it was observed, so nobody has to re-derive it.
 
 ## Medium severity
 
-- [ ] **FUN-17** Signing out while a suggestions listener is mounted throws an uncaught
-      `permission-denied`. `firestore.rules:114` is `allow read: if signedIn()`, and the
-      `useSuggestions` subscription is not torn down before the auth state clears, so the
-      in-flight `list` is evaluated with no auth. Surfaces as
+- [ ] **FUN-17** The suggestions listener throws an uncaught `permission-denied` for any
+      signed-out visitor on a recipe page. `firestore.rules:114` is
+      `allow read: if signedIn()`, and `useSuggestions` subscribes regardless of auth state,
+      so the `list` is evaluated with no auth. Surfaces as
       `Uncaught Error in snapshot listener: FirebaseError: [code=permission-denied] false for
-      'list' @ L114`. Pre-existing, but it matters more now than it did: the 1.2 beacon
-      reports unhandled errors, so every sign-out from a recipe page files a `clientErrors`
-      document and this will read as recurring production noise rather than a known no-op.
-      Observed in the browser 2026-08-11 while testing the contribute gate.
-      Fix shape: unsubscribe on user change in `useSuggestions` before the auth state
-      propagates, or swallow `permission-denied` specifically in that listener's error
-      handler. Prefer the former; the latter hides real denials too.
+      'list' @ L114`.
+      **Scope corrected 2026-08-11 (second observation).** This was first filed as a
+      sign-out race. It is broader: a fresh browser profile that has never signed in throws
+      it on first load of a recipe page. That makes it every signed-out visit to a shared
+      link, which is the app's main growth loop, not an occasional race. With the 1.2 beacon
+      live, each one files a `clientErrors` document, so the collection will fill with this
+      single benign fault and bury anything real. Raised from medium accordingly.
+      Fix shape: do not subscribe until there is a user, since the rule requires one anyway,
+      and a signed-out visitor can never see suggestions. Failing that, unsubscribe on user
+      change. Swallowing `permission-denied` in the listener's error handler is the worst
+      option; it hides real denials too.
 
 - [ ] **FUN-18** A malformed recipe document blanks `RecipeDetailPage` with no error
       boundary. `RecipeContent.tsx:103` reads `.length` on `ingredients`/`instructions`
@@ -1853,6 +1857,21 @@ Each says how it was observed, so nobody has to re-derive it.
       this today. What makes it worth filing anyway is the blast radius versus the fix: any
       partially-written or hand-edited document takes the whole page down silently, and the
       guard is a few characters. There is no error boundary anywhere above it to catch this.
+
+- [ ] **FUN-19** A cold first load of a shared recipe can say "Recipe not found" for a recipe
+      that exists. Observed 2026-08-11: a brand-new browser profile opening
+      `/recipe/:id` rendered the not-found state; an identical navigation immediately after
+      rendered the recipe. Nothing about the document changed in between, so this is the
+      bounded cloud read in `useRecipe.ts:66` losing its race on a cold connection (fresh
+      profile means a fresh App Check token exchange before Firestore's first round trip)
+      and the page treating "did not arrive in time" as "does not exist".
+      Two problems, and the copy is the worse one. A first-time visitor following a shared
+      link is exactly the cold-start case, and telling them the recipe does not exist reads
+      as a dead link rather than a slow one, so they do not retry. `RecipeDetailPage`
+      already distinguishes load failure from absence elsewhere (`parentCloudError` on the
+      variation path does this properly, with a Try again button); this path should too.
+      Fix shape: separate "not found" from "could not load" in `useRecipe`, and give the
+      latter a retry, matching the pattern already used for a missing parent recipe.
 
 ## Low severity
 
