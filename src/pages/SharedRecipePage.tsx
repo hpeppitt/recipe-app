@@ -143,10 +143,9 @@ export function SharedRecipePage() {
   };
 
   const handleSuggestClick = () => {
-    if (!user && isConfigured) {
-      setShowAuth(true);
-      return;
-    }
+    // Same as RecipeDetailPage: the dialog itself asks for an email when it
+    // needs one, so routing through the sign-in modal first only added taps and
+    // advertised anonymous accounts, which cannot suggest.
     setShowSuggest(true);
   };
 
