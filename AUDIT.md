@@ -1873,7 +1873,55 @@ Each says how it was observed, so nobody has to re-derive it.
       Fix shape: separate "not found" from "could not load" in `useRecipe`, and give the
       latter a retry, matching the pattern already used for a missing parent recipe.
 
+- [ ] **FUN-20** The `follows` read rule can fail a whole `list` query on one malformed
+      document, rather than just excluding it. `firestore.rules:244-246` reads
+      `resource.data.followerId` then `resource.data.followingId`; the `||` only short-circuits
+      when the first matches, so for any document where `followerId` is someone else's uid the
+      second field is dereferenced. On a document missing that field the rules engine raises an
+      error instead of evaluating false, and the error fails the query — so every follower or
+      following list containing one bad document returns nothing at all.
+      Observed once, 2026-08-07, during emulator work on the auth flows:
+      `FirebaseError: Property followingId is undefined on object. for 'list' @ L149`
+      (L149 was the follows read rule before the 1.6 rules landed; it is 244-246 now).
+      **Not reproduced**, which is why this is filed rather than fixed: I could not identify
+      what wrote a `follows` document without `followingId`, and changing a security rule on a
+      single unexplained observation is the wrong trade. Two things are worth separating — the
+      rule's fragility, which is real and provable by reading it, and the malformed document,
+      which is unexplained.
+      Fix shape: `resource.data.get('followerId', '')` / `.get('followingId', '')` so a missing
+      field evaluates false and excludes that one document instead of failing the query. Same
+      hardening is worth a pass over the other rules that dereference `resource.data` fields.
+      Needs an emulator repro first: seed a `follows` document with `followingId` absent, run
+      `getFollowers`, confirm the whole query fails, then confirm `.get()` fixes it.
+
 ## Low severity
+
+- [ ] **INFRA-3** `clientErrors` only grows, and nothing in the app can read or prune it.
+      `firestore.rules:211` is `allow read, update, delete: if false`, which is correct for an
+      audit-ish collection but leaves triage entirely dependent on console access and leaves
+      retention at zero: there is no TTL policy, no pruning, and no client path to remove
+      anything. Combined with FUN-17 (every signed-out recipe visit files a report) the
+      collection grows with benign noise indefinitely, and storage for it is billed.
+      Also worth knowing: the first document in it is mine, not a real error. Verifying the
+      rules deploy on 2026-08-08 required an accepted *valid* write, because a rejected one
+      cannot distinguish "rules live" from "no rule, default deny". It is tagged
+      `route: "/__deploy-check"`, `context: "rules-deploy-check"`, and it cannot be deleted
+      from a client by the rule above.
+      Fix shape: a Firestore TTL policy on a `receivedAt`-derived field is the cheap answer and
+      needs no code. A real triage surface is a bigger question and probably belongs with
+      whatever reads these; deliberately not proposing a client-side admin screen, since the
+      read rule is correct as it stands.
+
+- [ ] **UI-16** `TreeIntro` has never been rendered in a browser. It shipped 2026-08-07 with
+      its gating logic covered by 17 unit tests (`lib/onboarding.ts`) and a check that its copy
+      is present and reachable in the built bundle, but the Chrome extension was disconnected
+      for that whole session so nothing confirmed how it actually looks. Unverified specifics:
+      the nested-border diagram at 390px, dark mode, and whether "See this recipe's versions"
+      wraps beside "Got it" on a narrow screen.
+      It is gated behind two conditions (a root recipe, and the second recipe opened), so a
+      quick look needs `recipesViewed >= 2` in the `recipe-app-intro-state` localStorage key.
+      Low severity because the logic is tested and a broken explainer is cosmetic, but it is
+      the only thing shipped this cycle with no visual check at all.
 
 - [ ] **SEC-2** Recipes published by anonymous accounts before the verified-email gate are
       still in the shared library, owned by accounts that can no longer publish anything new.
