@@ -1873,7 +1873,7 @@ Each says how it was observed, so nobody has to re-derive it.
       Fix shape: separate "not found" from "could not load" in `useRecipe`, and give the
       latter a retry, matching the pattern already used for a missing parent recipe.
 
-- [ ] **FUN-20** The `follows` read rule can fail a whole `list` query on one malformed
+- [x] **FUN-20** The `follows` read rule can fail a whole `list` query on one malformed
       document, rather than just excluding it. `firestore.rules:244-246` reads
       `resource.data.followerId` then `resource.data.followingId`; the `||` only short-circuits
       when the first matches, so for any document where `followerId` is someone else's uid the
@@ -1893,6 +1893,40 @@ Each says how it was observed, so nobody has to re-derive it.
       hardening is worth a pass over the other rules that dereference `resource.data` fields.
       Needs an emulator repro first: seed a `follows` document with `followingId` absent, run
       `getFollowers`, confirm the whole query fails, then confirm `.get()` fixes it.
+      (fixed 2026-08-11, and **the premise above is wrong** — the repro was run and it
+      refutes rather than confirms the finding. Java installed and the emulator suite used
+      for the first time in this project, so these are measurements, not readings.
+      **`list` never evaluates document data.** A query is authorised against its
+      *constraints*, not per returned document. Three measurements, each seeded through the
+      emulator REST API with `Bearer owner` because the create rule structurally cannot
+      produce a malformed document:
+        1. Malformed document outside the filter's range: `getFollowers` returns 1 doc, no
+           error. Its rule is never evaluated.
+        2. Malformed document INSIDE the filter's range, missing `followerId` — the very
+           first field the rule dereferences: `getFollowers` returns it happily, 2 docs, no
+           error. This is the decisive one; per-document evaluation would have died here.
+        3. An unfiltered `list` fails with `Property followerId is undefined on object` when
+           **every document is well-formed**. So that error is about query shape, not data.
+      That explains the unexplained observation: nothing had written a corrupt document. The
+      2026-08-07 error came from an under-constrained `follows` list — the emulator UI's data
+      viewer or a hand-run query — and the app issues no such query (`getFollowers`,
+      `getFollowingIds`, `isFollowing`, all constrained). The hunt for what wrote a bad
+      document was a hunt for something that never existed.
+      **The `get` path is the real one, and both forms deny it.** A single-document read does
+      bind `resource.data`, so there the dereference is genuinely evaluated. A third party's
+      malformed document is denied either way — `Property followingId is undefined` before,
+      `false` after. `isFollowing`'s own shape (current user as `followerId`) short-circuits
+      and passes under both.
+      So the change ships as consistency hardening, not a bug fix: it alters no outcome for
+      any query the app issues. It is worth having because `verified()` already established
+      this exact convention in this file, with a comment about errors propagating through a
+      disjunction — and the follows rule is a disjunction containing a dereference, so it was
+      the one place that had not followed it. The concrete payoff is that the next person to
+      see a denial here reads `false` instead of being sent looking for corrupt data.
+      **NOT DEPLOYED.** The repo now differs from the released ruleset. Harmless while it
+      lasts, since behaviour is identical for every query the app makes, but it needs
+      `firebase deploy --only firestore:rules` to be true. Verified against the emulator only;
+      no production rules were touched.)
 
 ## Low severity
 
