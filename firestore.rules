@@ -241,9 +241,23 @@ service cloud.firestore {
 
     // --- Follows: doc id is {followerId}_{followingId}, controlled by the follower ---
     match /follows/{followId} {
+      // `.get` with a default for the same reason `verified()` uses it: this is a
+      // disjunction containing a dereference, so on a document missing the field
+      // the property form raises an evaluation error where `.get` evaluates false.
+      //
+      // Emulator-verified 2026-08-11, and the results correct FUN-20's premise
+      // rather than confirming it. A `list` never sees document data at all --
+      // it is authorised against the query's constraints -- so a malformed
+      // document cannot fail a filtered query, and an unfiltered one fails
+      // identically with zero malformed documents present. On the `get` path,
+      // where document data IS bound, a third party's malformed document is
+      // denied under both forms. So this changes no outcome for any query the
+      // app issues; it makes the denial read `false` instead of
+      // "Property followingId is undefined", which is what sent the last
+      // investigation looking for a corrupt document that never existed.
       allow read: if signedIn()
-        && (resource.data.followerId == request.auth.uid
-            || resource.data.followingId == request.auth.uid);
+        && (resource.data.get('followerId', '') == request.auth.uid
+            || resource.data.get('followingId', '') == request.auth.uid);
       allow create: if signedIn()
         && request.resource.data.followerId == request.auth.uid
         && followId == request.auth.uid + '_' + request.resource.data.followingId;

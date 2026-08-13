@@ -259,6 +259,30 @@ them. Never use a counter as the source of truth for a decision.
 A uniqueness scheme needs per-viewer state for a vanity metric. Raw increments are
 rules-constrained and honest enough.
 
+### Security rules on a `list` never see document data (measured 2026-08-11)
+
+Worth writing down because it is counter-intuitive, it costs real time to re-derive, and it
+already sent one investigation after a corrupt document that did not exist (FUN-20).
+
+A query is authorised against **its constraints**, not against the documents it returns. If
+the rule cannot be proven from the `where` clauses, the query is rejected whole; if it can,
+every matching document comes back without its own fields being checked. Measured against
+the emulator: a `follows` document missing `followerId` — the first field the read rule
+dereferences — is returned by `where('followingId','==',uid)` with no error at all, while an
+unfiltered `list` on the same collection fails with `Property followerId is undefined` even
+when every document is well-formed.
+
+Two consequences. A malformed document cannot poison a filtered query, so rule-level
+defensiveness buys nothing for `list`. And a `Property X is undefined` error on a `list` is a
+statement about the query's shape, never about the data — the fix is to constrain the query,
+not to hunt for a bad document.
+
+Single-document `get` is the opposite: `resource.data` is bound to the real document, so a
+missing field genuinely does raise an evaluation error there. That is the only place the
+`resource.data.get('field', default)` form changes an outcome, and it is why the codebase
+prefers that form in a disjunction (see `verified()` and the `follows` read rule in
+`firestore.rules`).
+
 ---
 
 ## Rejected approaches — do not re-litigate without new evidence
