@@ -1848,6 +1848,16 @@ Each says how it was observed, so nobody has to re-derive it.
       and a signed-out visitor can never see suggestions. Failing that, unsubscribe on user
       change. Swallowing `permission-denied` in the listener's error handler is the worst
       option; it hides real denials too.
+      (blocked 2026-08-13: written but NOT verified, so deliberately unmerged. The fix is on
+      branch `wip/fun-17-suggestions-gate` -- `useSuggestions` gates its subscribe on a
+      signed-in user and stamps results with a `uid:recipeId` key, following the shape
+      `useSuggestionThread` already uses so a sign-out cannot leave the previous account's
+      suggestions on screen. `tsc` and ESLint pass; 254 tests pass.
+      The claim that needs measuring is "no `permission-denied` fires on a signed-out recipe
+      visit", which is a browser observation, and Chrome cannot currently load the dev server
+      on this machine -- see the browser-verification note in
+      [docs/operations.md](docs/operations.md). Do not check this off on code reading alone;
+      the whole point of the finding is an observed console error.)
 
 - [ ] **FUN-18** A malformed recipe document blanks `RecipeDetailPage` with no error
       boundary. `RecipeContent.tsx:103` reads `.length` on `ingredients`/`instructions`
@@ -1857,6 +1867,13 @@ Each says how it was observed, so nobody has to re-derive it.
       this today. What makes it worth filing anyway is the blast radius versus the fix: any
       partially-written or hand-edited document takes the whole page down silently, and the
       guard is a few characters. There is no error boundary anywhere above it to catch this.
+      (blocked 2026-08-13: not started. The fix is trivial, but its verification is not --
+      the symptom is a blank page, so proving it before and after means rendering a malformed
+      document in a browser, and Chrome cannot load the dev server here (see
+      [docs/operations.md](docs/operations.md)). There is no jsdom in the Vitest env, so a
+      component test is not an alternative without adding test infrastructure, which is a
+      bigger decision than this finding. Seed the malformed document with
+      `-H "Authorization: Bearer owner"` against the Firestore emulator, as FUN-20 did.)
 
 - [ ] **FUN-19** A cold first load of a shared recipe can say "Recipe not found" for a recipe
       that exists. Observed 2026-08-11: a brand-new browser profile opening
@@ -1872,6 +1889,13 @@ Each says how it was observed, so nobody has to re-derive it.
       variation path does this properly, with a Try again button); this path should too.
       Fix shape: separate "not found" from "could not load" in `useRecipe`, and give the
       latter a retry, matching the pattern already used for a missing parent recipe.
+      (blocked 2026-08-13: not started, and worth reading `useRecipe.ts` before assuming the
+      fix shape. It already sets `error: true` on a timeout and already exposes `cloudError`
+      plus a `retry`, added for UI-12 -- so the separation the finding asks for may largely
+      exist, and the real defect may be in how `RecipeDetailPage` renders that state rather
+      than in the hook. Establish which before changing anything.
+      Verification needs a browser (cold-start race on a fresh profile), and Chrome cannot
+      load the dev server here -- see [docs/operations.md](docs/operations.md).)
 
 - [x] **FUN-20** The `follows` read rule can fail a whole `list` query on one malformed
       document, rather than just excluding it. `firestore.rules:244-246` reads
@@ -1893,7 +1917,7 @@ Each says how it was observed, so nobody has to re-derive it.
       hardening is worth a pass over the other rules that dereference `resource.data` fields.
       Needs an emulator repro first: seed a `follows` document with `followingId` absent, run
       `getFollowers`, confirm the whole query fails, then confirm `.get()` fixes it.
-      (fixed 2026-08-11, and **the premise above is wrong** — the repro was run and it
+      (fixed 2026-08-11, and **the premise above is wrong** -- the repro was run and it
       refutes rather than confirms the finding. Java installed and the emulator suite used
       for the first time in this project, so these are measurements, not readings.
       **`list` never evaluates document data.** A query is authorised against its
@@ -1902,25 +1926,25 @@ Each says how it was observed, so nobody has to re-derive it.
       produce a malformed document:
         1. Malformed document outside the filter's range: `getFollowers` returns 1 doc, no
            error. Its rule is never evaluated.
-        2. Malformed document INSIDE the filter's range, missing `followerId` — the very
+        2. Malformed document INSIDE the filter's range, missing `followerId` -- the very
            first field the rule dereferences: `getFollowers` returns it happily, 2 docs, no
            error. This is the decisive one; per-document evaluation would have died here.
         3. An unfiltered `list` fails with `Property followerId is undefined on object` when
            **every document is well-formed**. So that error is about query shape, not data.
       That explains the unexplained observation: nothing had written a corrupt document. The
-      2026-08-07 error came from an under-constrained `follows` list — the emulator UI's data
-      viewer or a hand-run query — and the app issues no such query (`getFollowers`,
+      2026-08-07 error came from an under-constrained `follows` list -- the emulator UI's data
+      viewer or a hand-run query -- and the app issues no such query (`getFollowers`,
       `getFollowingIds`, `isFollowing`, all constrained). The hunt for what wrote a bad
       document was a hunt for something that never existed.
       **The `get` path is the real one, and both forms deny it.** A single-document read does
       bind `resource.data`, so there the dereference is genuinely evaluated. A third party's
-      malformed document is denied either way — `Property followingId is undefined` before,
+      malformed document is denied either way -- `Property followingId is undefined` before,
       `false` after. `isFollowing`'s own shape (current user as `followerId`) short-circuits
       and passes under both.
       So the change ships as consistency hardening, not a bug fix: it alters no outcome for
       any query the app issues. It is worth having because `verified()` already established
       this exact convention in this file, with a comment about errors propagating through a
-      disjunction — and the follows rule is a disjunction containing a dereference, so it was
+      disjunction -- and the follows rule is a disjunction containing a dereference, so it was
       the one place that had not followed it. The concrete payoff is that the next person to
       see a denial here reads `false` instead of being sent looking for corrupt data.
       **NOT DEPLOYED.** The repo now differs from the released ruleset. Harmless while it
@@ -1956,6 +1980,13 @@ Each says how it was observed, so nobody has to re-derive it.
       quick look needs `recipesViewed >= 2` in the `recipe-app-intro-state` localStorage key.
       Low severity because the logic is tested and a broken explainer is cosmetic, but it is
       the only thing shipped this cycle with no visual check at all.
+      (blocked 2026-08-13, for the second session running: this finding is *only* a visual
+      check, so there is no partial progress to make without a working browser. Chrome cannot
+      load the dev server on this machine, and `resize_window` reports success while the
+      viewport stays 1450px, so even a loading page could not be checked at 390px. Both are
+      documented in [docs/operations.md](docs/operations.md). Note this is the same class of
+      obstacle that caused the finding in the first place, which is now the strongest argument
+      for fixing the tooling before the backlog.)
 
 - [ ] **SEC-2** Recipes published by anonymous accounts before the verified-email gate are
       still in the shared library, owned by accounts that can no longer publish anything new.
