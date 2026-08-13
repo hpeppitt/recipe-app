@@ -56,12 +56,44 @@ Look for `[firebase] using local emulators; no live data is being touched` in th
 Emulator data is discarded when the process stops. Ports and the emulator UI are configured
 in `firebase.json`.
 
-**Java is required and is not on `PATH`.** The emulators are Java processes. A JDK is installed
-via Homebrew but unlinked, so `java -version` fails until you prefix:
+**Java is required and is not on `PATH`.** The emulators are Java processes. `openjdk 26.0.2`
+was installed via Homebrew on 2026-08-13 (before that the suite simply could not run, which is
+why several findings were verified by reading rather than measurement). Homebrew keeps it
+keg-only, and macOS ships a `/usr/bin/java` stub that reports "Unable to locate a Java
+Runtime", so every emulator shell needs:
 
 ```bash
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 ```
+
+**The `firebase` CLI is not installed globally**, so `npm run emulators` fails on
+`command not found`. Use `npx` and keep the Java export in the same shell:
+
+```bash
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+npx -y firebase-tools emulators:start --only auth,firestore
+```
+
+**Port 8080 is often taken on this machine** (Signal Desktop listens on it), and the emulator
+refuses to start rather than picking another port. Check with
+`lsof -nP -iTCP:8080 -sTCP:LISTEN` before assuming the suite is broken. Overriding the port
+takes **two** edits, which is a coupling worth knowing about: the port appears in
+`firebase.json` under `emulators.firestore.port` *and* hardcoded in `src/services/firebase.ts`
+in the `connectFirestoreEmulator` call. Changing only the first leaves the app talking to
+nothing. Revert both afterwards, or the committed default drifts.
+
+**Emulator work needs a `.env`, even though nothing real is being contacted.**
+`isFirebaseConfigured` gates the whole Firebase layer on `VITE_FIREBASE_API_KEY`,
+`VITE_FIREBASE_AUTH_DOMAIN` and `VITE_FIREBASE_PROJECT_ID` being present, so with no `.env` the
+app runs in local-only mode and never reaches the emulator at all. Dummy values are fine (the
+emulators do not validate credentials); set `VITE_FIREBASE_PROJECT_ID` to `recipe-lab-3832b` to
+match `.firebaserc` under `singleProjectMode`, and leave `VITE_RECAPTCHA_SITE_KEY` unset so App
+Check never initialises. `.env` is gitignored.
+
+**Vite binds one address family by default**, and which one varies. A dev server reachable at
+`[::1]:5173` but not `127.0.0.1:5173` (or the reverse) will look like a broken browser. Bind
+both with `npm run dev -- --host`, and confirm with
+`curl -o /dev/null -w '%{http_code}' http://127.0.0.1:5173/`.
 
 ### Testing magic-link sign-in without sending email
 
@@ -135,6 +167,43 @@ themes, create, shared, profile) with a console-error check at the end, plus a `
 check against the maintenance contract in [docs/README.md](README.md). It is a gate, not a
 repair step.
 
+### Browser verification is currently unavailable (2026-08-13)
+
+This blocks the browser half of `/preflight` and any finding whose symptom is visual. Recorded
+in detail because the diagnosis is slow and was already repeated once: the 2026-08-07 session
+lost `TreeIntro`'s visual check to the same class of obstacle (UI-16), and the 2026-08-13
+session lost FUN-17, FUN-18, FUN-19 and UI-16 to it.
+
+Chrome shows `Frame with ID 0 is showing error page` for every attempt to load the dev server,
+while `curl` returns 200 for the same URL. What has been **ruled out by measurement**, so it
+does not need redoing:
+
+- Not the server. `curl` gets 200 on `127.0.0.1:5173` and `[::1]:5173` with Vite bound to all
+  interfaces via `--host`.
+- Not an address-family mismatch. Both hostnames tried against a dual-bound server.
+- Not a proxy. `scutil --proxy` shows none beyond the `*.local` / `169.254/16` defaults.
+- Not a Chrome managed policy, and `/etc/hosts` maps `localhost` normally.
+- Not a remote browser. `list_connected_browsers` reports exactly one, `isLocal: true`, macOS.
+  This was the leading hypothesis, since `https://example.com` renders fine while `localhost`
+  does not, and it is wrong.
+- Not a stale tab. A fresh tab behaves identically.
+
+The untested explanation left is the Chrome extension's **site-level permission** not covering
+`localhost` / `127.0.0.1`, which is configured inside the extension UI rather than on disk and
+so cannot be checked or changed from a shell. Chrome's "Always use secure connections" setting
+would produce the same symptom. Both need a human at the browser.
+
+Separately, and independently: **`resize_window` reports success but the viewport stays
+1450px**, so the 390x844 mobile check cannot be performed even on a page that does load. The
+same failure is recorded against UI-8 in `AUDIT.md` ("viewport emulation has never worked in
+this session"), so treat it as a standing limitation of this setup rather than a one-off.
+
+Until both are fixed, the honest options for a user-visible fix are to leave it unmerged (what
+FUN-17 did, on `wip/fun-17-suggestions-gate`) or to merge it with the fix note saying plainly
+that it was code-reviewed and not browser-verified. Do not write a fix note that implies a
+measurement that did not happen; every other note in `AUDIT.md` can be trusted, and that is the
+property worth protecting.
+
 **A PostToolUse hook** (`.claude/hooks/typecheck-lint.sh`) runs `tsc -b` and ESLint after
 every edit to `src/**/*.ts(x)` and feeds errors straight back, so type and lint breakage
 surfaces at edit time rather than at commit time.
@@ -157,6 +226,18 @@ CI deliberately does **not** replicate `/preflight`'s browser smoke test: that n
 preview server and the emulator suite, and the payoff-to-flake ratio is wrong until there are
 component tests to anchor it. The tests it does run are node plus `fake-indexeddb`, so the
 job needs no secrets and no emulators — if that changes, the job needs secrets adding.
+
+**Pushes must use the GitHub noreply address.** `git config user.email` is
+`harry@seidrlab.com`, and the account has email privacy enabled, so GitHub rejects the push
+with `push declined due to email privacy restrictions` after the commit already exists. The
+address the repo's own merge commits use is `20333887+hpeppitt@users.noreply.github.com`.
+Per-commit, without changing the global config:
+
+```bash
+git -c user.email="20333887+hpeppitt@users.noreply.github.com" commit -m "..."
+# or, to repair a commit that has already been rejected:
+git -c user.email="20333887+hpeppitt@users.noreply.github.com" commit --amend --no-edit --reset-author
+```
 
 ## Backlogs
 

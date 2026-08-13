@@ -267,14 +267,14 @@ already sent one investigation after a corrupt document that did not exist (FUN-
 A query is authorised against **its constraints**, not against the documents it returns. If
 the rule cannot be proven from the `where` clauses, the query is rejected whole; if it can,
 every matching document comes back without its own fields being checked. Measured against
-the emulator: a `follows` document missing `followerId` — the first field the read rule
-dereferences — is returned by `where('followingId','==',uid)` with no error at all, while an
+the emulator: a `follows` document missing `followerId` -- the first field the read rule
+dereferences -- is returned by `where('followingId','==',uid)` with no error at all, while an
 unfiltered `list` on the same collection fails with `Property followerId is undefined` even
 when every document is well-formed.
 
 Two consequences. A malformed document cannot poison a filtered query, so rule-level
 defensiveness buys nothing for `list`. And a `Property X is undefined` error on a `list` is a
-statement about the query's shape, never about the data — the fix is to constrain the query,
+statement about the query's shape, never about the data -- the fix is to constrain the query,
 not to hunt for a bad document.
 
 Single-document `get` is the opposite: `resource.data` is bound to the real document, so a
