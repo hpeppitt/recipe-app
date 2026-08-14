@@ -1947,10 +1947,23 @@ Each says how it was observed, so nobody has to re-derive it.
       disjunction -- and the follows rule is a disjunction containing a dereference, so it was
       the one place that had not followed it. The concrete payoff is that the next person to
       see a denial here reads `false` instead of being sent looking for corrupt data.
-      **NOT DEPLOYED.** The repo now differs from the released ruleset. Harmless while it
-      lasts, since behaviour is identical for every query the app makes, but it needs
-      `firebase deploy --only firestore:rules` to be true. Verified against the emulator only;
-      no production rules were touched.)
+      **DEPLOYED 2026-08-14** to recipe-lab-3832b, rules only (`--only firestore:rules`;
+      indexes untouched). Repo and production are in sync again.
+      Checked what the deploy would actually change before running it, rather than trusting
+      that the repo held one undeployed commit, by fetching the released ruleset through the
+      Rules API and diffing it against HEAD. Worth keeping as the habit: the git log alone was
+      genuinely ambiguous here. Two commits on 2026-08-10 touched `firestore.rules` -- the 1.6
+      rules commit and its client follow-up, which also moved `verified()` to the `.get()`
+      form -- and the 1.6 note records a deploy that day without saying which commit it
+      carried. The fetched ruleset settled it: `verified()` was already live, so this deploy's
+      only change was the follows rule.
+      Verified after, the same way: the newly released ruleset is byte-identical to
+      `firestore.rules` at HEAD, and the live follows rule reads `.get('followerId', '')`. The
+      previous ruleset id was `5849d7bf`, so a rollback target exists if one is ever wanted.
+      No production traffic was exercised, deliberately: the released source is byte-identical
+      to the source the emulator measurements above were taken against, and the emulator runs
+      the same rules engine, so those measurements carry over. Exercising it for real would
+      mean writing follow documents to the live project.)
 
 ## Low severity
 
