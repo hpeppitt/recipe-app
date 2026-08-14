@@ -134,6 +134,32 @@ Rules and indexes live in the repo (`firestore.rules`, `firestore.indexes.json`)
 source of truth. Never edit them in the console: the console version wins until the next
 deploy and then silently reverts.
 
+**Diff the released ruleset before and after a rules deploy.** The git log is not a reliable
+guide to what is live: on 2026-08-14 it looked like one undeployed commit, but two commits on
+2026-08-10 had touched `firestore.rules` and the deploy note for that day did not say which one
+it carried, so the actual delta was ambiguous until it was fetched. Reading it takes ADC
+credentials, which are already present on this machine:
+
+```bash
+T=$(gcloud auth application-default print-access-token)
+P=recipe-lab-3832b
+# the release points at a ruleset id; fetch that ruleset's source
+RS=$(curl -s -H "Authorization: Bearer $T" \
+  "https://firebaserules.googleapis.com/v1/projects/$P/releases/cloud.firestore" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['rulesetName'])")
+curl -s -H "Authorization: Bearer $T" "https://firebaserules.googleapis.com/v1/$RS" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['source']['files'][0]['content'])" \
+  > /tmp/live.rules
+diff -u /tmp/live.rules firestore.rules
+```
+
+Before a deploy this shows exactly what will change in production. After one it should report
+no difference, which is the real confirmation that the deploy landed. Note the previous ruleset
+id too: it stays fetchable and is the rollback target.
+
+Deploy rules alone with `--only firestore:rules` when only rules changed, so a stale
+`firestore.indexes.json` cannot ride along unnoticed.
+
 `firebase.json` also declares a `functions` codebase pointing at `functions/`. **Do not
 deploy it.** It requires the Blaze plan, and moving to Blaze ends the free Gemini tier on
 the AI Logic path. It is kept as a written, ready escalation path — see
