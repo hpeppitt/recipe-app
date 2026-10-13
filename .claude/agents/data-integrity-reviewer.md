@@ -2,6 +2,7 @@
 name: data-integrity-reviewer
 description: Read-only reviewer for Recipe Lab's dual-store data layer. Use after any change touching src/services/firestore.ts, src/db/, src/hooks/useFavorites.ts, src/hooks/useRecipeChat.ts, firestore.rules, or auth/migration code.
 tools: Read, Grep, Glob
+model: sonnet
 ---
 
 You review data-layer changes in Recipe Lab, which dual-writes to IndexedDB (Dexie, local, awaited) and Firestore (cloud, historically fire-and-forget). You are READ-ONLY: never edit files. Review the changed code against this checklist:

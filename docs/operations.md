@@ -15,6 +15,7 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run preview` | Serve the production build locally |
 | `npm run emulators` | Firebase Auth + Firestore emulators (see below) |
 | `npm run dev:emulated` | Dev server pointed at the emulator suite |
+| `npm run backlog -- <list\|next\|show\|set\|validate>` | The ticket backlog CLI (`scripts/backlog.mjs`, tested). `next` prints the ticket an agent should pick up, skipping any with a `ticket/<ID>` branch on `origin` |
 
 Tests run in node with `fake-indexeddb`; setup is `src/test/setup.ts`. Fixtures are
 `src/test/factories.ts` (`makeRecipe`, `makeIngredient`). New pure logic in `src/db` or
@@ -234,12 +235,13 @@ property worth protecting.
 every edit to `src/**/*.ts(x)` and feeds errors straight back, so type and lint breakage
 surfaces at edit time rather than at commit time.
 
-**Review subagents**, both read-only:
+**Subagents** (models and roles in [agent-workflow.md](agent-workflow.md)):
 
-- `ui-reviewer` — after any page or component change. Catches mobile, dark-mode, a11y, and
-  state-coverage regressions.
-- `data-integrity-reviewer` — after changes to `services/firestore.ts`, `src/db/`, the
-  favourites or recipe-chat hooks, or `firestore.rules`.
+- `ui-reviewer` (read-only) — after any page or component change. Catches mobile,
+  dark-mode, a11y, and state-coverage regressions.
+- `data-integrity-reviewer` (read-only) — after changes to `services/firestore.ts`,
+  `src/db/`, the favourites or recipe-chat hooks, or `firestore.rules`.
+- `implementer`, `scout`, `groomer` — the loop's worker, lookup and grooming agents.
 - `roadmap-architect` — not a gate. Reviews the whole app and rewrites `ROADMAP.md`; use it
   for "what next", not for individual fixes.
 
@@ -267,11 +269,14 @@ git -c user.email="20333887+hpeppitt@users.noreply.github.com" commit --amend --
 
 ## Backlogs
 
-- `AUDIT.md` — tactical findings with `SEC`/`INFRA`/`FUN`/`UI`/`UX` ids. Fully cleared as of
-  2026-07-30. `/audit-next` fixes exactly one finding, verifies it, checks it off, and
-  commits; loopable with `/loop /audit-next`.
+- `backlog/tickets/` — the tactical queue, one ticket per file, consumed by `/next-ticket`
+  and produced by `/groom`. Contract in `backlog/README.md`; process in
+  [agent-workflow.md](agent-workflow.md). `backlog/DECISIONS.md` and `backlog/QA.md` are the
+  ledgers the loop writes for the author's QA pass.
 - `ROADMAP.md` — the strategic layer. Phases, sequencing rationale, and an explicit
   not-doing list.
+- `AUDIT.md` — the 2026-07 audit, historical since 2026-10-13. Open findings became tickets
+  RL-003 to RL-006 and RL-010 to RL-012; `/audit-next` was removed.
 
 ## Versioning
 

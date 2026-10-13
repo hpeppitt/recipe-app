@@ -14,6 +14,7 @@ lives there.** That is deliberate: two copies of a fact become two copies that d
 | Dexie schema, Firestore collections, what the rules permit | [docs/data-model.md](docs/data-model.md) |
 | Commands, env vars, emulators, deploy, verification gates | [docs/operations.md](docs/operations.md) |
 | Why is it like this? What was tried and rejected? | [docs/decisions.md](docs/decisions.md) |
+| How is it developed? Who decides what, which model does which job? | [docs/agent-workflow.md](docs/agent-workflow.md) |
 
 Read [docs/decisions.md](docs/decisions.md) before proposing anything architectural. It
 records what has already been tried and reverted with evidence, including the
@@ -29,28 +30,34 @@ cannot generate.
 
 ## Dev cycle
 
-- **`ROADMAP.md`** is the strategic backlog: phases, sequencing, and an explicit not-doing
-  list. Use it for "what next / how to prioritise".
-- **`AUDIT.md`** is the tactical backlog of audit findings, **fully cleared** as of
-  2026-07-30. The fix note on each finding records why that fix took the shape it did; it is
-  worth grepping before changing code near one.
-- **`/audit-next`** fixes exactly one unchecked `AUDIT.md` finding, verifies it, checks it
-  off, and commits (`Fix <ID>: ...`). Loopable via `/loop /audit-next`. With the backlog
-  cleared it has nothing to do until new findings are filed.
-- **`/preflight`** is the pre-commit gate: build + lint + tests + a mobile-viewport browser
-  smoke test of the core flows + a `docs/` drift check.
+Autonomous between two human touchpoints, described in full in
+[docs/agent-workflow.md](docs/agent-workflow.md). The short version:
+
+- **`ROADMAP.md`** is the strategic backlog, owned by the author with `roadmap-architect`.
+- **`backlog/tickets/`** is the tactical backlog: one groomed ticket per file, picked by
+  `npm run backlog -- next`. The ticket contract is `backlog/README.md`.
+- **`/groom <input>`** turns a roadmap item, a design document, audit findings or QA notes
+  into tickets and ends with the author's approval.
+- **`/next-ticket`** implements one ticket end to end (claim, implement, review, gates,
+  pull request, auto-merge) and records what the human must check. Loop it with
+  `/loop /next-ticket` from a session started with the Sonnet model.
+- **`/qa-pass`** prepares the author's checklist and preview; **`/release`** ships.
+- **`/preflight`** is the manual full-verification gate, including the browser walk.
+- **`AUDIT.md`** is historical. Its open findings were moved to tickets on 2026-10-13 and
+  new findings are filed with `/groom`, not appended there.
 - A PostToolUse hook (`.claude/hooks/typecheck-lint.sh`) runs `tsc -b` + ESLint after every
   edit to `src/**/*.ts(x)` and feeds errors back automatically.
 
 ## Subagents
 
-All read-only except where noted.
+Each has a pinned model; the table in `docs/agent-workflow.md` says why.
 
-- `ui-reviewer` — run after any page or component change.
-- `data-integrity-reviewer` — run after changes to `services/firestore.ts`, `src/db/`, the
-  favourites or recipe-chat hooks, or `firestore.rules`.
-- `roadmap-architect` (Fable, writes `ROADMAP.md`) — for planning and re-planning, not for
-  individual fixes.
+- `implementer` (Sonnet by default; Haiku or Opus by ticket tier) — does one ticket.
+- `ui-reviewer`, `data-integrity-reviewer` (Sonnet, read-only) — run after page/component
+  changes and after data-layer changes respectively.
+- `scout` (Haiku, read-only) — lookups, summaries, docs drift.
+- `groomer` (Opus, writes only `backlog/tickets/`) — spawned by `/groom`.
+- `roadmap-architect` (Fable, writes `ROADMAP.md`) — planning with the author, not fixes.
 
 ## Working conventions
 

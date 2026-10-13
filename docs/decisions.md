@@ -283,6 +283,50 @@ missing field genuinely does raise an evaluation error there. That is the only p
 prefers that form in a disjunction (see `verified()` and the `follows` read rule in
 `firestore.rules`).
 
+### Development is an autonomous agent loop between two human touchpoints (2026-10-13)
+
+The author sets direction (`ROADMAP.md`, approving each grooming run) and does QA before
+anything goes live. Everything between is agents: `/groom` writes tickets, `/next-ticket`
+implements, reviews, gates and merges one at a time, `/qa-pass` prepares the checklist,
+`/release` ships. Full contract in [agent-workflow.md](agent-workflow.md).
+
+Decisions taken in setting it up, each cheap to overrule:
+
+- **Tickets live in the repo** (`backlog/tickets/`, one file each), not in an issue
+  tracker. Same reasoning as the docs: reviewed and closed in the pull request that
+  implements them, offline, no second system. Parallel sessions claim work by pushing a
+  `ticket/<ID>` branch, so git is the lock. Rejected GitHub Issues (fine, but needs API
+  access from every session and splits the spec from the code) and Jira (the author has
+  used it elsewhere; too heavy for a solo hobby project).
+- **Models are pinned per role.** Sonnet orchestrates and reviews, Haiku looks things up,
+  Opus grooms and takes `hard` tickets, Fable only for the roadmap. Escalation is
+  mechanical (two gate failures promote one tier, once). Rejected running everything on
+  the most capable model: grooming is where capability pays, implementation mostly is
+  not, and the loop's cost per ticket is the thing that decides whether it runs at all.
+- **Reversible decisions are taken and logged; irreversible ones stop the ticket.** The
+  list of irreversible things is in `backlog/README.md`. This is what makes the loop
+  safe to leave unattended; widening the list is always allowed, narrowing it is the
+  author's call.
+- **`main` is integration, not live.** Agents auto-merge green pull requests; live is
+  whatever `/release` last deployed. Rejected deploying from CI on merge, because the QA
+  pass is the point.
+- **`AUDIT.md` is retired as a backlog** and `/audit-next` removed. Two queues with two
+  pickers was one too many; its open findings became tickets and its fix notes stay as
+  history.
+
+Consequence: a ticket that a human never approved at grooming never runs. If the loop is
+idle, the fix is `/groom`, not a looser rule.
+
+### Tech stack: Firebase stays, the AI path moves behind a proxy (proposed 2026-10-13)
+
+Not yet a decision. [tech-stack-review.md](tech-stack-review.md) argues for keeping
+Firebase Hosting, Auth and Firestore (free at this scale, hard-stop quotas, the most
+verified code in the repo) and changing only the generation transport: a proxy holding
+the key, a per-user quota, and a configurable model, preferably on a Cloudflare Worker
+calling Claude Haiku 5.5 so Firebase stays on Spark. The author's decision is RL-001; the
+consequence is recorded here once taken. The review's numbers are flagged as unverified
+where the official pages could not be loaded from the agent sandbox.
+
 ---
 
 ## Rejected approaches — do not re-litigate without new evidence
