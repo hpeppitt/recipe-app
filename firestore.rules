@@ -305,7 +305,9 @@ service cloud.firestore {
           && d.at is int
           // Either signed out, or stamped with the writer's own uid. Nobody gets
           // to file reports against someone else's account.
-          && (!('uid' in d.keys()) || d.uid == null || d.uid == request.auth.uid);
+          && (!('uid' in d.keys()) || d.uid == null || d.uid == request.auth.uid)
+          // The beacon always writes serverTimestamp(), so any other value is free storage on an unauthenticated path.
+          && (!('receivedAt' in d.keys()) || d.receivedAt == request.time);
       }
     }
 
