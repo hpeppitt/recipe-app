@@ -7,6 +7,9 @@ interface ConfirmDialogProps {
   message: string;
   confirmLabel?: string;
   confirmVariant?: 'primary' | 'danger';
+  cancelLabel?: string;
+  /** Disables both actions while the confirmed work is in flight. */
+  busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -17,6 +20,8 @@ export function ConfirmDialog({
   message,
   confirmLabel = 'Confirm',
   confirmVariant = 'primary',
+  cancelLabel = 'Cancel',
+  busy = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -48,10 +53,10 @@ export function ConfirmDialog({
         {message}
       </p>
       <div className="flex gap-3 justify-end">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+          {cancelLabel}
         </Button>
-        <Button variant={confirmVariant} onClick={onConfirm}>
+        <Button variant={confirmVariant} onClick={onConfirm} disabled={busy}>
           {confirmLabel}
         </Button>
       </div>

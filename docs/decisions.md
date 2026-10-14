@@ -328,6 +328,22 @@ checks `recipeOwnerId` against the recipe's `createdBy.uid` with a `get()`; one 
 per suggestion create is the accepted cost, since a wrong owner otherwise leaves a
 suggestion nobody can review and, with delete forbidden, nobody can remove.
 
+### Recipe delete waits for the cloud and reports what remains (RL-023, 2026-10-14)
+
+Deleting a recipe still removes the local subtree first, then waits for the cloud delete
+instead of firing it and forgetting it. Descendants owned by other users are skipped
+rather than counted as failed: the rules deny them by design, and removing them needs a
+Cloud Function. Ids the tree query did not return are read first, and a missing doc
+(never published, or removed by an earlier attempt) is skipped: the rules deny deleting a
+nonexistent doc, which would otherwise be a failure "Try again" could never clear. The
+wait is bounded at 10 seconds; a timeout counts as a failure, and because the real count
+is unknown the dialog then states no number.
+On failure the page shows a dialog with "Try again" and "Leave anyway", replacing the old
+silent `.catch(() => {})` that left recipes public at `/shared/:id` with no local handle.
+There is no background retry queue; that was out of scope. The cloud delete is attempted
+only for a user with `emailVerified`, per the ticket and RL-040, since nobody else can
+publish under the current rules.
+
 ### Tech stack: Firebase stays, the AI path moves behind a proxy (proposed 2026-10-13)
 
 Not yet a decision. [tech-stack-review.md](tech-stack-review.md) argues for keeping

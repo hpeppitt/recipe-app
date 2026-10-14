@@ -34,6 +34,8 @@ import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboard
 
 /** How long Share waits on the cloud before falling back to a self-contained link. */
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
+/** How long Delete waits on the cloud before telling the user copies may remain. */
+const CLOUD_DELETE_TIMEOUT_MS = 10000;
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -47,7 +49,19 @@ export function RecipeDetailPage() {
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id);
   const { submit: submitSuggestion } = useSubmitSuggestion();
-  const [showDelete, setShowDelete] = useState(false);
+  // The confirm message, captured on open: the local delete removes the recipe
+  // while the cloud delete is still in flight, so it cannot be read live.
+  const [showDelete, setShowDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Set when the local copy is gone but published copies were not removed. Holds
+  // the same ids so "Try again" repeats exactly that cloud delete.
+  const [cloudDeleteFailure, setCloudDeleteFailure] = useState<{
+    uid: string;
+    rootId: string;
+    extraIds: string[];
+    /** null after a timeout, when how many copies remain is unknown. */
+    failed: number | null;
+  } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
@@ -149,18 +163,61 @@ export function RecipeDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!id) return;
-    trackRecipeDeleted(id);
-    const rootId = recipe?.rootId;
-    const deletedLocally = await deleteRecipeTree(id);
-    if (isFirebaseConfigured) {
-      // Cascade to the cloud so published variations aren't left orphaned and
-      // still reachable via /shared/:id. Descendants owned by other users are
-      // denied by the rules and stay published; that needs a Cloud Function.
-      deletePublishedRecipeTree(id, rootId ?? id, deletedLocally).catch(() => {});
+  const leaveAfterDelete = () => navigate('/', { replace: true });
+
+  /** Returns false when published copies may remain; a timeout counts as that. */
+  const runCloudDelete = async (target: Omit<NonNullable<typeof cloudDeleteFailure>, 'failed'>) => {
+    if (!id) return true;
+    const unknown = { deleted: 0, failed: null };
+    const { failed } = await withTimeout(
+      deletePublishedRecipeTree(target.uid, id, target.rootId, target.extraIds).catch(
+        () => unknown
+      ),
+      CLOUD_DELETE_TIMEOUT_MS,
+      unknown
+    );
+    if (failed === 0) {
+      leaveAfterDelete();
+      return true;
     }
-    navigate('/', { replace: true });
+    setCloudDeleteFailure({ ...target, failed });
+    return false;
+  };
+
+  const handleDelete = async () => {
+    if (!id || isDeleting) return;
+    setIsDeleting(true);
+    trackRecipeDeleted(id);
+    const rootId = recipe?.rootId ?? id;
+    let deletedLocally: string[];
+    try {
+      deletedLocally = await deleteRecipeTree(id);
+    } catch (err) {
+      // Nothing was removed, so the confirm stays open for another attempt.
+      console.error('Deleting the local recipe tree failed', err);
+      setIsDeleting(false);
+      return;
+    }
+    // Only verified accounts can publish (RL-040), so anyone else has no cloud
+    // copy to remove and the delete is local only.
+    if (!isFirebaseConfigured || !user?.emailVerified) {
+      leaveAfterDelete();
+      return;
+    }
+    // Cascade to the cloud so published variations aren't left orphaned and
+    // still reachable via /shared/:id. Descendants owned by other users are
+    // skipped (the rules deny them); removing those needs a Cloud Function.
+    const ok = await runCloudDelete({ uid: user.uid, rootId, extraIds: deletedLocally });
+    if (!ok) {
+      setShowDelete(null);
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRetryCloudDelete = async () => {
+    if (!cloudDeleteFailure || isDeleting) return;
+    setIsDeleting(true);
+    if (!(await runCloudDelete(cloudDeleteFailure))) setIsDeleting(false);
   };
 
   // Only cloud recipes belonging to someone else can be suggested against:
@@ -304,6 +361,49 @@ export function RecipeDetailPage() {
     ? suggestions
     : suggestions.filter((s) => s.suggestedBy.uid === user?.uid);
 
+  const failedCopies = cloudDeleteFailure?.failed;
+  // Rendered in every branch: once the local copy is deleted the recipe stops
+  // resolving, and the dialogs must survive that.
+  const deleteDialogs = (
+    <>
+      <ConfirmDialog
+        open={showDelete !== null}
+        title="Delete Recipe"
+        message={showDelete ?? ''}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete'}
+        confirmVariant="danger"
+        busy={isDeleting}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDelete(null)}
+      />
+      <ConfirmDialog
+        open={cloudDeleteFailure !== null}
+        title="Still in the shared library"
+        message={
+          failedCopies == null
+            ? 'Removed from this device, but the shared library did not confirm its published copies were removed.'
+            : `Removed from this device, but ${failedCopies} published ${pluralize(failedCopies, 'copy', 'copies')} could not be removed from the shared library.`
+        }
+        confirmLabel={isDeleting ? 'Trying again...' : 'Try again'}
+        cancelLabel="Leave anyway"
+        busy={isDeleting}
+        onConfirm={handleRetryCloudDelete}
+        onCancel={leaveAfterDelete}
+      />
+    </>
+  );
+
+  // Without this, the lookup below would show "not found" or a cloud error
+  // behind the dialogs for a recipe the user has just deleted on purpose.
+  if (!recipe && (isDeleting || cloudDeleteFailure)) {
+    return (
+      <div className="max-w-lg mx-auto">
+        <TopBar title="Deleting..." showBack />
+        {deleteDialogs}
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="max-w-lg mx-auto">
@@ -436,7 +536,11 @@ export function RecipeDetailPage() {
                       <button
                         onClick={() => {
                           setShowMenu(false);
-                          setShowDelete(true);
+                          setShowDelete(
+                            descendantCount > 0
+                              ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
+                              : `Delete "${recipe.title}"? This cannot be undone.`
+                          );
                         }}
                         className="w-full px-4 py-2.5 text-left text-sm text-danger-600 hover:bg-surface-secondary"
                       >
@@ -649,19 +753,7 @@ export function RecipeDetailPage() {
         </div>
       </div>
 
-      <ConfirmDialog
-        open={showDelete}
-        title="Delete Recipe"
-        message={
-          descendantCount > 0
-            ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
-            : `Delete "${recipe.title}"? This cannot be undone.`
-        }
-        confirmLabel="Delete"
-        confirmVariant="danger"
-        onConfirm={handleDelete}
-        onCancel={() => setShowDelete(false)}
-      />
+      {deleteDialogs}
 
       <AuthModal
         open={showAuth}
