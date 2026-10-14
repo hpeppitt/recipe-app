@@ -8,11 +8,12 @@ import type { AppUser } from '../types/recipe';
 import type { Suggestion } from '../types/social';
 
 const subscribe = vi.fn();
+const subscribeMessages = vi.fn();
 const updateStatus = vi.fn();
 const addLocalCollaborator = vi.fn(async (..._a: unknown[]) => {});
 vi.mock('../services/firestore', () => ({
   subscribeRecipeSuggestions: (...a: unknown[]) => subscribe(...a),
-  subscribeSuggestionMessages: vi.fn(),
+  subscribeSuggestionMessages: (...a: unknown[]) => subscribeMessages(...a),
   addSuggestionMessage: vi.fn(),
   updateSuggestionStatus: (...a: unknown[]) => updateStatus(...a),
   createSuggestion: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock('../services/analytics', () => ({
   trackSuggestionReviewed: vi.fn(),
 }));
 
-import { useSuggestions } from './useSuggestions';
+import { useSuggestions, useSuggestionThread } from './useSuggestions';
 
 const noop = async () => {};
 function authValue(user: AppUser | null) {
@@ -52,9 +53,54 @@ describe('useSuggestions gating', () => {
   });
 
   it('does not subscribe while signed out', () => {
-    const { result } = renderHook(() => useSuggestions('r1'), { wrapper: wrapperFor(null) });
+    const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(null) });
     expect(subscribe).not.toHaveBeenCalled();
     expect(result.current.suggestions).toEqual([]);
+  });
+
+  it('does not subscribe for an anonymous or unverified account', () => {
+    for (const user of [
+      { ...fakeUser, isAnonymous: true, email: null, emailVerified: false },
+      { ...fakeUser, emailVerified: false },
+    ]) {
+      const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(user) });
+      expect(result.current.suggestions).toEqual([]);
+    }
+    expect(subscribe).not.toHaveBeenCalled();
+  });
+
+  it('waits for the recipe creator before choosing a query', () => {
+    renderHook(() => useSuggestions('r1', undefined), { wrapper: wrapperFor(fakeUser) });
+    expect(subscribe).not.toHaveBeenCalled();
+  });
+
+  it('uses the owner query only when the viewer created the recipe', () => {
+    renderHook(() => useSuggestions('r1', fakeUser.uid), { wrapper: wrapperFor(fakeUser) });
+    renderHook(() => useSuggestions('r1', 'someone-else'), { wrapper: wrapperFor(fakeUser) });
+    expect(subscribe.mock.calls.map((c) => c.slice(0, 3))).toEqual([
+      ['r1', fakeUser.uid, true],
+      ['r1', fakeUser.uid, false],
+    ]);
+  });
+});
+
+describe('useSuggestionThread gating', () => {
+  beforeEach(() => {
+    subscribeMessages.mockReset();
+    subscribeMessages.mockReturnValue(() => {});
+  });
+
+  it('subscribes for a verified user and not for an unverified one', () => {
+    renderHook(() => useSuggestionThread(item), {
+      wrapper: wrapperFor({ ...fakeUser, isAnonymous: true, emailVerified: false }),
+    });
+    renderHook(() => useSuggestionThread(item), { wrapper: wrapperFor(null) });
+    expect(subscribeMessages).not.toHaveBeenCalled();
+
+    const { result } = renderHook(() => useSuggestionThread(item), { wrapper: wrapperFor(fakeUser) });
+    expect(subscribeMessages).toHaveBeenCalledTimes(1);
+    expect(subscribeMessages.mock.calls[0][0]).toBe('s1');
+    expect(result.current.error).toBeNull();
   });
 });
 
@@ -63,7 +109,7 @@ describe('useSuggestions teardown and keying', () => {
     let deliver: (s: Suggestion[]) => void = () => {};
     const unsub = vi.fn();
     subscribe.mockReset();
-    subscribe.mockImplementation((_id: string, cb: (s: Suggestion[]) => void) => {
+    subscribe.mockImplementation((_id: string, _uid: string, _owner: boolean, cb: (s: Suggestion[]) => void) => {
       deliver = cb;
       return unsub;
     });
@@ -71,7 +117,7 @@ describe('useSuggestions teardown and keying', () => {
     const Wrapper = ({ children }: { children: ReactNode }) => {
       return <AuthContext.Provider value={authValue(user)}>{children}</AuthContext.Provider>;
     };
-    const { result, rerender } = renderHook(() => useSuggestions('r1'), { wrapper: Wrapper });
+    const { result, rerender } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: Wrapper });
     expect(subscribe).toHaveBeenCalledTimes(1);
     act(() => deliver([item]));
     expect(result.current.suggestions).toEqual([item]);
@@ -101,7 +147,7 @@ describe('useSuggestions.approve', () => {
   it('mirrors the collaborator to Dexie after the cloud writes succeed', async () => {
     const approved = { recipeId: 'r1', collaborator: { uid: 'u2', displayName: 'Sam' } };
     updateStatus.mockResolvedValue(approved);
-    const { result } = renderHook(() => useSuggestions('r1'), { wrapper: wrapperFor(fakeUser) });
+    const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(fakeUser) });
 
     await expect(result.current.approve('s1')).resolves.toEqual(approved);
     expect(addLocalCollaborator).toHaveBeenCalledWith('r1', approved.collaborator);
@@ -109,7 +155,7 @@ describe('useSuggestions.approve', () => {
 
   it('does not mirror and propagates when the cloud approval throws', async () => {
     updateStatus.mockRejectedValue(new Error('permission-denied'));
-    const { result } = renderHook(() => useSuggestions('r1'), { wrapper: wrapperFor(fakeUser) });
+    const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(fakeUser) });
 
     await expect(result.current.approve('s1')).rejects.toThrow('permission-denied');
     expect(addLocalCollaborator).not.toHaveBeenCalled();

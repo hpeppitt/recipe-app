@@ -403,14 +403,23 @@ export async function createSuggestion(params: {
   }
 }
 
+/**
+ * Live suggestions on one recipe that this viewer may read: all of them for the
+ * owner, only their own for anyone else. The read rule allows only those two
+ * parties, and a `list` is authorised from its filters, not from the documents
+ * (docs/decisions.md), so the filter here must be the one the rule checks.
+ */
 export function subscribeRecipeSuggestions(
   recipeId: string,
+  viewerUid: string,
+  isOwner: boolean,
   callback: (suggestions: Suggestion[]) => void
 ): () => void {
   if (!firestore) return () => {};
   const q = query(
     collection(firestore, 'suggestions'),
     where('recipeId', '==', recipeId),
+    where(isOwner ? 'recipeOwnerId' : 'suggestedBy.uid', '==', viewerUid),
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snap) => {

@@ -11,29 +11,34 @@ import { addLocalCollaborator } from '../db/recipes';
 import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
 import type { Suggestion, SuggestionMessage } from '../types/social';
 
-export function useSuggestions(recipeId: string | undefined) {
+/**
+ * `recipeOwnerUid` is the recipe's `createdBy.uid`, or undefined while the
+ * recipe is still loading. It picks the query (owner: every suggestion on the
+ * recipe; anyone else: their own), so it must be the real creator, not
+ * `canManageRecipe`, which treats any local copy as owned.
+ */
+export function useSuggestions(recipeId: string | undefined, recipeOwnerUid: string | undefined) {
   const { isConfigured, user } = useAuth();
-  // Stamped with the recipe and uid it was fetched for, then derived below, the
-  // same shape `useSuggestionThread` uses: a signed-out visitor must not keep
-  // seeing the previous account's suggestions, and a slow subscription must not
-  // deliver one recipe's suggestions under another's heading.
+  // Stamped with the recipe, uid and query it was fetched for, then derived
+  // below, the same shape `useSuggestionThread` uses: a signed-out visitor must
+  // not keep seeing the previous account's suggestions, and a slow subscription
+  // must not deliver one recipe's suggestions under another's heading.
   const [fetched, setFetched] = useState<{ key: string; items: Suggestion[] }>({
     key: '',
     items: [],
   });
-  const uid = user?.uid;
-  const key = recipeId && uid ? `${uid}:${recipeId}` : '';
+  // Gated on a verified email, not just a signed-in user. The read rule is
+  // verified() and two-party only (RL-018): anonymous accounts hold local
+  // bookmarks only, so there is nothing for them or a signed-out visitor to
+  // subscribe for, and a denied listener would be an uncaught error.
+  const uid = user?.emailVerified ? user.uid : undefined;
+  const isOwner = !!uid && recipeOwnerUid === uid;
+  const key = recipeId && uid && recipeOwnerUid ? `${uid}:${recipeId}:${isOwner}` : '';
 
   useEffect(() => {
-    // Gated on a signed-in user, not just on `isConfigured`. The read rule is
-    // `signedIn()`, so subscribing while signed out is a guaranteed
-    // permission-denied, and `onSnapshot` has no error callback here, so it
-    // surfaced as an uncaught listener error on every signed-out recipe visit,
-    // which is every visit to a shared link. A signed-out visitor can never see
-    // suggestions anyway, so there is nothing to subscribe for.
-    if (!isConfigured || !key || !recipeId) return;
-    return subscribeRecipeSuggestions(recipeId, (items) => setFetched({ key, items }));
-  }, [isConfigured, key, recipeId]);
+    if (!isConfigured || !key || !recipeId || !uid) return;
+    return subscribeRecipeSuggestions(recipeId, uid, isOwner, (items) => setFetched({ key, items }));
+  }, [isConfigured, key, recipeId, uid, isOwner]);
 
   // A result for a different recipe or a different account is not this one's answer.
   const suggestions = fetched.key === key && key ? fetched.items : [];
@@ -82,7 +87,9 @@ export function useSuggestionThread(suggestion: Suggestion | null) {
     messages: SuggestionMessage[];
     error: string | null;
   }>({ id: '', messages: [], error: null });
-  const suggestionId = suggestion?.id;
+  // Same verified gate as useSuggestions: only the two parties, both verified,
+  // may read a thread, so anyone else would only get a permission error.
+  const suggestionId = user?.emailVerified ? suggestion?.id : undefined;
 
   useEffect(() => {
     if (!isConfigured || !suggestionId) return;

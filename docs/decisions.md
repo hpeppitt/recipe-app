@@ -312,6 +312,11 @@ missing field genuinely does raise an evaluation error there. That is the only p
 prefers that form in a disjunction (see `verified()` and the `follows` read rule in
 `firestore.rules`).
 
+RL-018 is a second live example: the `suggestions` read rule in `firestore.rules` checks
+`recipeOwnerId` or `suggestedBy.uid` against the caller, so `subscribeRecipeSuggestions` in
+`src/services/firestore.ts` must filter on exactly that field, and a query by `recipeId`
+alone is denied whole, even for the owner.
+
 ### Development is an autonomous agent loop between two human touchpoints (2026-10-13)
 
 The author sets direction (`ROADMAP.md`, approving each grooming run) and does QA before
