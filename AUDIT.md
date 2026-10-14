@@ -1,5 +1,11 @@
 # Recipe Lab Audit Backlog (2026-07-27)
 
+**Historical since 2026-10-13.** This is no longer a work queue. The open findings below
+became backlog tickets (FUN-17 → RL-003, FUN-18 → RL-004, FUN-19 → RL-005, INFRA-2 → RL-006,
+INFRA-3 → RL-010, SEC-2 → RL-011, UI-16 → RL-012) and new findings are filed with `/groom`.
+The file is kept because the fix notes on each finding record why each fix took the shape
+it did; grep it before changing code near one. See `docs/agent-workflow.md`.
+
 Verified findings from a code audit. Each item has file:line anchors.
 Work top to bottom within a severity band. Check items off as they are fixed and verified.
 

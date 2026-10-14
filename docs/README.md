@@ -13,19 +13,23 @@ is the only mechanism that keeps documentation true.
 | [data-model.md](data-model.md) | What is stored, where, in what shape, and who is allowed to touch it? |
 | [operations.md](operations.md) | How do I run, test, verify, and deploy it? |
 | [decisions.md](decisions.md) | Why is it like this? What was tried and rejected? |
+| [agent-workflow.md](agent-workflow.md) | How is it developed? The autonomous loop, the two human touchpoints, which model does which job, what agents may decide alone. |
+| [tech-stack-review.md](tech-stack-review.md) | Proposal (2026-10-13): is Firebase + Gemini still the right stack for sharing with friends at hobby cost? Awaiting the author's decision, RL-001. |
 
 Two documents sit outside `docs/` on purpose:
 
 - [`../README.md`](../README.md) — the front door: what this is, how to get it running.
 - [`../CHANGELOG.md`](../CHANGELOG.md) — dated milestones, reconstructed from git history.
 
-And two are working backlogs rather than documentation:
+And three are working backlogs rather than documentation:
 
 - [`../ROADMAP.md`](../ROADMAP.md) — the strategic layer: phases, sequencing, what is
   explicitly not being built.
-- [`../AUDIT.md`](../AUDIT.md) — the tactical backlog of audit findings. Fully cleared as
-  of 2026-07-30; kept because the fix notes on each finding record why each fix took the
-  shape it did.
+- [`../backlog/`](../backlog/README.md) — the tactical layer: one groomed ticket per file,
+  plus the pending-decisions and QA ledgers the autonomous loop writes for the author.
+- [`../AUDIT.md`](../AUDIT.md) — the 2026-07 audit, now historical. Its open findings became
+  tickets on 2026-10-13; it is kept because the fix notes record why each fix took the shape
+  it did.
 
 ## Maintenance contract
 
@@ -38,6 +42,7 @@ A knowledgebase that lies is worse than none. What updates when:
 | `src/db/database.ts`, `firestore.rules`, `firestore.indexes.json`, or a stored type in `src/types/` | `data-model.md` |
 | An npm script, env var, or deploy step | `operations.md` |
 | Anything where the *reasoning* matters, or you reject an approach | `decisions.md` |
+| A skill, an agent, a ticket field or status, or the dev process | `agent-workflow.md` and `../backlog/README.md` |
 | Anything a user would notice, at release time | `CHANGELOG.md` |
 
 Enforcement is a step in `/preflight`: it checks the working diff against the table above

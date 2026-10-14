@@ -39,3 +39,7 @@ jobs:
       # needed. If that ever changes, this job needs secrets and this comment
       # is the thing that was wrong.
       - run: npm test
+
+      # The loop's `next` refuses to pick anything while a ticket file is invalid, so a
+      # malformed ticket on main would stop every session. Catch it at the PR instead.
+      - run: npm run backlog -- validate

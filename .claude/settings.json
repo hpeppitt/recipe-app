@@ -4,10 +4,35 @@
       "Bash(npm run build:*)",
       "Bash(npm run lint:*)",
       "Bash(npm run dev:*)",
+      "Bash(npm run preview:*)",
+      "Bash(npm run backlog:*)",
       "Bash(npm test:*)",
+      "Bash(npm version:*)",
       "Bash(npx vitest:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(node scripts/backlog.mjs:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git fetch:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard origin/main)",
+      "Bash(gh pr:*)",
+      "Bash(gh workflow:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(gh pr merge --admin:*)"
     ]
   },
   "hooks": {
