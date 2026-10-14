@@ -23,6 +23,7 @@ import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
+import { truncateNotificationMessage } from '../lib/notifications';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
@@ -395,7 +396,7 @@ export async function createSuggestion(params: {
       recipeEmoji: params.recipeEmoji,
       fromUid: params.suggestedBy.uid,
       fromDisplayName: params.suggestedBy.displayName,
-      message: params.message,
+      message: truncateNotificationMessage(params.message),
       read: false,
       createdAt: Date.now(),
     }).catch(() => {});
@@ -456,7 +457,7 @@ export async function addSuggestionMessage(
       recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
       fromUid: from.uid,
       fromDisplayName: from.displayName,
-      message: text,
+      message: truncateNotificationMessage(text),
       read: false,
       createdAt: Date.now(),
     }).catch(() => {});
@@ -542,7 +543,9 @@ export async function updateSuggestionStatus(
       fromDisplayName: reviewer.displayName,
       // Echo the original suggestion so the notification is self-explanatory
       // weeks later, rather than "your suggestion was approved" with no context.
-      message: suggestion.message,
+      // The suggestion rule does not require a string message, so fall back to
+      // null rather than throw after the status write has already landed.
+      message: typeof suggestion.message === 'string' ? truncateNotificationMessage(suggestion.message) : null,
       read: false,
       createdAt: Date.now(),
     }).catch(() => {});

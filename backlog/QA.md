@@ -19,6 +19,24 @@ both themes:
 
 ## Since the last release
 
+### RL-015 Notification creates need a verified email, a known type, a fixed key set and a capped message
+
+- Rules change; nothing differs in the app until RL-022 deploys `firestore.rules`.
+- After the RL-022 deploy, from a second verified account, favourite a recipe and follow its
+  owner. Sign in as the owner and confirm the bell shows both notifications.
+- Optional: file a suggestion longer than 500 characters. The owner's notification shows it
+  cut with a trailing ellipsis; the suggestion itself shows the full text.
+- Not run by the agent: the app against the emulator. The rules were probed on a demo-project
+  emulator (19 of 19 as expected, including the 500 and 501 limit and the 250 and 251 emoji limit).
+- Reviewer noted (low): the rule does not type-check or cap `recipientUid`, `recipeId`,
+  `recipeTitle`, `recipeEmoji`, `fromDisplayName` or `createdAt`, so a verified user can still send
+  an oversized `recipeTitle` or a wrong-typed field to any recipient. Out of scope for this ticket;
+  worth a follow-up only if you want full shape validation.
+- Reviewer noted (low): `updateSuggestionStatus` reads `suggestion.recipeTitle` with no fallback. A
+  legacy suggestion without it would make the SDK throw on `addDoc` after the status write landed,
+  which surfaces as a failed review. The suggestions create rule also does not require `message`
+  to be a string. RL-042 wipes legacy data, so this should not occur.
+
 ### RL-040 Every client cloud write except view counts and error reports requires a verified email, and the decision is recorded
 
 - Rules and docs only; nothing changes in the app until RL-022 deploys `firestore.rules`.

@@ -267,8 +267,15 @@ check does a `get()` on the parent, so sending a reply costs 2 document reads.
 `addDoc` with `.catch(() => {})` so notification creation never slows a favourite or a
 suggestion.
 
-Consequence: a dropped notification is invisible. Roadmap 1.2's beacon is what would make it
-visible.
+Consequence: a dropped notification is invisible, whether the network failed or the rules
+denied it. Since RL-015 the rules also deny a notification with an extra key, an unknown
+`type`, or a message that is too long. Roadmap 1.2's beacon is what would make either visible.
+
+Because a denial is silent, the 500-unit message cap is matched in the client, not left to
+the rule alone: `truncateNotificationMessage` (`src/lib/notifications.ts`) cuts the
+notification copy with a trailing ellipsis. Without it, a long suggestion or reply would
+lose its notification, since suggestions and replies are deliberately uncapped. The rules'
+`size()` counts UTF-16 code units (an emoji is two), so the helper counts `.length` too.
 
 ### Counters are denormalised and approximate
 

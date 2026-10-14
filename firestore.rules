@@ -169,9 +169,23 @@ service cloud.firestore {
     // accounts; both now need a verified email too, so the reason is gone.
     match /notifications/{notificationId} {
       allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
+      // Shape checks (RL-015): a fixed key set, a known type, and a message that
+      // is null for favourite and follow and at most 500 characters otherwise.
+      // size() counts UTF-16 units (emulator: 250 emoji pass, 251 are denied).
+      // hasOnly permits absent keys, which `follow` relies on: it has no recipe
+      // fields. The client truncates text to fit (src/lib/notifications.ts),
+      // because these writes are fire-and-forget and a denial is silent.
       allow create: if verified()
         && request.resource.data.fromUid == request.auth.uid
-        && request.resource.data.read == false;
+        && request.resource.data.read == false
+        && request.resource.data.keys().hasOnly(['recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'])
+        && (
+          (request.resource.data.type in ['favorite', 'follow']
+            && request.resource.data.get('message', null) == null)
+          || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected']
+            && (request.resource.data.get('message', null) == null
+              || (request.resource.data.message is string && request.resource.data.message.size() <= 500)))
+        );
       // Recipient may only flip the read flag
       allow update: if verified()
         && resource.data.recipientUid == request.auth.uid
