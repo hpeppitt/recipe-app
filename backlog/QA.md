@@ -19,6 +19,13 @@ both themes:
 
 ## Since the last release
 
+### RL-028 The My Recipes empty state does not depend on the search text
+
+- On the My Recipes tab, type a search that matches none of your recipes. Confirm "No results" with a Clear search button, and not "You haven't created a recipe yet". Tap Clear search and confirm the list returns. (Tests only; no behaviour changed. The Mine chip this ticket was written for no longer exists.)
+
+- Reviewer note (low, real behaviour, not fixed here): a whitespace-only search is inconsistent. `LibraryPage.tsx` (the `search ?` branch near line 259 and the result-count condition near line 215) treats `search` as active when it is `"  "`, but `filterFeed` in `src/lib/library.ts` (near line 105) trims it and treats it as inactive. A user with no recipes who types a space sees "No results / Nothing matches" instead of the first-run screen, and a user with recipes sees the full list under an "N results" heading. Using `search.trim()` for the page's branch and count conditions would fix it. No test covers this.
+- Reviewer note (low, test gaps): nothing covers My Recipes with the favourites filter on and no search (by the code, "No favorites yet" with Show all), nor an Explore search that matches nothing ("No results" with Load more and the "loaded so far" note). The empty-state button is found with `getByText('Clear search', { selector: 'button' })` because the search box's clear icon shares the aria-label; that is correct but would stop matching if `Button` ever wrapped its children in a span.
+
 ### RL-026 Follow, cloud favourite and profile recipe hooks ignore stale responses and report failures
 
 - On the preview build, signed in with a verified account, open a profile you follow and then go straight to one you do not (via a recipe's "Added by" link). Confirm the button never shows "Following" on the second profile, not even for a frame.
