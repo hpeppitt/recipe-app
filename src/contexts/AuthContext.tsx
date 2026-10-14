@@ -48,7 +48,7 @@ export type EmailLinkState =
   | { status: 'error'; reason: 'expired' | 'email-taken' | 'failed' }
   | { status: 'done'; linked: boolean };
 
-interface AuthContextType {
+export interface AuthContextType {
   user: AppUser | null;
   isLoading: boolean;
   isConfigured: boolean;
@@ -64,7 +64,8 @@ interface AuthContextType {
   dismissLinkState: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components -- exported so tests can inject a fake value; only affects HMR for this file
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 function toAppUser(user: User): AppUser {
   return {

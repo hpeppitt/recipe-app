@@ -17,7 +17,18 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run dev:emulated` | Dev server pointed at the emulator suite |
 | `npm run backlog -- <list\|next\|show\|set\|validate>` | The ticket backlog CLI (`scripts/backlog.mjs`, tested). `next` prints the ticket an agent should pick up, skipping any with a `ticket/<ID>` branch on `origin` |
 
-Tests run in node with `fake-indexeddb`; setup is `src/test/setup.ts`. Fixtures are
+Tests run in node by default, with `fake-indexeddb` and the jest-dom matchers loaded from
+`src/test/setup.ts`.
+
+**Component tests.** Name the file `*.test.tsx`, put `// @vitest-environment jsdom` as its
+first line (that pragma is what selects jsdom; without it the file runs in node and
+`document` is undefined), and render with `renderWithProviders` from
+`src/test/renderWithProviders.tsx`. It wraps the UI in `MemoryRouter` and a fake
+`AuthContext` value (`user` defaults to `fakeUser`; pass `user: null` for signed out, `route`
+for the URL, `auth` to override any context field), and registers testing-library cleanup.
+Use `userEvent` for interaction. If a page pulls in `services/firebase`, mock that module
+with `vi.mock`; do not add env vars. Examples: `src/components/ui/EmptyState.test.tsx`,
+`src/components/recipe/RecipeCard.test.tsx`. Fixtures are
 `src/test/factories.ts` (`makeRecipe`, `makeIngredient`). New pure logic in `src/db` or
 `src/lib` should come with tests — that is where the suite lives and where it is cheap.
 
@@ -251,8 +262,9 @@ surfaces at edit time rather than at commit time.
 rewriting the lockfile. In-flight runs are cancelled when the same branch is pushed again.
 
 CI deliberately does **not** replicate `/preflight`'s browser smoke test: that needs a booted
-preview server and the emulator suite, and the payoff-to-flake ratio is wrong until there are
-component tests to anchor it. The tests it does run are node plus `fake-indexeddb`, so the
+preview server and the emulator suite, and the payoff-to-flake ratio is still wrong while component
+tests are few. The tests it does run are node plus `fake-indexeddb`, and jsdom for
+`*.test.tsx` files, so the
 job needs no secrets and no emulators — if that changes, the job needs secrets adding.
 
 **Pushes must use the GitHub noreply address.** `git config user.email` is
