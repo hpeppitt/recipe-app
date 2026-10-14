@@ -13,12 +13,30 @@ import type { Suggestion, SuggestionMessage } from '../types/social';
 
 export function useSuggestions(recipeId: string | undefined) {
   const { isConfigured, user } = useAuth();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  // Stamped with the recipe and uid it was fetched for, then derived below, the
+  // same shape `useSuggestionThread` uses: a signed-out visitor must not keep
+  // seeing the previous account's suggestions, and a slow subscription must not
+  // deliver one recipe's suggestions under another's heading.
+  const [fetched, setFetched] = useState<{ key: string; items: Suggestion[] }>({
+    key: '',
+    items: [],
+  });
+  const uid = user?.uid;
+  const key = recipeId && uid ? `${uid}:${recipeId}` : '';
 
   useEffect(() => {
-    if (!isConfigured || !recipeId) return;
-    return subscribeRecipeSuggestions(recipeId, setSuggestions);
-  }, [isConfigured, recipeId]);
+    // Gated on a signed-in user, not just on `isConfigured`. The read rule is
+    // `signedIn()`, so subscribing while signed out is a guaranteed
+    // permission-denied, and `onSnapshot` has no error callback here, so it
+    // surfaced as an uncaught listener error on every signed-out recipe visit,
+    // which is every visit to a shared link. A signed-out visitor can never see
+    // suggestions anyway, so there is nothing to subscribe for.
+    if (!isConfigured || !key || !recipeId) return;
+    return subscribeRecipeSuggestions(recipeId, (items) => setFetched({ key, items }));
+  }, [isConfigured, key, recipeId]);
+
+  // A result for a different recipe or a different account is not this one's answer.
+  const suggestions = fetched.key === key && key ? fetched.items : [];
 
   // The reviewer is passed through so the suggester can be told the outcome;
   // Firestore rules require the notification's fromUid to be the writer.

@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-003 Gate the suggestions listener on a signed-in user
+
+- Open a `/shared/:id` link in a fresh signed-out profile (private window) and confirm the
+  browser console is empty: no `permission-denied`, and no new `clientErrors` document.
+- Sign in and open one of your recipes: suggestions still appear and update live.
+- Sign out on a recipe page: the suggestions area empties, nothing stale from the account.
+- Reviewer noted (low): the comment in `useSuggestions.ts` and the ticket say the keying matches
+  `useSuggestionThread`; it does not (that hook keys on suggestion id only and relies on an empty
+  list when signed out). The test does not cover a `recipeId` change for the same user. A signed-in
+  user who hits a real denial still gets an uncaught listener error, which is out of scope here.
+
 ### RL-002 Add a component and hook test harness
 
 - No visible change. Check only that `npm test` is green on the preview branch and that the
