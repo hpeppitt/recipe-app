@@ -224,7 +224,8 @@ Rounding is deliberately coarse and magnitude-dependent, because nobody measures
 Counts (an ingredient with no unit — eggs, onions) round to halves with a floor of ½: a small
 factor producing "0 eggs" reads as "omit this ingredient". Amounts under 1 snap to the
 fractions the renderer can actually draw, except below an eighth, where honest arithmetic
-beats a fraction that overstates.
+beats a fraction that overstates. An eighth (⅛) is itself a drawable fraction, so half a
+teaspoon scaled to a quarter of the servings reads ⅛, not ¼.
 
 `RecipeContent` keys its body on the recipe id. Without that, `RecipeDetailPage` stays mounted
 across a recipe-to-recipe navigation, so a scale chosen on one recipe would silently carry to

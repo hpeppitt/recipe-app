@@ -36,14 +36,15 @@ function scaleAmount(amount: number, factor: number, isCount: boolean): number {
   if (raw >= 100) return Math.round(raw / 5) * 5;
   if (raw >= 20) return Math.round(raw);
   if (raw >= 1) return Math.round(raw * 4) / 4;
-  // Below 1, snap to the fractions the renderer can actually draw (¼ ⅓ ½ ⅔ ¾)
+  // Below 1, snap to the fractions the renderer can actually draw (⅛ ¼ ⅓ ½ ⅔ ¾)
   // rather than emitting 0.4166.
-  const KITCHEN_FRACTIONS = [0.25, 0.33, 0.5, 0.67, 0.75, 1];
+  const KITCHEN_FRACTIONS = [0.125, 0.25, 0.33, 0.5, 0.67, 0.75, 1];
   const nearest = KITCHEN_FRACTIONS.reduce((best, f) =>
     Math.abs(f - raw) < Math.abs(best - raw) ? f : best
   );
   // An eighth is the smallest thing a measuring spoon set expresses; below that,
-  // pinches are the honest answer and we keep the arithmetic rather than lie.
+  // pinches are the honest answer and we keep the two-decimal arithmetic. The
+  // renderer draws 0.12 and 0.13 as an eighth, so raw 0.116 to 0.1249 shows as one.
   return raw < 0.125 ? Math.round(raw * 100) / 100 : nearest;
 }
 

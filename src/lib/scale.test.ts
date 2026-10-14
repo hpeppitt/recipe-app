@@ -83,6 +83,12 @@ describe('scaleIngredients', () => {
       expect(tsp.amount).toBe(0.5);
     });
 
+    // An eighth is drawable (⅛); 0.15 is nearer to it than to a quarter, 0.19 is not.
+    it.each([[0.125, 0.125], [0.15, 0.125], [0.19, 0.25]])('snaps raw %s to %s', (raw, expected) => {
+      const [tsp] = scaleIngredients([ing({ amount: raw, unit: 'tsp', name: 'salt' })], 1.0000001);
+      expect(tsp.amount).toBe(expected);
+    });
+
     // Below an eighth, honest arithmetic beats a fraction that overstates.
     it('keeps a tiny amount as a number instead of rounding it up to a quarter', () => {
       const [yeast] = scaleIngredients([ing({ amount: 0.5, unit: 'tsp', name: 'yeast' })], 0.2);

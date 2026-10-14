@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-025 Scaled amounts snap to an eighth and decimals render with a leading zero
+
+- On a recipe with "1/2 tsp" and 4 servings, scale to 1 and confirm the one-eighth glyph shows ("⅛ tsp").
+- Check a decimal with no glyph reads "0.44", not ".44" (and "1.44" with a whole part).
+- Check the glyph renders in light and dark mode and at 320px. The one-eighth glyph can fall back to a different font; look at it on a real phone.
+- (med, for the author) `formatAmount` is unit-blind and also receives converted metric and imperial values (`IngredientList.tsx` ~L52-61; `units.ts` ~L212-214 rounds converted values under 10 to two decimals). A converted amount whose fraction rounds to .12 or .13 now shows the eighth glyph where it used to show a decimal: 2.13 g shows "2⅛ g" (was 2.13), 7.12 ml shows "7⅛ ml", 0.13 g shows "⅛ g". Values from 10 up and whole numbers such as 125 ml are unaffected. The same class already existed for ⅓ and ¼ on metric units (2.33 g shows 2⅓), but .12 and .13 are common two-decimal conversion outputs, so it is noticeably wider. Fix: skip the glyph path for metric units (pass the unit or an isMetric flag), or only use the eighth within about 0.005 of 0.125. The ticket asked to match the eighth "after its two-decimal rounding", so this was left as specified.
+- (low) `scale.ts` treats only counts specially; tsp, tbsp, cup, g and ml are handled alike, so the eighth also applies to g and ml scaling (0.5 g at a quarter of the servings shows "⅛ g", where it showed "¼ g" before).
+- (low) 1/6 (0.1667) now snaps to the eighth, which undershoots by 25 percent instead of overshooting by 50 percent, an improvement. 0.1, 0.0625 and 1/12 stay as raw decimals. An eighth teaspoon times 3 (0.375) still snaps to a third.
+- (low) U+215B sits in the Number Forms block with the third glyphs, so it is as safe as them in San Francisco, Segoe UI and Roboto, but a fallback font may draw it at a different size or weight, and the `font-medium` wrapper may not apply to it.
+- (low) Raw amounts like 0.999 or 1.001 at factor 1 (stored, AI or shared-link values) still render as raw decimals. This was the old behaviour and `scaleAmount` cannot produce them.
+
 ### RL-024 Self-contained share links are validated against the recipe schema
 
 - Open a hash share link made by the app (Share with Firebase off, or an unpublished recipe): it still renders and Save a copy works.
