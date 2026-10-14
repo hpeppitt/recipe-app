@@ -19,6 +19,24 @@ both themes:
 
 ## Since the last release
 
+### RL-026 Follow, cloud favourite and profile recipe hooks ignore stale responses and report failures
+
+- On the preview build, signed in with a verified account, open a profile you follow and then go straight to one you do not (via a recipe's "Added by" link). Confirm the button never shows "Following" on the second profile, not even for a frame.
+- Go offline (devtools) on a profile and tap Follow. Confirm "Couldn't update that. Check your connection and try again." appears under the button in red (light and dark mode), the button still says "Follow", and the message clears when you go back online and tap again.
+- On a shared recipe you do not own, go offline and tap the heart. Confirm the same message appears at the top of the page and the heart does not fill. Online again, tap it: the message clears and the heart fills.
+- With the console open and the clientErrors collection visible, load several profiles and shared recipes you do not follow or favourite. Both should stay quiet: normal not-following and not-favourited views must not log or report anything (the lookups are queries now because a get of a missing doc is denied by the rules).
+- Open Library, Explore, Following: confirm "No recipes from followed users" no longer flashes before the feed loads.
+- Offline toggles give up after 5 seconds and show the error. A timed-out write may still commit when connectivity returns, so the button can then differ from the server until the next lookup (reload to resync). Not solved here.
+- (med, UI) The favourite error on `SharedRecipePage` renders at the top of main, not near the heart in the sticky header, so a scrolled-down user may not see it, it shifts the recipe down by about 40px, and the heart is not optimistic so a tap looks like nothing happened. A message in the sticky header or a toast would be better.
+- (med, UI) A failed `getRecipesByUsers` or `getUserRecipes` fetch is stored as an empty list with no error exposed, so the Library Following filter says "No recipes from followed users" and a public profile says "No recipes yet" for a failed fetch, with no retry (the ticket stopped at report and settle).
+- (low) There is no lookup-pending state, so right after navigating the Follow button is enabled and shows Follow until the lookup resolves, and a fast tap on an already-followed profile sends a follow that the rules deny. Disable the button until the lookup settles, or ignore a lookup that arrives after a toggle.
+- (low) A failed lookup settles as not following, and the later toggle error is generic.
+- (low) The cloud heart has no in-flight feedback or `aria-pressed`.
+- (low) The follow and favourite error stays until the next toggle or id change.
+- (low) `useFollowingList` swallows a failure into empty lists with only a beacon, so the Following filter then looks like "you follow nobody". It also issues `getFollowingIds` twice (RL-029).
+- (low) A verified user's cloud favourite on `SharedRecipePage` never writes Dexie, so `useFavoriteIds` and the Library favourites filter do not show it (pre-existing `localRecipe ?? cloudRecipe` divergence).
+- (low) Tests do not cover a double tap against the in-flight guard, no query for unverified or signed-out users, or the service-level rejection path of `isFollowing` and `isCloudFavorite`.
+
 ### RL-025 Scaled amounts snap to an eighth and decimals render with a leading zero
 
 - On a recipe with "1/2 tsp" and 4 servings, scale to 1 and confirm the one-eighth glyph shows ("⅛ tsp").

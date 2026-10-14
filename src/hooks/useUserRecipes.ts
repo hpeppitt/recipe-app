@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import { getUserRecipes, getRecipesByUsers, getRecipeStats } from '../services/firestore';
+import { reportError } from '../services/telemetry';
 import type { SharedRecipe } from '../lib/share';
 
 type CloudRecipe = SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number };
+const EMPTY_RECIPES: CloudRecipe[] = [];
 
 /** Own profile: local Dexie recipes enriched with Firestore stats */
 export function useOwnRecipes(uid: string | undefined) {
@@ -45,54 +47,57 @@ export function useOwnRecipes(uid: string | undefined) {
 
 /** Public profile or other user: Firestore only */
 export function useUserRecipes(uid: string | undefined) {
-  const [recipes, setRecipes] = useState<CloudRecipe[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({ totalViews: 0, totalFavorites: 0 });
+  // Stamped with the uid it belongs to, so profile A's late response never renders
+  // under profile B and loading is derived rather than set in the effect body.
+  const [state, setState] = useState<{ uid: string; recipes: CloudRecipe[] } | null>(null);
 
   useEffect(() => {
-    if (!uid) {
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
+    if (!uid) return;
+    let cancelled = false;
     getUserRecipes(uid)
-      .then((r) => {
-        setRecipes(r);
-        setStats({
-          totalViews: r.reduce((sum, recipe) => sum + (recipe.viewCount || 0), 0),
-          totalFavorites: r.reduce((sum, recipe) => sum + (recipe.favoriteCount || 0), 0),
-        });
-        setIsLoading(false);
+      .then((recipes) => {
+        if (!cancelled) setState({ uid, recipes });
       })
-      .catch(() => {
-        setRecipes([]);
-        setIsLoading(false);
+      .catch((err) => {
+        console.error('Loading user recipes failed', err);
+        reportError(err, 'load-user-recipes');
+        if (!cancelled) setState({ uid, recipes: [] });
       });
+    return () => {
+      cancelled = true;
+    };
   }, [uid]);
 
-  return { recipes, stats, isLoading };
+  const settled = !!uid && state?.uid === uid;
+  const recipes = settled ? state.recipes : EMPTY_RECIPES;
+  const stats = {
+    totalViews: recipes.reduce((sum, recipe) => sum + (recipe.viewCount || 0), 0),
+    totalFavorites: recipes.reduce((sum, recipe) => sum + (recipe.favoriteCount || 0), 0),
+  };
+  return { recipes, stats, isLoading: !!uid && !settled };
 }
 
 export function useFollowingRecipes(followingIds: string[]) {
-  const [recipes, setRecipes] = useState<CloudRecipe[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const key = followingIds.join(',');
+  const [state, setState] = useState<{ key: string; recipes: CloudRecipe[] } | null>(null);
 
   useEffect(() => {
-    if (followingIds.length === 0) {
-      setRecipes([]);
-      return;
-    }
-    setIsLoading(true);
-    getRecipesByUsers(followingIds)
-      .then((r) => {
-        setRecipes(r);
-        setIsLoading(false);
+    if (!key) return;
+    let cancelled = false;
+    getRecipesByUsers(key.split(','))
+      .then((recipes) => {
+        if (!cancelled) setState({ key, recipes });
       })
-      .catch(() => {
-        setRecipes([]);
-        setIsLoading(false);
+      .catch((err) => {
+        console.error('Loading following recipes failed', err);
+        reportError(err, 'load-following-recipes');
+        if (!cancelled) setState({ key, recipes: [] });
       });
-  }, [followingIds.join(',')]);
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
 
-  return { recipes, isLoading };
+  const settled = !!key && state?.key === key;
+  return { recipes: settled ? state.recipes : EMPTY_RECIPES, isLoading: !!key && !settled };
 }

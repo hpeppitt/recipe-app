@@ -70,6 +70,16 @@ describe('ProfilePage sign-up gates', () => {
     expect(followUser).toHaveBeenCalledWith(fakeUser.uid, 'chef', fakeUser.displayName);
   });
 
+  it('shows the follow error under the Follow button when the write fails', async () => {
+    followUser.mockRejectedValueOnce(new Error('offline'));
+    renderAt('/profile/chef', fakeUser);
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Couldn't update that. Check your connection and try again."
+    );
+    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+  });
+
   it('routes an anonymous account editing its avatar or name to sign-up', () => {
     renderAt('/profile', anon);
     fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));

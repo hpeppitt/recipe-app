@@ -387,7 +387,7 @@ function PublicProfile({ uid }: { uid: string }) {
     retry: retryProfile,
   } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
-  const { isFollowing, toggleFollow, loading: followLoading } = useFollow(uid);
+  const { isFollowing, toggleFollow, loading: followLoading, error: followError } = useFollow(uid);
   const navigate = useNavigate();
 
   const isSelf = user?.uid === uid;
@@ -477,6 +477,11 @@ function PublicProfile({ uid }: { uid: string }) {
               >
                 {isFollowing ? 'Following' : 'Follow'}
               </Button>
+            )}
+            {followError && (
+              <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 text-center">
+                {followError}
+              </p>
             )}
           </div>
 
