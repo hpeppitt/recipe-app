@@ -1,0 +1,76 @@
+name: Preview
+
+# Deploys dist/ to the Firebase Hosting preview channel `qa` so /qa-pass has a URL to open
+# on a phone. Never triggered by pull_request, so a forked PR can never reach the secret.
+# CI (ci.yml) already runs the full gates on every push to main, so this does not repeat them.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only is enough: no repoToken is passed to the deploy action, so it never calls the
+# GitHub API (that is only needed for PR comments and checks, which this workflow has none of).
+permissions:
+  contents: read
+
+# A newer push makes an in-flight preview deploy irrelevant.
+concurrency:
+  group: preview
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # `secrets` is not available in a step-level `if`, so expose presence as an env var.
+      HAS_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Skip notice
+        if: env.HAS_SECRET != 'true'
+        run: |
+          echo "Preview skipped: the FIREBASE_SERVICE_ACCOUNT repository secret is not set. To enable it, follow the Preview deploys section of docs/operations.md." | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v4
+        if: env.HAS_SECRET == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_SECRET == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        if: env.HAS_SECRET == 'true'
+
+      # Repository variables, not secrets: Vite inlines these into a public bundle.
+      # Only API_KEY, AUTH_DOMAIN and PROJECT_ID are needed to load (isFirebaseConfigured).
+      # APP_ID is not required to load but should be set; RECAPTCHA_SITE_KEY is needed for
+      # generation; MEASUREMENT_ID is optional.
+      # VITE_APPCHECK_DEBUG_TOKEN and VITE_USE_EMULATORS are local-dev only and not mapped.
+      - run: npm run build
+        if: env.HAS_SECRET == 'true'
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_RECAPTCHA_SITE_KEY: ${{ vars.VITE_RECAPTCHA_SITE_KEY }}
+
+      # Hosting only: firebase.json is read for the hosting block. No rules, indexes or functions.
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: env.HAS_SECRET == 'true'
+        id: deploy
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: recipe-lab-3832b
+          channelId: qa
+          expires: 7d
+
+      - name: Summary
+        if: env.HAS_SECRET == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.details_url }}
+        run: |
+          echo "Preview URL (expires in 7 days): $URL" | tee -a "$GITHUB_STEP_SUMMARY"
