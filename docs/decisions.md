@@ -14,6 +14,9 @@ Six open questions answered by the author. These are standing constraints, not p
 
 ### 1. Audience: a private circle
 
+**Superseded 2026-10-14** by "Anonymous accounts are local-bookmark only" below. The
+original text stays for the record.
+
 Invite-only, not a public community.
 
 Consequences: reporting and moderation tooling **cut**; browse-by-cuisine chips demoted to
@@ -23,6 +26,25 @@ every recipe and publishing requires only `signedIn()`, with anonymous auth one 
 so any visitor can put a recipe in front of the whole circle. Roadmap 1.6 fixes that in
 rules, and it is a **hard gate on the first invite**. Until it lands, the shared library is
 world-writable, because it is.
+
+### 1a. Anonymous accounts are local-bookmark only (2026-10-14, supersedes 1)
+
+The author, 2026-10-14: "For anything anonymous, let's make it easy and say that anon
+accounts can ONLY save a bookmark locally, nothing else. I am the only current user, so
+anything we push new will be the standard, we can wipe all previous data."
+
+This replaces the consume/contribute split that decision 1 led to (deployed 2026-08-10),
+under which anonymous accounts could still favourite, follow, write notifications and keep
+a profile in the cloud.
+
+Consequences: anonymous accounts hold local bookmarks only, and every cloud action needs a
+verified email. In `firestore.rules` every client write takes `verified()` (RL-040), with
+two exemptions that are not user actions: the recipe `viewCount` +1, which signed-out
+visitors still make, and `clientErrors` reports. Read rules are unchanged by this decision.
+The client stops attempting the writes an anonymous user can no longer make (RL-041, same
+release, before RL-022 deploys the rules). Existing data, including recipes published
+anonymously before the 2026-08-10 gate, is wiped (RL-042), which is why `isOwnerUpdate` and
+recipe delete no longer stay on `signedIn()` for pre-gate owners.
 
 ### 2. Blaze: only if abuse appears
 

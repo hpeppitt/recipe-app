@@ -67,39 +67,39 @@ the repo.
 `firestore.rules` is the security boundary; the client-side ownership check is UI polish.
 The full ruleset is commented — this is the summary.
 
-**The consume/contribute line (deployed 2026-08-10).** Two tiers of signed-in user now exist.
-`signedIn()` is any account, including a one-tap anonymous one. `verified()` additionally
-requires `request.auth.token.email_verified == true`. Anything that puts content in front of
-another user takes `verified()`: publishing a recipe, filing a suggestion, replying on a
-suggestion thread. Everything a user does for their own benefit stays open to anonymous
-accounts: reading, favouriting, following, and their own profile. Both of the app's routes to
-a verified email (`linkWithCredential` on an anonymous account, and `signInWithEmailLink`)
-mint a fresh ID token carrying the claim, so there is no lag between verifying and being able
-to publish; confirmed against the Auth emulator on 2026-08-10.
+**Every client write needs a verified email (RL-040, in the repo 2026-10-14, deployed by
+RL-022).** `signedIn()` is any account, including a one-tap anonymous one. `verified()`
+additionally requires `request.auth.token.email_verified == true`. Per the 2026-10-14 product
+decision ([decisions.md](decisions.md), 1a), anonymous accounts hold local bookmarks only, so
+every client write takes `verified()`: publishing, editing and deleting a recipe, favouriting,
+following, suggesting and reviewing, replying, notifications (create, mark read, delete), and
+the user's own profile. Two writes are exempt because they are not user actions: the recipe
+`viewCount` +1 (an implicit page-view metric, open to signed-out visitors) and `clientErrors`
+reports (crash telemetry). Reads still use `signedIn()` or are public, unchanged. Both of the
+app's routes to a verified email (`linkWithCredential` on an anonymous account, and
+`signInWithEmailLink`) mint a fresh ID token carrying the claim, so there is no lag between
+verifying and being able to write; confirmed against the Auth emulator on 2026-08-10.
 
-Note that `notifications` create deliberately stays at `signedIn()`. Favouriting and following
-both write a notification as part of the action, so raising it would break two of the three
-things anonymous users are meant to keep.
+This replaces the consume/contribute line deployed 2026-08-10, under which favouriting,
+following, notifications and profiles stayed open to anonymous accounts.
 
 **recipes** — anyone may read, including signed-out visitors, deliberately: the library feed
 and shared links work without an account. Publishing requires a **verified email** and
 stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
-allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by any
-signed-in user (anonymous included), or an owner update that changes anything *except*
-`createdBy.uid`. Owner updates and deletes require ownership but *not* verification, so the
-rules still let whoever owns a recipe published anonymously before the gate edit or delete it.
-The client does not use that delete path: since RL-023 it attempts the cloud delete only for
-users with `emailVerified`, so an unverified owner of such a pre-gate copy deletes it locally
-and the cloud copy stays published.
+allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
+verified user, or a verified owner update that changes anything *except* `createdBy.uid`.
+Delete needs a verified owner. Recipes published anonymously before the 2026-08-10 gate can
+no longer be edited or deleted by their anonymous owner; RL-042 wipes them. Since RL-023 the
+client attempts the cloud delete only for users with `emailVerified`, which matches the rule.
 
-**favorites** — you may read, create, and delete only your own, and the document id must
-match `{your uid}_{recipeId}`. No updates.
+**favorites** are readable only by their owner, and created and deleted only by their owner
+with a verified email. The document id must match `{your uid}_{recipeId}`. No updates.
 
 **suggestions** — any user **with a verified email** may create one for someone else's recipe,
 and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must
 match the recipe's `createdBy.uid`, checked with a `get()` on the recipe, so each create costs
 one extra document read; a wrong owner would leave a suggestion nobody can review or delete.
-Only the recipe owner may update, and
+Only the recipe owner, with a verified email, may update, and
 only the `status` field, and only to `approved` or `rejected`. On approval the client adds the
 suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
 failed collaborator write leaves the suggestion pending. Deletion is forbidden
@@ -113,13 +113,14 @@ first.
 a verified email, and immutable once sent. Replies stay allowed after approval or rejection on purpose.
 
 **notifications** — the *acting* user writes the notification and the recipient reads it.
-Creation requires your own `fromUid` and `read: false`. The recipient may flip `read` and
-nothing else, and may delete.
+Every write needs a verified email. Creation requires your own `fromUid` and `read: false`.
+The recipient may flip `read` and nothing else, and may delete.
 
-**profiles** — public read. You own your document. Anyone else may change exactly one thing:
-a `followerCount` ±1 bump.
+**profiles** are publicly readable, and every write needs a verified email. You own your
+document. Anyone else may change exactly one thing: a `followerCount` ±1 bump.
 
 **follows** — readable by the follower or the followed. The follower creates and deletes,
+with a verified email,
 and the id must be `{their uid}_{followingId}`. No updates.
 
 **rateLimits** — closed to everyone.

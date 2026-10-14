@@ -19,6 +19,37 @@ both themes:
 
 ## Since the last release
 
+### RL-040 Every client cloud write except view counts and error reports requires a verified email, and the decision is recorded
+
+- Rules and docs only; nothing changes in the app until RL-022 deploys `firestore.rules`.
+- Release order: RL-041 (the client half) must ship in the same release, and before RL-022
+  deploys these rules. Deploying the rules without RL-041 leaves the client attempting writes
+  the rules now deny.
+- Once deployed, anonymous users lose every cloud write: favourites, follows, notifications
+  (create, mark read, delete) and their profile. They keep local bookmarks only. Check on the
+  preview with an anonymous account that favourite and follow fail quietly or are hidden
+  (per RL-041), and with a verified account that all of them still work.
+- An anonymous first sign-in no longer creates a cloud profile; check the profile page still renders for that account.
+- Signed out, open a `/shared/:id` link: the view count still increments and the console shows
+  no permission errors. A crash report from a signed-out session still lands in `clientErrors`.
+- Confirm the generation question in the ticket Notes: generation is unchanged by this decision.
+- Reviewer noted (med, for RL-041): `linkWithCredential` keeps the uid and does not re-fire
+  `onAuthStateChanged`, and the profile is only ensured at `AuthContext.tsx` lines 237 and 255. An
+  anonymous account whose profile create is now denied, then upgraded by email link, ends up
+  verified with no profile doc. Then `followUser` fails its whole batch on the missing
+  `profiles/{followerId}`, and the `publishRecipe` profile `updateDoc` fails and is only logged, so
+  `recipeCount` drifts. RL-041 should ensure the profile once the user becomes verified, or make
+  `followUser` and `publishRecipe` create it when missing.
+- Reviewer noted (low): a verified user can still bump any recipe's `favoriteCount` or any
+  profile's `followerCount` by 1 with no backing favourite or follow doc, and can create a
+  notification for any `recipientUid` with arbitrary content (shape checks are RL-015). An owner can
+  set `favoriteCount` and `viewCount` to any value.
+- For the author (docs outside this ticket, left untouched): `README.md` line 41 ("everyone else can
+  favourite and suggest") and lines 113 to 114 ("Publishing requires only a signed-in user ... so
+  today the shared library is world-writable in practice") now state the old rule. `ROADMAP.md`
+  lines 684 to 685 (the current boundary statement) is wrong, and the landed 1.6 entry at lines
+  310 to 313 and 322 to 325 is history that RL-040 supersedes.
+
 ### RL-039 Production dependencies have no known critical or high advisories that npm audit fix can resolve
 
 - Lockfile-only change (`npm audit fix`, no `--force`). On the preview build do the standing walk,
