@@ -143,6 +143,7 @@ export function RecipeEditPage() {
 
 function RecipeEditForm({ recipe }: { recipe: Recipe }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const id = recipe.id;
 
   const [draft, setDraft] = useState<RecipeDraft>(() => recipeToDraft(recipe));
@@ -196,7 +197,8 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
     // share — editing is not a decision to publish. The update path uses
     // `{ merge: true }`, so favoriteCount and viewCount survive.
     let cloudOk = true;
-    if (isFirebaseConfigured) {
+    // Unverified accounts cannot publish (decision 1a), so they have no copy to update.
+    if (isFirebaseConfigured && user?.emailVerified) {
       try {
         if (await getPublishedRecipe(recipe.id)) {
           await publishRecipe({ ...recipe, ...patch });

@@ -114,9 +114,9 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
                 {loading ? <Spinner size="sm" /> : 'Continue Anonymously'}
               </Button>
               <p className="text-xs text-text-tertiary">
-                Quickest, but your recipes stay in this browser only. Clearing site data
-                deletes them, and you can't reach them from another device. You can add an
-                email later from your profile.
+                Bookmark on this device only. An anonymous account just saves bookmarks in
+                this browser: clearing site data deletes them, and to follow, suggest or
+                create recipes you add an email later from your profile.
               </p>
             </div>
           </div>

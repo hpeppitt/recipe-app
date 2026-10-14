@@ -19,6 +19,64 @@ both themes:
 
 ## Since the last release
 
+### RL-041 Anonymous and signed-out users can only bookmark locally, and every other action routes to sign-up
+
+- Release ordering: RL-041 must ship in the same release as RL-040's rules, and be live before
+  RL-022 deploys them. With the rules live and an older client, anonymous favourites, follows and
+  the first-sign-in profile write all fail with `permission-denied`.
+- On the preview build, as an anonymous account (Continue Anonymously), with the console open:
+  - The sign-in prompt's anonymous option says it only saves bookmarks on this device.
+  - Bookmark a recipe from its detail page and from a `/shared/:id` link, then open the
+    Favorites filter: both appear.
+  - Open someone's profile and tap Follow: "Sign up to follow ..." opens with the email form,
+    and nothing is followed.
+  - Open your own profile and tap the avatar, then the name: each opens "Sign up to edit your
+    profile" rather than the editor.
+  - Share a local recipe: you get a self-contained link, with no publish attempt.
+  - Console clean throughout: no `permission-denied`, and no `clientErrors` reports.
+- Signed out: Follow on a profile opens the same sign-up dialog; the heart opens the sign-in
+  prompt.
+- Verified upgrade: as an anonymous account, add an email from your profile and open the link in
+  the same browser. Afterwards your profile shows your email (no reload needed), and a
+  `profiles/{uid}` document exists for the same uid with the generated name. Then follow someone
+  and publish a recipe: both succeed and your recipe count goes up. Local bookmarks are still
+  there (pushing them to the cloud is RL-034).
+- As a verified account: favouriting, following and profile editing behave exactly as before.
+- Not run by the agent: any browser walk. Covered by unit, hook and component tests only.
+- Reviewer noted (med, data): verified users reading a missing doc probably still throw
+  `permission-denied`, because the `follows` and `favorites` read rules dereference `resource.data`
+  (`useFollow.ts` line 26 and `useFavorites.ts` line 130 have no `.catch`). That would beacon as an
+  unhandled rejection on most profile and shared-recipe views for a verified user. Unconfirmed
+  against the emulator; check the console as a verified account. Same class as RL-026.
+- Reviewer noted (med, data): `runMigration` still calls `migrateFirestoreUid` on uid drift for
+  anonymous accounts. Its `favorites` and `notifications` queries are denied, the error is
+  swallowed so nothing beacons, but it is wasted work and console noise.
+- Reviewer noted (med, data): after an upgrade, unfavouriting a bookmark made while anonymous runs
+  `removeCloudFavorite` on a doc that was never created. The delete is probably denied and
+  reported as `unfavorite`, once per old bookmark, until RL-034 pushes local bookmarks to the cloud.
+- Reviewer noted (med, data): profile creation on the upgrade is fire-and-forget with no retry, and
+  `setUser` runs before it resolves. If it fails or loses the race, `followUser` fails its whole
+  batch on the missing follower profile (and `useFollow.toggle` has no catch). Making `followUser`
+  ensure the follower profile first would close it.
+- Reviewer noted (med, UI): the anonymous sign-out confirm on `ProfilePage.tsx` (about line 359) is
+  stale. It talks about copies already shared and never says the real loss, the device bookmarks.
+  The `AuthModal.tsx` choose-step subtitle (about line 81) still says "get credited as the creator"
+  and its code comment says "credited identically". The `EmailLinkingForm` email input has no
+  accessible name (placeholder only). The favourite tap does nothing after a signed-out user picks
+  Continue Anonymously, so they must tap again, and the heart looks dead in local-only mode.
+- Reviewer noted (low): favourite state diverges for an upgraded user on `/shared/:id` (cloud
+  only) versus the detail page (Dexie); `EmailLinkingForm` default copy says "keep your recipes
+  safe" and "secure your account"; its error and success lines have no `role="alert"` or
+  `role="status"` and its layout is tight at 320px; `SignUpDialog` duplicates the
+  `SuggestChangeModal` gate markup and has no max height; `aria-expanded` is misleading on the
+  profile edit buttons for anonymous users; an anonymous sign-out then a new anonymous sign-in
+  orphans the old bookmarks, which the confirm dialog should say; link completion may run twice
+  under StrictMode in dev.
+- For the author (docs outside this ticket, left untouched): `README.md` line 41 ("everyone else
+  can favourite and suggest"), lines 26 to 30 (feature list has no verified-email qualifier) and
+  lines 113 to 115 ("world-writable in practice", which goes stale when RL-022 deploys the RL-040
+  rules). `CHANGELOG.md` is due at release for the user-visible changes.
+
 ### RL-018 Suggestions and their reply threads are readable only by the recipe owner and the suggester
 
 - Rules and index change; nothing differs in the live app until RL-022 deploys. Ordering for

@@ -16,6 +16,7 @@ import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SUGGESTION_CHIPS } from '../lib/constants';
 import { queryWords } from '../lib/search';
+import { canGenerate } from '../lib/generation';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
@@ -134,7 +135,7 @@ export function RecipeChatPage() {
   // session asynchronously, so `user` is null for the first frames of every
   // reload; without this, a signed-up user refreshing the page would be shown
   // the sign-up screen before their own session arrived.
-  if (isConfigured && !authLoading && (!user || !user.emailVerified)) {
+  if (!authLoading && !canGenerate({ isConfigured, user })) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
         <TopBar
@@ -167,7 +168,7 @@ export function RecipeChatPage() {
             />
 
             <p className="text-xs text-text-tertiary text-center">
-              You can keep browsing, saving and following without signing up.
+              You can keep browsing and bookmarking on this device without signing up.
             </p>
             <Button variant="secondary" fullWidth onClick={() => navigate('/')}>
               Back to recipes

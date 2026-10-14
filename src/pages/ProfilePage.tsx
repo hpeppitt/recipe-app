@@ -9,6 +9,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { AuthModal } from '../components/auth/AuthModal';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -90,6 +91,7 @@ function OwnProfile() {
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
   // Which list, if any, the user has opened from the stat row. Inline disclosure
   // rather than a new route: it is a short list read in context, and a separate
   // screen would be more navigation for less.
@@ -98,6 +100,10 @@ function OwnProfile() {
   const { followingProfiles, isLoading: followingLoading } = useFollowingList();
 
   if (!user) return null;
+
+  // The profile document is cloud-only and verified-only (decision 1a), so an
+  // anonymous account's edit buttons lead to sign-up instead of a denied write.
+  const needsSignUp = !user.emailVerified;
 
   const handleSaveName = async () => {
     const trimmed = nameInput.trim();
@@ -122,7 +128,7 @@ function OwnProfile() {
                 A persistent badge replaces it; the hover tint is kept as a
                 pointer-only nicety on top. */}
             <button
-              onClick={() => setEditingAvatar(!editingAvatar)}
+              onClick={() => (needsSignUp ? setShowSignUp(true) : setEditingAvatar(!editingAvatar))}
               className="relative group rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
               aria-label="Change avatar"
               aria-expanded={editingAvatar}
@@ -162,6 +168,10 @@ function OwnProfile() {
             ) : (
               <button
                 onClick={() => {
+                  if (needsSignUp) {
+                    setShowSignUp(true);
+                    return;
+                  }
                   setNameInput(user.displayName ?? '');
                   setEditingName(true);
                 }}
@@ -356,12 +366,20 @@ function OwnProfile() {
         }}
         onCancel={() => setShowSignOutConfirm(false)}
       />
+
+      <SignUpDialog
+        open={showSignUp}
+        title="Sign up to edit your profile"
+        body="Your name and avatar are shown to other cooks, so they belong to an account with an email. Your bookmarks stay on this device either way."
+        onClose={() => setShowSignUp(false)}
+      />
     </div>
   );
 }
 
 function PublicProfile({ uid }: { uid: string }) {
-  const { user } = useAuth();
+  const { user, isConfigured } = useAuth();
+  const [showSignUp, setShowSignUp] = useState(false);
   const {
     profile,
     isLoading: profileLoading,
@@ -373,6 +391,9 @@ function PublicProfile({ uid }: { uid: string }) {
   const navigate = useNavigate();
 
   const isSelf = user?.uid === uid;
+  // Following is a cloud write, so signed-out and anonymous visitors see the
+  // button but get the sign-up call to action (decision 1a).
+  const needsSignUp = !user?.emailVerified;
 
   if (profileLoading) {
     return (
@@ -447,9 +468,9 @@ function PublicProfile({ uid }: { uid: string }) {
               {profile.displayName ?? 'Anonymous'}
             </h2>
 
-            {user && !isSelf && (
+            {isConfigured && !isSelf && (
               <Button
-                onClick={toggleFollow}
+                onClick={needsSignUp ? () => setShowSignUp(true) : toggleFollow}
                 disabled={followLoading}
                 variant={isFollowing ? 'secondary' : 'primary'}
                 className="px-6"
@@ -496,6 +517,13 @@ function PublicProfile({ uid }: { uid: string }) {
           </div>
         </div>
       </main>
+
+      <SignUpDialog
+        open={showSignUp}
+        title={`Sign up to follow ${profile.displayName ?? 'this cook'}`}
+        body="Following shows their new recipes in your feed and lets them see who follows them, so it needs an account with an email."
+        onClose={() => setShowSignUp(false)}
+      />
     </div>
   );
 }

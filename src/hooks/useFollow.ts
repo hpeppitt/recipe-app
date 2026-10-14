@@ -19,13 +19,16 @@ export function useFollow(targetUid: string | undefined) {
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Unverified accounts cannot hold a follow (decision 1a), so skip the read.
+  const verifiedUid = user?.emailVerified ? user.uid : undefined;
   useEffect(() => {
-    if (!user || !targetUid || user.uid === targetUid || !isFirebaseConfigured) return;
-    checkIsFollowing(user.uid, targetUid).then(setFollowing);
-  }, [user?.uid, targetUid]);
+    if (!verifiedUid || !targetUid || verifiedUid === targetUid || !isFirebaseConfigured) return;
+    checkIsFollowing(verifiedUid, targetUid).then(setFollowing);
+  }, [verifiedUid, targetUid]);
 
   const toggle = useCallback(async () => {
-    if (!user || !targetUid || loading) return;
+    // Verified only (decision 1a); the page shows the sign-up call to action instead.
+    if (!user?.emailVerified || !targetUid || loading) return;
     setLoading(true);
     try {
       if (following) {

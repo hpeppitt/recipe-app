@@ -122,6 +122,9 @@ export function RecipeDetailPage() {
         isPublished = await withTimeout(
           (async () => {
             if (await getPublishedRecipe(recipe.id)) return true;
+            // Only verified accounts may publish (decision 1a); anyone else
+            // shares the self-contained link rather than a denied write.
+            if (!user?.emailVerified) return false;
             // Publishing at save time is fire-and-forget, so it may never have
             // landed. Retry here rather than hand out a link that 404s.
             // publishRecipe itself now distinguishes create from update, so a
