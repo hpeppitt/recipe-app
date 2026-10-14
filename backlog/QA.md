@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-013 Deploy a Firebase Hosting preview channel for every QA pass
+
+- You must add these yourself; an agent cannot. Until you do, the Preview workflow skips with a note and does not fail.
+- Secret: Settings, Secrets and variables, Actions, New repository secret `FIREBASE_SERVICE_ACCOUNT`, the JSON key of a service account with Firebase Hosting Admin only (see "Preview deploys" in `docs/operations.md`).
+- Variables (Actions, Variables tab): `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_RECAPTCHA_SITE_KEY` (needed for generation), and optionally `VITE_FIREBASE_MEASUREMENT_ID`. Copy the values from your `.env`.
+- First run: Actions tab, Preview, Run workflow. Open the finished run and read the job summary for the "Preview URL" line; open it on a phone. Confirm the app loads and sign-in works.
+- The preview uses live Firebase data and is public to anyone with the link.
+- For the author (outside this ticket, left untouched): the `/qa-pass` skill (`.claude/skills/qa-pass/SKILL.md`, step 2) says to "record the channel URL from the run output", but `gh workflow run` prints no run URL. The URL is only in the job summary and a log line, so the skill needs `gh run list --workflow preview.yml` then `gh run view <id> --log` to get it, and a branch for the skipped case (no secret: the run succeeds with a skip note and no URL).
+- For the author: `preview.yml` pins `FirebaseExtended/action-hosting-deploy` by the floating tag `@v0` while passing it the service account secret. That matches how `ci.yml` pins its actions (by tag), but a full commit SHA would be stricter. The service account only needs Firebase Hosting Admin, and whether that alone suffices for channel deploys is untested until the first real run.
+- Not verified: the workflow itself. It was parsed as YAML and read for correctness (triggers, env gating, permissions), but it has never run; the first real run needs your secret and variables.
+
 ### RL-008 Split the Library into "My Recipes" and "Explore" tabs
 
 - At 390 px in light and dark: both tabs, the tab control above search, and every empty state. My Recipes empty: "You haven't created a recipe yet" with Create a recipe (goes to `/create`). Explore empty (fresh emulator): "Nothing published yet". Favorites empty, Following empty, and "No results" in each tab.

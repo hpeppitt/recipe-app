@@ -175,4 +175,5 @@ error fails it. Output lands in `dist/`, which Firebase Hosting serves with a ca
 rewrite to `index.html` (required for client-side routing). Tailwind v4 runs through the
 `@tailwindcss/vite` plugin with no separate config step. `vite-plugin-pwa` (dev dependency) emits
 `sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` in `AppShell` registers
-the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule.
+the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. Two workflows: `ci.yml` runs the
+gates, and `preview.yml` deploys `dist/` to the `qa` Hosting preview channel (not live).

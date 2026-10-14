@@ -17,6 +17,7 @@ author ──► ROADMAP.md ──► /groom ──► backlog/tickets (ready)
                      └── backlog/DECISIONS.md, backlog/QA.md ◄┘
                                           │
 author ──► /qa-pass ──► checklist + preview URL ──► author walks it
+                 (preview from .github/workflows/preview.yml)
                                           │
                        accept ──► /release ──► live      overrule ──► /groom
 ```
@@ -26,8 +27,10 @@ Two places need a person:
 1. **Direction.** The author owns `ROADMAP.md` (with the `roadmap-architect` agent) and
    approves every grooming run. Nothing enters `ready` without that approval.
 2. **QA before live.** The author walks the checklist `/qa-pass` prepares, on a preview
-   URL, accepts or overrules the decisions agents made, then runs `/release`. Live deploys
-   happen only here.
+   URL, accepts or overrules the decisions agents made, then runs `/release`. The preview
+   comes from `.github/workflows/preview.yml` (a Hosting preview channel, automatic on push
+   to `main` or on demand with `workflow_dispatch`, once the author has set the secret; see
+   `docs/operations.md`). Live deploys happen only here.
 
 Everything between those two is agents. `main` is the integration branch, always green,
 and is not what users see; live is whatever the last `/release` deployed.
@@ -129,7 +132,7 @@ claude --model sonnet --dangerously-skip-permissions   # or rely on .claude/sett
 
 # Prepare and do the QA pass
 > /qa-pass
-# ...walk the checklist on the preview URL...
+# ...walk the checklist on the preview URL (from preview.yml, see docs/operations.md)...
 > /release        # or: /groom qa 2026-10-20: <findings>
 ```
 
@@ -149,7 +152,9 @@ you want a tighter leash.
   since 2026-08-13 (`docs/operations.md`). Every ticket therefore says what the human must
   check, and RL-002 adds a component-test net so UI changes are at least render-tested.
 - **It cannot deploy.** By design. Production changes are listed in the ticket and
-  surfaced in the QA checklist.
+  surfaced in the QA checklist. The one exception in scope: `/qa-pass` may trigger the
+  preview workflow, which publishes a Hosting preview channel, not live. Live deploys stay
+  with `/release`.
 - **It cannot groom its own work.** Discovered work becomes a `draft` ticket; the author
   approves it at the next `/groom`.
 - **It cannot resolve a product question.** `needs-human` exists for that, and the QA

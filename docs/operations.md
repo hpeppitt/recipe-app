@@ -132,6 +132,51 @@ a stale anonymous session and stored address will mask the behaviour you are tes
 **The success check is the account count.** An upgrade that worked leaves **one** account with
 the email attached and the original uid; a broken one leaves two, the anonymous one orphaned.
 
+## Preview deploys (QA channel)
+
+`.github/workflows/preview.yml` builds `dist/` and deploys it to the Firebase Hosting preview
+channel `qa` (7-day expiry, `expires: 7d`) on every push to `main` and on demand. It never runs
+on `pull_request`, so a forked PR cannot reach the secret. It deploys hosting only, never rules,
+indexes or functions; live deploys stay manual via `/release`. It does not rerun the gates and
+has no `needs` or `workflow_run` dependency on `ci.yml`, so a push to `main` that turns CI red
+still deploys a preview. Its build step is only `npm run build` (typecheck and bundle), not lint
+or tests. Auto-merge on green CI normally keeps `main` green.
+
+**Secret** `FIREBASE_SERVICE_ACCOUNT` (repository secret): the JSON key of a service account
+with the **Firebase Hosting Admin** role only (least privilege). The author creates it either
+with `firebase init hosting:github` (it makes the account and stores the secret; decline the
+build and PR workflow files it offers) or in the Google Cloud console under IAM, Service
+Accounts, then Keys, Add key, JSON. Paste the JSON into Settings, Secrets and variables,
+Actions, New repository secret. An agent cannot do this.
+
+**Variables** (repository variables, not secrets, because they are inlined into a public bundle):
+`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` (required to
+load the Firebase layer), `VITE_RECAPTCHA_SITE_KEY` (required for recipe generation), and
+`VITE_FIREBASE_APP_ID` (not required by `isFirebaseConfigured`, so the layer loads without it,
+but it is passed into the SDK config and identifies the web app, so set it), and `VITE_FIREBASE_MEASUREMENT_ID` (optional, analytics).
+`VITE_APPCHECK_DEBUG_TOKEN` and `VITE_USE_EMULATORS` are local-dev only and are not mapped.
+Values are the same as in your local `.env`.
+
+Without the secret the workflow skips with a note in the job summary instead of failing, and
+skips the build too.
+
+**URL.** The channel URL looks like `https://<site>--qa-<hash>.web.app`. That shape is only
+approximate; the action prints the real one and the workflow writes it to the job summary
+(`details_url`). Redeploying to `qa` keeps the same channel and refreshes the 7-day expiry.
+
+**On demand:** Actions tab, Preview, Run workflow, or `gh workflow run preview.yml`. Manual
+fallback from a local checkout with the CLI logged in:
+`npm run build && npx firebase hosting:channel:deploy qa --expires 7d`. `/qa-pass`
+triggers it this way when the workflow exists and the secret is set, then reads the URL from
+the run.
+
+**Warnings.**
+- The preview build uses the live Firebase project configuration: the same Auth, Firestore and
+  Storage as production, so QA data is real data. The rules and indexes in `main` may be newer
+  than what is deployed live, so the preview can behave differently from live until RL-022
+  deploys them.
+- The preview URL is public to anyone who has the link.
+
 ## Deploying
 
 Target project is `recipe-lab-3832b` (`.firebaserc`).
@@ -304,6 +349,8 @@ preview server and the emulator suite, and the payoff-to-flake ratio is still wr
 tests are few. The tests it does run are node plus `fake-indexeddb`, and jsdom for
 `*.test.tsx` files, so the
 job needs no secrets and no emulators — if that changes, the job needs secrets adding.
+The second workflow, `preview.yml`, is the one that uses a secret and repository variables; see
+"Preview deploys (QA channel)".
 
 **Pushes must use the GitHub noreply address.** `git config user.email` is
 `harry@seidrlab.com`, and the account has email privacy enabled, so GitHub rejects the push
