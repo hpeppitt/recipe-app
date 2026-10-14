@@ -317,6 +317,17 @@ Decisions taken in setting it up, each cheap to overrule:
 Consequence: a ticket that a human never approved at grooming never runs. If the loop is
 idle, the fix is `/groom`, not a looser rule.
 
+### Suggestion approval writes the collaborator first (RL-017, 2026-10-14)
+
+Approval adds the suggester to `collaborators`, then writes `status: 'approved'`, then
+notifies. The old order wrote status and notified first, so a failed collaborator write
+left a suggestion marked approved with no collaborator and a suggester told otherwise.
+A retry after the collaborator write succeeded but the status write failed is safe,
+because `arrayUnion` of the same object is idempotent. In the same change the create rule
+checks `recipeOwnerId` against the recipe's `createdBy.uid` with a `get()`; one extra read
+per suggestion create is the accepted cost, since a wrong owner otherwise leaves a
+suggestion nobody can review and, with delete forbidden, nobody can remove.
+
 ### Tech stack: Firebase stays, the AI path moves behind a proxy (proposed 2026-10-13)
 
 Not yet a decision. [tech-stack-review.md](tech-stack-review.md) argues for keeping

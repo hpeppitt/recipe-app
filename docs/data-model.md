@@ -41,7 +41,7 @@ the dual store addressable by one id.
 |---|---|---|---|
 | `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |
 | `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
-| `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected`, `recipeOwnerId` denormalised so rules can check ownership without a lookup. |
+| `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected`, `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the three counters. Uploaded avatars live here as base64 JPEG. |
@@ -93,8 +93,13 @@ recipe published anonymously before the gate stays editable and deletable by who
 match `{your uid}_{recipeId}`. No updates.
 
 **suggestions** — any user **with a verified email** may create one for someone else's recipe,
-and it must be stamped with their own uid and `status: 'pending'`. Only the recipe owner may update, and
-only the `status` field, and only to `approved` or `rejected`. Deletion is forbidden
+and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must
+match the recipe's `createdBy.uid`, checked with a `get()` on the recipe, so each create costs
+one extra document read; a wrong owner would leave a suggestion nobody can review or delete.
+Only the recipe owner may update, and
+only the `status` field, and only to `approved` or `rejected`. On approval the client adds the
+suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
+failed collaborator write leaves the suggestion pending. Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records — use the emulator (see [operations.md](operations.md)). Reads are any-signed-in
 because the client subscribes by `recipeId` alone; tightening that needs a query change
