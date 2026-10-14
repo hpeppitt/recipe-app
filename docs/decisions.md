@@ -313,7 +313,8 @@ Single-document `get` is the opposite: `resource.data` is bound to the real docu
 missing field genuinely does raise an evaluation error there. That is the only place the
 `resource.data.get('field', default)` form changes an outcome, and it is why the codebase
 prefers that form in a disjunction (see `verified()` and the `follows` read rule in
-`firestore.rules`).
+`firestore.rules`). RL-026 is a consequence: `isFollowing` and `isCloudFavorite` became filtered
+queries because a `getDoc` of a missing document is denied.
 
 RL-018 is a second live example: the `suggestions` read rule in `firestore.rules` checks
 `recipeOwnerId` or `suggestedBy.uid` against the caller, so `subscribeRecipeSuggestions` in
@@ -495,3 +496,13 @@ one. The upgrade path is clear if `/preflight`'s check proves too weak: the cont
 already the specification a curator agent would read.
 
 Noted as an assistant's judgement call rather than the author's, so it is cheap to overrule.
+
+### Existence lookups for follows and favourites are filtered queries, not getDoc (RL-026)
+
+The read rules for `follows` and `favorites` dereference `resource.data`, so a `getDoc` of a
+missing document, the normal not-following case, is denied (403, emulator-verified
+2026-10-15) instead of returning not-exists. Reporting lookup failures would then beacon a
+false error on most page views, and swallowing permission-denied would hide real denials.
+`isFollowing` and `isCloudFavorite` therefore query with equality filters the rules can
+prove and `limit(1)`: a missing document is an empty result and every real failure still
+rejects and is reported. Rejected: treating permission-denied as "not following" in the hook.

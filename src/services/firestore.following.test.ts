@@ -13,7 +13,7 @@ vi.mock('firebase/firestore', () => ({
   limit: (...args: unknown[]) => ['limit', ...args],
 }));
 
-const { getRecipesByUsers } = await import('./firestore');
+const { getRecipesByUsers, isFollowing, isCloudFavorite } = await import('./firestore');
 
 const snap = (...createdAt: number[]) => ({ docs: createdAt.map((c) => ({ id: `r${c}`, data: () => ({ createdAt: c }) })) });
 
@@ -30,5 +30,28 @@ describe('getRecipesByUsers', () => {
     expect(q).toContainEqual(['limit', 50]);
     expect(q.indexOf(q.find((x) => (x as unknown[])[0] === 'orderBy')!)).toBeLessThan(q.indexOf(q.find((x) => (x as unknown[])[0] === 'limit')!));
     expect(out.map((r) => r.createdAt)).toEqual([9, 5, 3, 1]);
+  });
+});
+
+describe('isFollowing and isCloudFavorite', () => {
+  beforeEach(() => getDocs.mockReset());
+
+  // The rules read resource.data, so a getDoc of a missing doc is denied; a query
+  // with provable equality filters returns empty instead (emulator-verified, RL-026).
+  it('query with both equality filters and limit 1, empty means false', async () => {
+    getDocs.mockResolvedValue({ empty: true });
+    expect(await isFollowing('me', 'you')).toBe(false);
+    const q = getDocs.mock.calls[0][0] as unknown[];
+    expect(q).toContainEqual(['where', 'followerId', '==', 'me']);
+    expect(q).toContainEqual(['where', 'followingId', '==', 'you']);
+    expect(q).toContainEqual(['limit', 1]);
+  });
+
+  it('a non-empty result is true', async () => {
+    getDocs.mockResolvedValue({ empty: false });
+    expect(await isCloudFavorite('me', 'r1')).toBe(true);
+    const q = getDocs.mock.calls[0][0] as unknown[];
+    expect(q).toContainEqual(['where', 'uid', '==', 'me']);
+    expect(q).toContainEqual(['where', 'recipeId', '==', 'r1']);
   });
 });

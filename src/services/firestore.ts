@@ -357,8 +357,17 @@ export async function isCloudFavorite(
   recipeId: string
 ): Promise<boolean> {
   if (!firestore) return false;
-  const snap = await getDoc(doc(firestore, 'favorites', `${uid}_${recipeId}`));
-  return snap.exists();
+  // A query, not getDoc: the rules read `resource.data`, so a get of a missing doc
+  // is denied (emulator-verified, RL-026) while a filtered query returns empty.
+  const snap = await getDocs(
+    query(
+      collection(firestore, 'favorites'),
+      where('uid', '==', uid),
+      where('recipeId', '==', recipeId),
+      limit(1)
+    )
+  );
+  return !snap.empty;
 }
 
 // --- Suggestions ---
@@ -728,8 +737,16 @@ export async function isFollowing(
   followingId: string
 ): Promise<boolean> {
   if (!firestore) return false;
-  const snap = await getDoc(doc(firestore, 'follows', `${followerId}_${followingId}`));
-  return snap.exists();
+  // A query, not getDoc, for the same reason as isCloudFavorite.
+  const snap = await getDocs(
+    query(
+      collection(firestore, 'follows'),
+      where('followerId', '==', followerId),
+      where('followingId', '==', followingId),
+      limit(1)
+    )
+  );
+  return !snap.empty;
 }
 
 export async function getFollowingIds(uid: string): Promise<string[]> {

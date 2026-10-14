@@ -229,7 +229,7 @@ that a new query needs, deploy them on their own first.
 
 Why the client waits for READY: the RL-021 client issues an ordered `in` query on recipes.
 Until that index is built the query fails, and `useFollowingRecipes` shows an empty list for
-every follower. Why rules go last: the pre-RL-018 client subscribes with an unfiltered
+every follower and reports the failure through `reportError` (`load-following-recipes`). Why rules go last: the pre-RL-018 client subscribes with an unfiltered
 `recipeId`-only query, and the new read rule denies that query whole, so the old client's
 suggestions panel breaks for everyone, owner included, the moment the rules go live. The old
 `suggestions` index (`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json`

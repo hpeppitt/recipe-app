@@ -45,6 +45,8 @@ export function SharedRecipePage() {
   const cloudFavorite = useCloudFavorite(paramId);
   const localFavorite = useFavorite(paramId);
   const { isFavorite, toggleFavorite } = user?.emailVerified ? cloudFavorite : localFavorite;
+  // Only the cloud path can fail; the local bookmark handles its own errors.
+  const favoriteError = user?.emailVerified ? cloudFavorite.error : null;
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // createRecipe mints a fresh UUID per call, so every tap makes another copy.
   // The guard has to be a ref, not the `saving` state: three synchronous taps all
@@ -246,6 +248,11 @@ export function SharedRecipePage() {
 
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="p-4 space-y-5">
+          {favoriteError && (
+            <p role="alert" className="text-sm text-danger-700 dark:text-danger-300">
+              {favoriteError}
+            </p>
+          )}
           <div>
             <div className="flex items-start gap-3">
               <span className="text-4xl">{recipe.emoji}</span>

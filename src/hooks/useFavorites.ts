@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
 import { addFavorite, removeFavorite } from '../db/favorites';
@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { trackFavoriteToggled } from '../services/analytics';
 import { withTimeout } from '../lib/utils';
 import { reportError } from '../services/telemetry';
+import { TOGGLE_ERROR, boundedWrite } from './useFollow';
 
 /** Upper bound on how long a toggle stays locked waiting on the cloud write. */
 const FAVORITE_SYNC_TIMEOUT_MS = 5000;
@@ -25,7 +26,8 @@ export function useFavoriteIds() {
     [uid]
   );
 
-  const favoriteIds = new Set(favorites?.map((f) => f.recipeId));
+  // Memoised on the live-query array so useRecipeLibrary's useMemo can hold.
+  const favoriteIds = useMemo(() => new Set(favorites?.map((f) => f.recipeId)), [favorites]);
 
   return {
     favoriteIds,
@@ -121,14 +123,37 @@ export function useFavorite(recipeId: string | undefined) {
  */
 export function useCloudFavorite(recipeId: string | undefined) {
   const { user } = useAuth();
-  const [isFav, setIsFav] = useState(false);
   const togglingRef = useRef(false);
+  const keyRef = useRef<string | undefined>(undefined);
 
   const verifiedUid = user?.emailVerified ? user.uid : undefined;
+  const key = verifiedUid && recipeId ? `${verifiedUid}:${recipeId}` : undefined;
+  // State stamped with its key, same pattern as useFollow.
+  const [lookup, setLookup] = useState<{ key: string; fav: boolean } | null>(null);
+  const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
+
   useEffect(() => {
-    if (!verifiedUid || !recipeId || !isFirebaseConfigured) return;
-    isCloudFavorite(verifiedUid, recipeId).then(setIsFav);
-  }, [verifiedUid, recipeId]);
+    keyRef.current = key;
+  }, [key]);
+
+  useEffect(() => {
+    if (!key || !verifiedUid || !recipeId || !isFirebaseConfigured) return;
+    let cancelled = false;
+    isCloudFavorite(verifiedUid, recipeId)
+      .then((fav) => {
+        if (!cancelled) setLookup({ key, fav });
+      })
+      .catch((err) => {
+        console.error('Favourite lookup failed', err);
+        reportError(err, 'favorite-lookup');
+        if (!cancelled) setLookup({ key, fav: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, verifiedUid, recipeId]);
+
+  const isFav = !!key && lookup?.key === key && lookup.fav;
 
   const toggle = useCallback(
     async (meta: {
@@ -136,33 +161,38 @@ export function useCloudFavorite(recipeId: string | undefined) {
       title: string;
       emoji: string;
     }) => {
-      if (!user?.emailVerified || !recipeId) return;
+      if (!user?.emailVerified || !recipeId || !key) return;
       // Same race as useFavorite, but against local state that is only updated
       // after the await: two taps would both see isFav === false.
       if (togglingRef.current) return;
       togglingRef.current = true;
+      setFailure(null);
 
       try {
-        if (isFav) {
-          await removeCloudFavorite(user.uid, recipeId);
-          setIsFav(false);
-        } else {
-          await addCloudFavorite(
-            user.uid,
-            recipeId,
-            meta.ownerId,
-            meta.title,
-            meta.emoji,
-            user.displayName
-          );
-          setIsFav(true);
-        }
+        // Bounded like useFavorite: offline the SDK promise stays pending and would
+        // lock the guard with no error. shortcut: a timed-out write may still commit
+        // when connectivity returns, so the UI can differ from the server until the
+        // next lookup.
+        const write = isFav
+          ? removeCloudFavorite(user.uid, recipeId)
+          : addCloudFavorite(user.uid, recipeId, meta.ownerId, meta.title, meta.emoji, user.displayName);
+        await boundedWrite(write, FAVORITE_SYNC_TIMEOUT_MS);
+        // Drop the result if the user has moved to another recipe meanwhile.
+        if (keyRef.current === key) setLookup({ key, fav: !isFav });
+      } catch (err) {
+        console.error('Toggling cloud favourite failed', err);
+        reportError(err, isFav ? 'unfavorite' : 'favorite');
+        setFailure({ key, message: TOGGLE_ERROR });
       } finally {
         togglingRef.current = false;
       }
     },
-    [user, recipeId, isFav]
+    [user, recipeId, key, isFav]
   );
 
-  return { isFavorite: isFav, toggleFavorite: toggle };
+  return {
+    isFavorite: isFav,
+    toggleFavorite: toggle,
+    error: !!key && failure?.key === key ? failure.message : null,
+  };
 }
