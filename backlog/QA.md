@@ -19,6 +19,16 @@ both themes:
 
 ## Since the last release
 
+### RL-021 The Following feed shows the newest 50 recipes from followed users
+
+- Ordering note for RL-022: the `recipes` index (`createdBy.uid` ASC, `createdAt` DESC) must be READY before this client is released. If the client goes out first, the ordered query fails and the Following filter shows an empty list for every follower.
+- After RL-022, follow an account with more than 50 recipes (or confirm on live) and check the Following filter on Explore lists the newest first.
+- Reviewer note (low): `useFollowingRecipes` (`src/hooks/useUserRecipes.ts`, the `.catch` around lines 91-94) sets an empty list and never calls `reportError`, so until the index is READY every follower silently sees an empty Following list. The only protection is the ordering note in `docs/operations.md`, and `/release` is manual. Reporting the error, or an index-status check before the hosting deploy, would close it.
+- Reviewer note (low): the new test asserts orderBy before limit, two `getDocs` calls for 31 uids and the merge order. It does not assert the chunks passed to `where('createdBy.uid','in',...)` (30 and 1) and inspects only the first call's query shape.
+- Reviewer note (low): the emulator does not enforce composite indexes, so a wrong index would only show up on live.
+- For the author: `ROADMAP.md` lines ~24-25 say rules and indexes are deployed, which is not true for the new `recipes` index until RL-022. Lines ~52-53 cite `firestore.ts:836-845` for the following filter, which is now `migrateFirestoreUid`; `getRecipesByUsers` is near line 981. Left untouched as author-owned.
+- RL-022 criterion 3 says "built" while `docs/operations.md` says READY (same meaning), and RL-022 does not name the `recipes` index.
+
 ### RL-020 clientErrors reports must carry receivedAt equal to the server time
 
 - Rules change only. Not live until RL-022 deploys the rules; until then the old rule still accepts any `receivedAt`.

@@ -55,10 +55,15 @@ All live in `firestore.indexes.json`; each exists for exactly one query.
 
 | Index | Needed by |
 |---|---|
+| `recipes`: `createdBy.uid` ASC, `createdAt` DESC | `getRecipesByUsers`, the Following filter (RL-021): `createdBy.uid in` a 30-uid chunk, `orderBy createdAt desc`, `limit 50` |
 | `notifications`: `recipientUid` ASC, `createdAt` DESC | the notification bell's `onSnapshot` subscription |
 | `suggestions`: `recipeId` ASC, `recipeOwnerId` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, owner query (RL-018) |
 | `suggestions`: `recipeId` ASC, `suggestedBy.uid` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, everyone else's query (RL-018) |
 | `suggestions`: `recipeId` ASC, `createdAt` DESC | the pre-RL-018 client's unfiltered query; kept until that client is gone, then removable |
+
+The Following filter queries newest-first: each 30-uid chunk returns its own newest 50 and the
+client merges the chunks and re-sorts by `createdAt` descending. The merged list is not capped
+overall, so it can reach 50 per chunk.
 
 Missing an index shows up as a Firestore error containing a console link that creates it —
 but create it *here* and deploy, not in the console, or it exists in production and not in

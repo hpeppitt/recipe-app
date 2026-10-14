@@ -990,6 +990,7 @@ export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRec
     const q = query(
       collection(firestore, 'recipes'),
       where('createdBy.uid', 'in', chunk),
+      orderBy('createdAt', 'desc'),
       limit(50)
     );
     const snap = await getDocs(q);

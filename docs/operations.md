@@ -218,19 +218,22 @@ Deploy rules alone with `--only firestore:rules` only when `firestore.indexes.js
 unchanged, so a stale index file cannot ride along unnoticed. When a change adds indexes
 that a new query needs, deploy them on their own first.
 
-**RL-018 ordering (suggestions read rule).** Deploy in three steps:
+**RL-018 and RL-021 ordering (indexes, then client, then rules).** Deploy in three steps:
 
-1. `firebase deploy --only firestore:indexes`, then wait until both new `suggestions`
-   indexes (`recipeId` + `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` +
-   `createdAt`) show READY in the console's index list.
+1. `firebase deploy --only firestore:indexes`, then wait until all three new indexes show
+   READY in the console's index list: the two `suggestions` indexes (`recipeId` +
+   `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` + `createdAt`) and the
+   `recipes` index (`createdBy.uid` ASC + `createdAt` DESC, RL-021).
 2. Release the new client (`--only hosting`).
 3. `firebase deploy --only firestore:rules`.
 
-The reason: the pre-RL-018 client subscribes with an unfiltered `recipeId`-only query, and
-the new read rule denies that query whole, so the old client's suggestions panel breaks for
-everyone, owner included, the moment the rules go live. The old `suggestions` index
-(`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json` until that client is
-gone, as [data-model.md](data-model.md) records.
+Why the client waits for READY: the RL-021 client issues an ordered `in` query on recipes.
+Until that index is built the query fails, and `useFollowingRecipes` shows an empty list for
+every follower. Why rules go last: the pre-RL-018 client subscribes with an unfiltered
+`recipeId`-only query, and the new read rule denies that query whole, so the old client's
+suggestions panel breaks for everyone, owner included, the moment the rules go live. The old
+`suggestions` index (`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json`
+until that client is gone, as [data-model.md](data-model.md) records.
 
 **RL-019 ordering (avatar rule).** The profile `photoURL` rule and the `Avatar` change are
 independent, so deploy order does not matter. The old client only writes data URLs or null,
