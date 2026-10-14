@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
-    Lib[lib/<br/>pure logic: tree, search, units, share]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>7 collections)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -52,6 +52,13 @@ the local library, instant, works offline for reads) and to Firestore (authorita
 the shared library, favourites, and social features). The write order is local first so the
 UI never waits on the network, and a failed cloud publish surfaces as a message rather than
 being swallowed.
+
+The Library reads each store separately. `hooks/useRecipeLibrary.ts` exports `useLocalLibrary`
+(a Dexie live query, behind My Recipes) and `useCloudLibrary` (the cursor-paged
+`getPublishedRecipesPage` feed, behind Explore, which reads nothing until the tab is first
+opened). The pure list logic, roots only, dedup by id, newest first, variation counts across
+both stores, and the search, favourites and following filters, is `lib/library.ts`. The tabs
+replaced a merged feed whose union of a live query and a paged window had no stable cursor.
 
 The consequence to keep in mind: **the two stores can disagree.** A recipe published by
 another user exists only in the cloud, so local-only features (the version tree, local
@@ -125,6 +132,8 @@ Places designed to be replaced, worth knowing before you change them:
   first-party error beacon (roadmap 1.2).
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
   fallback shape can change without touching the share UI.
+- **`lib/library.ts`** (`buildFeed`, `filterFeed`): the Library's list logic for both tabs, so
+  a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 - **`migrateFirestoreUid`** (`services/firestore.ts`) — the known-broken seam. Client-side

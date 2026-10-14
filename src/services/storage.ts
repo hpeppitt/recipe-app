@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import type { StrandedIdentity } from '../lib/migration';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
+import { parseLibraryTab, type LibraryTab } from '../lib/library';
 
 export function getTheme(): 'system' | 'light' | 'dark' {
   return (localStorage.getItem(STORAGE_KEYS.THEME) as 'system' | 'light' | 'dark') ?? 'system';
@@ -21,6 +22,26 @@ export function getUnitSystem(): UnitSystem {
 
 export function setUnitSystem(system: UnitSystem): void {
   localStorage.setItem(STORAGE_KEYS.UNIT_SYSTEM, system);
+}
+
+/**
+ * The Library tab last selected. Wrapped because storage can throw (private
+ * modes, quota, blocked cookies) and a remembered tab is not worth a crash.
+ */
+export function getLibraryTab(): LibraryTab {
+  try {
+    return parseLibraryTab(localStorage.getItem(STORAGE_KEYS.LIBRARY_TAB));
+  } catch {
+    return 'mine';
+  }
+}
+
+export function setLibraryTab(tab: LibraryTab): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.LIBRARY_TAB, tab);
+  } catch {
+    // Not remembered this time; the tab still switches.
+  }
 }
 
 // --- Device + Anonymous Identity Persistence ---

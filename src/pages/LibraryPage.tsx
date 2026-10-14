@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRecipeLibrary } from '../hooks/useRecipeLibrary';
+import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
 import { useFollowingList } from '../hooks/useFollow';
 import { useFollowingRecipes } from '../hooks/useUserRecipes';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile } from '../hooks/useProfile';
-import { RecipeCard } from '../components/recipe/RecipeCard';
+import { RecipeCard, type RecipeCardRecipe } from '../components/recipe/RecipeCard';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -14,59 +14,85 @@ import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { APP_NAME } from '../lib/constants';
 import { pluralize } from '../lib/utils';
+import type { ScorableRecipe } from '../lib/search';
+import { buildFeed, filterFeed, type LibraryTab } from '../lib/library';
+import { getLibraryTab, setLibraryTab } from '../services/storage';
 
-type Filter = 'all' | 'mine' | 'favorites' | 'following' | string; // string = specific uid
+type Filter = 'all' | 'favorites' | 'following';
+
+const TAB_OPTIONS = [
+  { value: 'mine', label: 'My Recipes' },
+  { value: 'explore', label: 'Explore' },
+] as const;
 
 export function LibraryPage() {
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<Filter>('all');
+  const [selectedTab, setSelectedTab] = useState<LibraryTab>(getLibraryTab);
   const { user, isConfigured } = useAuth();
   const { profile } = useOwnProfile();
   const { favoriteIds, canFavorite } = useFavoriteIds();
   const { followingIds, followingProfiles } = useFollowingList();
-
-  // Signing out while Favorites is active removes its chip, which would otherwise
-  // strand the user on an empty list with no way back to All.
-  const filter: Filter =
-    selectedFilter === 'favorites' && !canFavorite ? 'all' : selectedFilter;
-  const setFilter = setSelectedFilter;
-
-  const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
-    filter === 'following' ? followingIds : []
-  );
-  const { recipes, isLoading, cloudError, retryCloud, hasMore, loadingMore, loadMore } =
-    useRecipeLibrary(
-    search,
-    filter === 'favorites' ? favoriteIds : undefined
-  );
   const navigate = useNavigate();
 
+  // Local-only mode has no shared library, so there is no Explore tab at all
+  // rather than one that is permanently empty (the same rule as FUN-16).
+  const tab: LibraryTab = isConfigured ? selectedTab : 'mine';
+  const changeTab = (next: LibraryTab) => {
+    setSelectedTab(next);
+    setLibraryTab(next);
+  };
+
+  // Only verified accounts can follow (decision 1a), so anyone else never sees it.
+  const canFilterFollowing =
+    tab === 'explore' && !!user?.emailVerified && followingProfiles.length > 0;
+  // A filter that stops applying (signed out, or switched to My Recipes while
+  // Following was active) falls back to All instead of stranding the user on
+  // an empty list with no chip to get back.
+  const filter: Filter =
+    (selectedFilter === 'favorites' && !canFavorite) ||
+    (selectedFilter === 'following' && !canFilterFollowing)
+      ? 'all'
+      : selectedFilter;
+  const setFilter = setSelectedFilter;
   const showFollowing = filter === 'following';
 
-  // A recipe is the user's own if they created it, or if it predates auth and
-  // carries the 'local' placeholder uid — the same rule canManageRecipe uses.
-  const isOwnRecipe = (uid: string | undefined) =>
-    uid === 'local' || (!!user && uid === user.uid);
-  const ownRecipes = (recipes ?? []).filter((r) => isOwnRecipe(r.createdBy?.uid));
+  const localRecords = useLocalLibrary();
+  const cloud = useCloudLibrary(tab === 'explore');
+  const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
+    showFollowing ? followingIds : []
+  );
 
-  // The feed merges everyone's published recipes, so "no recipes" almost never
-  // happens and a newcomer's first screen is a wall of strangers' cooking with
-  // nothing saying what they are looking at. Frame it until they have one of
-  // their own.
-  // Gated to the All feed. On Following or Favorites the copy ("below are
-  // recipes shared by everyone") describes a different list than the one on
-  // screen — a contradiction introduced when UX-9 added this card.
-  const isFirstRun =
-    filter === 'all' && !isLoading && ownRecipes.length === 0 && !search;
+  // Each tab lists one store, but variation counts still span both.
+  const countFrom = [...(localRecords ?? []), ...(cloud.recipes ?? [])];
+  // Explore lists the cloud copy of everything published, the user's own
+  // included, so a published recipe of theirs appears once in each tab.
+  const exploreFeed = cloud.recipes ? buildFeed(cloud.recipes, countFrom) : undefined;
+  const source: readonly (RecipeCardRecipe & ScorableRecipe)[] | undefined =
+    tab === 'mine'
+      ? localRecords && buildFeed(localRecords, countFrom)
+      : showFollowing
+        ? followingRecipes
+        : exploreFeed;
+  const isLoading =
+    tab === 'mine' ? localRecords === undefined : showFollowing ? followingLoading : cloud.isLoading;
+  const displayRecipes =
+    source &&
+    filterFeed(source, {
+      search,
+      favoriteIds: filter === 'favorites' ? favoriteIds : undefined,
+      followingIds: showFollowing ? new Set(followingIds) : undefined,
+    });
 
-  const displayRecipes = showFollowing
-    ? undefined
-    : filter === 'mine'
-      ? ownRecipes
-      : recipes;
-  const displayLoading = showFollowing ? followingLoading : isLoading;
+  // Explore filters only the pages fetched so far, so Load more stays available
+  // under a search or the favourites filter and the page says what it searched.
+  const pagedExplore = tab === 'explore' && !showFollowing && !cloud.cloudError;
+  const showLoadMore = pagedExplore && !isLoading && cloud.hasMore;
+  const filtering = !!search.trim() || filter === 'favorites';
+  const loadedCount = exploreFeed?.length ?? 0;
 
   return (
     <div className="max-w-lg mx-auto">
@@ -107,6 +133,9 @@ export function LibraryPage() {
           </button>
         </div>
         <div className="px-4 pb-3 space-y-2">
+          {isConfigured && (
+            <SegmentedControl label="Library" options={TAB_OPTIONS} value={tab} onChange={changeTab} />
+          )}
           <div className="relative">
             <input
               type="search"
@@ -134,27 +163,19 @@ export function LibraryPage() {
           </div>
           <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
             {/* Favourites are keyed by uid, so with no signed-in user the filter
-                is permanently empty — don't offer it at all (FUN-16). */}
-            {/* "Mine" only appears once there is something in it: offering an
-                always-empty filter to a new user is worse than not offering it. */}
-            {((ownRecipes.length > 0
-              ? canFavorite
-                ? (['all', 'mine', 'favorites'] as const)
-                : (['all', 'mine'] as const)
-              : canFavorite
-                ? (['all', 'favorites'] as const)
-                : (['all'] as const)) as readonly Filter[]).map((f) => (
+                is permanently empty; don't offer it at all (FUN-16). */}
+            {((canFavorite ? ['all', 'favorites'] : ['all']) as Filter[]).map((f) => (
               // Uses Chip rather than a look-alike, which is also what gives
               // Chip's `active` prop a real consumer instead of being dead code.
               <Chip
                 key={f}
-                label={f === 'all' ? 'All' : f === 'mine' ? 'Mine' : 'Favorites'}
+                label={f === 'all' ? 'All' : 'Favorites'}
                 active={filter === f}
                 pressed={filter === f}
                 onClick={() => setFilter(f)}
               />
             ))}
-            {followingProfiles.length > 0 && (
+            {canFilterFollowing && (
               <>
                 <Chip
                   label="Following"
@@ -187,140 +208,54 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
-        {/* First-run framing. The feed is everyone's published recipes, so
-            without this a newcomer sees an unexplained list of strangers'
-            cooking and no statement of what the app does. Disappears for good
-            once they have a recipe of their own. */}
-        {isFirstRun && !cloudError && (
-          <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-text-primary">
-                Welcome to {APP_NAME}
-              </p>
-              <p className="text-xs text-text-secondary">
-                Describe a dish and it writes you a recipe. Any recipe — yours or
-                someone else's — can branch into variations, so a recipe grows a
-                tree of versions instead of being overwritten.
-              </p>
-              <p className="text-xs text-text-secondary">
-                Below are recipes shared by everyone using {APP_NAME}. Browse them,
-                or start your own.
-              </p>
-            </div>
-            <Button size="sm" onClick={() => navigate('/create')}>
-              Create your first recipe
-            </Button>
-          </div>
-        )}
-
         {/* A count confirms the search did something, and how much. Without it a
             filtered list is indistinguishable from a short library. */}
-        {search && !displayLoading && displayRecipes && (
+        {search && !isLoading && displayRecipes && (
           <p role="status" className="text-xs text-text-tertiary">
             {displayRecipes.length} {pluralize(displayRecipes.length, 'result')} for "{search}"
           </p>
         )}
 
-        {/* Names the list once the intro is gone, so "All" is never mistaken
-            for "mine". Only meaningful when the shared library is reachable. */}
-        {!isFirstRun && !showFollowing && filter === 'all' && !search && !cloudError && (
+        {/* Explore cannot search what it has not fetched, so say how far the
+            search reaches rather than imply it covers the whole library. */}
+        {showLoadMore && filtering && (
+          <p role="status" className="text-xs text-text-tertiary">
+            Searching the {loadedCount} {pluralize(loadedCount, 'recipe')} loaded so far. Load more to search further.
+          </p>
+        )}
+
+        {/* Names the list, so Explore is never mistaken for "mine". */}
+        {pagedExplore && filter === 'all' && !search && !isLoading && loadedCount > 0 && (
           <p className="text-xs text-text-tertiary">
             Recipes shared by everyone using {APP_NAME}
           </p>
         )}
 
-        {/* Shown above the list, not instead of it: local recipes did load, and
-            the previous behaviour claimed "No recipes yet" when the shared
-            library was merely unreachable. */}
-        {cloudError && (
-          <div
-            role="status"
-            className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-3 flex items-center gap-3"
-          >
-            <div className="flex-1">
-              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
-                Showing only recipes on this device
-              </p>
-              <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">
-                The shared library couldn't be reached.
-              </p>
-            </div>
-            <Button size="sm" variant="secondary" onClick={retryCloud}>
-              Retry
-            </Button>
-          </div>
-        )}
-        {displayLoading ? (
+        {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))
-        ) : showFollowing ? (
-          followingRecipes.length > 0 ? (
-            // Was a hand-rolled card missing time, difficulty, the variation
-            // count and the favourite marker, and it reimplemented the nested-link
-            // pattern UI-9 already fixed — a <button> wrapping the creator, so the
-            // creator was not separately reachable. RecipeCard covers all of it.
-            followingRecipes.map((r) => (
-              <RecipeCard
-                key={r.id}
-                recipe={r}
-                isFavorite={favoriteIds.has(r.id)}
-              />
-            ))
-          ) : (
-            <EmptyState
-              icon="👥"
-              title="No recipes from followed users"
-              description="Open a recipe you like and follow its creator to see more here."
-              action={
-                <Button variant="secondary" onClick={() => setFilter('all')}>
-                  Browse recipes
-                </Button>
-              }
-            />
-          )
-        ) : displayRecipes && displayRecipes.length > 0 ? (
-          <>
-            {displayRecipes.map((recipe) => (
-              <RecipeCard
-                key={recipe.id}
-                recipe={recipe}
-                isFavorite={favoriteIds.has(recipe.id)}
-              />
-            ))}
-            {/* The shared library used to stop dead at 200 recipes with no way
-                past it. Explicit button rather than infinite scroll: this is a
-                list people search and come back to, and infinite scroll makes the
-                end of it unreachable and the position unrememberable. */}
-            {hasMore && filter === 'all' && (
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={loadMore}
-                disabled={loadingMore}
-              >
-                {loadingMore ? 'Loading…' : 'Load more recipes'}
-              </Button>
-            )}
-          </>
-        ) : filter === 'mine' ? (
+        ) : tab === 'explore' && !showFollowing && cloud.cloudError ? (
+          // Unreachable is not the same as empty: claiming "Nothing published
+          // yet" here would blame the library for a network problem (UI-12).
           <EmptyState
-            icon="🍳"
-            title="You haven't created a recipe yet"
-            description="Describe something you'd like to cook and it writes the recipe."
-            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
-          />
-        ) : filter === 'favorites' ? (
-          <EmptyState
-            icon="❤️"
-            title="No favorites yet"
-            description="Tap the heart on any recipe to keep it here."
-            action={
-              <Button variant="secondary" onClick={() => setFilter('all')}>
-                Browse recipes
-              </Button>
+            icon="📡"
+            title="Could not load"
+            description={
+              navigator.onLine === false
+                ? "You're offline. Explore needs a connection; My Recipes still works on this device."
+                : 'Could not load the shared library. Check your connection and try again.'
             }
+            action={<Button onClick={cloud.retryCloud}>Try again</Button>}
           />
+        ) : displayRecipes && displayRecipes.length > 0 ? (
+          displayRecipes.map((recipe) => (
+            <RecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              isFavorite={favoriteIds.has(recipe.id)}
+            />
+          ))
         ) : search ? (
           // Previously a dead end: the only escape was selecting the field and
           // deleting the text.
@@ -334,18 +269,66 @@ export function LibraryPage() {
               </Button>
             }
           />
-        ) : cloudError ? (
-          // The banner above already explains why the list is empty. Claiming
-          // "No recipes yet" here would contradict it and blame the user for a
-          // network problem — the exact UI-12 symptom.
-          null
-        ) : (
+        ) : showFollowing ? (
           <EmptyState
-            icon="👨‍🍳"
-            title="No recipes yet"
-            description="Describe something you'd like to cook and it writes the recipe."
+            icon="👥"
+            title="No recipes from followed users"
+            description="Open a recipe you like and follow its creator to see more here."
+            action={
+              <Button variant="secondary" onClick={() => setFilter('all')}>
+                Browse recipes
+              </Button>
+            }
+          />
+        ) : filter === 'favorites' ? (
+          <EmptyState
+            icon="❤️"
+            title={showLoadMore ? 'No favorites loaded yet' : 'No favorites yet'}
+            description={
+              showLoadMore
+                ? `No favorites in the ${loadedCount} ${pluralize(loadedCount, 'recipe')} loaded so far. Load more to look further.`
+                : 'Tap the heart on any recipe to keep it here.'
+            }
+            action={
+              <Button variant="secondary" onClick={() => setFilter('all')}>
+                Show all
+              </Button>
+            }
+          />
+        ) : tab === 'explore' ? (
+          <EmptyState
+            icon="🌍"
+            title="Nothing published yet"
+            description={`When someone using ${APP_NAME} publishes a recipe, it shows up here.`}
             action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
           />
+        ) : (
+          // Also the first-run screen, so it says what the app does (UX-9).
+          <EmptyState
+            icon="🍳"
+            title="You haven't created a recipe yet"
+            description="Describe a dish and it writes you a recipe. Any recipe can branch into variations, so it grows a tree of versions instead of being overwritten."
+            action={<Button onClick={() => navigate('/create')}>Create a recipe</Button>}
+          />
+        )}
+
+        {/* Explicit button rather than infinite scroll: this is a list people
+            search and come back to, and infinite scroll makes the end of it
+            unreachable and the position unrememberable. */}
+        {showLoadMore && cloud.loadMoreError && (
+          <p role="alert" className="text-xs text-danger-600 text-center">
+            Could not load more recipes. Try again.
+          </p>
+        )}
+        {showLoadMore && (
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={cloud.loadMore}
+            disabled={cloud.loadingMore}
+          >
+            {cloud.loadingMore ? 'Loading…' : 'Load more recipes'}
+          </Button>
         )}
       </div>
 

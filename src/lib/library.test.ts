@@ -1,0 +1,103 @@
+import { describe, it, expect } from 'vitest';
+import { buildFeed, filterFeed, parseLibraryTab } from './library';
+import { makeRecipe, makeIngredient } from '../test/factories';
+
+describe('parseLibraryTab', () => {
+  it('restores Explore', () => {
+    expect(parseLibraryTab('explore')).toBe('explore');
+  });
+
+  it.each([null, undefined, '', 'mine', 'Explore', 'garbage'])(
+    'defaults %s to My Recipes',
+    (raw) => {
+      expect(parseLibraryTab(raw)).toBe('mine');
+    }
+  );
+});
+
+describe('buildFeed', () => {
+  it('lists roots only, newest first', () => {
+    const old = makeRecipe({ id: 'old', createdAt: 1 });
+    const recent = makeRecipe({ id: 'new', createdAt: 5 });
+    const child = makeRecipe({ id: 'child', parentId: 'old', rootId: 'old', depth: 1, createdAt: 9 });
+    const feed = buildFeed([old, recent, child], [old, recent, child]);
+    expect(feed.map((r) => r.id)).toEqual(['new', 'old']);
+  });
+
+  it('dedups by id, keeping the first occurrence', () => {
+    const first = makeRecipe({ id: 'same', title: 'First' });
+    const second = makeRecipe({ id: 'same', title: 'Second' });
+    const feed = buildFeed([first, second], []);
+    expect(feed).toHaveLength(1);
+    expect(feed[0].title).toBe('First');
+  });
+
+  it('counts variations across both stores', () => {
+    const root = makeRecipe({ id: 'root' });
+    const localChild = makeRecipe({ id: 'l', parentId: 'root', rootId: 'root' });
+    // A cloud record with no rootId counts as its own root, as the merge did.
+    const cloudChild = { ...makeRecipe({ id: 'c', parentId: 'root' }), rootId: 'root' };
+    const feed = buildFeed([root], [root, localChild, cloudChild]);
+    expect(feed[0].childCount).toBe(2);
+  });
+
+  it('defaults fields a published record may lack', () => {
+    const { ingredients: _i, ...bare } = makeRecipe({ id: 'p' });
+    const feed = buildFeed(
+      [{ ...bare, rootId: undefined, depth: undefined, createdAt: undefined, parentId: undefined }],
+      []
+    );
+    expect(feed[0]).toMatchObject({ rootId: 'p', depth: 0, createdAt: 0, parentId: null, ingredients: [], childCount: 0 });
+  });
+
+  it('returns an empty feed for empty input', () => {
+    expect(buildFeed([], [])).toEqual([]);
+  });
+});
+
+describe('filterFeed', () => {
+  const pasta = makeRecipe({ id: 'pasta', title: 'Pasta', createdBy: { uid: 'me', displayName: null } });
+  const curry = makeRecipe({
+    id: 'curry',
+    title: 'Curry',
+    ingredients: [makeIngredient('chicken')],
+    createdBy: { uid: 'chef', displayName: 'Chef' },
+  });
+  const salad = makeRecipe({ id: 'salad', title: 'Salad', createdBy: { uid: 'other', displayName: null } });
+  const feed = [pasta, curry, salad];
+
+  it('returns everything with no filter', () => {
+    expect(filterFeed(feed, {})).toEqual(feed);
+  });
+
+  it('searches titles and ingredient names, case-insensitively', () => {
+    expect(filterFeed(feed, { search: 'PASTA' }).map((r) => r.id)).toEqual(['pasta']);
+    expect(filterFeed(feed, { search: 'chicken' }).map((r) => r.id)).toEqual(['curry']);
+  });
+
+  it('treats a whitespace-only search as no search', () => {
+    expect(filterFeed(feed, { search: '   ' })).toHaveLength(3);
+  });
+
+  it('keeps favourites only', () => {
+    expect(filterFeed(feed, { favoriteIds: new Set(['salad']) }).map((r) => r.id)).toEqual(['salad']);
+  });
+
+  it('an empty favourites set empties the list', () => {
+    expect(filterFeed(feed, { favoriteIds: new Set() })).toEqual([]);
+  });
+
+  it('keeps followed creators only', () => {
+    expect(filterFeed(feed, { followingIds: new Set(['chef']) }).map((r) => r.id)).toEqual(['curry']);
+  });
+
+  it('combines search with favourites and following', () => {
+    const favs = new Set(['pasta', 'curry']);
+    expect(filterFeed(feed, { favoriteIds: favs, search: 'curry' }).map((r) => r.id)).toEqual(['curry']);
+    expect(filterFeed(feed, { followingIds: new Set(['chef']), search: 'pasta' })).toEqual([]);
+  });
+
+  it('returns an empty list for an empty feed', () => {
+    expect(filterFeed([], { search: 'x', favoriteIds: new Set(['a']) })).toEqual([]);
+  });
+});
