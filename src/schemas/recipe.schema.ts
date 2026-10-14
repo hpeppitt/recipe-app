@@ -46,7 +46,7 @@ export const GeneratedRecipeSchema = z.object({
 
 export type GeneratedRecipeOutput = z.infer<typeof GeneratedRecipeSchema>;
 
-const CreatedBySchema = z.object({
+export const CreatedBySchema = z.object({
   uid: z.string(),
   displayName: z.string().nullable().catch(null),
 });

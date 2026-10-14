@@ -19,6 +19,16 @@ both themes:
 
 ## Since the last release
 
+### RL-024 Self-contained share links are validated against the recipe schema
+
+- Open a hash share link made by the app (Share with Firebase off, or an unpublished recipe): it still renders and Save a copy works.
+- Edit a hash link so the payload lacks `ingredients` (or build one by hand): the page shows Invalid Link, not a blank page.
+- If you have an old hash link from before nutrition or attribution existed, open it: it should still render.
+
+- Reviewer note (low): `decodeRecipeFromHash` casts its result `as SharedRecipe`, but `createdBy` is required in that type and optional in practice (old links lack it). `SharedRecipePage` uses `?.` and falls back to `{ uid: 'local', displayName: null }`, so nothing breaks, but a future caller doing `decoded.createdBy.uid` would crash on an old link. Returning `Omit<SharedRecipe, 'createdBy'> & { createdBy?: CreatedBy }` would fix it (out of scope).
+- Reviewer note (low): the `NutritionSchema` comment says "Optional throughout" but its four macro fields are required, so a link with partial nutrition (for example only calories) now shows Invalid Link. No code path produces partial nutrition today.
+- Compatibility, checked: `group` (nullable, required on ingredients and steps) has existed since the first commit, the same one that introduced share links, so every stored recipe has had it, and `nutrition` (added 2026-07-28) is `nullish`. Content field types are unchanged since then and the schema has no `.min`, `.max` or refinements. Hand-edited or lax links (a string `servings`, an ingredient missing `unit` or `notes`, an unknown `difficulty`) now show Invalid Link with no coercion; nothing the app emits looks like that.
+
 ### RL-021 The Following feed shows the newest 50 recipes from followed users
 
 - Ordering note for RL-022: the `recipes` index (`createdBy.uid` ASC, `createdAt` DESC) must be READY before this client is released. If the client goes out first, the ordered query fails and the Following filter shows an empty list for every follower.

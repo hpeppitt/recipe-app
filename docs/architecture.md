@@ -90,10 +90,12 @@ with the SDK's `Schema` builders. `gemini.ts` passes it as `responseSchema`, and
 hand-written second copy — that copy existed until 2026-07-31 and nothing kept it in step.
 Zod (`schemas/recipe.schema.ts`) is a deliberate fourth description, hand-written because
 `zod-to-json-schema` is incompatible with Zod v4; a test asserts the two agree on their key
-set so they cannot drift silently.
+set so they cannot drift silently. The same Zod schema also gates self-contained share links.
 
-Output is trusted at exactly one boundary: `parseRecipeJson` strips code fences and
-trailing commas, then Zod is the gate. Keep the Zod pass — a model config is a request hint,
+Untrusted input is accepted at two boundaries, both gated by Zod. Model output goes through
+`parseRecipeJson`, which strips code fences and trailing commas, then validates. Self-contained
+share links go through `decodeRecipeFromHash`, which strips unknown keys and returns null on
+any failure, shown as the Invalid Link state. Keep the Zod pass: a model config is a request hint,
 not a guarantee. The fence-and-comma repair should now be dead code and is kept only because
 it is two regexes on a string already in memory.
 
@@ -131,7 +133,8 @@ Places designed to be replaced, worth knowing before you change them:
 - **`console.error` call sites in hooks and services** — the intended hook points for the
   first-party error beacon (roadmap 1.2).
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
-  fallback shape can change without touching the share UI.
+  fallback shape can change without touching the share UI. The decode path validates with Zod
+  and returns null on failure.
 - **`lib/library.ts`** (`buildFeed`, `filterFeed`): the Library's list logic for both tabs, so
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
