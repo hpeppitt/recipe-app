@@ -83,13 +83,17 @@ backlog/DECISIONS.md.
 Agents decide everything reversible and log the decision. These are not reversible, and a
 ticket that needs one gets `status: needs-human` rather than a guess:
 
-- Deploying `firestore.rules` or `firestore.indexes.json` to production.
+- Deploying `firestore.rules` or `firestore.indexes.json` to production. Editing them in the
+  repo is reversible, so agents do that freely and test it against the emulator.
 - Any Dexie schema version bump (users have the previous version on disk).
 - Deleting or rewriting production data, including "cleanup" of other users' documents.
 - Anything that starts a bill: enabling Blaze, adding a paid provider, raising a quota.
-- Changing the product decisions recorded in `docs/decisions.md`.
+- Changing the product decisions recorded in `docs/decisions.md`, unless the author
+  approved that exact change at `/groom` and the ticket's acceptance criteria name it.
 - Adding a dependency that ships in the client bundle (dev dependencies are reversible).
-- Changing what the app says about privacy, data retention, or who can see what.
+- Changing what the app says about privacy, data retention, or who can see what, unless
+  the author approved that change at `/groom`. Approved copy still waits for the author's
+  sign-off on the wording before `/release` (for the policies, RL-046).
 - Deploying to live. That is `/release`, run by the author after `/qa-pass`.
 
 A reversible decision taken by an agent goes in `DECISIONS.md` with the ticket id, the

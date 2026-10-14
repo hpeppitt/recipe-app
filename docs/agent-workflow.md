@@ -77,6 +77,17 @@ run on purpose, not on a schedule.
   `done` state is the QA queue.
 - A ticket is **released** by `/release`, which also moves its QA note into the changelog.
 
+### Resuming a paused ticket
+
+A `blocked` or `needs-human` ticket keeps its `ticket/<ID>` branch on `origin` and a draft
+pull request, and its new status lives only on that branch. `next` skips it for as long as
+the branch exists. To resume one:
+
+1. Answer the question in the ticket's Notes on that branch (or in the draft PR).
+2. Either finish it on the same branch yourself, or delete the remote branch
+   (`git push origin --delete ticket/<ID>`) and close the draft PR. `main` still says
+   `ready`, so the next `/next-ticket` run picks it up and starts fresh from your answer.
+
 ## Decisions agents may and may not make
 
 The rule that makes the loop autonomous without being reckless: **reversible decisions are

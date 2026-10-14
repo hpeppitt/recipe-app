@@ -26,6 +26,13 @@
       "Bash(git reset --hard origin/main)",
       "Bash(gh pr:*)",
       "Bash(gh workflow:*)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin HEAD:main:*)",
+      "Bash(gh pr merge --admin:*)"
     ]
   },
   "hooks": {

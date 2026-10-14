@@ -32,6 +32,8 @@ git commit -am "<ID>: claim" && git push -u origin ticket/<ID>
 ```
 
 The pushed branch is the claim; a parallel session's `next` will now skip this ticket.
+If the push is rejected, another session claimed the ticket first. Never force it: run
+`git checkout main && git branch -D ticket/<ID>` and go back to step 1.
 
 ## 3. Implement
 
@@ -87,6 +89,11 @@ npm run build && npm run lint && npm test && npm run backlog -- validate
    CI (subscribe with `subscribe_pr_activity` in a cloud session, or poll `gh pr checks`
    at most every two minutes locally) and merge when green. A red CI is yours to fix:
    back to step 3's retry rule, then push again.
+   If the PR reports merge conflicts (usually `backlog/QA.md` or `backlog/DECISIONS.md`,
+   which every ticket appends to), merge main in: `git fetch origin main && git merge
+   origin/main`, keep both sides of each appended section, re-run step 6's gates, then a
+   plain `git push`. Merge rather than rebase so no force-push is ever needed; the squash
+   merge flattens it anyway.
 6. After the merge, delete the remote branch so the claim is released.
 
 ## 8. Stop states
@@ -96,6 +103,9 @@ npm run build && npm run lint && npm test && npm run backlog -- validate
   nothing. Report the question in your final message.
 - `blocked`: set the status, write why in Notes, commit and push the branch, open a draft
   PR, and report. The next `/next-ticket` run picks a different ticket.
+- Either way the `ticket/<ID>` branch stays on `origin`, so `next` keeps skipping the
+  ticket until the author resumes it (see "Resuming a paused ticket" in
+  `docs/agent-workflow.md`).
 
 ## Report
 
@@ -106,7 +116,9 @@ count by severity; the one thing the QA pass most needs to look at; what `npm ru
 
 ## Never
 
-Never groom, never widen a ticket, never edit `firestore.rules` or `firestore.indexes.json`
-or a Dexie version block unless the ticket says the author has approved it, never deploy,
+Never groom, never widen a ticket, never deploy rules, indexes or hosting (editing
+`firestore.rules` or `firestore.indexes.json` in the repo is reversible and fine; the deploy
+is a separate `needs-human` ticket), never edit a Dexie version block unless the ticket says
+the author has approved it,
 never merge with red CI, never skip a reviewer the ticket lists, never spend Opus on a
 `trivial` or `standard` ticket that has not failed twice.
