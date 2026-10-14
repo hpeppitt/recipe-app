@@ -5,7 +5,7 @@ import { getPublishedRecipe } from '../services/firestore';
 import { createRecipe } from '../db/recipes';
 import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
-import { useCloudFavorite } from '../hooks/useFavorites';
+import { useCloudFavorite, useFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import { MetadataPills } from '../components/recipe/MetadataPills';
 import { IngredientList } from '../components/recipe/IngredientList';
@@ -40,7 +40,11 @@ export function SharedRecipePage() {
   const [reloadKey, setReloadKey] = useState(0);
   const [showSuggest, setShowSuggest] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
-  const { isFavorite, toggleFavorite } = useCloudFavorite(paramId);
+  // Verified accounts favourite in the cloud; anyone else keeps a local Dexie
+  // bookmark, since the rules deny them cloud writes (decision 1a).
+  const cloudFavorite = useCloudFavorite(paramId);
+  const localFavorite = useFavorite(paramId);
+  const { isFavorite, toggleFavorite } = user?.emailVerified ? cloudFavorite : localFavorite;
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // createRecipe mints a fresh UUID per call, so every tap makes another copy.
   // The guard has to be a ref, not the `saving` state: three synchronous taps all

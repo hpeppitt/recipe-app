@@ -82,6 +82,19 @@ function toAppUser(user: User): AppUser {
   };
 }
 
+/**
+ * Make sure a verified account has its `profiles/{uid}` document.
+ *
+ * Anonymous and unverified accounts get none: the rules deny the write
+ * (decision 1a) and their generated name lives on the Firebase Auth user. Follows
+ * and publishing update this document, so a verified account without one would
+ * fail those writes.
+ */
+function ensureProfile(user: User): void {
+  if (!user.emailVerified) return;
+  createOrUpdateProfile(user.uid, { displayName: user.displayName }).catch(() => {});
+}
+
 async function runMigration(
   oldUid: string,
   newUid: string,
@@ -136,6 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!result) {
         setLinkState({ status: 'idle' });
         return;
+      }
+      if (result.linked) {
+        // Linking keeps the uid, so onAuthStateChanged does not fire again and
+        // would leave this session holding the anonymous user and no profile.
+        setUser(toAppUser(result.user));
+        ensureProfile(result.user);
       }
       if (result.previousUid) {
         // The email already had an account, so the anonymous identity was left
@@ -233,10 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           addPreviousUid(fbUser.uid);
         }
 
-        // Ensure profile exists in Firestore
-        createOrUpdateProfile(fbUser.uid, {
-          displayName: fbUser.displayName,
-        }).catch(() => {});
+        ensureProfile(fbUser);
       } else {
         setUser(null);
         setAnalyticsUserId(null);
@@ -251,8 +267,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (result.user && !result.user.displayName) {
       const name = generateDisplayName(result.user.uid);
       await setDisplayName(name);
+      // The name stays on the Firebase Auth user only. No profile document until
+      // the account is upgraded to a verified email (ensureProfile).
       setUser(toAppUser({ ...result.user, displayName: name } as User));
-      await createOrUpdateProfile(result.user.uid, { displayName: name }).catch(() => {});
     }
     trackSignIn('anonymous');
   };

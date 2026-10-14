@@ -141,7 +141,9 @@ suggestion and message documents keep the full text.
 The recipient may flip `read` and nothing else, and may delete.
 
 **profiles** are publicly readable, and every write needs a verified email. You own your
-document. Anyone else may change exactly one thing: a `followerCount` ±1 bump.
+document. Anyone else may change exactly one thing: a `followerCount` ±1 bump. Since RL-041 the
+client creates the document only for a verified account, including on an anonymous account's
+upgrade to an email, so an anonymous account has no profile document.
 
 **follows** — readable by the follower or the followed. The follower creates and deletes,
 with a verified email,

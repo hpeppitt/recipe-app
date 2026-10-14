@@ -31,7 +31,8 @@ export function useOwnProfile() {
       photoBgColor?: string | null;
       photoURL?: string | null;
     }) => {
-      if (!user) return;
+      // Profiles are verified-only (decision 1a); the page routes others to sign-up.
+      if (!user?.emailVerified) return;
       await createOrUpdateProfile(user.uid, {
         photoEmoji: data.photoEmoji ?? null,
         photoBgColor: data.photoBgColor ?? null,
@@ -45,7 +46,7 @@ export function useOwnProfile() {
 
   const updateName = useCallback(
     async (name: string) => {
-      if (!user) return;
+      if (!user?.emailVerified) return;
       await setDisplayName(name);
       await createOrUpdateProfile(user.uid, { displayName: name });
       trackProfileUpdated('display_name');

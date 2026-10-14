@@ -9,4 +9,6 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-14 | RL-041 | Sharing a local recipe as an anonymous account skips the publish retry and hands out the self-contained `#` link, with no sign-up call to action, so sharing keeps working. | Open the sign-up dialog on Share for unverified users, which blocks sharing until they add an email. | pending |
+| 2026-10-14 | RL-041 | Follow and own-profile editing open a new shared `components/auth/SignUpDialog.tsx` that wraps `EmailLinkingForm tone="invite"` the same way `SuggestChangeModal` does. `SuggestChangeModal` keeps its own inline copy. | Show the invite form inline on the page (as `/create` does), or refactor `SuggestChangeModal` onto the new dialog. | pending |
 | 2026-10-14 | RL-018 | Kept the old `suggestions` index (`recipeId` ASC, `createdAt` DESC) alongside the two new ones, so the pre-RL-018 client keeps working until the new rules go live and a deploy does not prompt to drop it. | Remove it now, since the new client never issues that query. Safe to remove in a later ticket once RL-022 has shipped. | pending |

@@ -39,6 +39,9 @@ export function useFavoriteIds() {
 export function useFavorite(recipeId: string | undefined) {
   const { user } = useAuth();
   const uid = user?.uid;
+  // Anonymous accounts bookmark on this device only (decision 1a): the rules
+  // deny their cloud favourite writes, so they are never attempted.
+  const syncsToCloud = isFirebaseConfigured && !!user?.emailVerified;
   const togglingRef = useRef(false);
 
   const favorite = useLiveQuery(
@@ -67,7 +70,7 @@ export function useFavorite(recipeId: string | undefined) {
         trackFavoriteToggled(recipeId, !isFav);
         if (isFav) {
           await removeFavorite(uid, recipeId);
-          if (isFirebaseConfigured) {
+          if (syncsToCloud) {
             // Awaited so the guard spans the counter write, but bounded: an
             // unreachable Firestore retries for a long time and must not leave
             // the button permanently locked.
@@ -82,7 +85,7 @@ export function useFavorite(recipeId: string | undefined) {
           }
         } else {
           await addFavorite(uid, recipeId);
-          if (isFirebaseConfigured && meta) {
+          if (syncsToCloud && meta) {
             await withTimeout(
               addCloudFavorite(
                 uid,
@@ -104,22 +107,28 @@ export function useFavorite(recipeId: string | undefined) {
         togglingRef.current = false;
       }
     },
-    [uid, recipeId, isFav, user?.displayName]
+    [uid, recipeId, isFav, user?.displayName, syncsToCloud]
   );
 
   return { isFavorite: isFav, toggleFavorite: toggle, canFavorite: !!uid };
 }
 
-/** Favorite hook for shared/cloud recipes (not in local Dexie) */
+/**
+ * Favorite hook for shared/cloud recipes (not in local Dexie).
+ *
+ * Verified accounts only: the rules deny cloud favourites to anyone else, so an
+ * anonymous caller must use `useFavorite` and keep the bookmark on this device.
+ */
 export function useCloudFavorite(recipeId: string | undefined) {
   const { user } = useAuth();
   const [isFav, setIsFav] = useState(false);
   const togglingRef = useRef(false);
 
+  const verifiedUid = user?.emailVerified ? user.uid : undefined;
   useEffect(() => {
-    if (!user || !recipeId || !isFirebaseConfigured) return;
-    isCloudFavorite(user.uid, recipeId).then(setIsFav);
-  }, [user?.uid, recipeId]);
+    if (!verifiedUid || !recipeId || !isFirebaseConfigured) return;
+    isCloudFavorite(verifiedUid, recipeId).then(setIsFav);
+  }, [verifiedUid, recipeId]);
 
   const toggle = useCallback(
     async (meta: {
@@ -127,7 +136,7 @@ export function useCloudFavorite(recipeId: string | undefined) {
       title: string;
       emoji: string;
     }) => {
-      if (!user || !recipeId) return;
+      if (!user?.emailVerified || !recipeId) return;
       // Same race as useFavorite, but against local state that is only updated
       // after the await: two taps would both see isFav === false.
       if (togglingRef.current) return;
