@@ -19,6 +19,22 @@ both themes:
 
 ## Since the last release
 
+### RL-019 Avatars render only data:image photos, and profile rules enforce the prefix and a size cap
+
+- Needs the rules deployed (RL-022) to enforce the cap; the Avatar change is live with the build.
+- On the preview build, signed in with a verified email, upload an avatar and confirm it renders on your profile page and in the library header.
+- If any old profile has a non-data photoURL (an https link), confirm it now shows initials, not a broken image. Its owner can still change displayName.
+- Avatar upload through `npm run dev:emulated` (rules plus UI together) was not run by an agent.
+- Reviewer note (low): `AvatarEditor` seeds `imageURL` from `currentPhotoURL`, which for a legacy profile could be an https URL. The Upload tab preview then shows initials, and Save without picking a file would write that same URL back. The rule only checks `photoURL` when the value changes, so an unchanged value is not denied. UI oddity only, no security effect.
+- Reviewer note (low): `data:image/svg+xml` is accepted. It is script-inert inside an `<img>`, so not a security issue.
+- Reviewer note (low): the 100000 cap in `firestore.rules` and the `'data:image/'` prefix in `Avatar.tsx` must be kept in sync by hand.
+- Reviewer note (low): the typical `AvatarEditor` size of 4 to 8 KB was estimated, not measured.
+- Reviewer note (low, data): `migrateFirestoreUid` copies the old profile to the new uid with `setDoc`, which is a create, so an old profile holding a non-data `photoURL` now also fails `photoURLOk`. That path is already broken by design (the old uid's profile delete is denied), so nothing new is lost; it needs the server-side migration path.
+- Reviewer note (low, data): `toDataURL('image/jpeg')` falls back to PNG on a browser without JPEG support, and a noisy 128x128 PNG could approach about 87 KB of base64, still under the 100000 cap. Theoretical only.
+- Reviewer note (low, data): the owner branch of the profile update still has no other field constraints, so an owner can set their own `followerCount` or `recipeCount` to anything. Pre-existing and out of scope here.
+- Reviewer note (low, data): the `Avatar` guard also requires `photoType === 'uploaded'`, so a bad URL with that type falls to initials, never to the emoji, which matches the intent (the ticket wording "falls through to emoji" is loose).
+- Residual risk: every `photoURL` in `src` is a profile field and reaches an `<img>` only through `Avatar` (the only `<img>` in `src/**/*.tsx`). Recipes `createdBy`, suggestions and follows are arbitrary maps, so a `photoURL` key can be stored there, but nothing reads or renders it. A future component that renders a photo from those maps would bypass the rule; route any such rendering through `Avatar`.
+
 ### RL-013 Deploy a Firebase Hosting preview channel for every QA pass
 
 - You must add these yourself; an agent cannot. Until you do, the Preview workflow skips with a note and does not fail.

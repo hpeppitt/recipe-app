@@ -232,6 +232,13 @@ everyone, owner included, the moment the rules go live. The old `suggestions` in
 (`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json` until that client is
 gone, as [data-model.md](data-model.md) records.
 
+**RL-019 ordering (avatar rule).** The profile `photoURL` rule and the `Avatar` change are
+independent, so deploy order does not matter. The old client only writes data URLs or null,
+so deploying the rules does not break it. Profiles that already hold a non-data `photoURL`
+stay readable, and their avatar falls back to emoji or initials once the new client ships,
+not when the rules deploy. After the rules deploy, an owner update that sets `photoURL` to a
+non-data value is denied.
+
 `firebase.json` also declares a `functions` codebase pointing at `functions/`. **Do not
 deploy it.** It requires the Blaze plan, and moving to Blaze ends the free Gemini tier on
 the AI Logic path. It is kept as a written, ready escalation path — see

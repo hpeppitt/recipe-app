@@ -35,7 +35,8 @@ export function Avatar({
 }: AvatarProps) {
   const baseClasses = `${SIZES[size]} rounded-full flex items-center justify-center flex-shrink-0 select-none overflow-hidden`;
 
-  if (photoType === 'uploaded' && photoURL) {
+  // Only inline data URLs: a third-party URL would leak every viewer's IP (RL-019).
+  if (photoType === 'uploaded' && photoURL?.startsWith('data:image/')) {
     return (
       <div className={baseClasses} aria-hidden>
         <img src={photoURL} alt="" className="w-full h-full object-cover" />
