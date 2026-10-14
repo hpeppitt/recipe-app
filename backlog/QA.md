@@ -19,6 +19,33 @@ both themes:
 
 ## Since the last release
 
+### RL-016 Recipe writes have a bounded createdAt, capped title and array sizes, and an immutable createdAt
+
+- Rules change; nothing differs in the app until RL-022 deploys `firestore.rules`.
+- After the RL-022 deploy, on live: publish a new recipe, then edit an existing published one
+  and save. Both succeed and the edit shows on the shared page.
+- Expected and accepted: a device whose clock runs more than a minute fast cannot publish.
+- Not run by the agent: the `npm run dev:emulated` publish, edit and re-publish walk. The rules
+  were probed over REST on a demo-project emulator (19 of 19 as expected; the same script against
+  the previous rules allowed all 9 of the cases that should now be denied).
+- Reviewer noted (med, for RL-036): the editor (`lib/recipeEdit.ts`, `RecipeEditPage.tsx`) has no
+  title or list cap matching the rules. A recipe saved over a cap writes Dexie, then the cloud
+  update is denied and the user gets the local-only toast, so the owner sees the edit while everyone
+  else sees the old version. Over-cap content on a new recipe falls back to a local-only link.
+- Reviewer noted (med, for RL-036): `createdAt` on import (`lib/import.ts`, `recipe.schema.ts`)
+  accepts floats, future and huge values. A future or fractional `createdAt` on a later share is
+  denied by the create rule and `handleShare` quietly falls back to a self-contained link.
+- Reviewer noted (low): re-publish always sends the local `createdAt`, so a legacy cloud doc with
+  no `createdAt`, or an imported copy whose local value differs from the cloud one, is denied as a
+  changed key. A stored recipe already over a cap cannot take any owner update, including approving
+  a suggestion (the collaborator write), and shrinking it is subject to the same check. RL-042
+  wipes legacy data, so this should not occur on fresh data. The caps are checked on every owner
+  update, not only when those keys change; scoping them to updates that touch those keys would
+  fix the approval case.
+- Noticed by the implementer (low): `ImportedRecipeSchema` accepts any number for `createdAt`
+  (`z.number()`, not `.int()`), and `useRecipe` falls back to `createdAt ?? 0` for a cloud doc
+  with none, which the immutability rule would deny on re-publish.
+
 ### RL-015 Notification creates need a verified email, a known type, a fixed key set and a capped message
 
 - Rules change; nothing differs in the app until RL-022 deploys `firestore.rules`.

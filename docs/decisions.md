@@ -373,6 +373,18 @@ There is no background retry queue; that was out of scope. The cloud delete is a
 only for a user with `emailVerified`, per the ticket and RL-040, since nobody else can
 publish under the current rules.
 
+### Recipe writes are bounded in time and size (RL-016, 2026-10-14)
+
+A recipe create needs an integer `createdAt` no more than 60 seconds ahead of server time,
+and an owner update may not change `createdAt`. Both need `title` at most 200 characters
+and `ingredients` and `instructions` at most 100 entries each. The feed is
+`orderBy('createdAt', 'desc')`, so an unbounded `createdAt` would pin a recipe to the top
+of everyone's feed, and an oversized document is read on every first paint. Only the upper
+bound is enforced: imports keep their original `createdAt`, so past dates stay allowed.
+The caps are generous against every generated recipe seen so far and are named in a
+comment above the recipe rules so RL-036 can mirror them on the client. The accepted
+consequence: a client clock more than a minute fast cannot publish.
+
 ### Tech stack: Firebase stays, the AI path moves behind a proxy (proposed 2026-10-13)
 
 Not yet a decision. [tech-stack-review.md](tech-stack-review.md) argues for keeping
