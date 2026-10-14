@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import { VitePWA } from 'vite-plugin-pwa'
 import { readFileSync } from 'node:fs'
 
 // Settings previously showed a hardcoded "v1.0", which was simply untrue. Read it
@@ -8,7 +9,39 @@ import { readFileSync } from 'node:fs'
 const pkgVersion = JSON.parse(readFileSync('./package.json', 'utf8')).version
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      // 'prompt': a new worker waits until the user taps Reload. Never auto-update.
+      registerType: 'prompt',
+      manifest: {
+        name: 'Recipe Lab', // keep equal to APP_NAME in src/lib/constants.ts
+        short_name: 'Recipe Lab',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        // Both are the light --color-surface (#ffffff). The dark variant lives in
+        // index.html as theme-color meta tags, since a manifest takes one value.
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+      },
+      workbox: {
+        // Shell and hashed assets only. No runtimeCaching: Firestore, Auth and the
+        // AI endpoints are never cached by the worker.
+        globPatterns: ['**/*.{js,css,html,svg,ico,png,woff2}'],
+        navigateFallback: '/index.html',
+        // /__/ is Firebase Auth's handler, /api/ is reserved for APIs, and /_ skips any
+        // underscore-prefixed path (the app has none).
+        navigateFallbackDenylist: [/^\/__\//, /^\/api\//, /^\/_/],
+      },
+    }),
+  ],
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
   },

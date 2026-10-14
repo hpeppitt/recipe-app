@@ -164,4 +164,6 @@ start and is split only for caching.
 `npm run build` is `tsc -b && vite build` — the type-check is part of the build, so a type
 error fails it. Output lands in `dist/`, which Firebase Hosting serves with a catch-all
 rewrite to `index.html` (required for client-side routing). Tailwind v4 runs through the
-`@tailwindcss/vite` plugin with no separate config step.
+`@tailwindcss/vite` plugin with no separate config step. `vite-plugin-pwa` (dev dependency) emits
+`sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` in `AppShell` registers
+the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule.
