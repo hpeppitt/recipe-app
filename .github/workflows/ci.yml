@@ -35,7 +35,7 @@ jobs:
 
       - run: npm run lint
 
-      # Tests are node + fake-indexeddb, so no env vars and no emulators are
+      # Tests are node + fake-indexeddb (jsdom for *.test.tsx), so no env vars and no emulators are
       # needed. If that ever changes, this job needs secrets and this comment
       # is the thing that was wrong.
       - run: npm test

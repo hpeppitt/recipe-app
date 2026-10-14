@@ -19,4 +19,7 @@ both themes:
 
 ## Since the last release
 
-(nothing yet)
+### RL-002 Add a component and hook test harness
+
+- No visible change. Check only that `npm test` is green on the preview branch and that the
+  app still loads (`AuthContext` gained two exports, nothing else in `src/` changed).
