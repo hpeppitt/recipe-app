@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { StrandedIdentityNotice } from '../auth/StrandedIdentityNotice';
+import { RouteErrorBoundary } from '../ui/ErrorBoundary';
 import { EmailLinkStatus } from '../auth/EmailLinkStatus';
 
 export function AppShell() {
@@ -13,7 +14,10 @@ export function AppShell() {
             explain why the notice below it is showing. */}
         <EmailLinkStatus />
         <StrandedIdentityNotice />
-        <Outlet />
+        {/* Keeps the nav alive when a shell page throws. */}
+        <RouteErrorBoundary>
+          <Outlet />
+        </RouteErrorBoundary>
       </main>
       <BottomNav />
     </div>
