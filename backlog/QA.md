@@ -19,6 +19,11 @@ both themes:
 
 ## Since the last release
 
+### RL-006 Split the bundle at route boundaries
+
+- Standing walk, watching for a visible loading flash: Library, Settings, Profile, a recipe, its edit page, its tree, Create. A brief spinner on the first visit to a route is expected. The bottom nav and top bar should stay put on Settings and Profile while it shows.
+- Offline chunk load: load the app, set devtools Network to Offline, then open a route you have not visited this session (for example Settings or Create). You should see the error fallback with "Back to library", not a blank page.
+
 ### RL-005 Distinguish "recipe not found" from "could not load" on a cold first load
 
 - Cold load: open a shared link (`/recipe/<id>`) in a fresh browser profile or a private window. It should show the recipe, never "Recipe not found".

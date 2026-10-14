@@ -37,7 +37,7 @@ flowchart TD
 **`pages/`** own routing-level state and compose components. **`components/`** are
 presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 `notifications/`, `layout/`) plus a shared `ui/` primitive set (Button, Input, Chip,
-Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, Avatar, SegmentedControl, ErrorBoundary). **`hooks/`**
+Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary). **`hooks/`**
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
 the tests live. **`services/`** wrap the outside world: Firebase init, Firestore CRUD,
 Gemini, localStorage, analytics.
@@ -151,6 +151,13 @@ Plain `BrowserRouter` with `<Routes>`, not `createBrowserRouter`. That migration
 attempted and reverted: `useBlocker` did not block POP navigation in react-router 7.13.0.
 The shipped unsaved-work guard is a sentinel history entry instead. See
 [decisions.md](decisions.md) before re-litigating.
+
+Every page except `LibraryPage` is `React.lazy` in `App.tsx`, so each is its own chunk and the
+Library keeps first paint. A `Suspense` with `PageFallback` (the shared `Spinner`) sits inside
+the `RouteErrorBoundary` in both `App.tsx` and `AppShell.tsx`, so the shell stays mounted while a
+shell route loads and a failed chunk load lands in the error fallback. Firebase is a manual
+`firebase` chunk in `vite.config.ts`; `services/` imports it statically, so it still loads at
+start and is split only for caching.
 
 ## Build and deploy
 
