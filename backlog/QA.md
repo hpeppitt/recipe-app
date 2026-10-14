@@ -19,6 +19,14 @@ both themes:
 
 ## Since the last release
 
+### RL-031 Blocked or corrupt localStorage never throws out of services/storage.ts
+
+- Open the preview build in Safari with Block all cookies on, and in Chrome with cookies and site data blocked for the site. The library should load, and the theme and unit toggles should not crash (they just will not be remembered after a reload).
+- Not covered: code outside `storage.ts` that touches localStorage directly. `src/services/firebase.ts` lines 109, 225 and 230 (`emailForSignIn` for the email-link flow) can still throw when storage is blocked.
+- Reviewer note (med, for the author): the email-link sign-in flow in `services/firebase.ts` still touches localStorage directly at those three places, so with storage blocked starting or completing email-link sign-in may throw. That is the sign-up path RL-041 routes users to, so it is the more important place to fix next. The `'emailForSignIn'` key is a literal and is not in `STORAGE_KEYS`.
+- Reviewer note (low): Safari "Block all cookies" can also block IndexedDB, which is outside this ticket and not audited (Dexie start-up). With storage blocked every write warns; callers are not hot paths, though `RecipeDetailPage` persists inside a setState updater, so StrictMode in dev warns twice.
+- Reviewer note (low): `docs/data-model.md` has no section for the nine `STORAGE_KEYS` plus that literal, and the device id fallback (`crypto.randomUUID` exists only in secure contexts, so plain http falls back to `getRandomValues`, then `Math.random`) is documented nowhere else.
+
 ### RL-029 Profile stats and the following list load in a constant number of round trips
 
 - Own profile: the total views, total favourites and each recipe's counts should match the previous release for published recipes, and show zero for recipes you never published. Compare against the last release if you can.

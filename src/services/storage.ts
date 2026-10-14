@@ -4,12 +4,44 @@ import type { StrandedIdentity } from '../lib/migration';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
 import { parseLibraryTab, type LibraryTab } from '../lib/library';
 
-export function getTheme(): 'system' | 'light' | 'dark' {
-  return (localStorage.getItem(STORAGE_KEYS.THEME) as 'system' | 'light' | 'dark') ?? 'system';
+// Storage can throw on access (blocked cookies raise SecurityError from merely
+// touching `localStorage`), on read, and on write (quota, private modes). Nothing
+// here is worth a crash, so every touch goes through these three.
+function safeGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
-export function setTheme(theme: 'system' | 'light' | 'dark'): void {
-  localStorage.setItem(STORAGE_KEYS.THEME, theme);
+function safeSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    console.warn(`Could not save "${key}" to local storage`);
+  }
+}
+
+function safeRemove(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    console.warn(`Could not remove "${key}" from local storage`);
+  }
+}
+
+type Theme = 'system' | 'light' | 'dark';
+const THEMES: readonly string[] = ['system', 'light', 'dark'];
+const UNIT_SYSTEMS: readonly string[] = ['original', 'metric', 'imperial'];
+
+export function getTheme(): Theme {
+  const v = safeGet(STORAGE_KEYS.THEME);
+  return v !== null && THEMES.includes(v) ? (v as Theme) : 'system';
+}
+
+export function setTheme(theme: Theme): void {
+  safeSet(STORAGE_KEYS.THEME, theme);
 }
 
 /**
@@ -17,11 +49,12 @@ export function setTheme(theme: 'system' | 'light' | 'dark'): void {
  * the honest default — the app should not silently convert until asked.
  */
 export function getUnitSystem(): UnitSystem {
-  return (localStorage.getItem(STORAGE_KEYS.UNIT_SYSTEM) as UnitSystem) ?? 'original';
+  const v = safeGet(STORAGE_KEYS.UNIT_SYSTEM);
+  return v !== null && UNIT_SYSTEMS.includes(v) ? (v as UnitSystem) : 'original';
 }
 
 export function setUnitSystem(system: UnitSystem): void {
-  localStorage.setItem(STORAGE_KEYS.UNIT_SYSTEM, system);
+  safeSet(STORAGE_KEYS.UNIT_SYSTEM, system);
 }
 
 /**
@@ -29,50 +62,65 @@ export function setUnitSystem(system: UnitSystem): void {
  * modes, quota, blocked cookies) and a remembered tab is not worth a crash.
  */
 export function getLibraryTab(): LibraryTab {
-  try {
-    return parseLibraryTab(localStorage.getItem(STORAGE_KEYS.LIBRARY_TAB));
-  } catch {
-    return 'mine';
-  }
+  return parseLibraryTab(safeGet(STORAGE_KEYS.LIBRARY_TAB));
 }
 
 export function setLibraryTab(tab: LibraryTab): void {
-  try {
-    localStorage.setItem(STORAGE_KEYS.LIBRARY_TAB, tab);
-  } catch {
-    // Not remembered this time; the tab still switches.
-  }
+  safeSet(STORAGE_KEYS.LIBRARY_TAB, tab);
 }
 
 // --- Device + Anonymous Identity Persistence ---
 
-export function getDeviceId(): string {
-  let id = localStorage.getItem(STORAGE_KEYS.DEVICE_ID);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(STORAGE_KEYS.DEVICE_ID, id);
+// Held in memory too, so with blocked storage one session still has one id.
+// Never persisted by this fallback.
+let sessionDeviceId: string | null = null;
+
+// randomUUID exists only in secure contexts (not plain http, e.g. a LAN dev
+// server), so fall back to getRandomValues, then Math.random. Nothing parses the
+// id (AuthContext only calls getDeviceId), so it only needs to be a unique string.
+function newId(): string {
+  try {
+    if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
+    if (typeof crypto?.getRandomValues === 'function') {
+      return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+        b.toString(16).padStart(2, '0'),
+      ).join('');
+    }
+  } catch {
+    // fall through
   }
-  return id;
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function getDeviceId(): string {
+  const stored = safeGet(STORAGE_KEYS.DEVICE_ID);
+  if (stored) return stored;
+  if (!sessionDeviceId) {
+    sessionDeviceId = newId();
+    safeSet(STORAGE_KEYS.DEVICE_ID, sessionDeviceId);
+  }
+  return sessionDeviceId;
 }
 
 export function getAnonymousUid(): string | null {
-  return localStorage.getItem(STORAGE_KEYS.ANONYMOUS_UID);
+  return safeGet(STORAGE_KEYS.ANONYMOUS_UID);
 }
 
 export function setAnonymousUid(uid: string): void {
-  localStorage.setItem(STORAGE_KEYS.ANONYMOUS_UID, uid);
+  safeSet(STORAGE_KEYS.ANONYMOUS_UID, uid);
   addPreviousUid(uid);
 }
 
 export function clearAnonymousUid(): void {
-  localStorage.removeItem(STORAGE_KEYS.ANONYMOUS_UID);
+  safeRemove(STORAGE_KEYS.ANONYMOUS_UID);
 }
 
 export function getPreviousUids(): string[] {
-  const raw = localStorage.getItem(STORAGE_KEYS.PREVIOUS_UIDS);
+  const raw = safeGet(STORAGE_KEYS.PREVIOUS_UIDS);
   if (!raw) return [];
   try {
-    return JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((u): u is string => typeof u === 'string') : [];
   } catch {
     return [];
   }
@@ -82,7 +130,7 @@ export function addPreviousUid(uid: string): void {
   const uids = getPreviousUids();
   if (!uids.includes(uid)) {
     uids.push(uid);
-    localStorage.setItem(STORAGE_KEYS.PREVIOUS_UIDS, JSON.stringify(uids));
+    safeSet(STORAGE_KEYS.PREVIOUS_UIDS, JSON.stringify(uids));
   }
 }
 
@@ -92,11 +140,11 @@ export function addPreviousUid(uid: string): void {
 // read and write.
 
 export function getIntroState(): IntroState {
-  return parseIntroState(localStorage.getItem(STORAGE_KEYS.INTRO_STATE));
+  return parseIntroState(safeGet(STORAGE_KEYS.INTRO_STATE));
 }
 
 export function setIntroState(state: IntroState): void {
-  localStorage.setItem(STORAGE_KEYS.INTRO_STATE, JSON.stringify(state));
+  safeSet(STORAGE_KEYS.INTRO_STATE, JSON.stringify(state));
 }
 
 // --- Stranded identity notice ---
@@ -107,7 +155,7 @@ export function setIntroState(state: IntroState): void {
 // follow, i.e. exactly the silent loss this is meant to end.
 
 export function getStrandedIdentity(): StrandedIdentity | null {
-  const raw = localStorage.getItem(STORAGE_KEYS.STRANDED_IDENTITY);
+  const raw = safeGet(STORAGE_KEYS.STRANDED_IDENTITY);
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as StrandedIdentity;
@@ -123,22 +171,22 @@ export function getStrandedIdentity(): StrandedIdentity | null {
 }
 
 export function setStrandedIdentity(stranded: StrandedIdentity): void {
-  localStorage.setItem(STORAGE_KEYS.STRANDED_IDENTITY, JSON.stringify(stranded));
+  safeSet(STORAGE_KEYS.STRANDED_IDENTITY, JSON.stringify(stranded));
 }
 
 /** Called when the user dismisses the notice; it is shown once. */
 export function clearStrandedIdentity(): void {
-  localStorage.removeItem(STORAGE_KEYS.STRANDED_IDENTITY);
+  safeRemove(STORAGE_KEYS.STRANDED_IDENTITY);
 }
 
 export function getEmailForLinking(): string | null {
-  return localStorage.getItem(STORAGE_KEYS.EMAIL_FOR_LINKING);
+  return safeGet(STORAGE_KEYS.EMAIL_FOR_LINKING);
 }
 
 export function setEmailForLinking(email: string): void {
-  localStorage.setItem(STORAGE_KEYS.EMAIL_FOR_LINKING, email);
+  safeSet(STORAGE_KEYS.EMAIL_FOR_LINKING, email);
 }
 
 export function clearEmailForLinking(): void {
-  localStorage.removeItem(STORAGE_KEYS.EMAIL_FOR_LINKING);
+  safeRemove(STORAGE_KEYS.EMAIL_FOR_LINKING);
 }

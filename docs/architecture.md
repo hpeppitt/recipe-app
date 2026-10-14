@@ -40,7 +40,11 @@ presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary). **`hooks/`**
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
 the tests live. **`services/`** wrap the outside world: Firebase init, Firestore CRUD,
-Gemini, localStorage, analytics.
+Gemini, localStorage, analytics. `services/storage.ts` never throws: reads fall back to their
+default and writes warn and carry on, so blocked or corrupt storage costs a preference, not the app. This covers `storage.ts` only:
+`services/firebase.ts` still reads and writes the `emailForSignIn` key on `localStorage`
+directly (in `sendEmailSignInLink` and the sign-in completion), so with storage blocked
+those calls can throw. What that does to the email-link flow was not verified end to end.
 
 The rule that keeps this honest: nothing in `lib/` imports from `services/` or `hooks/`.
 That is why `lib/` is testable in node with no mocks beyond `fake-indexeddb`.
