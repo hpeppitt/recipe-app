@@ -19,6 +19,29 @@ both themes:
 
 ## Since the last release
 
+### RL-004 Guard RecipeContent against malformed documents and add an error boundary
+
+- Standing walk, plus a look at a recipe detail page and a shared recipe in light and dark mode.
+- No real recipe lacks an array today (`publishRecipe` writes complete documents), so the
+  missing-array guard is covered by tests only. If you can edit a cloud recipe in the emulator
+  and delete `ingredients`, the page should show "This recipe has no ingredients to show." and
+  the rest of the recipe.
+- Boundary fallback: temporarily throw in a page's render in dev. You should see "Something went
+  wrong" with "Back to library"; on a shell page the bottom nav stays. Tapping the button goes
+  home, and navigating elsewhere clears the fallback.
+- Reviewer noted (med): if the failing route is `/` itself (the library throws on a corrupt cloud
+  document, the likeliest crash), "Back to library" resets the boundary and navigates to `/`, the
+  pathname does not change, the page throws again and the fallback returns at once, so the button
+  looks dead. Consider a Reload action on the fallback.
+- Reviewer noted (med, a11y): the fallback has no `role="alert"` and no focus move, so focus drops
+  to `<body>` when the crashed page unmounts and screen reader users hear nothing.
+- Reviewer noted (low): the boundary in `AppShell` and the one around `Routes` nest correctly (the
+  nearest catches, no double report), but an error thrown by `AppShell` itself falls to the outer
+  one and the nav disappears. The `RecipeContent` missing-section notice uses `role="status"` on
+  content already present, which is not announced, and has no matching heading. An empty array
+  (not absent) still renders a heading with an empty body. Indentation inside
+  `<RouteErrorBoundary>` in `App.tsx` is off.
+
 ### RL-041 Anonymous and signed-out users can only bookmark locally, and every other action routes to sign-up
 
 - Release ordering: RL-041 must ship in the same release as RL-040's rules, and be live before

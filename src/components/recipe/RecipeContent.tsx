@@ -32,7 +32,15 @@ function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
   const [servings, setServings] = useState(recipe.servings);
-  const scaled = useMemo(() => scaleRecipe(recipe, servings), [recipe, servings]);
+  // Cloud documents are not validated on read, so either array can be absent.
+  const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : null;
+  const instructions = Array.isArray(recipe.instructions) ? recipe.instructions : null;
+  const notes = Array.isArray(recipe.notes) ? recipe.notes : [];
+  const tags = Array.isArray(recipe.tags) ? recipe.tags : [];
+  const scaled = useMemo(
+    () => scaleRecipe({ ...recipe, ingredients: ingredients ?? [] }, servings),
+    [recipe, ingredients, servings]
+  );
 
   return (
     <div className="space-y-5">
@@ -78,14 +86,22 @@ function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
         <NutritionPanel nutrition={recipe.nutrition} servings={scaled.servings} />
       )}
 
-      <IngredientList ingredients={scaled.ingredients} checkable={!compact} />
-      <InstructionList instructions={recipe.instructions} checkable={!compact} />
+      {ingredients ? (
+        <IngredientList ingredients={scaled.ingredients} checkable={!compact} />
+      ) : (
+        <MissingSection name="ingredients" />
+      )}
+      {instructions ? (
+        <InstructionList instructions={instructions} checkable={!compact} />
+      ) : (
+        <MissingSection name="instructions" />
+      )}
 
-      {recipe.notes.length > 0 && (
+      {notes.length > 0 && (
         <div className="space-y-2">
           <h3 className="font-semibold text-text-primary">Notes</h3>
           <ul className="space-y-1">
-            {recipe.notes.map((note, i) => (
+            {notes.map((note, i) => (
               <li key={i} className="flex gap-2 text-sm text-text-secondary">
                 <span className="text-primary-500">💡</span>
                 <span>{note}</span>
@@ -95,7 +111,15 @@ function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
         </div>
       )}
 
-      {!compact && <TagList tags={recipe.tags} />}
+      {!compact && <TagList tags={tags} />}
     </div>
+  );
+}
+
+function MissingSection({ name }: { name: string }) {
+  return (
+    <p role="status" className="text-sm text-text-secondary bg-surface-secondary rounded-xl p-3">
+      This recipe has no {name} to show.
+    </p>
   );
 }

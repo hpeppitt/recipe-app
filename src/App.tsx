@@ -9,6 +9,7 @@ import { VersionTreePage } from './pages/VersionTreePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SharedRecipePage } from './pages/SharedRecipePage';
 import { ProfilePage } from './pages/ProfilePage';
+import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { useTheme } from './hooks/useTheme';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <RouteErrorBoundary>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<LibraryPage />} />
@@ -36,6 +38,7 @@ export default function App() {
           <Route path="/shared/:id" element={<SharedRecipePage />} />
           <Route path="/profile/:uid" element={<ProfilePage />} />
         </Routes>
+        </RouteErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

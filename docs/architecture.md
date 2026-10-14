@@ -37,7 +37,7 @@ flowchart TD
 **`pages/`** own routing-level state and compose components. **`components/`** are
 presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 `notifications/`, `layout/`) plus a shared `ui/` primitive set (Button, Input, Chip,
-Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, Avatar, SegmentedControl). **`hooks/`**
+Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, Avatar, SegmentedControl, ErrorBoundary). **`hooks/`**
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
 the tests live. **`services/`** wrap the outside world: Firebase init, Firestore CRUD,
 Gemini, localStorage, analytics.
@@ -119,6 +119,8 @@ Places designed to be replaced, worth knowing before you change them:
   Function proxy is a change to this file's transport, not to its callers.
 - **`lib/errors.ts`** (`describeGenerationError`) — the one place raw provider errors become
   user-facing copy. New failure modes get mapped here, not at the call site.
+- **`components/ui/ErrorBoundary.tsx`**: wraps the routes and the shell outlet; render errors
+  show an EmptyState with "Back to library", report via `reportError`, and clear on route change.
 - **`console.error` call sites in hooks and services** — the intended hook points for the
   first-party error beacon (roadmap 1.2).
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
