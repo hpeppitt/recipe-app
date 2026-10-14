@@ -24,6 +24,9 @@ import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage } from '../lib/notifications';
+import { selectFavoritesToPush } from '../lib/favoritesMigration';
+import { withTimeout } from '../lib/utils';
+import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
@@ -326,6 +329,56 @@ export async function addCloudFavorite(
       createdAt: Date.now(),
     }).catch(() => {});
   }
+}
+
+/** Same bound as the favourite toggles, so a hung network cannot hang an upgrade. */
+const FAVORITE_PUSH_TIMEOUT_MS = 5000;
+
+export interface FavoritesPushSummary {
+  attempted: number;
+  pushed: number;
+  skipped: number;
+}
+
+/**
+ * Carry this device's local favourites of `uid` into cloud favourites after an
+ * anonymous account upgrades to a verified email (RL-034).
+ *
+ * One batch per favourite (create + favoriteCount +1), run one at a time. A
+ * failed, denied or timed-out batch is skipped and counted, never retried. The
+ * rules make this idempotent: a favourite that already exists is an update,
+ * which is denied, so the batch rolls back and the count is never bumped twice.
+ * A recipe that is not in the cloud fails on the bump, so that bookmark stays
+ * local. No notifications, and Dexie is never modified.
+ */
+export async function pushLocalFavoritesToCloud(uid: string): Promise<FavoritesPushSummary> {
+  if (!firestore) return { attempted: 0, pushed: 0, skipped: 0 };
+  const rows = selectFavoritesToPush(await db.favorites.where('uid').equals(uid).toArray(), uid);
+
+  let pushed = 0;
+  for (const fav of rows) {
+    // Nothing reads recipeOwnerId today; same fallback as the toggle callers.
+    const recipeOwnerId = (await db.recipes.get(fav.recipeId))?.createdBy?.uid ?? 'local';
+    const batch = writeBatch(firestore);
+    batch.set(doc(firestore, 'favorites', `${uid}_${fav.recipeId}`), {
+      uid,
+      recipeId: fav.recipeId,
+      recipeOwnerId,
+      createdAt: fav.createdAt,
+    });
+    batch.update(doc(firestore, 'recipes', fav.recipeId), { favoriteCount: increment(1) });
+    // shortcut: a timed-out batch may still commit later; it is atomic, so the count stays right.
+    const ok = await withTimeout(
+      batch.commit().then(
+        () => true,
+        () => false
+      ),
+      FAVORITE_PUSH_TIMEOUT_MS,
+      false
+    );
+    if (ok) pushed += 1;
+  }
+  return { attempted: rows.length, pushed, skipped: rows.length - pushed };
 }
 
 /**

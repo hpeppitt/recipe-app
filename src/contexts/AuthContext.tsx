@@ -18,6 +18,7 @@ import { generateDisplayName } from '../lib/identity';
 import {
   createOrUpdateProfile,
   migrateFirestoreUid,
+  pushLocalFavoritesToCloud,
   type UidMigrationOutcome,
 } from '../services/firestore';
 import { shouldNotify } from '../lib/migration';
@@ -136,6 +137,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isEmailLinkLanding() ? { status: 'completing' } : { status: 'idle' }
   );
   const migrationRunRef = useRef(false);
+  const favoritesPushedRef = useRef<string | null>(null);
+
+  /**
+   * Carry local bookmarks into cloud favourites once per upgraded uid (RL-034).
+   * Never awaited by the caller and never throws: the upgrade is already done.
+   */
+  const pushFavoritesOnce = async (upgraded: User, linked: boolean) => {
+    if (favoritesPushedRef.current === upgraded.uid) return;
+    if (!upgraded.emailVerified) {
+      console.error('[auth] upgraded user is not email-verified; local favourites not pushed');
+      return;
+    }
+    favoritesPushedRef.current = upgraded.uid;
+    try {
+      const { attempted, skipped } = await pushLocalFavoritesToCloud(upgraded.uid);
+      if (skipped > 0) {
+        const err = new Error(`${skipped} of ${attempted} local favourites were not pushed to the cloud`);
+        // Only a linked upgrade has all-new rows. An existing account may already hold
+        // some in the cloud, which the rules deny as updates, so a skip there is not
+        // a fault: log it instead of reporting it.
+        if (linked) reportError(err, 'favorites-upgrade');
+        else console.error('[auth] favourites carry-over', err.message);
+      }
+    } catch (err) {
+      reportError(err, 'favorites-upgrade');
+    }
+  };
 
   /**
    * Run (or retry) the magic-link completion and record the outcome.
@@ -155,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // would leave this session holding the anonymous user and no profile.
         setUser(toAppUser(result.user));
         ensureProfile(result.user);
+        void pushFavoritesOnce(result.user, true);
       }
       if (result.previousUid) {
         // The email already had an account, so the anonymous identity was left
@@ -170,6 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         clearAnonymousUid();
         addPreviousUid(result.user.uid);
+        // After runMigration, so the Dexie rows are already under the new uid.
+        void pushFavoritesOnce(result.user, false);
       }
       setLinkState({ status: 'done', linked: result.linked });
     } catch (err) {

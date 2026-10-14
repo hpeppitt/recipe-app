@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeRecipe } from '../test/factories';
 
 /**
  * The Firestore layer can't be exercised against a real backend here (no
@@ -11,6 +12,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const deleteDoc = vi.fn(async () => {});
 const updateDoc = vi.fn(async () => {});
+
+type Fn = ReturnType<typeof vi.fn>;
+type MockBatch = { set: Fn; update: Fn; delete: Fn; commit: Fn };
+const batches: MockBatch[] = [];
+let commitImpl: (batch: MockBatch) => Promise<void> = async () => {};
 
 vi.mock('./firebase', () => ({
   firestore: { __mock: true },
@@ -33,16 +39,21 @@ vi.mock('firebase/firestore', () => ({
   limit: (...args: unknown[]) => args,
   onSnapshot: vi.fn(() => () => {}),
   increment: (n: number) => ({ __increment: n }),
-  writeBatch: () => ({
-    set: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    commit: vi.fn(async () => {}),
-  }),
+  writeBatch: () => {
+    const batch: MockBatch = {
+      set: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      commit: vi.fn(() => commitImpl(batch)),
+    };
+    batches.push(batch);
+    return batch;
+  },
   arrayUnion: (...args: unknown[]) => ({ __arrayUnion: args }),
 }));
 
-const { removeCloudFavorite } = await import('./firestore');
+const { removeCloudFavorite, pushLocalFavoritesToCloud } = await import('./firestore');
+const { db } = await import('../db/database');
 
 beforeEach(() => {
   deleteDoc.mockClear();
@@ -97,5 +108,100 @@ describe('removeCloudFavorite', () => {
     await removeCloudFavorite('user-9', 'abc-123');
 
     expect(deleteDoc).toHaveBeenCalledWith({ path: 'favorites/user-9_abc-123' });
+  });
+});
+
+describe('pushLocalFavoritesToCloud', () => {
+  beforeEach(async () => {
+    batches.length = 0;
+    commitImpl = async () => {};
+    await db.favorites.clear();
+    await db.recipes.clear();
+  });
+
+  const seed = (...ids: string[]) =>
+    db.favorites.bulkPut(ids.map((recipeId, i) => ({ uid: 'me', recipeId, createdAt: 100 + i })));
+
+  it('writes nothing for an empty list', async () => {
+    await db.favorites.put({ uid: 'someone-else', recipeId: 'x', createdAt: 1 });
+
+    await expect(pushLocalFavoritesToCloud('me')).resolves.toEqual({ attempted: 0, pushed: 0, skipped: 0 });
+    expect(batches).toHaveLength(0);
+  });
+
+  it('commits one batch per favourite with the create and the +1 bump', async () => {
+    await seed('a', 'b');
+    await db.recipes.put(makeRecipe({ id: 'a', createdBy: { uid: 'owner-a', displayName: null } }));
+
+    await expect(pushLocalFavoritesToCloud('me')).resolves.toEqual({ attempted: 2, pushed: 2, skipped: 0 });
+
+    expect(batches).toHaveLength(2);
+    expect(batches[0].set).toHaveBeenCalledWith(
+      { path: 'favorites/me_a' },
+      { uid: 'me', recipeId: 'a', recipeOwnerId: 'owner-a', createdAt: 100 }
+    );
+    expect(batches[0].update).toHaveBeenCalledWith({ path: 'recipes/a' }, { favoriteCount: { __increment: 1 } });
+    expect(batches[1].set).toHaveBeenCalledWith(
+      { path: 'favorites/me_b' },
+      { uid: 'me', recipeId: 'b', recipeOwnerId: 'local', createdAt: 101 }
+    );
+    expect(batches[1].update).toHaveBeenCalledWith({ path: 'recipes/b' }, { favoriteCount: { __increment: 1 } });
+    for (const b of batches) expect(b.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the batches one at a time', async () => {
+    await seed('a', 'b', 'c');
+    let inFlight = 0;
+    let maxInFlight = 0;
+    commitImpl = async () => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight -= 1;
+    };
+
+    await pushLocalFavoritesToCloud('me');
+
+    expect(batches).toHaveLength(3);
+    expect(maxInFlight).toBe(1);
+  });
+
+  it('counts a rejected batch as skipped and carries on with the rest', async () => {
+    await seed('a', 'b', 'c');
+    commitImpl = async (batch) => {
+      if (batch === batches[1]) throw new Error('permission-denied');
+    };
+
+    await expect(pushLocalFavoritesToCloud('me')).resolves.toEqual({ attempted: 3, pushed: 2, skipped: 1 });
+    expect(batches).toHaveLength(3);
+    for (const b of batches) expect(b.commit).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts a timed-out batch as skipped', async () => {
+    await seed('a', 'b');
+    // Only setTimeout, which withTimeout uses; fake-indexeddb needs the real setImmediate.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      commitImpl = (batch) => (batch === batches[0] ? new Promise(() => {}) : Promise.resolve());
+
+      const run = pushLocalFavoritesToCloud('me');
+      await vi.waitFor(() => expect(batches).toHaveLength(1));
+      await vi.advanceTimersByTimeAsync(5000);
+
+      await expect(run).resolves.toEqual({ attempted: 2, pushed: 1, skipped: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves the local favourites untouched', async () => {
+    await seed('a', 'b');
+    commitImpl = async () => {
+      throw new Error('permission-denied');
+    };
+
+    await pushLocalFavoritesToCloud('me');
+
+    expect(await db.favorites.where('uid').equals('me').count()).toBe(2);
   });
 });

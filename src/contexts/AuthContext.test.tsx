@@ -25,8 +25,14 @@ vi.mock('../services/firebase', () => ({
   signOut: vi.fn(),
 }));
 const createOrUpdateProfile = vi.fn(async (..._a: unknown[]) => {});
+const order: string[] = [];
+const pushLocalFavoritesToCloud = vi.fn(async (uid: string) => {
+  order.push(`push:${uid}`);
+  return { attempted: 0, pushed: 0, skipped: 0 };
+});
 vi.mock('../services/firestore', () => ({
   createOrUpdateProfile: (...a: unknown[]) => createOrUpdateProfile(...a),
+  pushLocalFavoritesToCloud: (uid: string) => pushLocalFavoritesToCloud(uid),
   migrateFirestoreUid: vi.fn(async () => ({ ok: true, strandedRecipes: 0 })),
 }));
 vi.mock('../services/storage', () => ({
@@ -42,9 +48,16 @@ vi.mock('../services/analytics', () => ({
   trackSignOut: vi.fn(),
   setAnalyticsUserId: vi.fn(),
 }));
-vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
+const reportError = vi.fn();
+vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 vi.mock('../db/recipes', () => ({ migrateRecipesUid: vi.fn() }));
-vi.mock('../db/favorites', () => ({ migrateFavoritesUid: vi.fn() }));
+vi.mock('../db/favorites', () => ({
+  migrateFavoritesUid: vi.fn(async (from: string, to: string) => {
+    await Promise.resolve();
+    order.push(`migrate:${from}->${to}`);
+    return 0;
+  }),
+}));
 
 import { AuthProvider, useAuth } from './AuthContext';
 
@@ -93,5 +106,118 @@ describe('AuthProvider profile creation', () => {
 
     expect(createOrUpdateProfile).toHaveBeenCalledWith('anon-1', { displayName: 'CrispyWaffle' });
     expect(result.current.user).toMatchObject({ uid: 'anon-1', emailVerified: true, isAnonymous: false });
+  });
+});
+
+describe('AuthProvider favourites carry-over (RL-034)', () => {
+  beforeEach(() => {
+    order.length = 0;
+    pushLocalFavoritesToCloud.mockClear();
+    reportError.mockClear();
+    completeEmailSignIn.mockReset();
+    completeEmailSignIn.mockResolvedValue(null);
+  });
+
+  const upgraded = { ...anon, email: 'a@example.com', isAnonymous: false, emailVerified: true };
+
+  it('pushes once after a linked upgrade', async () => {
+    completeEmailSignIn.mockResolvedValue({ user: upgraded, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(anon));
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'done', linked: true }));
+
+    expect(pushLocalFavoritesToCloud).toHaveBeenCalledTimes(1);
+    expect(pushLocalFavoritesToCloud).toHaveBeenCalledWith('anon-1');
+  });
+
+  it('pushes once after an existing-account upgrade, after the Dexie migration', async () => {
+    completeEmailSignIn.mockResolvedValue({ user: verified, previousUid: 'anon-1', linked: false });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'done', linked: false }));
+
+    expect(pushLocalFavoritesToCloud).toHaveBeenCalledTimes(1);
+    expect(order).toEqual(['migrate:anon-1->me', 'push:me']);
+  });
+
+  it('does not push on an ordinary verified sign-in', async () => {
+    renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(verified));
+    await waitFor(() => expect(completeEmailSignIn).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(pushLocalFavoritesToCloud).not.toHaveBeenCalled();
+  });
+
+  it('does not push for an unverified result', async () => {
+    completeEmailSignIn.mockResolvedValue({ user: { ...upgraded, emailVerified: false }, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState.status).toBe('done'));
+
+    expect(pushLocalFavoritesToCloud).not.toHaveBeenCalled();
+  });
+
+  it('reports a partial push once and still completes the upgrade', async () => {
+    pushLocalFavoritesToCloud.mockResolvedValueOnce({ attempted: 3, pushed: 1, skipped: 2 });
+    completeEmailSignIn.mockResolvedValue({ user: upgraded, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(reportError).toHaveBeenCalledTimes(1));
+
+    expect(reportError).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('2 of 3') }), 'favorites-upgrade');
+    expect(result.current.linkState).toEqual({ status: 'done', linked: true });
+    expect(result.current.user).toMatchObject({ uid: 'anon-1', emailVerified: true });
+  });
+
+  it('a throwing push does not break the upgrade', async () => {
+    pushLocalFavoritesToCloud.mockRejectedValueOnce(new Error('boom'));
+    completeEmailSignIn.mockResolvedValue({ user: verified, previousUid: 'anon-1', linked: false });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'favorites-upgrade'));
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(result.current.linkState).toEqual({ status: 'done', linked: false });
+  });
+
+  it('logs, but does not report, skips on an existing-account upgrade', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    pushLocalFavoritesToCloud.mockResolvedValueOnce({ attempted: 3, pushed: 1, skipped: 2 });
+    completeEmailSignIn.mockResolvedValue({ user: verified, previousUid: 'anon-1', linked: false });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() =>
+      expect(logged).toHaveBeenCalledWith('[auth] favourites carry-over', expect.stringContaining('2 of 3'))
+    );
+
+    expect(reportError).not.toHaveBeenCalled();
+    expect(result.current.linkState).toEqual({ status: 'done', linked: false });
+    logged.mockRestore();
+  });
+
+  it('reports a throwing push once on the linked path too', async () => {
+    pushLocalFavoritesToCloud.mockRejectedValueOnce(new Error('boom'));
+    completeEmailSignIn.mockResolvedValue({ user: upgraded, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'favorites-upgrade'));
+
+    expect(reportError).toHaveBeenCalledTimes(1);
+    expect(result.current.linkState).toEqual({ status: 'done', linked: true });
+  });
+
+  it('logs when an upgraded user is unexpectedly unverified', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+    completeEmailSignIn.mockResolvedValue({ user: { ...upgraded, emailVerified: false }, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState.status).toBe('done'));
+
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining('not email-verified'));
+    logged.mockRestore();
+  });
+
+  it('a second completion for the same uid does not push again', async () => {
+    completeEmailSignIn.mockResolvedValue({ user: upgraded, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState.status).toBe('done'));
+    await act(() => result.current.submitLinkEmail('a@example.com'));
+
+    expect(completeEmailSignIn).toHaveBeenCalledTimes(2);
+    expect(pushLocalFavoritesToCloud).toHaveBeenCalledTimes(1);
   });
 });

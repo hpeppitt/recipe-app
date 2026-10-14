@@ -40,7 +40,7 @@ the dual store addressable by one id.
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
 | `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |
-| `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
+| `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, recipeOwnerId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
 | `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected`, `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
@@ -110,6 +110,14 @@ iterate a list. A client clock more than a minute fast cannot publish.
 
 **favorites** are readable only by their owner, and created and deleted only by their owner
 with a verified email. The document id must match `{your uid}_{recipeId}`. No updates.
+That "no updates" is what makes the anonymous-upgrade carry-over (RL-034,
+`pushLocalFavoritesToCloud`) idempotent: each local bookmark is pushed as one batch of the
+favourite create plus a `favoriteCount` +1, and if the favourite already exists the set is
+an update, the rules deny it, and the whole batch rolls back, so the count cannot bump twice.
+A bookmark of a recipe with no cloud document fails on the bump update and stays local only.
+The pushed document carries the local `createdAt`, and `recipeOwnerId` from the local recipe's
+`createdBy.uid` (or `'local'` when the recipe is not in Dexie). The Dexie half of the
+existing-account upgrade, `migrateFavoritesUid`, runs in one `rw` transaction on `favorites`.
 
 **suggestions** — any user **with a verified email** may create one for someone else's recipe,
 and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must

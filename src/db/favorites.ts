@@ -12,10 +12,13 @@ export async function migrateFavoritesUid(
   oldUid: string,
   newUid: string
 ): Promise<number> {
-  const favs = await db.favorites.where('uid').equals(oldUid).toArray();
-  for (const fav of favs) {
-    await db.favorites.delete([oldUid, fav.recipeId]);
-    await db.favorites.put({ uid: newUid, recipeId: fav.recipeId, createdAt: fav.createdAt });
-  }
-  return favs.length;
+  // One transaction, so a failure midway leaves every row under the old uid (RL-034).
+  return db.transaction('rw', db.favorites, async () => {
+    const favs = await db.favorites.where('uid').equals(oldUid).toArray();
+    for (const fav of favs) {
+      await db.favorites.delete([oldUid, fav.recipeId]);
+      await db.favorites.put({ uid: newUid, recipeId: fav.recipeId, createdAt: fav.createdAt });
+    }
+    return favs.length;
+  });
 }

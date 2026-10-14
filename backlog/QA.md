@@ -19,6 +19,21 @@ both themes:
 
 ## Since the last release
 
+### RL-034 An anonymous user's local bookmarks become cloud favourites on the verified account when they add an email
+
+- Linked path, on the preview build in a fresh browser profile: continue as anonymous, publish nothing, heart two recipes on Explore (published by someone else) and note each one's favourite count. Heart a third recipe that exists only in your local library (never published). Add an email from the same browser and open the link there. Both Explore recipes should show as favourited and each favourite count should be one higher. The third stays a local bookmark (still in the Favorites filter, count unchanged).
+- Existing-account path: as a new anonymous session, heart two published recipes, then add an email that already has an account and open the link in the same browser. After sign-in both should show as favourites on that account and each count should be one higher.
+- A second sign-in (sign out, then sign in again by email link) must not push or bump again: the counts stay where they were.
+- Console and `clientErrors`: on the linked path, exactly one `favorites-upgrade` report per upgrade and only when something was skipped (the third, never-published recipe in the first walk causes one, with "1 of 3" in the message). No report when every bookmark pushed. On the existing-account path skips are only logged to the console (`[auth] favourites carry-over ...`) and never reported, because favourites the account already had in the cloud are denied as updates on a healthy upgrade.
+- Reviewer note (med): if `migrateRecipesUid` or `migrateFavoritesUid` rejects on the existing-account path, `runMigration`'s `Promise.all` rejects and the push is skipped (the catch sets `linkState` to error), so the carry-over is silently dropped and nothing calls the push again. The failure mode already existed for the migration; it now also drops the carry-over.
+- Reviewer note (low): the cloud heart on `SharedRecipePage` can show empty right after a linked upgrade when the landing URL is a recipe the user bookmarked. The lookup fires as soon as `emailVerified` flips and is not re-run after the push, so tapping it runs `addCloudFavorite` on an existing doc (an update, denied) and shows the toggle error until reload.
+- Reviewer note (low): on the existing-account path `migrateFavoritesUid` is an upsert, so an anonymous row overwrites the existing row's `createdAt` for the same recipe. Cosmetic: it can reorder favourites locally and differs from the cloud doc.
+- Reviewer note (low): `recipeOwnerId` falls back to `'local'` for bookmarks whose recipe is not in Dexie, which is most shared-recipe bookmarks. Nothing reads it today; backfill if anything starts to.
+- Reviewer note (low): a bookmark whose push failed shows an empty heart on `SharedRecipePage` (cloud only) but a favourite in Library (Dexie), and unfavouriting it calls `removeCloudFavorite` on a missing doc, denied, one `unfavorite` report (the RL-041 note).
+- Reviewer note (low): the Dexie rows are snapshotted once at the start of the sequential push, so an unfavourite during the push (up to N times 5 s offline) is followed by the cloud doc being created, so local and cloud diverge.
+- Note for the author: favourites pushed this way do not appear on other devices until RL-043 pulls cloud favourites down. Unfavouriting one later removes both the local and the cloud copy.
+- Not driven by the agent: the two real upgrade paths need Firebase Auth. Only the batch writes were checked on the Firestore emulator (see the ticket Notes).
+
 ### RL-031 Blocked or corrupt localStorage never throws out of services/storage.ts
 
 - Open the preview build in Safari with Block all cookies on, and in Chrome with cookies and site data blocked for the site. The library should load, and the theme and unit toggles should not crash (they just will not be remembered after a reload).
