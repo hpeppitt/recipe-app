@@ -113,7 +113,14 @@ first.
 a verified email, and immutable once sent. Replies stay allowed after approval or rejection on purpose.
 
 **notifications** — the *acting* user writes the notification and the recipient reads it.
-Every write needs a verified email. Creation requires your own `fromUid` and `read: false`.
+Every write needs a verified email. Creation requires your own `fromUid` and `read: false`,
+and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoji`, `fromUid`,
+`fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
+`type` must be one of the six: `favorite` and `follow` require `message` null; the four
+suggestion types allow null or a string of at most 500 characters, counted as UTF-16 units
+(an emoji is two). Suggestions and replies have no cap of their own, so the client cuts the
+notification copy with `truncateNotificationMessage` in `src/lib/notifications.ts`; the
+suggestion and message documents keep the full text.
 The recipient may flip `read` and nothing else, and may delete.
 
 **profiles** are publicly readable, and every write needs a verified email. You own your
