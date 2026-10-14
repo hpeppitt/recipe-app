@@ -1,16 +1,20 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/layout/AppShell';
 import { LibraryPage } from './pages/LibraryPage';
-import { RecipeChatPage } from './pages/RecipeChatPage';
-import { RecipeDetailPage } from './pages/RecipeDetailPage';
-import { RecipeEditPage } from './pages/RecipeEditPage';
-import { VersionTreePage } from './pages/VersionTreePage';
-import { SettingsPage } from './pages/SettingsPage';
-import { SharedRecipePage } from './pages/SharedRecipePage';
-import { ProfilePage } from './pages/ProfilePage';
 import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
+import { PageFallback } from './components/ui/PageFallback';
 import { useTheme } from './hooks/useTheme';
+
+// Library stays eager so first paint is unchanged; every other page is its own chunk.
+const RecipeChatPage = lazy(() => import('./pages/RecipeChatPage').then(m => ({ default: m.RecipeChatPage })));
+const RecipeDetailPage = lazy(() => import('./pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })));
+const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ default: m.RecipeEditPage })));
+const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 export default function App() {
   useTheme();
@@ -19,6 +23,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <RouteErrorBoundary>
+        <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<LibraryPage />} />
@@ -38,6 +43,7 @@ export default function App() {
           <Route path="/shared/:id" element={<SharedRecipePage />} />
           <Route path="/profile/:uid" element={<ProfilePage />} />
         </Routes>
+        </Suspense>
         </RouteErrorBoundary>
       </BrowserRouter>
     </AuthProvider>

@@ -12,6 +12,17 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkgVersion),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Own cacheable chunk; services/ imports Firebase statically so it still loads at start.
+        manualChunks: (id: string) =>
+          id.includes('node_modules/firebase/') || id.includes('node_modules/@firebase/')
+            ? 'firebase'
+            : undefined,
+      },
+    },
+  },
   test: {
     environment: 'node',
     setupFiles: ['./src/test/setup.ts'],

@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { StrandedIdentityNotice } from '../auth/StrandedIdentityNotice';
 import { RouteErrorBoundary } from '../ui/ErrorBoundary';
+import { PageFallback } from '../ui/PageFallback';
 import { EmailLinkStatus } from '../auth/EmailLinkStatus';
 
 export function AppShell() {
@@ -16,7 +18,9 @@ export function AppShell() {
         <StrandedIdentityNotice />
         {/* Keeps the nav alive when a shell page throws. */}
         <RouteErrorBoundary>
-          <Outlet />
+          <Suspense fallback={<PageFallback />}>
+            <Outlet />
+          </Suspense>
         </RouteErrorBoundary>
       </main>
       <BottomNav />

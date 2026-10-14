@@ -198,7 +198,7 @@ requires.
 **Cache headers are load-bearing.** `firebase.json` sets `Cache-Control: no-cache` on
 everything and then overrides `/assets/**` to a year with `immutable`. Firebase Hosting's
 default is `max-age=3600` on every file, which is exactly wrong for a Vite SPA: `index.html`
-names the content-hashed bundle, so an hour of caching on it means a returning visitor keeps
+names the content-hashed entry bundle and route chunks, so an hour of caching on it means a returning visitor keeps
 loading the *previous* build and a deploy appears not to have happened. This bit on
 2026-08-07. Hashed asset URLs can never change their bytes, so caching those hard is free.
 
