@@ -236,12 +236,30 @@ service cloud.firestore {
     }
 
     // --- Profiles: public read; own doc writable; others may only bump followerCount ---
+    //
+    // Avatar bound (RL-019). The rules language has no constants, so the literal
+    // below must match Avatar.tsx's 'data:image/' check:
+    //   MAX_PHOTO_URL_LENGTH = 100000  characters (UTF-16 units; base64 is ASCII)
+    // photoURL must be absent, null, or an inline data:image/ URL. A URL hosted by
+    // a third party would log the IP and user agent of everyone who views the
+    // avatar. The check runs on create and when an update touches photoURL, so an
+    // old bad value does not block an unrelated edit such as displayName. The
+    // app's 128x128 JPEG is about 4 KB of base64.
     match /profiles/{uid} {
       allow read: if true;
-      allow create: if verified() && request.auth.uid == uid;
+      allow create: if verified() && request.auth.uid == uid
+        && photoURLOk();
       allow update: if verified()
-        && (request.auth.uid == uid || isFollowerCountBump());
+        && ((request.auth.uid == uid
+              && (!('photoURL' in changedKeys()) || photoURLOk()))
+            || isFollowerCountBump());
       allow delete: if verified() && request.auth.uid == uid;
+
+      function photoURLOk() {
+        let p = request.resource.data.get('photoURL', null);
+        return p == null
+          || (p is string && p.matches('^data:image/.*') && p.size() <= 100000);
+      }
 
       function isFollowerCountBump() {
         return changedKeys().hasOnly(['followerCount'])
