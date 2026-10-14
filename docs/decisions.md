@@ -462,6 +462,20 @@ Cannot be reviewed in the pull request that invalidates it, which is the only me
 keeps documentation true. Generated API docs (TypeDoc) were also rejected: the valuable
 knowledge here is capabilities and decisions, not type signatures the code already states.
 
+### PWA update policy: prompt, never auto-update (RL-007)
+
+`registerType: 'prompt'`: a waiting worker shows an "Update available" bar and activates only on
+Reload. Auto-update would swap bundles under a user mid-recipe or mid-generation. The
+navigation fallback to `index.html` denylists `/__/` (Firebase Auth handler), `/api/` and any
+underscore-prefixed path, so auth redirects reach Firebase Hosting. There is no runtime caching: Firestore, Auth
+and AI traffic always go to the network. Email-link sign-in lands on `/` with query params,
+which the fallback correctly serves as the app.
+
+The plugin is a devDependency, but its `virtual:pwa-register` module and `workbox-window` ship in the
+client bundle: the author approved `vite-plugin-pwa` at /groom and the prompt-based update bar cannot
+work without them. Hand-rolling registration and a service worker would avoid the library but lose
+precache manifest generation.
+
 ---
 
 ## Documentation maintenance mechanism (2026-07-31)

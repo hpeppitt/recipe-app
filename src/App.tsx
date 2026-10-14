@@ -5,6 +5,7 @@ import { AppShell } from './components/layout/AppShell';
 import { LibraryPage } from './pages/LibraryPage';
 import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageFallback } from './components/ui/PageFallback';
+import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { useTheme } from './hooks/useTheme';
 
 // Library stays eager so first paint is unchanged; every other page is its own chunk.
@@ -45,6 +46,7 @@ export default function App() {
         </Routes>
         </Suspense>
         </RouteErrorBoundary>
+        <UpdatePrompt />
       </BrowserRouter>
     </AuthProvider>
   );

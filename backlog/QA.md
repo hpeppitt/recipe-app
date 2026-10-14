@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-007 PWA manifest and precached app shell
+
+- Install on a phone (Add to Home Screen): the "RL" icon shows, the app opens standalone with the right status bar colour in light and dark.
+- Offline: load the app online once, go Offline in devtools (or airplane mode), reload `/` and a local recipe. Both should render from cache. Cloud-only recipes and Create will not work offline, which is expected.
+- Update prompt: deploy or preview two builds (bump any text, rebuild), revisit with the old one open. An "Update available" bar appears above the bottom nav; Dismiss hides it without reloading, Reload applies the new build.
+- Email-link sign-in with the service worker active: request a link, open it in the same browser, confirm you are signed in.
+- Deep link: on a first visit open `/recipe/:id` directly. The service worker should register (devtools Application tab), and the update bar can appear on any route, including pages without the bottom nav.
+- Reviewer notes (medium): the update bar (z-40, roughly 56 to 116px from the bottom) overlaps the FAB (bottom-20, z-30) and covers about 60px of the last page content, because `main` has `pb-16` and does not grow, until Dismiss. On routes without the bottom nav it floats 56px above the screen edge.
+- Reviewer notes (low): Reload discards unsaved edits with no confirmation. At 320px the label may wrap to two lines. No `env(safe-area-inset-bottom)` on the bar or BottomNav (`viewport-fit=cover` is not set, so fine today, relevant once installed standalone). The theme-color meta tags follow the OS setting, not the in-app theme toggle. A component test for the bar would need a mock for `virtual:pwa-register`.
+- After the hosting deploy: `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` shows `no-cache`, and `/assets/*.js` still shows `immutable`.
+
 ### RL-006 Split the bundle at route boundaries
 
 - Standing walk, watching for a visible loading flash: Library, Settings, Profile, a recipe, its edit page, its tree, Create. A brief spinner on the first visit to a route is expected. The bottom nav and top bar should stay put on Settings and Profile while it shows.

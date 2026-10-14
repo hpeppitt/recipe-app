@@ -212,6 +212,29 @@ curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/assets/…js  # expect
 A deploy that changed `index.html` is confirmed live when the bundle hash it references
 matches the one in your local `dist/assets/`.
 
+### Service worker and PWA
+
+`vite-plugin-pwa` generates `dist/sw.js`, a Workbox runtime file and `manifest.webmanifest` at
+build. **`sw.js`, the `workbox-*.js` file and the manifest must revalidate, never get a long
+cache**: a cached worker script means clients never see a new build. They live at the site
+root, so the `/**` `no-cache` rule in `firebase.json` already covers them and only
+`/assets/**` is immutable. Do not widen the immutable rule beyond `/assets/**`.
+
+Verify against a local build (`vite preview` does not apply `firebase.json` headers, so it
+only proves the files exist and the precache list is right; the header rule must be checked
+on the live site after a hosting deploy):
+
+```bash
+npm run build && npm run preview          # note the port
+curl -sSD - -o /dev/null localhost:4173/sw.js                # 200, text/javascript
+curl -sSD - -o /dev/null localhost:4173/manifest.webmanifest # 200, application/manifest+json
+grep -o 'url:"[^"]*"' dist/sw.js          # precache list: entry, route chunks, firebase chunk
+```
+
+After deploy, `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` must show
+`no-cache`. The offline reload itself needs a real browser: load once online, set devtools
+Network to Offline, reload `/` and a local recipe.
+
 ## Verification gates
 
 **`/preflight`** is the pre-commit gate: `npm run build`, `npm run lint`, `npm test`, then a
