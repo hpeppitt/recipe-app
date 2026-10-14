@@ -19,6 +19,12 @@ both themes:
 
 ## Since the last release
 
+### RL-020 clientErrors reports must carry receivedAt equal to the server time
+
+- Rules change only. Not live until RL-022 deploys the rules; until then the old rule still accepts any `receivedAt`.
+- After RL-022, trigger a handled error in the app (for example, a deliberately failing publish on the preview build) and confirm a `clientErrors` document appears in the Firebase console with `receivedAt` set to a server timestamp.
+- Reviewer note (for RL-010): a report written without `receivedAt` is still accepted (the ticket allows it), so it would have no TTL field and never expire; documents written before this rule may also hold other values. A TTL policy acts only on timestamp-typed fields, so this change helps RL-010 by guaranteeing that any `receivedAt` that is present is a real server timestamp, but it does not cover absent or older values.
+
 ### RL-019 Avatars render only data:image photos, and profile rules enforce the prefix and a size cap
 
 - Needs the rules deployed (RL-022) to enforce the cap; the Avatar change is live with the build.
