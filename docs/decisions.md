@@ -69,8 +69,10 @@ decision sideways. If this ever reverses it is a phase of its own, not a field.
 
 ### 4. The merged feed was an accident, so split it
 
-`/` currently merges every published cloud recipe with the local library. Roadmap 3.1 splits
-My Recipes from Explore with cursor pagination, not tabs over one source.
+`/` used to merge every published cloud recipe with the local library. Roadmap 3.1 split
+My Recipes from Explore with cursor pagination, not tabs over one source. **Landed with RL-008
+(2026-10-15)** as two tabs over two stores, one source per tab: My Recipes reads Dexie, Explore
+reads the paged cloud feed.
 
 Consequence: it proceeds regardless of audience size, because the 200-document read ceiling
 is a correctness bug, not a scale concern.
@@ -150,7 +152,7 @@ the alternative is a lookup per card.
 ### Teaching the tree, and when not to (2026-08-07)
 
 The branching tree is the product's identity, and nothing taught it. The library welcome panel
-described it in prose, which the people who most need it skip, and `Create Variation` sat on every
+(welcome card removed with RL-008) described it in prose, which the people who most need it skip, and `Create Variation` sat on every
 recipe with no hint that it produces a child rather than editing the recipe in front of you. A user
 could work through the whole app and never discover the feature it exists for.
 

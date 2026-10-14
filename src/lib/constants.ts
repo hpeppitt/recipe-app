@@ -17,6 +17,7 @@ export const STORAGE_KEYS = {
   EMAIL_FOR_LINKING: 'recipe-app-email-for-linking',
   STRANDED_IDENTITY: 'recipe-app-stranded-identity',
   INTRO_STATE: 'recipe-app-intro-state',
+  LIBRARY_TAB: 'recipe-app-library-tab',
 } as const;
 
 export const SUGGESTION_CHIPS = [
