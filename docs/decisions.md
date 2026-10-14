@@ -206,6 +206,19 @@ that requested it, because that is where the anonymous session lives. Opened els
 no anonymous session to upgrade, so the user gets a separate account. That is inherent to
 passwordless links, not a bug to fix.
 
+### The upgrade favourites push is sequential, skip-and-count (RL-034, 2026-10-15)
+
+When an anonymous account adds an email, its local bookmarks are pushed as one batch per
+bookmark, one batch at a time, each bounded at 5 seconds. A failed batch is skipped and counted,
+never retried, and the run reports once as `favorites-upgrade`. Sequential rather than
+`Promise.all` so a long list cannot open dozens of concurrent writes on a phone; no retry
+because the common failures (favourite already exists, recipe never published) are permanent
+and the rules already make a repeat harmless. The push leaves Dexie alone, so nothing is
+lost; the upgrade itself moves rows to the new uid on the existing-account path, inside one
+transaction, before the push. Skips are reported only on the linked path, where every row is
+new; an existing account may already hold some favourites in the cloud, which the rules deny
+as updates, so its skips are logged to the console rather than reported.
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view
