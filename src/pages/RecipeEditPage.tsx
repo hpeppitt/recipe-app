@@ -80,7 +80,7 @@ export function RecipeEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
-  const { recipe, source, isLoading } = useRecipe(id);
+  const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
 
   const isOwner = canManageRecipe({
     isConfigured,
@@ -105,10 +105,15 @@ export function RecipeEditPage() {
   if (!recipe) {
     return (
       <div className="max-w-lg mx-auto">
-        <TopBar title="Not found" showBack />
+        <TopBar title={cloudError ? 'Could not load' : 'Not found'} showBack />
         <div className="p-8 text-center space-y-3">
-          <p className="text-4xl">🔍</p>
-          <p className="text-text-secondary">Recipe not found.</p>
+          <p className="text-4xl">{cloudError ? '📡' : '🔍'}</p>
+          <p className="text-text-secondary">
+            {cloudError
+              ? 'Could not load this recipe. Check your connection and try again.'
+              : 'Recipe not found.'}
+          </p>
+          {cloudError && <Button onClick={retry}>Try again</Button>}
         </div>
       </div>
     );
