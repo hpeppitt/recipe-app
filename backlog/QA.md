@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-029 Profile stats and the following list load in a constant number of round trips
+
+- Own profile: the total views, total favourites and each recipe's counts should match the previous release for published recipes, and show zero for recipes you never published. Compare against the last release if you can.
+- Following list (Profile, Following): same people in the same order as before, and it should load noticeably faster when you follow many users.
+- Note: own-profile counts now come from one query on `createdBy.uid`, which has no limit, so there is no cap on published recipes. A local recipe whose cloud copy has a different `createdBy.uid` would now show zero; none are expected.
+
+- Reviewer note (med, data, edge case): a published recipe whose cloud `createdBy.uid` differs from the signed-in uid now shows zero views and favourites on its owner's own profile; the old per-id `getDoc` returned the real counts. Example: a user published under an old uid and `migrateFirestoreUid` was denied (rules forbid changing `createdBy.uid`), so local Dexie was re-stamped to the new uid while the cloud doc kept the old one. This arguably is more truthful (the recipe is no longer theirs in the cloud), but it is a behaviour change for that cohort, and "none expected" is optimistic given the known-broken migration. RL-042 wipes production data, which should empty the cohort. No test covers it.
+- Reviewer note (low, data): the `useOwnRecipes` effect still has no cancelled flag and no uid stamp, so a slow response for user A can overwrite user B's stats map (keyed by recipe id, so A's ids cannot render on B's recipes; the window shrank from N sequential reads to one), and a failed fetch is swallowed with neither `reportError` nor `console.error`, unlike the RL-026 sibling hooks. Adding a cancelled flag and `reportError(err, 'load-own-stats')` would close it.
+- Reviewer note (low, data): `getFollowingProfiles` issues an unbounded `Promise.all` of `getDoc` calls, so a user following hundreds of accounts bursts hundreds of reads and one transient failure rejects the whole list (the old sequential loop also rejected on the first failure). Probably fine at current scale; if follows grow, chunk at 30 with `documentId() in [...]` and restore the order. No follow cap was found in the rules or app.
+- Reviewer note (low): `src/hooks/useUserRecipes.test.tsx` line 10 still mocks the removed `getRecipeStats`; harmless, but deleting it makes a grep for the removed function come back clean. No test covers a late stale response for `useOwnRecipes`.
+
 ### RL-028 The My Recipes empty state does not depend on the search text
 
 - On the My Recipes tab, type a search that matches none of your recipes. Confirm "No results" with a Clear search button, and not "You haven't created a recipe yet". Tap Clear search and confirm the list returns. (Tests only; no behaviour changed. The Mine chip this ticket was written for no longer exists.)
