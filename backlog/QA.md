@@ -19,6 +19,15 @@ both themes:
 
 ## Since the last release
 
+### RL-037 Re-publishing a recipe never overwrites its cloud collaborators
+
+- Collaborator survives an edit: on browser profile A, signed in as the recipe owner, approve a suggestion on a published recipe. On browser profile B, signed into the same account, open that recipe (it has no collaborator locally), edit the title and save. Open `/shared/:id` and confirm the suggester is still listed as a collaborator.
+- First publish: generate and publish a brand-new recipe. Its `/shared/:id` page shows no collaborators, and the recipe count on your profile goes up by one.
+- Re-publish does not count: edit that same recipe and save. The recipe count on your profile stays where it was.
+- Known limit, not a regression: profile B's local copy still has no collaborator after the edit. Pulling cloud collaborators into Dexie is out of scope.
+- Reviewer note (med, pre-existing, not a regression, worth its own ticket): the existence check is a plain `getDoc` and the create branch is a non-merge `setDoc`. Online, `getDoc` reads from the server, so it is accurate. But the app uses a bare `getFirestore(app)` with no persistence (memory cache only). If an earlier read in the same session cached "no such doc" (for example `getPublishedRecipe` returned null) and the client then goes offline, `getDoc` can return `exists()` false from that cache for a doc that exists. The create branch then queues a full `setDoc`. On reconnect it passes `isOwnerUpdate`, which constrains neither counters nor collaborators, and overwrites the cloud doc: `favoriteCount` and `viewCount` reset to 0 and `collaborators` is replaced with the local copy. The caller's `withTimeout` gives up first, but the SDK keeps the queued write until reload. The old code did exactly the same. Suggested follow-up: `getDocFromServer`, a transaction, or `updateDoc` first with a create fallback.
+- Reviewer note (low): two devices first-publishing at once both take the create branch, and the second plain `setDoc` overwrites the first (unchanged). If the doc is deleted between `getDoc` and the merge `setDoc`, the merge becomes a create without counters and the create rule denies it, so nothing is corrupted. The emulator probe used a hand-built REST `updateMask` (`title`, `ingredients`, `instructions`, `createdBy.*`, `createdAt`, `rootId`, `depth`), a subset of what the SDK sends for a real Recipe (for example `parentId`). It proves the rules and merge-mask behaviour, not the SDK's field serialisation.
+
 ### RL-034 An anonymous user's local bookmarks become cloud favourites on the verified account when they add an email
 
 - Linked path, on the preview build in a fresh browser profile: continue as anonymous, publish nothing, heart two recipes on Explore (published by someone else) and note each one's favourite count. Heart a third recipe that exists only in your local library (never published). Add an email from the same browser and open the link there. Both Explore recipes should show as favourited and each favourite count should be one higher. The third stays a local bookmark (still in the Favorites filter, count unchanged).

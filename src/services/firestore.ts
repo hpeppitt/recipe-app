@@ -43,13 +43,17 @@ import { reportError } from './telemetry';
  * belong to other people's favourites and views, and resetting them to 0 silently
  * destroys that data. The profile `recipeCount` is likewise only bumped on first
  * publish, or a retry would inflate it.
+ *
+ * A re-publish also omits `collaborators`. A merge replaces arrays wholesale, and
+ * the cloud array is maintained by the approval `arrayUnion`, which reaches Dexie
+ * only on the approving device, so writing the local copy here would erase credit.
  */
 export async function publishRecipe(recipe: Recipe): Promise<void> {
   if (!firestore) return;
 
   const { chatHistory, ...data } = recipe;
   const ref = doc(firestore, 'recipes', recipe.id);
-  const content = { ...data, collaborators: data.collaborators ?? [] };
+  const { collaborators, ...content } = data;
 
   const existing = await getDoc(ref);
   if (existing.exists()) {
@@ -58,7 +62,12 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
   }
 
   // Rules require both counters present and zero on create.
-  await setDoc(ref, { ...content, favoriteCount: 0, viewCount: 0 });
+  await setDoc(ref, {
+    ...content,
+    collaborators: collaborators ?? [],
+    favoriteCount: 0,
+    viewCount: 0,
+  });
 
   // Increment the creator's recipeCount on their profile
   if (recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
