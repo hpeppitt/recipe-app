@@ -10,6 +10,7 @@ import { makeRecipe } from '../test/factories';
 const setDoc = vi.fn(async (..._args: unknown[]) => {});
 const updateDoc = vi.fn(async (..._args: unknown[]) => {});
 let docExists = false;
+let getDocError: Error | null = null;
 
 vi.mock('./firebase', () => ({
   firestore: { __mock: true },
@@ -19,7 +20,10 @@ vi.mock('./firebase', () => ({
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }),
   collection: (_db: unknown, name: string) => ({ path: name }),
-  getDoc: vi.fn(async () => ({ exists: () => docExists })),
+  getDoc: vi.fn(async () => {
+    if (getDocError) throw getDocError;
+    return { exists: () => docExists };
+  }),
   getDocs: vi.fn(async () => ({ docs: [] })),
   setDoc: (...args: unknown[]) => setDoc(...(args as [])),
   addDoc: vi.fn(async () => {}),
@@ -46,6 +50,7 @@ beforeEach(() => {
   setDoc.mockClear();
   updateDoc.mockClear();
   docExists = false;
+  getDocError = null;
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
@@ -90,6 +95,42 @@ describe('publishRecipe — first publish', () => {
     const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(payload).not.toHaveProperty('chatHistory');
   });
+
+  it('writes the local collaborators on create', async () => {
+    const collaborators = [{ uid: 'c1', displayName: 'C1' }];
+    await publishRecipe(makeRecipe({ id: 'r1', collaborators }));
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload.collaborators).toEqual(collaborators);
+  });
+
+  it('keeps createdBy and createdAt on create', async () => {
+    const createdBy = { uid: 'u1', displayName: 'U' };
+    await publishRecipe(makeRecipe({ id: 'r1', createdBy, createdAt: 1234 }));
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload.createdBy).toEqual(createdBy);
+    expect(payload.createdAt).toBe(1234);
+  });
+
+  it('defaults collaborators to [] on create when the local copy has none', async () => {
+    await publishRecipe(makeRecipe({ id: 'r1', collaborators: undefined }));
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload.collaborators).toEqual([]);
+  });
+});
+
+describe('publishRecipe: existence check fails', () => {
+  // Same as before RL-037: the getDoc rejection surfaces to the caller and
+  // nothing is written, so a caller never guesses create or update.
+  it('rejects with the read error and writes nothing', async () => {
+    getDocError = new Error('unavailable');
+
+    await expect(publishRecipe(makeRecipe({ id: 'r1' }))).rejects.toThrow('unavailable');
+    expect(setDoc).not.toHaveBeenCalled();
+    expect(updateDoc).not.toHaveBeenCalled();
+  });
 });
 
 describe('publishRecipe — re-publish', () => {
@@ -124,5 +165,42 @@ describe('publishRecipe — re-publish', () => {
 
     const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(payload.title).toBe('Renamed Dish');
+  });
+
+  // RL-037: a merge replaces arrays wholesale, so the local (possibly stale)
+  // collaborators would erase credit the approval arrayUnion wrote in the cloud.
+  it('does not write collaborators, even when the local copy has some', async () => {
+    await publishRecipe(
+      makeRecipe({ id: 'r1', collaborators: [{ uid: 'c1', displayName: 'C1' }] })
+    );
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('collaborators');
+  });
+
+  it.each([undefined, null])(
+    'does not write collaborators when the local value is %s',
+    async (value) => {
+      await publishRecipe(
+        makeRecipe({ id: 'r1', collaborators: value as unknown as [] })
+      );
+
+      const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+      expect(Object.keys(payload)).not.toContain('collaborators');
+    }
+  );
+
+  it('does not write collaborators when the local copy has none', async () => {
+    await publishRecipe(makeRecipe({ id: 'r1', collaborators: [] }));
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('collaborators');
+  });
+
+  it('rejects with the write error, as before', async () => {
+    setDoc.mockRejectedValueOnce(new Error('permission-denied'));
+
+    await expect(publishRecipe(makeRecipe({ id: 'r1' }))).rejects.toThrow('permission-denied');
+    expect(setDoc).toHaveBeenCalledTimes(1);
   });
 });

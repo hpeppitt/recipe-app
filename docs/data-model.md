@@ -126,7 +126,10 @@ one extra document read; a wrong owner would leave a suggestion nobody can revie
 Only the recipe owner, with a verified email, may update, and
 only the `status` field, and only to `approved` or `rejected`. On approval the client adds the
 suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
-failed collaborator write leaves the suggestion pending. Deletion is forbidden
+failed collaborator write leaves the suggestion pending. That `arrayUnion` is the only write
+that changes a published `collaborators` array: `publishRecipe` writes it on create only and
+leaves it out of a re-publish, because a merge replaces arrays wholesale and the local copy may
+be stale (RL-037). Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
 verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the
