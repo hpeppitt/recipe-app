@@ -9,14 +9,14 @@ service cloud.firestore {
 
     // Anyone who has proved they own an email address.
     //
-    // This is the line between consuming the app and contributing to it.
-    // Anonymous sign-in is one tap and costs nothing, so `signedIn()` alone is
-    // not a meaningful barrier to anyone who wants to put a recipe in front of
-    // everybody else. Owning an inbox is a small barrier, but it is a real one,
-    // and it gives a misbehaving account a name that survives a page refresh.
-    //
-    // Reading, favouriting and following deliberately stay open to anonymous
-    // users: none of them add content anyone else has to look at.
+    // Every client cloud write requires this, except a recipe view increment
+    // and a clientErrors report (see each for why). Product decision of
+    // 2026-10-14 (docs/decisions.md, superseding product decision 1): anonymous
+    // accounts hold local bookmarks only, so favouriting, following,
+    // notifications, profile writes and every owner edit or delete need a
+    // verified email. Reads are not covered by the decision and are unchanged.
+    // Anonymous sign-in is one tap and costs nothing; owning an inbox is a small
+    // barrier, but it is a real one.
     //
     // The claim rides the ID token. That would normally mean it lags
     // verification by up to an hour, but both of this app's routes to a
@@ -62,20 +62,22 @@ service cloud.firestore {
         || isFavoriteCountBump()
         || isOwnerUpdate();
 
-      allow delete: if signedIn()
+      allow delete: if verified()
         && resource.data.createdBy.uid == request.auth.uid;
 
       // Anyone (including signed-out visitors) may bump viewCount by
-      // exactly 1 and touch nothing else
+      // exactly 1 and touch nothing else. Exempt from the verified-email rule
+      // of 2026-10-14 on purpose: a view is an implicit page-view metric the
+      // app records on open, not a user action.
       function isViewIncrement() {
         return changedKeys().hasOnly(['viewCount'])
           && request.resource.data.viewCount == resource.data.viewCount + 1;
       }
 
-      // Favorite/unfavorite batch from any signed-in user: favoriteCount
+      // Favorite/unfavorite batch from a verified user: favoriteCount
       // moves by exactly +/-1 and nothing else changes
       function isFavoriteCountBump() {
-        return signedIn()
+        return verified()
           && changedKeys().hasOnly(['favoriteCount'])
           && (request.resource.data.favoriteCount == resource.data.favoriteCount + 1
               || request.resource.data.favoriteCount == resource.data.favoriteCount - 1);
@@ -84,14 +86,12 @@ service cloud.firestore {
       // Owner may edit their recipe (e.g. collaborators arrayUnion on
       // suggestion approval) but can never reassign ownership.
       //
-      // Deliberately `signedIn()` and not `verified()`, unlike create. Recipes
-      // published anonymously before the verified-email gate went in are still
-      // owned by an anonymous account, and requiring verification here would
-      // leave that owner able to delete their recipe but not correct a typo in
-      // it. Nothing new reaches the library through this path: it can only edit
-      // a document that already passed the create rule.
+      // `verified()`, like create and delete, per the 2026-10-14 decision.
+      // This used to stay `signedIn()` so owners of recipes published
+      // anonymously before the 2026-08-10 gate could still edit them; RL-042
+      // wipes that pre-gate data, so the exception has nothing left to protect.
       function isOwnerUpdate() {
-        return signedIn()
+        return verified()
           && resource.data.createdBy.uid == request.auth.uid
           && request.resource.data.createdBy.uid == resource.data.createdBy.uid;
       }
@@ -100,14 +100,14 @@ service cloud.firestore {
     // --- Favorites: doc id is {uid}_{recipeId}, owned by the favoriting user ---
     match /favorites/{favoriteId} {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
-      allow create: if signedIn()
+      allow create: if verified()
         && request.resource.data.uid == request.auth.uid
         && favoriteId == request.auth.uid + '_' + request.resource.data.recipeId;
-      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if verified() && resource.data.uid == request.auth.uid;
       allow update: if false;
     }
 
-    // --- Suggestions: anyone signed in may suggest; only the recipe owner reviews ---
+    // --- Suggestions: verified users may suggest; only the recipe owner reviews ---
     match /suggestions/{suggestionId} {
       // Read is any-signed-in because the client subscribes by recipeId only;
       // tighten to owner/suggester if the query adds a recipeOwnerId filter
@@ -122,7 +122,7 @@ service cloud.firestore {
         && request.resource.data.suggestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId;
-      allow update: if signedIn()
+      allow update: if verified()
         && resource.data.recipeOwnerId == request.auth.uid
         && changedKeys().hasOnly(['status'])
         && request.resource.data.status in ['approved', 'rejected'];
@@ -163,32 +163,29 @@ service cloud.firestore {
 
     // --- Notifications: written by the acting user, readable by the recipient ---
     //
-    // Create stays `signedIn()` and must not be raised to `verified()`. Both
-    // `addCloudFavorite` and `followUser` write a notification as part of the
-    // action, and favouriting and following are two of the three things an
-    // anonymous user is still meant to be able to do. Gating this would fail
-    // those writes for exactly the users the verified-email split keeps
-    // deliberately open, and the failure would surface as a broken favourite
-    // rather than as anything mentioning notifications.
+    // Create, mark-read and delete all take `verified()`, per the 2026-10-14
+    // decision. This used to stay `signedIn()` because favouriting and following
+    // (which write a notification as part of the action) were open to anonymous
+    // accounts; both now need a verified email too, so the reason is gone.
     match /notifications/{notificationId} {
       allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
-      allow create: if signedIn()
+      allow create: if verified()
         && request.resource.data.fromUid == request.auth.uid
         && request.resource.data.read == false;
       // Recipient may only flip the read flag
-      allow update: if signedIn()
+      allow update: if verified()
         && resource.data.recipientUid == request.auth.uid
         && changedKeys().hasOnly(['read']);
-      allow delete: if signedIn() && resource.data.recipientUid == request.auth.uid;
+      allow delete: if verified() && resource.data.recipientUid == request.auth.uid;
     }
 
     // --- Profiles: public read; own doc writable; others may only bump followerCount ---
     match /profiles/{uid} {
       allow read: if true;
-      allow create: if signedIn() && request.auth.uid == uid;
-      allow update: if signedIn()
+      allow create: if verified() && request.auth.uid == uid;
+      allow update: if verified()
         && (request.auth.uid == uid || isFollowerCountBump());
-      allow delete: if signedIn() && request.auth.uid == uid;
+      allow delete: if verified() && request.auth.uid == uid;
 
       function isFollowerCountBump() {
         return changedKeys().hasOnly(['followerCount'])
@@ -201,6 +198,8 @@ service cloud.firestore {
     //
     // Create-only, by anyone including signed-out visitors, because a failure that
     // happens before or during sign-in is exactly the kind currently invisible.
+    // Exempt from the verified-email rule of 2026-10-14 on purpose: this is crash
+    // telemetry the app sends on its own, not a user action.
     //
     // No read, ever, from a client. These documents carry stack traces and uids;
     // the only consumer is you, in the console. No update or delete either, so a
@@ -263,10 +262,10 @@ service cloud.firestore {
       allow read: if signedIn()
         && (resource.data.get('followerId', '') == request.auth.uid
             || resource.data.get('followingId', '') == request.auth.uid);
-      allow create: if signedIn()
+      allow create: if verified()
         && request.resource.data.followerId == request.auth.uid
         && followId == request.auth.uid + '_' + request.resource.data.followingId;
-      allow delete: if signedIn() && resource.data.followerId == request.auth.uid;
+      allow delete: if verified() && resource.data.followerId == request.auth.uid;
       allow update: if false;
     }
   }
