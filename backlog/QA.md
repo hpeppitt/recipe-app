@@ -19,6 +19,27 @@ both themes:
 
 ## Since the last release
 
+### RL-005 Distinguish "recipe not found" from "could not load" on a cold first load
+
+- Cold load: open a shared link (`/recipe/<id>`) in a fresh browser profile or a private window. It should show the recipe, never "Recipe not found".
+- Slow or offline read: in devtools Network, set throttling to Offline (or block the Firestore host), open a shared recipe you have not viewed on this profile, and wait about 6 seconds. You should see "Could not load this recipe" with "Try again". Go back online and tap it: the recipe appears.
+- Same check on `/recipe/<id>/edit`, which used to say "Recipe not found" in this case.
+- A made-up id with a working connection should still say "Recipe not found."
+- Where the defect was: not in `useRecipe` or `RecipeDetailPage`, which already branched on
+  `cloudError`. `RecipeEditPage` ignored it, so a cold-load timeout there said "Recipe not found".
+  `RecipeEditPage.tsx` is outside the ticket's file list; the ticket asked to establish the cause
+  first.
+- Reviewer noted (med, UI): the error state is hand-rolled JSX duplicated in `RecipeEditPage.tsx`
+  and `RecipeDetailPage.tsx` instead of the shared `EmptyState` with its `action` slot, which
+  `VersionTreePage` and `ProfilePage` use, so type scale and spacing differ slightly. A cheap
+  follow-up.
+- Reviewer noted (low): the error text has no `role="alert"` and the emoji is not `aria-hidden`
+  (fixing `EmptyState` would cover every caller); "Try again" is primary here and secondary on the
+  tree and profile pages; copy uses "Could not load" here and "Couldn't load" on `VersionTreePage`,
+  `ProfilePage` and `RecipeChatPage`.
+- Noticed by the implementer: `useRecipe.test.tsx` waits through the real 6 second timeout, which
+  adds about 6 seconds to the suite. Fake timers would remove it.
+
 ### RL-004 Guard RecipeContent against malformed documents and add an error boundary
 
 - Standing walk, plus a look at a recipe detail page and a shared recipe in light and dark mode.

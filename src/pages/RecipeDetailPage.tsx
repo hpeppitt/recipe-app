@@ -427,15 +427,15 @@ export function RecipeDetailPage() {
     // their recipe doesn't exist when the network broke is actively misleading.
     return (
       <div className="max-w-lg mx-auto">
-        <TopBar title={cloudError ? "Couldn't load" : 'Not found'} showBack />
+        <TopBar title={cloudError ? 'Could not load' : 'Not found'} showBack />
         <div className="p-8 text-center space-y-3">
           <p className="text-4xl">{cloudError ? '📡' : '🔍'}</p>
           <p className="text-text-secondary">
             {cloudError
-              ? "We couldn't reach the recipe library. Check your connection and try again."
+              ? 'Could not load this recipe. Check your connection and try again.'
               : 'Recipe not found.'}
           </p>
-          {cloudError && <Button onClick={retry}>Try Again</Button>}
+          {cloudError && <Button onClick={retry}>Try again</Button>}
         </div>
       </div>
     );
