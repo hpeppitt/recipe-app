@@ -19,6 +19,39 @@ both themes:
 
 ## Since the last release
 
+### RL-018 Suggestions and their reply threads are readable only by the recipe owner and the suggester
+
+- Rules and index change; nothing differs in the live app until RL-022 deploys. Ordering for
+  RL-022: build the two new `suggestions` indexes and release this client first, then deploy
+  these rules. With the rules live and the old client still cached, its unfiltered query is
+  denied (the emulator denies it even for the owner) and the suggestions list goes blank.
+- On the preview build, with a recipe that has suggestions from two different accounts:
+  - The owner (verified) sees every suggestion and can open each reply thread.
+  - The suggester (verified) sees only their own suggestion and its thread.
+  - A third verified account sees no suggestions section, and the console is clean.
+  - An anonymous account sees no suggestions section, and the console is clean.
+- Approve and reject as the owner, and reply from both sides: all still work.
+- Not run by the agent: the three-account app walk. The rules were probed on a demo-project
+  emulator (`demo-rl018`) over REST: 18 of 18 as expected, and the same script against the
+  previous rules allowed all 10 cases that should now be denied.
+- For the author: this narrows who can see what. Suggestions and reply threads were readable by any
+  signed-in account, anonymous included. After RL-022 only the recipe owner and the suggester, each
+  with a verified email, can read them. That matches what the UI already showed, so no privacy copy
+  changes.
+- Reviewer noted (low): `subscribeRecipeSuggestions` passes no `onSnapshot` error callback, unlike
+  `subscribeSuggestionMessages`. If the rules deploy before the new indexes finish building, a
+  verified user hits an uncaught listener error in the console and the list silently shows nothing.
+  Add an error callback that calls `reportError`.
+- Reviewer noted (low): the page-level `isOwner` is still `canManageRecipe`, true for any local copy.
+  A non-creator with a local copy sees approve and reject buttons on their own suggestion, and
+  pressing approve is now denied at the `getDoc` in `updateSuggestionStatus` instead of at the
+  update. Check the approve and reject handlers surface the rejection and do not leave an unhandled
+  rejection.
+- Reviewer noted (low): a legacy suggestion with a wrong `recipeOwnerId` never appears in the
+  owner's query and a direct read is denied, so it stays unreviewable (the update rule keys on the
+  same field already); the suggester still sees it. A suggestion on a deleted recipe is not shown to
+  anyone. RL-042 wipes legacy data.
+
 ### RL-016 Recipe writes have a bounded createdAt, capped title and array sizes, and an immutable createdAt
 
 - Rules change; nothing differs in the app until RL-022 deploys `firestore.rules`.

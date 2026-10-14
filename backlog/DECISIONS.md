@@ -9,3 +9,4 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-14 | RL-018 | Kept the old `suggestions` index (`recipeId` ASC, `createdAt` DESC) alongside the two new ones, so the pre-RL-018 client keeps working until the new rules go live and a deploy does not prompt to drop it. | Remove it now, since the new client never issues that query. Safe to remove in a later ticket once RL-022 has shipped. | pending |

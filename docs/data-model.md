@@ -51,12 +51,14 @@ the dual store addressable by one id.
 
 ### Composite indexes
 
-Both live in `firestore.indexes.json`; each exists for exactly one query.
+All live in `firestore.indexes.json`; each exists for exactly one query.
 
 | Index | Needed by |
 |---|---|
 | `notifications`: `recipientUid` ASC, `createdAt` DESC | the notification bell's `onSnapshot` subscription |
-| `suggestions`: `recipeId` ASC, `createdAt` DESC | `subscribeRecipeSuggestions` on the detail page |
+| `suggestions`: `recipeId` ASC, `recipeOwnerId` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, owner query (RL-018) |
+| `suggestions`: `recipeId` ASC, `suggestedBy.uid` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, everyone else's query (RL-018) |
+| `suggestions`: `recipeId` ASC, `createdAt` DESC | the pre-RL-018 client's unfiltered query; kept until that client is gone, then removable |
 
 Missing an index shows up as a Firestore error containing a console link that creates it —
 but create it *here* and deploy, not in the console, or it exists in production and not in
@@ -113,13 +115,19 @@ only the `status` field, and only to `approved` or `rejected`. On approval the c
 suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
 failed collaborator write leaves the suggestion pending. Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
-records — use the emulator (see [operations.md](operations.md)). Reads are any-signed-in
-because the client subscribes by `recipeId` alone; tightening that needs a query change
-first.
+records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
+verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the
+suggester (`suggestedBy.uid`). Anonymous accounts read none. Because a `list` is authorised
+from its filters, `subscribeRecipeSuggestions` filters on `recipeId` plus `recipeOwnerId ==
+uid` when the viewer created the recipe (`createdBy.uid`), or `suggestedBy.uid == uid`
+otherwise; each needs its own composite index above. A query by `recipeId` alone is denied
+whole, even for the owner.
 
 **suggestions/{id}/messages** — creatable only by the two participants (checked with a
 `get()` on the parent, so a reply costs 2 document reads), only with your own `fromUid`, with
 a verified email, and immutable once sent. Replies stay allowed after approval or rejection on purpose.
+Readable by the same two parties, with a verified email, checked with the same `get()` on
+the parent, so opening a thread costs one extra document read on top of its messages.
 
 **notifications** — the *acting* user writes the notification and the recipient reads it.
 Every write needs a verified email. Creation requires your own `fromUid` and `read: false`,

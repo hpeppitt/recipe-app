@@ -139,9 +139,14 @@ service cloud.firestore {
 
     // --- Suggestions: verified users may suggest; only the recipe owner reviews ---
     match /suggestions/{suggestionId} {
-      // Read is any-signed-in because the client subscribes by recipeId only;
-      // tighten to owner/suggester if the query adds a recipeOwnerId filter
-      allow read: if signedIn();
+      // Two parties only (RL-018): the recipe owner and the suggester. Anonymous
+      // accounts read none, per the 2026-10-14 decision. A list is authorised
+      // from its filters, so the client must filter on recipeOwnerId (owner) or
+      // suggestedBy.uid (everyone else) equal to its own uid; an unfiltered
+      // query by recipeId is denied whole.
+      allow read: if verified()
+        && (resource.data.recipeOwnerId == request.auth.uid
+            || resource.data.suggestedBy.uid == request.auth.uid);
       // Suggesting puts text in front of another user, so it takes a verified
       // email for the same reason publishing does.
       //
@@ -174,9 +179,16 @@ service cloud.firestore {
       // status == 'pending' would close the conversation at the moment it
       // becomes most useful.
       //
-      // Each get() bills one document read, so sending a reply costs 2 reads.
+      // Each get() bills one document read, so sending a reply costs 2 reads
+      // and opening a thread costs one read on top of its messages.
       match /messages/{messageId} {
-        allow read: if signedIn();
+        // Same two parties as the parent's read rule. The parent is fetched by
+        // path, so this holds for a list without any filter on the messages.
+        allow read: if verified()
+          && (
+            get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.recipeOwnerId == request.auth.uid
+            || get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.suggestedBy.uid == request.auth.uid
+          );
         // Both participants reached this thread through a verified-email action
         // (publishing the recipe, or filing the suggestion), so requiring it
         // again here costs nothing and keeps the rule honest on its own terms

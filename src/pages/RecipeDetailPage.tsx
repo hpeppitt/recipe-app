@@ -47,7 +47,7 @@ export function RecipeDetailPage() {
   // variations, lineage and descendant count instead of local-only emptiness.
   const { children, ancestors, descendantCount } = useRecipeLineage(recipe);
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
-  const { suggestions, approve, reject } = useSuggestions(id);
+  const { suggestions, approve, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // The confirm message, captured on open: the local delete removes the recipe
   // while the cloud delete is still in flight, so it cannot be read live.
@@ -355,8 +355,9 @@ export function RecipeDetailPage() {
   //
   // Non-owners previously saw none at all, so a suggester had no view of what
   // they had sent and no way into its reply thread — which would have made
-  // replies one-sided. The Firestore read rule already permits any signed-in
-  // read, so this reveals nothing that was not already fetched.
+  // replies one-sided. Since RL-018 the query and the read rule already return
+  // only the viewer's own unless they created the recipe, so this filter is a
+  // second guard, not the privacy boundary.
   const visibleSuggestions = isOwner
     ? suggestions
     : suggestions.filter((s) => s.suggestedBy.uid === user?.uid);

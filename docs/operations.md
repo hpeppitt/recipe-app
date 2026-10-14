@@ -169,8 +169,23 @@ Before a deploy this shows exactly what will change in production. After one it 
 no difference, which is the real confirmation that the deploy landed. Note the previous ruleset
 id too: it stays fetchable and is the rollback target.
 
-Deploy rules alone with `--only firestore:rules` when only rules changed, so a stale
-`firestore.indexes.json` cannot ride along unnoticed.
+Deploy rules alone with `--only firestore:rules` only when `firestore.indexes.json` is
+unchanged, so a stale index file cannot ride along unnoticed. When a change adds indexes
+that a new query needs, deploy them on their own first.
+
+**RL-018 ordering (suggestions read rule).** Deploy in three steps:
+
+1. `firebase deploy --only firestore:indexes`, then wait until both new `suggestions`
+   indexes (`recipeId` + `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` +
+   `createdAt`) show READY in the console's index list.
+2. Release the new client (`--only hosting`).
+3. `firebase deploy --only firestore:rules`.
+
+The reason: the pre-RL-018 client subscribes with an unfiltered `recipeId`-only query, and
+the new read rule denies that query whole, so the old client's suggestions panel breaks for
+everyone, owner included, the moment the rules go live. The old `suggestions` index
+(`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json` until that client is
+gone, as [data-model.md](data-model.md) records.
 
 `firebase.json` also declares a `functions` codebase pointing at `functions/`. **Do not
 deploy it.** It requires the Blaze plan, and moving to Blaze ends the free Gemini tier on
