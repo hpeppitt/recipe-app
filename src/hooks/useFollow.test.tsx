@@ -147,3 +147,16 @@ describe('useFollow toggle races and timeouts', () => {
     }
   });
 });
+
+describe('useFollowingList round trips', () => {
+  it('reads the follows once and hands the ids to the profile fetch', async () => {
+    getFollowingIds.mockResolvedValue(['u1', 'u2']);
+    getFollowingProfiles.mockResolvedValue([{ uid: 'u1' }, { uid: 'u2' }]);
+    const { result } = renderHook(() => useFollowingList(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(getFollowingIds).toHaveBeenCalledTimes(1);
+    expect(getFollowingProfiles).toHaveBeenCalledTimes(1);
+    expect(getFollowingProfiles).toHaveBeenCalledWith(['u1', 'u2']);
+    expect(result.current.followingIds).toEqual(['u1', 'u2']);
+  });
+});

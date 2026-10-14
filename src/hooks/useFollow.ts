@@ -166,8 +166,9 @@ export function useFollowingList() {
   useEffect(() => {
     if (!uid || !isFirebaseConfigured) return;
     let cancelled = false;
-    Promise.all([getFollowingIds(uid), getFollowingProfiles(uid)])
-      .then(([ids, profiles]) => {
+    getFollowingIds(uid)
+      .then(async (ids) => ({ ids, profiles: await getFollowingProfiles(ids) }))
+      .then(({ ids, profiles }) => {
         if (!cancelled) setState({ uid, ids, profiles });
       })
       .catch((err) => {

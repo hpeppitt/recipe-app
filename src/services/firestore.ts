@@ -759,16 +759,14 @@ export async function getFollowingIds(uid: string): Promise<string[]> {
   return snap.docs.map((d) => (d.data() as Follow).followingId);
 }
 
-export async function getFollowingProfiles(uid: string): Promise<UserProfile[]> {
-  if (!firestore) return [];
-  const ids = await getFollowingIds(uid);
-  if (ids.length === 0) return [];
-  const profiles: UserProfile[] = [];
-  for (const id of ids) {
-    const p = await getProfile(id);
-    if (p) profiles.push(p);
-  }
-  return profiles;
+/**
+ * Profiles for already-fetched ids, fetched in parallel and returned in input order.
+ * A missing profile is skipped; any failed read rejects, as before.
+ */
+export async function getFollowingProfiles(ids: string[]): Promise<UserProfile[]> {
+  if (!firestore || ids.length === 0) return [];
+  const profiles = await Promise.all(ids.map((id) => getProfile(id)));
+  return profiles.filter((p): p is UserProfile => p !== null);
 }
 
 /** A follower, as recorded on the follow document itself. */
@@ -807,25 +805,6 @@ export async function getFollowers(uid: string): Promise<FollowerSummary[]> {
       };
     })
     .sort((a, b) => b.createdAt - a.createdAt);
-}
-
-export async function getRecipeStats(recipeIds: string[]): Promise<Map<string, { viewCount: number; favoriteCount: number }>> {
-  const statsMap = new Map<string, { viewCount: number; favoriteCount: number }>();
-  if (!firestore || recipeIds.length === 0) return statsMap;
-  // Fetch each recipe doc for its stats
-  const results = await Promise.allSettled(
-    recipeIds.map((id) => getDoc(doc(firestore!, 'recipes', id)))
-  );
-  for (const result of results) {
-    if (result.status === 'fulfilled' && result.value.exists()) {
-      const data = result.value.data();
-      statsMap.set(result.value.id, {
-        viewCount: data.viewCount || 0,
-        favoriteCount: data.favoriteCount || 0,
-      });
-    }
-  }
-  return statsMap;
 }
 
 // --- UID Migration ---

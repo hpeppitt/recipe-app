@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
-import { getUserRecipes, getRecipesByUsers, getRecipeStats } from '../services/firestore';
+import { getUserRecipes, getRecipesByUsers } from '../services/firestore';
 import { reportError } from '../services/telemetry';
 import type { SharedRecipe } from '../lib/share';
 
@@ -21,11 +21,14 @@ export function useOwnRecipes(uid: string | undefined) {
 
   useEffect(() => {
     if (!localRecipes || localRecipes.length === 0) return;
-    const ids = localRecipes.map((r) => r.id);
-    getRecipeStats(ids)
-      .then(setStats)
+    if (!uid) return;
+    // One query for every published recipe of this user; unpublished ones are simply absent.
+    getUserRecipes(uid)
+      .then((published) =>
+        setStats(new Map(published.map((r) => [r.id, { viewCount: r.viewCount || 0, favoriteCount: r.favoriteCount || 0 }])))
+      )
       .catch(() => {});
-  }, [localRecipes?.map((r) => r.id).join(',')]);
+  }, [uid, localRecipes?.map((r) => r.id).join(',')]);
 
   const recipes = (localRecipes ?? []).map((r) => ({
     id: r.id,
