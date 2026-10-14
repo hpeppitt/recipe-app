@@ -8,12 +8,21 @@ import type { AppUser } from '../types/recipe';
 import type { Suggestion } from '../types/social';
 
 const subscribe = vi.fn();
+const updateStatus = vi.fn();
+const addLocalCollaborator = vi.fn(async (..._a: unknown[]) => {});
 vi.mock('../services/firestore', () => ({
   subscribeRecipeSuggestions: (...a: unknown[]) => subscribe(...a),
   subscribeSuggestionMessages: vi.fn(),
   addSuggestionMessage: vi.fn(),
-  updateSuggestionStatus: vi.fn(),
+  updateSuggestionStatus: (...a: unknown[]) => updateStatus(...a),
   createSuggestion: vi.fn(),
+}));
+vi.mock('../db/recipes', () => ({
+  addLocalCollaborator: (...a: unknown[]) => addLocalCollaborator(...a),
+}));
+vi.mock('../services/analytics', () => ({
+  trackSuggestionSubmitted: vi.fn(),
+  trackSuggestionReviewed: vi.fn(),
 }));
 
 import { useSuggestions } from './useSuggestions';
@@ -78,5 +87,31 @@ describe('useSuggestions teardown and keying', () => {
     rerender();
     expect(subscribe).toHaveBeenCalledTimes(2);
     expect(result.current.suggestions).toEqual([]);
+  });
+});
+
+describe('useSuggestions.approve', () => {
+  beforeEach(() => {
+    subscribe.mockReset();
+    subscribe.mockReturnValue(() => {});
+    updateStatus.mockReset();
+    addLocalCollaborator.mockClear();
+  });
+
+  it('mirrors the collaborator to Dexie after the cloud writes succeed', async () => {
+    const approved = { recipeId: 'r1', collaborator: { uid: 'u2', displayName: 'Sam' } };
+    updateStatus.mockResolvedValue(approved);
+    const { result } = renderHook(() => useSuggestions('r1'), { wrapper: wrapperFor(fakeUser) });
+
+    await expect(result.current.approve('s1')).resolves.toEqual(approved);
+    expect(addLocalCollaborator).toHaveBeenCalledWith('r1', approved.collaborator);
+  });
+
+  it('does not mirror and propagates when the cloud approval throws', async () => {
+    updateStatus.mockRejectedValue(new Error('permission-denied'));
+    const { result } = renderHook(() => useSuggestions('r1'), { wrapper: wrapperFor(fakeUser) });
+
+    await expect(result.current.approve('s1')).rejects.toThrow('permission-denied');
+    expect(addLocalCollaborator).not.toHaveBeenCalled();
   });
 });

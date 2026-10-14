@@ -114,9 +114,14 @@ service cloud.firestore {
       allow read: if signedIn();
       // Suggesting puts text in front of another user, so it takes a verified
       // email for the same reason publishing does.
+      //
+      // recipeOwnerId must name the real owner (one extra read per create): a
+      // wrong value leaves a suggestion no one can review and, since delete is
+      // forbidden, no one can remove.
       allow create: if verified()
         && request.resource.data.suggestedBy.uid == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && request.resource.data.status == 'pending'
+        && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId;
       allow update: if signedIn()
         && resource.data.recipeOwnerId == request.auth.uid
         && changedKeys().hasOnly(['status'])

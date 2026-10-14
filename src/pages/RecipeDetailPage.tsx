@@ -203,7 +203,9 @@ export function RecipeDetailPage() {
     setReviewError(null);
     try {
       if (action === 'approve') {
-        await approve(suggestionId);
+        // null means nothing was approved (no Firestore, or the suggestion is
+        // gone), so it is a failure, not a reason to open the variation flow.
+        if (!(await approve(suggestionId))) throw new Error('Approval returned no collaborator');
         navigate(`/recipe/${id}/vary`, { state: { suggestion: message } });
         return;
       }
