@@ -1,5 +1,6 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import type { Recipe } from '../types/recipe';
+import { CreatedBySchema, GeneratedRecipeSchema } from '../schemas/recipe.schema';
 
 export type SharedRecipe = Pick<
   Recipe,
@@ -70,13 +71,22 @@ export function pickShareUrl(
   return { url: hashShareUrl(recipe, opts.origin), mode: 'self-contained' };
 }
 
+/**
+ * Links minted before createdBy (d0497f5) and nutrition (bafcce3) existed lack both,
+ * so both stay optional; everything the page dereferences is required.
+ * z.object strips unknown keys at every level, nested ingredients included.
+ */
+const SharedRecipeSchema = GeneratedRecipeSchema.extend({ createdBy: CreatedBySchema.optional() });
+
 export function decodeRecipeFromHash(hash: string): SharedRecipe | null {
   try {
     const param = hash.replace(/^#/, '').replace(/^r=/, '');
     if (!param) return null;
     const json = decompressFromEncodedURIComponent(param);
     if (!json) return null;
-    return JSON.parse(json) as SharedRecipe;
+    const parsed = SharedRecipeSchema.safeParse(JSON.parse(json));
+    // createdBy is optional on old links although the Pick type says required; the page already uses `?.`.
+    return parsed.success ? (parsed.data as SharedRecipe) : null;
   } catch {
     return null;
   }

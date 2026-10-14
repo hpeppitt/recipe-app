@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { pickShareUrl, cloudShareUrl, hashShareUrl, decodeRecipeFromHash } from './share';
-import { makeRecipe } from '../test/factories';
+import { compressToEncodedURIComponent } from 'lz-string';
+import { makeRecipe, makeIngredient } from '../test/factories';
 
 const ORIGIN = 'https://example.test';
 
@@ -75,5 +76,65 @@ describe('share URL builders', () => {
     expect(decoded).not.toHaveProperty('prompt');
     expect(decoded).not.toHaveProperty('chatHistory');
     expect(decoded).not.toHaveProperty('id');
+  });
+
+  const hashOf = (payload: unknown) =>
+    `#r=${compressToEncodedURIComponent(typeof payload === 'string' ? payload : JSON.stringify(payload))}`;
+  const validPayload = () => {
+    const r = makeRecipe({ title: 'Stew', ingredients: [makeIngredient('flour')] });
+    return JSON.parse(JSON.stringify(decodeRecipeFromHash(new URL(hashShareUrl(r, ORIGIN)).hash)));
+  };
+
+  it('round-trips every shared field', () => {
+    const r = makeRecipe({ title: 'Stew', nutrition: { calories: 1, protein: 2, carbs: 3, fat: 4 } });
+    const decoded = decodeRecipeFromHash(new URL(hashShareUrl(r, ORIGIN)).hash);
+    expect(decoded).toEqual({
+      title: r.title,
+      description: r.description,
+      emoji: r.emoji,
+      ingredients: r.ingredients,
+      instructions: r.instructions,
+      notes: r.notes,
+      prepTime: r.prepTime,
+      cookTime: r.cookTime,
+      totalTime: r.totalTime,
+      servings: r.servings,
+      difficulty: r.difficulty,
+      tags: r.tags,
+      nutrition: r.nutrition,
+      createdBy: r.createdBy,
+    });
+  });
+
+  it('accepts an old link with no createdBy and no nutrition', () => {
+    const { createdBy: _c, nutrition: _n, ...old } = validPayload();
+    expect(decodeRecipeFromHash(hashOf(old))?.title).toBe('Stew');
+  });
+
+  it('returns null when ingredients is missing or a string', () => {
+    const { ingredients: _i, ...missing } = validPayload();
+    expect(decodeRecipeFromHash(hashOf(missing))).toBeNull();
+    expect(decodeRecipeFromHash(hashOf({ ...validPayload(), ingredients: 'flour' }))).toBeNull();
+  });
+
+  it('strips unknown keys, nested ones included', () => {
+    const p = validPayload();
+    p.extra = 'x';
+    p.ingredients[0].evil = 1;
+    const decoded = decodeRecipeFromHash(hashOf(p));
+    expect(decoded).not.toHaveProperty('extra');
+    expect(decoded?.ingredients[0]).not.toHaveProperty('evil');
+  });
+
+  it('returns null for non-JSON, non-object and garbage input', () => {
+    expect(decodeRecipeFromHash(hashOf('not json'))).toBeNull();
+    expect(decodeRecipeFromHash(hashOf('42'))).toBeNull();
+    expect(decodeRecipeFromHash(hashOf('null'))).toBeNull();
+    expect(decodeRecipeFromHash('#r=!!!')).toBeNull();
+  });
+
+  it('returns null for a createdBy of the wrong shape', () => {
+    expect(decodeRecipeFromHash(hashOf({ ...validPayload(), createdBy: 'me' }))).toBeNull();
+    expect(decodeRecipeFromHash(hashOf({ ...validPayload(), createdBy: { uid: 5 } }))).toBeNull();
   });
 });
