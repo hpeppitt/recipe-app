@@ -19,6 +19,19 @@ both themes:
 
 ## Since the last release
 
+### RL-039 Production dependencies have no known critical or high advisories that npm audit fix can resolve
+
+- Lockfile-only change (`npm audit fix`, no `--force`). On the preview build do the standing walk,
+  with attention to two areas.
+- Navigation (react-router went to 7.18.4): click through Link flows (home, recipe, version tree,
+  shared link), trigger `useNavigate` flows (delete a recipe returns home, sign-in return), open
+  a deep link and a bad URL, and use the browser Back and Forward buttons. Redirects must land
+  in-app and Back must not loop.
+- Live Firestore listeners: signed in, open a recipe and confirm suggestions and the library update
+  live; open `/shared/:id` signed out and confirm the console is empty.
+- 4 high advisories remain by design (@grpc/grpc-js chain, Node-only, not in the bundle). See the
+  ticket Notes for the table.
+
 ### RL-023 Deleting a recipe waits for the cloud delete and tells the user when published copies remain
 
 - On the preview build, signed in with a verified email, open a published recipe, set the network
