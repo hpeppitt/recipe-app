@@ -227,8 +227,16 @@ export async function searchPublishedVariations(
  *
  * `extraIds` covers ids known to be part of the subtree locally but missing from
  * the cloud query, e.g. when a doc's rootId was never backfilled.
+ *
+ * Only documents created by `uid` are attempted: the rules deny the rest by design,
+ * so counting them would report another user's copy as a failure of this delete.
+ * Ids the query did not return are read first: a missing doc (never published, or
+ * already deleted by an earlier attempt) is skipped, because the rules deny a delete
+ * of a nonexistent doc and it would count as a failure that "Try again" can never
+ * clear. If that read itself fails, the delete is still attempted.
  */
 export async function deletePublishedRecipeTree(
+  uid: string,
   id: string,
   rootId: string,
   extraIds: string[] = []
@@ -236,21 +244,36 @@ export async function deletePublishedRecipeTree(
   if (!firestore) return { deleted: 0, failed: 0 };
 
   let subtreeIds: string[];
+  const ownerById = new Map<string, string | undefined>();
   try {
     const snap = await getDocs(
       query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
     );
-    const nodes = snap.docs.map((d) => ({
-      id: d.id,
-      parentId: (d.data().parentId as string | null) ?? null,
-    }));
+    const nodes = snap.docs.map((d) => {
+      const data = d.data();
+      ownerById.set(d.id, (data.createdBy as { uid?: string } | undefined)?.uid);
+      return { id: d.id, parentId: (data.parentId as string | null) ?? null };
+    });
     subtreeIds = collectSubtreeIds(nodes, id);
   } catch {
     // Tree query failed — still make a best effort on what the caller knows.
     subtreeIds = [id];
   }
 
-  const targets = [...new Set([...subtreeIds, ...extraIds])];
+  const candidates = [...new Set([...subtreeIds, ...extraIds])];
+  const owners = await Promise.all(
+    candidates.map(async (target): Promise<string | null | undefined> => {
+      if (ownerById.has(target)) return ownerById.get(target);
+      try {
+        const snap = await getDoc(doc(firestore!, 'recipes', target));
+        if (!snap.exists()) return null;
+        return (snap.data().createdBy as { uid?: string } | undefined)?.uid;
+      } catch {
+        return uid; // Unreadable: ownership unknown, so try the delete anyway.
+      }
+    })
+  );
+  const targets = candidates.filter((_, i) => owners[i] === uid);
   const results = await Promise.allSettled(
     targets.map((target) => deleteDoc(doc(firestore!, 'recipes', target)))
   );

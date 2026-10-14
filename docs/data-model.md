@@ -86,8 +86,11 @@ and shared links work without an account. Publishing requires a **verified email
 stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by any
 signed-in user (anonymous included), or an owner update that changes anything *except*
-`createdBy.uid`. Owner updates and deletes require ownership but *not* verification, so a
-recipe published anonymously before the gate stays editable and deletable by whoever owns it.
+`createdBy.uid`. Owner updates and deletes require ownership but *not* verification, so the
+rules still let whoever owns a recipe published anonymously before the gate edit or delete it.
+The client does not use that delete path: since RL-023 it attempts the cloud delete only for
+users with `emailVerified`, so an unverified owner of such a pre-gate copy deletes it locally
+and the cloud copy stays published.
 
 **favorites** — you may read, create, and delete only your own, and the document id must
 match `{your uid}_{recipeId}`. No updates.

@@ -19,6 +19,45 @@ both themes:
 
 ## Since the last release
 
+### RL-023 Deleting a recipe waits for the cloud delete and tells the user when published copies remain
+
+- On the preview build, signed in with a verified email, open a published recipe, set the network
+  to Offline in devtools, and delete it. The Delete button reads "Deleting..." and is disabled for
+  up to 10 seconds, then a dialog reads "Removed from this device, but N published copies could not
+  be removed from the shared library." with "Try again" and "Leave anyway". After a timeout the
+  copy states no number ("...the shared library did not confirm its published copies were
+  removed."). The page does not navigate on its own.
+- Go back online and press "Try again": the app goes home, and the recipe's `/shared/:id` link
+  no longer loads.
+- Repeat and press "Leave anyway": the app goes home and the `/shared/:id` link still works.
+- Online, delete a published recipe: it goes home as before, with no dialog. Also try one with an
+  unpublished local variation beneath it: still no dialog.
+- As an anonymous user, deleting a local recipe goes straight home and never shows the dialog.
+- For the author: a recipe published anonymously before the verified-email gate is orphaned
+  when its unverified owner deletes it. The delete is local only, so the cloud copy stays at
+  `/shared/:id` and no dialog says so.
+- Not run by the agent: no browser. Covered by a mocked-Firestore unit test of the owner filter only;
+  there is no page test for `handleDelete`.
+- Reviewer noted (high, fixed): the first pass attempted deletes on never-published local ids, which
+  the rules deny, so the dialog showed a false failure and "Try again" never cleared. Leftover ids
+  are now read with `getDoc` first and skipped when missing or foreign. Round 2 confirmed it.
+- Reviewer noted (med): the `emailVerified` gate is stricter than the delete rule, so an
+  unverified owner of a pre-gate public copy cannot remove it (ticket-mandated, see the orphan
+  note above). Offline, Firestore queues the deletes: after the timeout dialog they can still land
+  once the network returns, even after "Leave anyway", and each "Try again" queues a duplicate set.
+- Reviewer noted (med, UI): Escape is not blocked while `busy`, so it can close the delete dialog
+  mid-delete (leaving a bare "Deleting..." page for up to 10 seconds) or act as "Leave anyway"
+  during a retry. Consider `onCancel` preventDefault on `ConfirmDialog` when busy, and a neutral
+  Escape on the failure dialog.
+- Reviewer noted (low, UI): the dialogs remount when the recipe disappears mid-delete (different
+  child index, no key); at 320px the footer ("Leave anyway" and "Trying again...") may wrap or
+  squash, so check it; busy state has no `aria-busy` or live region, and focus is lost after a
+  failed retry; the "Deleting..." page has no spinner; the copy does not say the copies are still
+  public; the "all N variations" line at about `RecipeDetailPage.tsx:528` does not use `pluralize`.
+- Reviewer noted (low): `trackRecipeDeleted` fires before the local delete succeeds and again on a
+  re-click; a failed `getDoc` on a missing doc still produces a phantom failure (rare, commented);
+  no test for the `getDoc` rejection fallback or retry-after-partial-success.
+
 ### RL-017 Suggestions must name the real recipe owner, and approval adds the collaborator before marking approved
 
 - Needs the rules deploy (RL-022) before the owner check is live on the preview.
