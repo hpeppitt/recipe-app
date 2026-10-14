@@ -47,6 +47,20 @@ service cloud.firestore {
     }
 
     // --- Recipes: public feed, owner-controlled writes ---
+    //
+    // Size and time bounds (RL-016). Named here so RL-036 can mirror them on
+    // the client; the rules language has no constants, so the literals below
+    // must match:
+    //   MAX_TITLE_LENGTH        = 200    characters (UTF-16 units)
+    //   MAX_INGREDIENTS         = 100    list entries
+    //   MAX_INSTRUCTIONS        = 100    list entries
+    //   CREATED_AT_MAX_SKEW_MS  = 60000  how far ahead of server time a create
+    //                                    may stamp createdAt
+    // The feed is orderBy('createdAt', 'desc'), so an unbounded createdAt pins a
+    // recipe to the top of everyone's feed forever, and an oversized document is
+    // read on every first paint. Past values stay allowed: imports keep their
+    // original createdAt. Elements inside the arrays are not checked; rules
+    // cannot iterate a list.
     match /recipes/{recipeId} {
       // Library feed and shared pages are browsable without signing in
       allow read: if true;
@@ -56,7 +70,10 @@ service cloud.firestore {
       allow create: if verified()
         && request.resource.data.createdBy.uid == request.auth.uid
         && request.resource.data.favoriteCount == 0
-        && request.resource.data.viewCount == 0;
+        && request.resource.data.viewCount == 0
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt <= request.time.toMillis() + 60000
+        && hasBoundedContent();
 
       allow update: if isViewIncrement()
         || isFavoriteCountBump()
@@ -84,7 +101,8 @@ service cloud.firestore {
       }
 
       // Owner may edit their recipe (e.g. collaborators arrayUnion on
-      // suggestion approval) but can never reassign ownership.
+      // suggestion approval) but can never reassign ownership or move
+      // createdAt (re-publish merges the same value, so it is not a changed key).
       //
       // `verified()`, like create and delete, per the 2026-10-14 decision.
       // This used to stay `signedIn()` so owners of recipes published
@@ -93,7 +111,19 @@ service cloud.firestore {
       function isOwnerUpdate() {
         return verified()
           && resource.data.createdBy.uid == request.auth.uid
-          && request.resource.data.createdBy.uid == resource.data.createdBy.uid;
+          && request.resource.data.createdBy.uid == resource.data.createdBy.uid
+          && !('createdAt' in changedKeys())
+          && hasBoundedContent();
+      }
+
+      // Evaluated on request.resource.data, the document as it would be after
+      // the write, so an update that omits these fields (a merge, or the
+      // collaborators arrayUnion) is checked against the stored values.
+      function hasBoundedContent() {
+        let d = request.resource.data;
+        return d.title is string && d.title.size() <= 200
+          && d.ingredients is list && d.ingredients.size() <= 100
+          && d.instructions is list && d.instructions.size() <= 100;
       }
     }
 

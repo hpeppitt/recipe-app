@@ -87,10 +87,19 @@ following, notifications and profiles stayed open to anonymous accounts.
 and shared links work without an account. Publishing requires a **verified email** and
 stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
-verified user, or a verified owner update that changes anything *except* `createdBy.uid`.
+verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`.
 Delete needs a verified owner. Recipes published anonymously before the 2026-08-10 gate can
 no longer be edited or deleted by their anonymous owner; RL-042 wipes them. Since RL-023 the
 client attempts the cloud delete only for users with `emailVerified`, which matches the rule.
+Since RL-016 a create also needs `createdAt` to be an integer (milliseconds) no more than 60
+seconds ahead of server time, an owner update may not change `createdAt`, and both require
+`title` to be a string of at most 200 characters and `ingredients` and `instructions` to be
+lists of at most 100 entries each, checked on the document as it would be after the write. The
+reason: the feed is ordered by `createdAt` descending, so a far-future value would pin a
+recipe to the top of everyone's feed, and an oversized document is read on every first paint.
+Past `createdAt` values stay allowed because imports keep their original date. The caps are
+named in a comment above the recipe rules. Array elements are not checked; rules cannot
+iterate a list. A client clock more than a minute fast cannot publish.
 
 **favorites** are readable only by their owner, and created and deleted only by their owner
 with a verified email. The document id must match `{your uid}_{recipeId}`. No updates.
