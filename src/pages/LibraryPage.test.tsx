@@ -175,3 +175,55 @@ describe('LibraryPage tabs', () => {
     expect(getPage).not.toHaveBeenCalled();
   });
 });
+
+describe('LibraryPage My Recipes empty states under search', () => {
+  const search = (value: string) =>
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value } });
+  const NEVER = "You haven't created a recipe yet";
+
+  it('shows No results, not the never-created copy, when a search matches none of your recipes', async () => {
+    await db.recipes.add(makeRecipe({ title: 'Local Lasagne' }));
+    renderWithProviders(<LibraryPage />);
+    await screen.findByText('Local Lasagne');
+    search('zzzz-no-match');
+    expect(await screen.findByText('No results')).toBeInTheDocument();
+    // The search box's own clear icon shares the aria-label, so match the visible text.
+    expect(screen.getByText('Clear search', { selector: 'button' })).toBeInTheDocument();
+    expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
+  });
+
+  it('restores the list when Clear search is pressed', async () => {
+    await db.recipes.add(makeRecipe({ title: 'Local Lasagne' }));
+    renderWithProviders(<LibraryPage />);
+    await screen.findByText('Local Lasagne');
+    search('zzzz-no-match');
+    fireEvent.click(await screen.findByText('Clear search', { selector: 'button' }));
+    expect(await screen.findByText('Local Lasagne')).toBeInTheDocument();
+    expect(screen.queryByText('No results')).not.toBeInTheDocument();
+  });
+
+  it('shows the never-created copy only with no recipes and an empty search', async () => {
+    renderWithProviders(<LibraryPage />);
+    expect(await screen.findByText(NEVER)).toBeInTheDocument();
+    expect(screen.queryByText('No results')).not.toBeInTheDocument();
+  });
+
+  it('shows No results, not the never-created copy, with no recipes and a non-empty search', async () => {
+    renderWithProviders(<LibraryPage />);
+    await screen.findByText(NEVER);
+    search('anything');
+    expect(await screen.findByText('No results')).toBeInTheDocument();
+    expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
+  });
+
+  it('still shows No results first when the favourites filter is on', async () => {
+    await db.recipes.add(makeRecipe({ title: 'Local Lasagne' }));
+    renderWithProviders(<LibraryPage />);
+    await screen.findByText('Local Lasagne');
+    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
+    search('zzzz-no-match');
+    expect(await screen.findByText('No results')).toBeInTheDocument();
+    expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
+    expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
+  });
+});
