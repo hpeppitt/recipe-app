@@ -243,7 +243,9 @@ them; that is the author's call, not something to improvise at deploy time.) In 
 4. **The client release** via `/release` (`--only hosting`), carrying RL-040, RL-041, RL-015
    to RL-021, and RL-045, RL-047, RL-048 and RL-049 (so RL-046 is signed off first).
 5. **The rules**: `firebase deploy --only firestore:rules`, then diff again; the diff must be
-   empty. Record the date and both ruleset ids here (RL-022, RL-051).
+   empty. Record the date and both ruleset ids here (RL-022, RL-051). Run this **straight
+   after step 4, back to back**: from the moment the RL-048 client is live until these rules
+   are, every suggestion and reply fails (see "What each wrong order does for RL-048" below).
 6. **The author's own acceptance, straight away**: reload the live app signed in with your
    verified account. A stored acceptance for your address is written automatically;
    otherwise the dialog appears, so accept it. Confirm `termsAcceptance/{your uid}` exists
@@ -295,6 +297,26 @@ non-data value is denied.
   create recipes, suggestions or messages (no `termsAcceptance` document, and the old client
   cannot write one) until they load the new client, which then records the acceptance or
   shows the dialog. Edits, favourites, follows and profiles keep working.
+
+**What each wrong order does for RL-048 (write limits).** Neither order is safe, unlike
+RL-047. The new client writes `writeWindows/{uid}_{action}` in the same transaction as each
+suggestion and reply, and the new rules require that window move on every suggestion and
+message create. There is deliberately no client fallback to the old plain write (pending in
+`backlog/DECISIONS.md`).
+
+- **Client live before the rules** (the gap between steps 4 and 5): no rule matches
+  `writeWindows`, so the window read is denied and the transaction fails. Every suggestion
+  and reply from the new client fails with the generic message ("That didn't send. Check
+  your connection and try again." or "Couldn't send that reply. Please try again."), the
+  text stays in the box, and nothing is written. Emulator-checked against the HEAD rules
+  (ticket RL-048 Notes). Recipes, favourites, follows and everything else keep working.
+- **Rules live before the client**: old clients write the suggestion or message alone, with
+  no window move, so every suggestion and reply from a tab still on the old client is denied
+  until it reloads onto the new client.
+
+So the combined order stays client first, then rules, as RL-047 needs, with a short expected
+gap for suggestions and replies. Keep steps 4 and 5 minutes apart, not hours, and tell
+testers not to suggest or reply in between.
 
 **A later Terms bump is the reverse: rules, then client, back to back.** Bump
 `TERMS_VERSION` and the `termsVersion()` literal in one change (`src/lib/legal.test.ts`

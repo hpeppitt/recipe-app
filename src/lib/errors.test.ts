@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describeGenerationError, GENERATION_UNAVAILABLE } from './errors';
+import { describeGenerationError, GENERATION_UNAVAILABLE, RateLimitedError, rateLimitMessage } from './errors';
 
 describe('describeGenerationError', () => {
   // The key belongs to Firebase now, so a rejection is an operator problem. Offering
@@ -105,5 +105,22 @@ describe('describeGenerationError retryability', () => {
 
   it('does NOT offer retry when generation is unavailable at all', () => {
     expect(GENERATION_UNAVAILABLE.retryable).toBeFalsy();
+  });
+});
+
+describe('rateLimitMessage (RL-048)', () => {
+  it('names the action that hit its limit', () => {
+    expect(rateLimitMessage(new RateLimitedError('suggestion'))).toBe(
+      "You've sent a lot of suggestions recently. Try again in a while."
+    );
+    expect(rateLimitMessage(new RateLimitedError('reply'))).toBe(
+      "You've sent a lot of replies recently. Try again in a while."
+    );
+  });
+
+  it('is null for any other failure, so it never masks the generic message', () => {
+    expect(rateLimitMessage(new Error('Sending the reply timed out'))).toBeNull();
+    expect(rateLimitMessage(Object.assign(new Error('offline'), { code: 'unavailable' }))).toBeNull();
+    expect(rateLimitMessage(Object.assign(new Error('denied'), { code: 'permission-denied' }))).toBeNull();
   });
 });

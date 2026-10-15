@@ -1,3 +1,22 @@
+import type { RateLimitAction } from './rateLimit';
+
+/** Thrown before writing anything when a suggestion or reply would pass its cap (RL-048). */
+export class RateLimitedError extends Error {
+  readonly action: RateLimitAction;
+  constructor(action: RateLimitAction) {
+    super(`Rate limited: ${action}`);
+    this.name = 'RateLimitedError';
+    this.action = action;
+  }
+}
+
+/** The message for a rate-limited write, or null for any other failure. */
+export function rateLimitMessage(err: unknown): string | null {
+  if (!(err instanceof RateLimitedError)) return null;
+  const what = err.action === 'suggestion' ? 'suggestions' : 'replies';
+  return `You've sent a lot of ${what} recently. Try again in a while.`;
+}
+
 export interface FriendlyError {
   message: string;
   /** Which affordance to offer alongside the message. */

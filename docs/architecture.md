@@ -13,9 +13,9 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit]
     Dexie[(IndexedDB<br/>via Dexie)]
-    FS[(Firestore<br/>9 collections + messages)]
+    FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
     AILogic[Firebase AI Logic proxy<br/>holds the Gemini key]
     Gemini[Gemini 3.6 Flash]
@@ -138,7 +138,8 @@ Places designed to be replaced, worth knowing before you change them:
 - **`services/gemini.ts`** — the only Gemini caller. Swapping AI Logic for the Cloud
   Function proxy is a change to this file's transport, not to its callers.
 - **`lib/errors.ts`** (`describeGenerationError`) — the one place raw provider errors become
-  user-facing copy. New failure modes get mapped here, not at the call site.
+  user-facing copy. It also holds `RateLimitedError` and `rateLimitMessage` (RL-048), which
+  turn a write-limit hit into the suggestion or reply message. New failure modes get mapped here, not at the call site.
 - **`components/ui/ErrorBoundary.tsx`**: wraps the routes and the shell outlet; render errors
   show an EmptyState with "Back to library", report via `reportError`, and clear on route change.
 - **`console.error` call sites in hooks and services** — the intended hook points for the

@@ -90,6 +90,6 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
     every signed-in user, anonymous included, by uid. The policies do not mention it and are
     untrue until RL-058 (ready) ships. Confirm whether production builds set the variable.
 31. **clientErrors retention.** Privacy "Error reports": no limit today. RL-010 (needs-human).
-32. **Limits on suggestions and replies.** Privacy "Lawful bases". RL-048 (ready).
+32. **Limits on suggestions and replies.** Privacy "Lawful bases". RL-048 (built in the repo 2026-10-15; rules pending RL-051).
 33. **Pages exist.** All three documents assume they are reachable at `/terms`, `/privacy` and
     `/cookies`, and the Settings "Legal" section. Built as drafts in RL-045; still open for the author's check.
