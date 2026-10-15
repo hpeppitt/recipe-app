@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -15,7 +15,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { APP_NAME } from '../lib/constants';
+import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { pluralize } from '../lib/utils';
 import type { ScorableRecipe } from '../lib/search';
 import { buildFeed, filterFeed, type LibraryTab } from '../lib/library';
@@ -31,6 +31,17 @@ const TAB_OPTIONS = [
 export function LibraryPage() {
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<Filter>('all');
+  // Not persisted: a topic is a momentary lens, unlike the tab (RL-009).
+  const [tag, setTag] = useState<string | null>(null);
+  const tagRowRef = useRef<HTMLDivElement>(null);
+  // The Clear tag button unmounts, so hand focus back to the chip it cleared.
+  const clearTag = () => {
+    const prev = tag;
+    setTag(null);
+    Array.from(tagRowRef.current?.querySelectorAll('button') ?? [])
+      .find((b) => b.textContent === prev)
+      ?.focus();
+  };
   const [selectedTab, setSelectedTab] = useState<LibraryTab>(getLibraryTab);
   const { user, isConfigured } = useAuth();
   const { profile } = useOwnProfile();
@@ -61,7 +72,7 @@ export function LibraryPage() {
   const showFollowing = filter === 'following';
 
   const localRecords = useLocalLibrary();
-  const cloud = useCloudLibrary(tab === 'explore');
+  const cloud = useCloudLibrary(tab === 'explore', tag);
   const { recipes: followingRecipes, isLoading: followingLoading } = useFollowingRecipes(
     showFollowing ? followingIds : []
   );
@@ -91,6 +102,7 @@ export function LibraryPage() {
   // under a search or the favourites filter and the page says what it searched.
   const pagedExplore = tab === 'explore' && !showFollowing && !cloud.cloudError;
   const showLoadMore = pagedExplore && !isLoading && cloud.hasMore;
+  const tagActive = pagedExplore && tag !== null;
   const filtering = !!search.trim() || filter === 'favorites';
   const loadedCount = exploreFeed?.length ?? 0;
 
@@ -208,6 +220,19 @@ export function LibraryPage() {
       </header>
 
       <div className="p-4 space-y-3">
+        {tab === 'explore' && !showFollowing && (
+          <div ref={tagRowRef} role="group" aria-label="Filter by tag" className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+            {EXPLORE_TAGS.map((t) => (
+              <Chip
+                key={t}
+                label={t}
+                active={tag === t}
+                pressed={tag === t}
+                onClick={() => setTag(tag === t ? null : t)}
+              />
+            ))}
+          </div>
+        )}
         {/* A count confirms the search did something, and how much. Without it a
             filtered list is indistinguishable from a short library. */}
         {search && !isLoading && displayRecipes && (
@@ -262,11 +287,18 @@ export function LibraryPage() {
           <EmptyState
             icon="🔍"
             title="No results"
-            description={`Nothing matches "${search}" in titles, ingredients or tags.`}
+            description={`Nothing matches "${search}" in titles, ingredients or tags${tagActive ? `, within recipes tagged ${tag}` : ''}.`}
             action={
-              <Button variant="secondary" onClick={() => setSearch('')}>
-                Clear search
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button variant="secondary" onClick={() => setSearch('')}>
+                  Clear search
+                </Button>
+                {tagActive && (
+                  <Button variant="secondary" onClick={clearTag}>
+                    Clear tag
+                  </Button>
+                )}
+              </div>
             }
           />
         ) : showFollowing ? (
@@ -283,15 +315,33 @@ export function LibraryPage() {
         ) : filter === 'favorites' ? (
           <EmptyState
             icon="❤️"
-            title={showLoadMore ? 'No favorites loaded yet' : 'No favorites yet'}
+            title={showLoadMore ? 'No favorites loaded yet' : tagActive ? `No favorites tagged ${tag}` : 'No favorites yet'}
             description={
               showLoadMore
                 ? `No favorites in the ${loadedCount} ${pluralize(loadedCount, 'recipe')} loaded so far. Load more to look further.`
                 : 'Tap the heart on any recipe to keep it here.'
             }
             action={
-              <Button variant="secondary" onClick={() => setFilter('all')}>
-                Show all
+              <div className="flex flex-col gap-2">
+                <Button variant="secondary" onClick={() => setFilter('all')}>
+                  Show all
+                </Button>
+                {tagActive && (
+                  <Button variant="secondary" onClick={clearTag}>
+                    Clear tag
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        ) : tagActive ? (
+          <EmptyState
+            icon="🏷️"
+            title={`No recipes tagged ${tag} yet`}
+            description="Try another tag, or clear this one to see everything."
+            action={
+              <Button variant="secondary" onClick={clearTag}>
+                Clear tag
               </Button>
             }
           />

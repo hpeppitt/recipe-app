@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getAllRecipes } from '../db/recipes';
 import {
@@ -29,7 +29,7 @@ export function useLocalLibrary() {
  * Explore costs no Firestore reads. Pages already fetched are kept across tab
  * switches.
  */
-export function useCloudLibrary(enabled: boolean) {
+export function useCloudLibrary(enabled: boolean, tag: string | null = null) {
   const [cloudRecipes, setCloudRecipes] = useState<PublishedRecipe[] | null>(null);
   // Cursor pagination replaces a hard `limit(200)`: beyond 200 published recipes
   // the rest of the library was simply unreachable, and every visit re-read all
@@ -44,18 +44,25 @@ export function useCloudLibrary(enabled: boolean) {
   const [cloudError, setCloudError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [started, setStarted] = useState(false);
+  // Bumped on every first-page fetch so a response for an older tag or retry is ignored.
+  const requestId = useRef(0);
   if (enabled && !started && isFirebaseConfigured) setStarted(true);
 
   useEffect(() => {
     if (!started) return;
     let cancelled = false;
+    requestId.current += 1;
     setCloudRecipes(null);
     setCloudError(false);
+    setCursor(null);
+    setHasMore(false);
+    setLoadMoreError(false);
+    setLoadingMore(false);
     // Bounded: against an unreachable backend Firestore retries rather than
     // rejecting, so a plain .catch() never fires and the feed would sit silently
     // in a loading state forever. A timeout is treated as a failure.
     withTimeout(
-      getPublishedRecipesPage().catch((err) => {
+      getPublishedRecipesPage(null, undefined, tag).catch((err) => {
         console.error('Loading the shared library failed', err);
         reportError(err, 'load-library');
         return null;
@@ -72,7 +79,7 @@ export function useCloudLibrary(enabled: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [started, reloadKey]);
+  }, [started, reloadKey, tag]);
 
   /**
    * Append the next page.
@@ -86,19 +93,22 @@ export function useCloudLibrary(enabled: boolean) {
    */
   const loadMore = async () => {
     if (!isFirebaseConfigured || !hasMore || loadingMore || !cursor) return;
+    const id = requestId.current;
     setLoadingMore(true);
     setLoadMoreError(false);
     try {
-      const next = await getPublishedRecipesPage(cursor);
+      const next = await getPublishedRecipesPage(cursor, undefined, tag);
+      if (id !== requestId.current) return;
       setCloudRecipes((prev) => [...(prev ?? []), ...next.recipes]);
       setCursor(next.cursor);
       setHasMore(next.hasMore);
     } catch (err) {
+      if (id !== requestId.current) return;
       console.error('Loading more of the shared library failed', err);
       reportError(err, 'load-library-page');
       setLoadMoreError(true);
     } finally {
-      setLoadingMore(false);
+      if (id === requestId.current) setLoadingMore(false);
     }
   };
 

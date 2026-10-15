@@ -28,7 +28,7 @@ export function Chip({ label, onClick, active, className, pressed }: ChipProps) 
         // first and does not survive here: the filter row is `overflow-x-auto`,
         // which clips any expansion beyond the pill, so the extra area was
         // measurable but unclickable.
-        onClick && 'min-h-11',
+        onClick && 'min-h-11 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500',
         active
           ? 'bg-primary-600 text-white'
           : 'bg-surface-tertiary text-text-secondary hover:bg-border',

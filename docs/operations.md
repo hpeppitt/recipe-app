@@ -241,7 +241,10 @@ them; that is the author's call, not something to improvise at deploy time.) In 
 3. **Indexes (RL-018, RL-021)**: `firebase deploy --only firestore:indexes`, then wait until
    all three new indexes show READY in the console's index list: the two `suggestions`
    indexes (`recipeId` + `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` +
-   `createdAt`) and the `recipes` index (`createdBy.uid` ASC + `createdAt` DESC).
+   `createdAt`) and the `recipes` index (`createdBy.uid` ASC + `createdAt` DESC). RL-009 adds a
+   fourth, `recipes` `tags` ASC + `createdAt` DESC, in the same deploy; it only needs to be READY
+   before the client release that carries the Explore tag chips (without it a tapped chip shows
+   the Explore "Could not load" state).
 4. **The client release** via `/release` (`--only hosting`), carrying RL-040, RL-041, RL-015
    to RL-021, and RL-045, RL-047, RL-048 and RL-049 (so RL-046 is signed off first).
 5. **The rules**: `firebase deploy --only firestore:rules`, then diff again; the diff must be

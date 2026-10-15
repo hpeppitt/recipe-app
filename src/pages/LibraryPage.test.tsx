@@ -4,7 +4,7 @@ import { screen, fireEvent } from '@testing-library/react';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import { db } from '../db/database';
-import { STORAGE_KEYS } from '../lib/constants';
+import { STORAGE_KEYS, EXPLORE_TAGS } from '../lib/constants';
 import type { AppUser } from '../types/recipe';
 
 const getPage = vi.fn();
@@ -225,5 +225,91 @@ describe('LibraryPage My Recipes empty states under search', () => {
     expect(await screen.findByText('No results')).toBeInTheDocument();
     expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
     expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
+  });
+});
+
+describe('Explore tag chips', () => {
+  it('renders the curated tags on Explore only', async () => {
+    renderWithProviders(<LibraryPage />);
+    expect(screen.queryByRole('button', { name: EXPLORE_TAGS[0] })).not.toBeInTheDocument();
+    fireEvent.click(tab('Explore'));
+    await screen.findByText('Nothing published yet');
+    for (const t of EXPLORE_TAGS) expect(screen.getByRole('button', { name: t })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('passes the tag to the query, resets paging, and clears on a second tap', async () => {
+    renderWithProviders(<LibraryPage />);
+    fireEvent.click(tab('Explore'));
+    await screen.findByText('Nothing published yet');
+    expect(getPage).toHaveBeenLastCalledWith(null, undefined, null);
+
+    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
+    expect(await screen.findByText('No recipes tagged vegan yet')).toBeInTheDocument();
+    expect(getPage).toHaveBeenLastCalledWith(null, undefined, 'vegan');
+    expect(screen.getByRole('button', { name: 'vegan' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'dessert' }));
+    await screen.findByText('No recipes tagged dessert yet');
+    expect(screen.getByRole('button', { name: 'vegan' })).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tag' }));
+    expect(await screen.findByText('Nothing published yet')).toBeInTheDocument();
+    expect(getPage).toHaveBeenLastCalledWith(null, undefined, null);
+  });
+
+  it('returns focus to the cleared chip, and the empty states name the tag', async () => {
+    renderWithProviders(<LibraryPage />);
+    fireEvent.click(tab('Explore'));
+    await screen.findByText('Nothing published yet');
+    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
+    await screen.findByText('No recipes tagged vegan yet');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tag' }));
+    expect(screen.getByRole('button', { name: 'vegan' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
+    await screen.findByText('No recipes tagged vegan yet');
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'zzz' } });
+    expect(screen.getByText(/within recipes tagged vegan/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear tag' })).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
+    expect(screen.getByText('No favorites tagged vegan')).toBeInTheDocument();
+  });
+
+  it('Try again after a failed tag load keeps the tag', async () => {
+    renderWithProviders(<LibraryPage />);
+    fireEvent.click(tab('Explore'));
+    await screen.findByText('Nothing published yet');
+    getPage.mockRejectedValueOnce(new Error('down'));
+    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await screen.findByText('No recipes tagged vegan yet');
+    expect(getPage).toHaveBeenLastCalledWith(null, undefined, 'vegan');
+  });
+
+  it('hides the tag row under Following', async () => {
+    renderWithProviders(<LibraryPage />, { user: fakeUser });
+    fireEvent.click(tab('Explore'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Following' }));
+    expect(screen.queryByRole('button', { name: 'vegan' })).not.toBeInTheDocument();
+  });
+
+  it('ignores a Load more response that lands after the tag changed', async () => {
+    const cloud = (title: string) => ({ ...makeRecipe({ title }), favoriteCount: 0, viewCount: 0 });
+    let resolveOld: (v: unknown) => void = () => {};
+    getPage
+      .mockResolvedValueOnce({ recipes: [cloud('Untagged One')], cursor: {}, hasMore: true })
+      .mockReturnValueOnce(new Promise((r) => (resolveOld = r)))
+      .mockResolvedValueOnce({ recipes: [cloud('Vegan One')], cursor: null, hasMore: false });
+    renderWithProviders(<LibraryPage />);
+    fireEvent.click(tab('Explore'));
+    await screen.findByText('Untagged One');
+    fireEvent.click(screen.getByRole('button', { name: 'Load more recipes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
+    await screen.findByText('Vegan One');
+    resolveOld({ recipes: [cloud('Stale Page')], cursor: {}, hasMore: true });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByText('Stale Page')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more recipes' })).not.toBeInTheDocument();
   });
 });
