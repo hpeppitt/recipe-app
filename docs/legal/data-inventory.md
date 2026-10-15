@@ -116,7 +116,7 @@ noted. The operator can read everything in the Firebase console.
 | Self-service download | RL-056 (ready) | "Download my data" in Settings |
 | Self-service account deletion | RL-057 (needs-human) | "Delete my account" in Settings |
 | `clientErrors` TTL | RL-010 (needs-human) | A retention period (30 days suggested) on `receivedAt` |
-| Legal pages | RL-045 (ready), sign-off RL-046 (needs-human) | `/terms`, `/privacy`, `/cookies` render these drafts |
+| Legal pages | RL-045 (built as drafts), sign-off RL-046 (needs-human, still pending) | `/terms`, `/privacy`, `/cookies` render these drafts |
 
 Gaps no ticket closes yet, for the author: no retention limit on `notifications`, no control
 for a recipient to delete a notification, `recipe-app-previous-uids` never cleared, and the

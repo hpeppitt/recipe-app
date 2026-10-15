@@ -77,7 +77,7 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 25. **Self-service download not promised.** Privacy "Your rights". Only after RL-056 (ready).
 26. **Consent banner and Settings control.** Privacy "The short version", "Lawful bases",
     "Your rights" (withdrawing consent); Cookies "Local storage" (choice key) and "Your
-    choices" (banner copy and Settings Legal section). RL-052 (ready) and RL-045 (ready).
+    choices" (banner copy and Settings Legal section). RL-052 (ready). The Settings Legal section is built (RL-045, draft); still open for the author's check.
 27. **PostHog analytics.** Privacy "The short version", "Product analytics", "Who we share it
     with"; Cookies "Cookies". RL-054 (ready).
 28. **PostHog host, region and retention.** Privacy "Product analytics" and "International
@@ -90,4 +90,4 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 31. **clientErrors retention.** Privacy "Error reports": no limit today. RL-010 (needs-human).
 32. **Limits on suggestions and replies.** Privacy "Lawful bases". RL-048 (ready).
 33. **Pages exist.** All three documents assume they are reachable at `/terms`, `/privacy` and
-    `/cookies`, and the Settings "Legal" section. RL-045 (ready).
+    `/cookies`, and the Settings "Legal" section. Built as drafts in RL-045; still open for the author's check.

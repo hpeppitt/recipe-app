@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
+import { LegalLinks } from './LegalLinks';
 import { Input } from '../ui/Input';
 
 /**
@@ -127,6 +128,7 @@ export function EmailLinkingForm({
         </Button>
       </div>
       {error && <p className="text-xs text-danger-600">{error}</p>}
+      <LegalLinks />
     </div>
   );
 }
