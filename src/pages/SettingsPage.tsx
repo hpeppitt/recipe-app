@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
+import { exportAllFavorites } from '../db/favorites';
+import { fetchCloudDataForExport } from '../services/firestore';
+import { assembleDataExport, VERIFY_NOTE } from '../lib/dataExport';
 import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
@@ -19,6 +22,8 @@ export function SettingsPage() {
   // Export wrote a file and said nothing, so on a phone — where the download
   // lands out of sight — it was indistinguishable from a dead button.
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [dataStatus, setDataStatus] = useState<{ busy?: boolean; failed?: boolean; message: string } | null>(null);
+  const downloading = useRef(false);
   const { theme, setTheme } = useTheme();
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
@@ -40,6 +45,60 @@ export function SettingsPage() {
         ? `Exported ${recipes.length} ${pluralize(recipes.length, 'recipe')} to your downloads.`
         : 'There are no recipes on this device to export.'
     );
+  };
+
+  // Anonymous and signed-out users have no readable cloud data (rules), so they get this device only.
+  const handleDownloadData = async () => {
+    // A ref, not the busy state: two taps in one frame both see the old state.
+    if (downloading.current) return;
+    downloading.current = true;
+    setDataStatus({ busy: true, message: 'Preparing...' });
+    try {
+      // Let "Preparing..." paint before the synchronous work below.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const cloud = user && !user.isAnonymous;
+      const [recipes, bookmarks, cloudInput] = await Promise.all([
+        exportAllRecipes(),
+        exportAllFavorites(),
+        cloud ? fetchCloudDataForExport(user.uid, user.emailVerified) : undefined,
+      ]);
+      const out = assembleDataExport({
+        uid: user?.uid ?? 'local',
+        exportedAt: new Date().toISOString(),
+        local: { recipes, bookmarks },
+        cloud: cloudInput,
+      });
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recipe-lab-data-${out.exportedAt.split('T')[0]}.json`;
+      a.click();
+      // Not at once: some browsers start the download after click() returns.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const everyCloudReadFailed = !!cloudInput && Object.values(cloudInput).every((sec) => 'error' in sec);
+      if (everyCloudReadFailed) {
+        setDataStatus({
+          failed: true,
+          message: out.errors.some((e) => e.message === VERIFY_NOTE)
+            ? `Your online data could not be loaded, so the file only contains what is on this device. ${VERIFY_NOTE}, or try again later.`
+            : 'Your online data could not be loaded, so the file only contains what is on this device. Try again later.',
+        });
+      } else if (out.errors.length > 0) {
+        const parts = [...new Set(out.errors.map((e) => e.section))].join(', ');
+        const verify = out.errors.some((e) => e.message === VERIFY_NOTE);
+        const other = out.errors.some((e) => e.message !== VERIFY_NOTE);
+        setDataStatus({
+          message: `Your data was downloaded, but some of your online data (${parts}) could not be included.${verify ? ` ${VERIFY_NOTE}.` : ''}${other ? ' Try again later for the rest.' : ''}`,
+        });
+      } else {
+        setDataStatus({ message: 'Your data was downloaded.' });
+      }
+    } catch {
+      setDataStatus({ failed: true, message: "Couldn't prepare your data. Please try again." });
+    } finally {
+      downloading.current = false;
+    }
   };
 
   const handleImport = () => {
@@ -159,6 +218,24 @@ export function SettingsPage() {
             {exportStatus && (
               <p role="status" className="text-xs text-text-secondary">
                 {exportStatus}
+              </p>
+            )}
+            <Button variant="secondary" fullWidth disabled={dataStatus?.busy} onClick={handleDownloadData}>
+              {dataStatus?.busy
+                ? 'Preparing...'
+                : user && !user.isAnonymous
+                  ? 'Download my data'
+                  : 'Download my data (this device only)'}
+            </Button>
+            <p className="text-xs text-text-tertiary">
+              A full copy of your data for your records. To move recipes between devices, use Export All Recipes.
+            </p>
+            {dataStatus && (
+              <p
+                role={dataStatus.failed ? 'alert' : 'status'}
+                className={`text-xs ${dataStatus.failed ? 'text-danger-700 dark:text-danger-300' : 'text-text-secondary'}`}
+              >
+                {dataStatus.message}
               </p>
             )}
             <Button variant="secondary" fullWidth onClick={handleImport}>

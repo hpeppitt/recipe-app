@@ -11,6 +11,8 @@ import {
   orderBy,
   limit,
   startAfter,
+  type QueryConstraint,
+  type CollectionReference,
   type QueryDocumentSnapshot,
   type DocumentData,
   onSnapshot,
@@ -39,6 +41,8 @@ import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
+import { VERIFY_NOTE } from '../lib/dataExport';
+import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, Section } from '../lib/dataExport';
 import { reportError } from './telemetry';
 
 // --- Recipes ---
@@ -1214,4 +1218,168 @@ export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRec
   }
   results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   return results;
+}
+
+// --- Data export (RL-056) ---
+//
+// Read only. Every query below filters on the field the read rule checks, because a
+// list is authorised from its filters and never sees document data (docs/decisions.md):
+// favorites uid, notifications recipientUid, follows followerId and followingId (two
+// queries), suggestions suggestedBy.uid and recipeOwnerId (two queries), messages by
+// parent path. Recipes and profiles are public. No orderBy, so no composite index.
+
+const EXPORT_SECTION_TIMEOUT_MS = 30000;
+const EXPORT_PAGE_SIZE = 500;
+/** Per query. Reaching it is reported in the file's errors, never silent. */
+const EXPORT_MAX_ROWS = 10000;
+/** Reply threads read at once, so a long suggestion list does not open hundreds of queries together. */
+const EXPORT_THREAD_CONCURRENCY = 10;
+
+/** Firestore Timestamps become ISO strings, at any depth in plain objects and arrays; everything else is as stored. */
+function exportValue(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(exportValue);
+  if (v && typeof v === 'object') {
+    if (typeof (v as Timestamp).toDate === 'function') return (v as Timestamp).toDate().toISOString();
+    if (Object.getPrototypeOf(v) === Object.prototype) {
+      return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, exportValue(x)]));
+    }
+  }
+  return v;
+}
+const exportFields = (data: DocumentData): DocumentData => exportValue(data) as DocumentData;
+
+const exportDoc = (d: QueryDocumentSnapshot<DocumentData>): CloudDoc => ({ id: d.id, ...exportFields(d.data()) });
+
+async function readAllDocs(
+  col: CollectionReference<DocumentData>,
+  ...constraints: QueryConstraint[]
+): Promise<{ docs: QueryDocumentSnapshot<DocumentData>[]; truncated: boolean }> {
+  const docs: QueryDocumentSnapshot<DocumentData>[] = [];
+  for (;;) {
+    const last = docs[docs.length - 1];
+    const atCap = docs.length >= EXPORT_MAX_ROWS;
+    const snap = await getDocs(
+      query(col, ...constraints, ...(last ? [startAfter(last)] : []), limit(atCap ? 1 : EXPORT_PAGE_SIZE))
+    );
+    // At the cap, one more row is a peek: exactly EXPORT_MAX_ROWS rows is complete, not truncated.
+    if (atCap) return { docs, truncated: snap.docs.length > 0 };
+    docs.push(...snap.docs);
+    if (snap.docs.length < EXPORT_PAGE_SIZE) return { docs, truncated: false };
+  }
+}
+
+const truncationWarning = (what: string) =>
+  `Stopped after ${EXPORT_MAX_ROWS} ${what}; the file is incomplete. Ask for an operator export for the rest.`;
+
+function mergeById<T extends { id: string }>(lists: T[][]): T[] {
+  return [...new Map(lists.flat().map((r) => [r.id, r])).values()];
+}
+
+/** Runs one section's read. A rejection or timeout becomes that section's error, never a throw. */
+async function exportSection<T>(
+  label: string,
+  read: () => Promise<Section<T>>,
+  /** What to return if the read is still running at the deadline, instead of discarding what it already has. */
+  onTimeout?: () => Section<T> | null
+): Promise<Section<T>> {
+  const guarded = read().catch((err): Section<T> => {
+    console.error(`Data export: reading ${label} failed`, err);
+    reportError(err, 'data-export');
+    const code = (err as { code?: string } | null)?.code;
+    return { error: `${code ?? (err instanceof Error ? err.message : String(err))}` };
+  });
+  return withTimeout(guarded, EXPORT_SECTION_TIMEOUT_MS, null).then(
+    (r) => r ?? onTimeout?.() ?? { error: `Reading ${label} timed out` }
+  );
+}
+
+/** Runs several queries for one section; keeps the rows of those that worked and says so for those that did not. */
+async function readMerged<T extends { id: string }>(
+  what: string,
+  reads: Array<() => Promise<{ rows: T[]; truncated: boolean }>>
+): Promise<Section<T[]>> {
+  const results = await Promise.allSettled(reads.map((r) => r()));
+  const ok = results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const failed = results.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []));
+  if (failed.length && !ok.length) throw failed[0];
+  const warnings = [
+    ...(failed.length ? [`${failed.length} of ${results.length} reads failed, so the ${what} may be incomplete`] : []),
+    ...(ok.some((r) => r.truncated) ? [truncationWarning(what)] : []),
+  ];
+  return { data: mergeById(ok.map((r) => r.rows)), ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
+}
+
+/**
+ * Everything the signed-in user can read about themselves, for the "Download my data" file.
+ * Each section is read independently and bounded by a timeout; a failure is returned as
+ * that section's `error` and the rest still arrive. Read only. Never rejects.
+ */
+export async function fetchCloudDataForExport(uid: string, emailVerified = true): Promise<CloudInput> {
+  const fs = firestore;
+  if (!fs) {
+    const error: Section<never> = { error: 'Firebase is not configured' };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, writeWindows: error };
+  }
+  const byField = (col: string, field: string) => async () => {
+    const r = await readAllDocs(collection(fs, col), where(field, '==', uid));
+    return { rows: r.docs.map(exportDoc), truncated: r.truncated };
+  };
+
+  let partialSuggestions: Section<CloudSuggestion[]> | null = null;
+  const readSuggestions = async (): Promise<Section<CloudSuggestion[]>> => {
+    const base = await readMerged('suggestions', [byField('suggestions', 'suggestedBy.uid'), byField('suggestions', 'recipeOwnerId')]);
+    if ('error' in base) return base;
+    const rows = base.data as unknown as Omit<CloudSuggestion, 'messages'>[];
+    const out = rows.map((r) => ({ ...r, messages: [] as CloudSuggestion['messages'] }));
+    const warnings = base.warning ? [base.warning] : [];
+    // Kept current, so a timeout returns the rows and threads read so far rather than nothing.
+    partialSuggestions = { data: out, warning: [...warnings, 'Reading suggestions timed out; some replies may be missing'].join('; ') };
+    let failedThreads = 0;
+    let truncatedThread = false;
+    for (let i = 0; i < rows.length; i += EXPORT_THREAD_CONCURRENCY) {
+      const batch = await Promise.allSettled(
+        rows.slice(i, i + EXPORT_THREAD_CONCURRENCY).map((s) => readAllDocs(collection(fs, 'suggestions', s.id, 'messages')))
+      );
+      batch.forEach((t, j) => {
+        if (t.status === 'rejected') failedThreads++;
+        else {
+          out[i + j] = { ...out[i + j], messages: t.value.docs.map(exportDoc) as unknown as CloudSuggestion['messages'] };
+          truncatedThread ||= t.value.truncated;
+        }
+      });
+      partialSuggestions = { data: out.map((x) => ({ ...x })), warning: [...warnings, 'Reading suggestions timed out; some replies may be missing'].join('; ') };
+    }
+    if (failedThreads) warnings.push(`${failedThreads} reply thread(s) could not be read and are missing their messages`);
+    if (truncatedThread) warnings.push(truncationWarning('replies in a thread'));
+    return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
+  };
+
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, writeWindows] = await Promise.all([
+    exportSection('profile', async () => {
+      const snap = await getDoc(doc(fs, 'profiles', uid));
+      return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
+    }),
+    exportSection<CloudDoc[]>('recipes', () => readMerged('recipes', [byField('recipes', 'createdBy.uid')])),
+    exportSection<CloudFavorite[]>('favorites', () => readMerged('favorites', [byField('favorites', 'uid')]) as Promise<Section<CloudFavorite[]>>),
+    exportSection<CloudFollow[]>('follows', () =>
+      readMerged('follows', [byField('follows', 'followerId'), byField('follows', 'followingId')]) as Promise<Section<CloudFollow[]>>
+    ),
+    // Suggestions need a verified email under the rules; say so plainly instead of surfacing a denial.
+    emailVerified ? exportSection<CloudSuggestion[]>('suggestions', readSuggestions, () => partialSuggestions) : Promise.resolve<Section<CloudSuggestion[]>>({ error: VERIFY_NOTE }),
+    exportSection('notifications', () =>
+      readMerged('notifications', [byField('notifications', 'recipientUid')]) as Promise<Section<AppNotification[]>>
+    ),
+    exportSection('termsAcceptance', async () => {
+      const snap = await getDoc(doc(fs, 'termsAcceptance', uid));
+      return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
+    }),
+    // Ids are exact and a missing document reads as absent, never denied (RL-026).
+    exportSection<CloudDoc[]>('writeWindows', async () => {
+      const snaps = await Promise.all(
+        (['suggestion', 'reply', 'notification', 'recipe'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
+      );
+      return { data: snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...exportFields(s.data()!) }) as CloudDoc) };
+    }),
+  ]);
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, writeWindows };
 }
