@@ -1,0 +1,165 @@
+# Data inventory
+
+What Recipe Lab stores, where, and who can read it. This is the factual basis for the
+draft policies in `src/content/legal/` (RL-044). Every row in "Today" was checked against
+the code on 2026-10-15; the file in the last column is where the write happens. Anything
+that could not be checked in the repo is listed in [claims-to-verify.md](claims-to-verify.md).
+
+Three sections, kept apart on purpose:
+
+1. **Today**: what the code on `main` does now.
+2. **Planned**: what changes before release, and which ticket delivers it. The policies are
+   written for that release state, with every dependent statement marked
+   `[DEPENDS ON RL-0xx]`.
+3. **Corrections to the groomer's inventory** in RL-044.
+
+## 1. Today
+
+"Clearing browser data" below means the user clearing site data for the app in their
+browser. "Delete Recipes on This Device" is the Settings control (`clearAllRecipes` in
+`src/db/recipes.ts`): it empties the Dexie `recipes` and `favorites` tables and nothing else.
+
+### On the device: IndexedDB
+
+| Item | Where | Contents | Who can read it | Retention | Written by |
+|---|---|---|---|---|---|
+| Recipes | IndexedDB `RecipeAppDB`, table `recipes` | Full `Recipe` (`src/types/recipe.ts`): title, description, ingredients, instructions, notes, times, servings, difficulty, tags, emoji, nutrition estimate, the originating `prompt`, `chatHistory` (every message of the generation conversation, each assistant message carrying a recipe snapshot), `createdBy` `{ uid, displayName }`, `collaborators` (uid and display name), tree ids, timestamps | Only code running on this device in this browser | Until the user deletes the recipe, uses "Delete Recipes on This Device", or clears browser data | `src/db/recipes.ts` (`createRecipe`, `updateRecipe`, `importRecipes`, `migrateRecipesUid`) |
+| Bookmarks (local favourites) | IndexedDB `RecipeAppDB`, table `favorites` | `{ uid, recipeId, createdAt }` | This device only | Until unfavourited, "Delete Recipes on This Device", or clearing browser data | `src/db/favorites.ts` |
+| Firebase Auth session | IndexedDB `firebaseLocalStorageDb` (Firebase Auth SDK default persistence; name confirmed in `node_modules/@firebase/auth`) | The signed-in Firebase user: uid, email (if any), display name, and the tokens that keep the session alive | This device; sent to Google with Auth and Firestore requests | Until sign-out or clearing browser data | Firebase Auth SDK, started by `getAuth` in `src/services/firebase.ts` |
+| App Check token | IndexedDB `firebase-app-check-database` (name confirmed in `node_modules/@firebase/app-check`) | A short-lived App Check token from the reCAPTCHA v3 attestation | This device; sent with Firebase AI Logic requests | Refreshed automatically (`isTokenAutoRefreshEnabled: true`); lifetime set by Google, not verified | `initializeAppCheck` in `src/services/firebase.ts`, only when `VITE_RECAPTCHA_SITE_KEY` is set |
+| Firebase heartbeat | IndexedDB `firebase-heartbeat-database` (`node_modules/@firebase/app`, `MAX_NUM_STORED_HEARTBEATS = 30`) | One entry per day: the date and the Firebase SDK user-agent string | This device; summarised in a header the SDK sends to Firebase services | Rolling, at most 30 daily entries | Firebase App SDK, from `initializeApp` |
+| Firebase Installations | IndexedDB `firebase-installations-database` | An installation id used by GA4 | This device and Google | Not verified | Firebase Analytics SDK only (only `@firebase/analytics` imports installations), so present only when GA4 runs; removed by RL-058 |
+
+### On the device: localStorage
+
+All keys except `emailForSignIn` are in `STORAGE_KEYS` (`src/lib/constants.ts`) and written
+through `src/services/storage.ts`. None is cleared by "Delete Recipes on This Device".
+
+| Key | Contents | Retention | Written by |
+|---|---|---|---|
+| `recipe-app-theme` | `system`, `light` or `dark` | Until changed or browser data cleared | `setTheme`, from `hooks/useTheme.ts` |
+| `recipe-lab-unit-system` | `original`, `metric` or `imperial` | Same | `setUnitSystem`, from Settings |
+| `recipe-app-library-tab` | The last Library tab chosen | Same | `setLibraryTab` |
+| `recipe-app-intro-state` | Which one-time explainers were dismissed and how many recipes were opened (`lib/onboarding.ts`) | Same | `setIntroState` |
+| `recipe-app-device-id` | A random id generated on first load when Firebase is configured | Same. **Never read for any purpose and never sent anywhere** (only call: `getDeviceId()` in `AuthContext`, result unused) | `getDeviceId` |
+| `recipe-app-anonymous-uid` | The anonymous account's Firebase uid | Removed on sign-out and when an email account signs in | `setAnonymousUid`, from `AuthContext` |
+| `recipe-app-previous-uids` | JSON list of every uid that has signed in on this device, anonymous and email | **Never cleared by the app**; only by clearing browser data. Never sent anywhere | `addPreviousUid`, from `AuthContext` |
+| `recipe-app-email-for-linking` | The email address an anonymous user asked to add | Removed when the link completes successfully. Stays if the link is never opened or fails | `sendEmailLinkForLinking` in `services/firebase.ts` via `setEmailForLinking` |
+| `emailForSignIn` | The email address a signed-out visitor asked to sign in with | Same as above | `sendEmailSignInLink` in `services/firebase.ts`, writing `localStorage` directly |
+| `recipe-app-stranded-identity` | `{ oldUid, oldDisplayName, recipeCount, at }` for the stranded-recipe notice | Removed when the notice is dismissed | `setStrandedIdentity`, from `AuthContext` |
+
+### On the device: other
+
+| Item | Where | Contents | Notes |
+|---|---|---|---|
+| Offline app shell | Cache Storage (Workbox precache, `vite.config.ts`) | The app's own HTML, JS, CSS and icons | No user data. No runtime caching of Firestore, Auth or AI calls |
+| Cookies | none set by the app | none | No `document.cookie` anywhere in `src/`. Third-party scripts can set their own: reCAPTCHA (Google) today, GA4 when configured. Their names and lifetimes are not in this repo |
+
+### In the cloud: Firebase Authentication
+
+| Item | Contents | Who can read it | Retention | Written by |
+|---|---|---|---|---|
+| Firebase Auth user | uid; email address (email accounts); display name (generated from the uid by `lib/identity.ts` for anonymous accounts, user-chosen otherwise); whether anonymous; whether the email is verified; sign-in metadata kept by Firebase | The user's own client; the operator in the Firebase console | Until the operator deletes it. No self-service deletion. Anonymous users are not cleaned up by any code here | `services/firebase.ts` (`signInAnonymously`, `sendSignInLinkToEmail`, `signInWithEmailLink`, `linkWithCredential`, `updateProfile`) |
+| Sign-in emails | Firebase Auth sends the passwordless link to the address entered | Google, the user's mail provider | Not controlled by the app | `sendSignInLinkToEmail` |
+
+### In the cloud: Cloud Firestore (project `recipe-lab-3832b`)
+
+Read rules are in `firestore.rules`; every client write needs a verified email except the two
+noted. The operator can read everything in the Firebase console.
+
+| Collection | Contents | Who can read it | Retention | Written by |
+|---|---|---|---|---|
+| `recipes/{id}` | Everything in the local recipe **except `chatHistory`**: content, the originating `prompt`, `createdBy` uid and display name, `collaborators` uid and display name, `favoriteCount`, `viewCount`, timestamps | **Anyone, including signed-out visitors** | Until the owner deletes it from the recipe page. "Delete Recipes on This Device" does not touch it (product decision 5) | `publishRecipe` in `services/firestore.ts`. **Called automatically on every save** of a generated recipe (`hooks/useRecipeChat.ts`), on edit when a copy exists, and on share |
+| `recipes` `viewCount` | A raw +1 per page view, no identity stored | Anyone | With the recipe | `incrementRecipeViews`; open to signed-out visitors |
+| `profiles/{uid}` | `displayName`, `photoType`, `photoEmoji`, `photoBgColor`, `photoURL` (an uploaded avatar as a 128x128 JPEG `data:` URL, at most 100000 characters), `recipeCount`, `followerCount`, `followingCount`, `createdAt`. No email | **Anyone** | Indefinite. The rules allow the owner to delete it but no UI does | `createOrUpdateProfile` (from `AuthContext.ensureProfile`, `hooks/useProfile.ts`, `AvatarEditor`) |
+| `favorites/{uid}_{recipeId}` | `uid`, `recipeId`, `recipeOwnerId`, `createdAt` | The owner only | Until unfavourited | `addCloudFavorite`, `pushLocalFavoritesToCloud` |
+| `follows/{a}_{b}` | `followerId`, `followingId`, `followerDisplayName`, `createdAt` | The two parties | Until unfollowed | `followUser` |
+| `suggestions/{id}` | `recipeId`, `recipeOwnerId`, `recipeTitle`, `recipeEmoji`, `suggestedBy` uid and display name, `message` (free text, no length cap), `status`, `createdAt` | The suggester and the recipe owner | **Indefinite. Nobody can delete one** (`allow delete: if false`) | `createSuggestion`, `updateSuggestionStatus` |
+| `suggestions/{id}/messages/{id}` | `fromUid`, `fromDisplayName`, `text`, `createdAt` | The two parties | **Indefinite. Immutable, no delete** | `addSuggestionMessage` |
+| `notifications/{id}` | `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoji`, `fromUid`, `fromDisplayName`, `message` (at most 500 UTF-16 units of the suggestion or reply text), `read`, `createdAt` | The recipient | **Indefinite. No retention limit.** The rules let the recipient delete, but the app has no control that does; the sender can never delete | `addCloudFavorite`, `createSuggestion`, `addSuggestionMessage`, `updateSuggestionStatus`, `followUser` (all fire-and-forget) |
+| `clientErrors/{id}` | `source`, `message` (500 chars), `stack` (2000 chars), `route` (path only, no query or hash), `context` tag, `at` (client time), `uid` (or null when signed out), `receivedAt` (server time), `userAgent` (first 300 chars) | **No client.** The operator in the console | **Indefinite. No retention limit yet** (RL-010, `needs-human`) | `reportError` in `services/telemetry.ts`; open to signed-out visitors; at most 10 per session |
+| `rateLimits/{uid}` | Would hold a per-uid generation counter | No client | Not written today | Only the **undeployed** `generateRecipe` Cloud Function (`functions/src/index.ts`). There is no per-account rate limit on generation today |
+
+### Data sent to other services today
+
+| Service | What is sent | When | Code |
+|---|---|---|---|
+| Firebase Hosting (Google) | Ordinary web requests for the app's files | Every visit | `firebase.json` `hosting` |
+| Firebase Authentication (Google) | Email address, auth tokens | Sign-in, link, session refresh | `services/firebase.ts` |
+| Cloud Firestore (Google) | Everything in the Firestore table above | Normal use | `services/firestore.ts`, `services/telemetry.ts` |
+| Firebase AI Logic, Gemini Developer API backend (Google), model `gemini-3.6-flash` | The system instruction, every message the user types in the session and the conversation so far (the SDK chat keeps history), and for a variation the parent recipe's content as JSON. No uid, email or display name is put in the prompt by app code | Each generation turn | `services/gemini.ts` (`GoogleAIBackend`) |
+| App Check with reCAPTCHA v3 (Google) | Whatever Google's reCAPTCHA v3 script collects from the browser to score it. Not visible in this repo | On load when `VITE_RECAPTCHA_SITE_KEY` is set | `services/firebase.ts` |
+| Google Analytics 4 (Google) | Events `sign_in` (method), `sign_out`, `recipe_created`, `recipe_updated`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited` (recipe id), `suggestion_submitted` (recipe id), `suggestion_reviewed` (suggestion id, action), `profile_updated` (field), `user_followed`, `user_unfollowed` (**the other user's uid**). The GA4 User-ID is set to the Firebase uid of **every** signed-in user, anonymous included. No consent gate | Only when `VITE_FIREBASE_MEASUREMENT_ID` is set at build time. Whether production sets it is not visible in the repo | `services/analytics.ts`, `getAnalytics` in `services/firebase.ts`. Removed by RL-058 |
+| Share links | A `/shared#r=...` link carries the recipe content and `createdBy` uid and display name compressed in the URL hash. The hash is not sent to the server; it goes wherever the user pastes the link | When a recipe is shared without a cloud copy | `lib/share.ts` |
+
+### Rights the app can honour itself today
+
+- **Export**: "Export All Recipes" in Settings downloads the local Dexie `recipes` table as JSON
+  (`exportAllRecipes`). It does not include local bookmarks or any cloud data.
+- **Deletion**: per-recipe delete (local subtree, then the cloud copies the user owns);
+  unfavourite; unfollow; "Delete Recipes on This Device" (local `recipes` and `favorites`).
+- **Correction**: display name and avatar on the profile; editing one's own recipes.
+- **Not possible in the app**: deleting the account, the profile, suggestions, replies,
+  notifications (sent or received), error reports, or the Auth user; exporting cloud data.
+
+## 2. Planned before release
+
+| Change | Ticket (status on 2026-10-15) | Effect on this inventory |
+|---|---|---|
+| GA4 removed | RL-058 (ready) | GA4 events, the GA4 User-ID and `firebase-installations-database` go away. `VITE_FIREBASE_MEASUREMENT_ID` removed |
+| Consent banner and Settings control | RL-052 (ready) | New `STORAGE_KEYS` entry holding `{ analytics, at, version }` in localStorage. Leftover `_ga` cookies deleted once |
+| PostHog project, host and settings | RL-053 (needs-human) | Host (EU recommended), IP handling and data retention chosen by the author and recorded |
+| PostHog product analytics | RL-054 (ready) | Events go to PostHog only after opt-in, verified users identified by uid only, anonymous users not identified. `posthog-js` keeps its own cookie or localStorage entry (names not known until it ships) |
+| Terms acceptance record | RL-047 (ready) | Owner-only `termsAcceptance/{uid}` with `version`, `acceptedAt`, `recordedAt`, plus a `STORAGE_KEYS` entry holding the pending acceptance |
+| Per-user limits on suggestions and replies | RL-048 (ready) | New `writeWindows/{uid}_{action}` counters, never deleted |
+| Operator data-request runbook | RL-055 (ready) | Export and erasure of one uid by the operator on email request; suggestions and replies on other people's recipes are anonymised, not deleted |
+| Self-service download | RL-056 (ready) | "Download my data" in Settings |
+| Self-service account deletion | RL-057 (needs-human) | "Delete my account" in Settings |
+| `clientErrors` TTL | RL-010 (needs-human) | A retention period (30 days suggested) on `receivedAt` |
+| Legal pages | RL-045 (ready), sign-off RL-046 (needs-human) | `/terms`, `/privacy`, `/cookies` render these drafts |
+
+Gaps no ticket closes yet, for the author: no retention limit on `notifications`, no control
+for a recipient to delete a notification, `recipe-app-previous-uids` never cleared, and the
+email-for-link keys kept when a link is never opened.
+
+## 3. Corrections to the groomer's inventory
+
+The ticket's starting inventory was checked line by line. What changed:
+
+1. **localStorage keys.** `STORAGE_KEYS` also holds `LIBRARY_TAB` (`recipe-app-library-tab`),
+   which the list omitted. The rest of the list is right.
+2. **Device id.** Listed as stored, which is true, but it is never read for a purpose and never
+   leaves the device. Stated so the policy does not overstate it.
+3. **Previous uids.** Never cleared by the app, including on sign-out. Not stated before.
+4. **Email-for-link keys.** Both are removed only when a link completes successfully, so a
+   link never opened leaves the address in localStorage.
+5. **Firebase IndexedDB stores.** Named exactly: `firebaseLocalStorageDb` (Auth),
+   `firebase-app-check-database`, and `firebase-heartbeat-database`, which the list missed.
+   Installations (`firebase-installations-database`) is used only by GA4, so it leaves with
+   RL-058. Firestore keeps no IndexedDB cache: the app uses `getFirestore` with no persistence.
+6. **Cache Storage.** The Workbox offline shell was missing. It holds no user data.
+7. **Publishing is automatic.** Saving a generated recipe as a verified user publishes it
+   (`hooks/useRecipeChat.ts`); it is not a separate opt-in. The policies say so.
+8. **Published recipes also carry `collaborators`** (uid and display name of approved
+   suggesters), not only `createdBy`.
+9. **Follows store `followerDisplayName`**, and suggestions store `recipeTitle` and the
+   suggester's display name. Notifications copy up to 500 units of a suggestion or reply.
+10. **clientErrors fields.** Also `source`, `context` and `at`. The 300-character user agent,
+    uid, message, stack and route are correct; the route never includes the query or hash.
+11. **Notifications.** The list said users cannot delete notifications they sent. True, and
+    also: recipients have no control to delete the ones they received, although the rules
+    allow it.
+12. **Profiles.** The rules let the owner delete their own profile, but no UI does. The
+    profile holds no email address.
+13. **"Clear All Data"** is now labelled "Delete Recipes on This Device" in Settings. It clears
+    local recipes **and** local bookmarks, and no localStorage keys.
+14. **Export** covers local recipes only, not local bookmarks either.
+15. **GA4 is live today when configured**, without consent, and sets the GA4 User-ID to the uid
+    of every signed-in user including anonymous ones. Its events include another user's uid
+    (`target_uid`). RL-058 removes it; the policies are written for after that.
+16. **Abuse limits.** The only per-account generation rate limit is in the undeployed Cloud
+    Function, so no per-account limit exists today. Today's abuse control on the AI path is
+    App Check with reCAPTCHA v3. Per-user limits on suggestions and replies are RL-048.
+17. **`SUPPORT_EMAIL` exists** as a constant in `src/lib/constants.ts`, so the drafts use it
+    rather than a placeholder. Its comment says to change it before inviting anyone whose mail
+    should not reach that address.

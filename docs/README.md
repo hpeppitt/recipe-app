@@ -15,6 +15,8 @@ is the only mechanism that keeps documentation true.
 | [decisions.md](decisions.md) | Why is it like this? What was tried and rejected? |
 | [agent-workflow.md](agent-workflow.md) | How is it developed? The autonomous loop, the two human touchpoints, which model does which job, what agents may decide alone. |
 | [tech-stack-review.md](tech-stack-review.md) | Proposal (2026-10-13): is Firebase + Gemini still the right stack for sharing with friends at hobby cost? Awaiting the author's decision, RL-001. |
+| [legal/data-inventory.md](legal/data-inventory.md) | What personal data is stored where, who can read it and for how long, today and after the planned privacy tickets. The basis for the draft policies in `src/content/legal/`. |
+| [legal/claims-to-verify.md](legal/claims-to-verify.md) | What the draft Terms, Privacy and Cookie policies say that the author must confirm before they go live (RL-046). |
 
 Two documents sit outside `docs/` on purpose:
 
@@ -41,6 +43,7 @@ A knowledgebase that lies is worse than none. What updates when:
 | A module boundary, service, or route | `architecture.md` |
 | `src/db/database.ts`, `firestore.rules`, `firestore.indexes.json`, or a stored type in `src/types/` | `data-model.md` |
 | An npm script, env var, or deploy step | `operations.md` |
+| What is stored, sent to a third party, or kept for how long | `legal/data-inventory.md`, and the policy text in `src/content/legal/` (bump its `lastUpdated`) |
 | Anything where the *reasoning* matters, or you reject an approach | `decisions.md` |
 | A skill, an agent, a ticket field or status, or the dev process | `agent-workflow.md` and `../backlog/README.md` |
 | Anything a user would notice, at release time | `CHANGELOG.md` |

@@ -15,7 +15,7 @@ flowchart TD
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
     Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration]
     Dexie[(IndexedDB<br/>via Dexie)]
-    FS[(Firestore<br/>7 collections)]
+    FS[(Firestore<br/>8 collections)]
     Auth[Firebase Auth<br/>anonymous + email link]
     AILogic[Firebase AI Logic proxy<br/>holds the Gemini key]
     Gemini[Gemini 3.6 Flash]
@@ -48,6 +48,9 @@ those calls can throw. What that does to the email-link flow was not verified en
 
 The rule that keeps this honest: nothing in `lib/` imports from `services/` or `hooks/`.
 That is why `lib/` is testable in node with no mocks beyond `fake-indexeddb`.
+
+**`content/`** holds static text as typed data: `content/legal/` has the draft Terms, Privacy
+and Cookie policies (RL-044), imported by `lib/legal.ts`. It imports only from `lib/`.
 
 ## Dual storage
 

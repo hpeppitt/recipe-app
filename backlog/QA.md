@@ -19,6 +19,15 @@ both themes:
 
 ## Since the last release
 
+### RL-044 A grounded data inventory and draft Terms of Service, Privacy Policy and Cookie Policy exist in the repo
+
+- Nothing user-visible changes. The drafts are not rendered anywhere until RL-045, and must not be released before your sign-off in RL-046.
+- Read `docs/legal/claims-to-verify.md` first (33 items), then the three drafts in `src/content/legal/` (`terms.ts`, `privacy.ts`, `cookies.ts`). Every `[AUTHOR TO CONFIRM]`, `[DEPENDS ON RL-0xx]` and `[STATE]` must be resolved before publishing.
+- Check `docs/legal/data-inventory.md` section 1 against your own understanding of the app, and its section 3 for the corrections to the groomed inventory.
+- The policies are written for the release state. They are untrue until these ship: RL-058 (GA4 removed; today GA4 runs without consent when configured), RL-052 and RL-045 (consent banner and Settings control), RL-053 and RL-054 (PostHog), RL-055 (email request runbook), RL-047 (terms acceptance), RL-048 (suggestion and reply limits), RL-010 (clientErrors retention). Self-service export (RL-056) and deletion (RL-057) are deliberately not promised.
+- Confirm `SUPPORT_EMAIL` in `src/lib/constants.ts` is the address you want published in all three documents.
+- Author-owned files the inventory contradicts, left untouched for you: `README.md` (around lines 25 and 104, "a shared feed the whole circle can browse" and "invite-only by design") describes a closed audience, but recipes and profiles are readable by anyone, signed-out visitors included. `README.md` (around lines 113 to 115, "Publishing requires only a signed-in user", "world-writable in practice") is stale: every client write now needs a verified email. `ROADMAP.md` (around line 684, decision 7) says "anyone may read, favourite and follow anonymously", which decision 1a supersedes. `ROADMAP.md` (around lines 636 and 675) still says "Clear All Data"; the control is now "Delete Recipes on This Device".
+
 ### RL-037 Re-publishing a recipe never overwrites its cloud collaborators
 
 - Collaborator survives an edit: on browser profile A, signed in as the recipe owner, approve a suggestion on a published recipe. On browser profile B, signed into the same account, open that recipe (it has no collaborator locally), edit the title and save. Open `/shared/:id` and confirm the suggester is still listed as a collaborator.

@@ -79,7 +79,7 @@ is a correctness bug, not a scale concern.
 
 ### 5. "Clear All Data" stays local-only
 
-Clearing removes local recipes; cloud copies survive. The control was renamed to say so.
+Clearing removes local recipes; cloud copies survive. The control was renamed to say so, and is now labelled "Delete Recipes on This Device".
 
 Trade accepted with open eyes: a member who wants to withdraw published recipes must delete
 them individually, and there is no bulk exit. The honest version of that feature is
