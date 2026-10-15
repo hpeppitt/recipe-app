@@ -2,6 +2,58 @@
 
 Written 2026-07-30, against commit `7448cef` (main, clean tree). Strategic layer above
 `AUDIT.md`; tactical defects live there, product and architecture bets live here.
+Sections 1 to 3 are that 2026-07-30 snapshot; section 0 is the 2026-10-15 state.
+
+---
+
+## 0. Where we are and what is next (2026-10-15)
+
+Read this first. Sections 1 to 3 below are the July 2026 plan and ground truth, kept as
+written with dated update notes where the world has moved. Where they disagree with
+[docs/capabilities.md](docs/capabilities.md) and [docs/decisions.md](docs/decisions.md), those win.
+
+**State of `main`.** Merged and green in CI: the whole 2026-10-14 audit backlog (rules
+hardening, verified-email gate on every cloud write, anonymous accounts local-bookmark only),
+the legal pages and terms acceptance, rate limits in rules (suggestions 10 per hour, replies
+30 per hour, notifications 60 per hour, recipe creates 30 per day), a consent gate for
+analytics, GA4 removed, Explore tabs and tag chips, PWA shell, and "Download my data". 43 of
+58 backlog tickets are done and 757 tests pass (last run). None of it has been seen in a real
+browser by an agent.
+
+**Nothing is deployed.** Production still runs the August 2026 rules and client. The new
+rules, indexes and client are one coordinated release, in a fixed order: wipe (RL-042),
+indexes, client, rules (client first, then rules, back to back; the old and new clients each
+break against the other's rules), then your own Terms acceptance. The single ordered
+checklist is the
+[release and deploy runbook](docs/operations.md#release-and-deploy-runbook-first-production-release).
+The human QA pass is prepared by `/qa-pass` (checklist `backlog/QA-CHECKLIST.md`, generated
+on the branch `qa/pass-2026-10-15`, not merged).
+
+**Waiting on the author** (all `needs-human`, see `npm run backlog -- list`):
+
+- RL-042 wipe production data, then RL-022 and RL-051 deploys (rules are one unit).
+- RL-046 sign off the Terms, Privacy and Cookie drafts. It gates the client release. The
+  exact lines needing a decision are in that ticket's Notes.
+- RL-053 create the PostHog project and approve `posthog-js`. RL-054 (events) cannot start
+  until then.
+- RL-050 App Check enforcement, the AI Logic per-user limit and an abuse watch (console work).
+- RL-001 decide the AI path and confirm the live Gemini quota. RL-014 (proxy) waits on it.
+- RL-010 TTL policy on `clientErrors`. RL-012 look at `TreeIntro` in a browser.
+- RL-057 self-service account deletion (a rules design decision, then work).
+- The 46 pending decisions in `backlog/DECISIONS.md`: accept or overrule each.
+
+**Ready for the loop once unblocked.** RL-032 (delete the uid migration, stranded-identity
+notice and unused helpers) after RL-042. RL-054 after RL-053. Run `/loop /next-ticket`; when
+`npm run backlog -- next` prints `NONE` the loop stops and `/qa-pass` is next.
+
+**Candidates for `/groom` (noticed, not yet ticketed).** The Favorites filter does not list a
+favourite whose recipe a device has never loaded (fetch favourited recipes by id). Tags are
+free text, so Explore chips match only exact lower-case tags (normalise on publish). The edit
+form does not focus or scroll to its first error, and several field errors are not announced.
+`markAllNotificationsRead` rejections are unhandled in `useNotifications`. The email-link flow
+in `services/firebase.ts` still uses raw `localStorage` and can fail with storage blocked.
+Whitespace-only search is inconsistent. Notifications have no delete or retention. Rate-limited
+notifications are dropped, not delayed.
 
 ---
 
@@ -29,6 +81,11 @@ avoid widening the parent update rule. `functions/` contains a complete, committ
 inert `generateRecipe` callable (per-uid 30/hour transactional rate limit, input caps,
 server-held prompts). It has never been deployed; it needs the Blaze plan.
 
+*Update 2026-10-15: the repo's rules are now well ahead of what is deployed (verified-email
+writes, local-bookmark-only anonymous accounts, terms acceptance, per-user write windows for
+suggestions, replies, notifications and recipe creates). `rateLimits` is still closed and the
+`functions/` callable is still undeployed; generation has no per-user cap on Spark (RL-050).*
+
 **AI path.** `src/services/gemini.ts` calls `gemini-3.6-flash` through Firebase AI Logic
 with `GoogleAIBackend` and App Check. No `responseSchema`; JSON is prompt-requested and
 repaired client-side (fence stripping, trailing-comma removal, Zod validation). I
@@ -36,6 +93,9 @@ verified externally that the Gemini Developer API backend is available on the no
 Spark plan, and that upgrading to Blaze converts all Gemini usage on this path to
 pay-as-you-go (source: firebase.google.com/docs/ai-logic/pricing). That makes the
 `functions/` escalation a real money decision, not just a plan checkbox.
+
+*Update 2026-10-15: `responseSchema` is enforced (1.4 landed 2026-07-31); the model id and
+the Spark decision stand.*
 
 **Identity.** Anonymous-to-email upgrade already uses `linkWithCredential`
 (`firebase.ts:134-144`), so in the common case the uid never changes and no migration is
@@ -62,6 +122,9 @@ on suggestions, follow users, manage a profile with three avatar types, and expo
 local data. What a user cannot do: edit a recipe by hand, scale servings, use the app
 offline after a reload (no service worker, no manifest; `public/` holds only `vite.svg`),
 or install it to a home screen. README.md is still the stock Vite template.
+
+*Update 2026-10-15: manual editing, serving scaling, the PWA shell and a rewritten README all
+shipped; see capabilities.md. A user can now also download all their data.*
 
 ---
 
@@ -160,7 +223,8 @@ into your circle's library.
   and it is meant to be maintained in parallel with the build rather than reconstructed
   later. Today `CLAUDE.md` is the only substantive documentation, it is written for an
   agent rather than for a person, and it has already measurably drifted (three verified
-  gaps below). `README.md` is still the stock Vite template.
+  gaps below). `README.md` was the stock Vite template when this was written and has since
+been rewritten.
   Where: a `docs/` directory plus a root `CHANGELOG.md`, with `README.md` rewritten as the
   front door. Proposed shape, one file per question a future reader actually asks:
     - `docs/README.md`: index and the maintenance contract (what updates when)
@@ -448,6 +512,9 @@ recipe on your phone in airplane mode, scale it to 6 servings, and cook from it.
   Cost: M. Prereq: none. Risk: stale-bundle serving, the classic SW failure; use
   `registerType: 'prompt'` with a visible "update available" affordance, and verify
   against `npm run preview` before deploying.
+  **LANDED 2026-10-15 (RL-007).** `vite-plugin-pwa` is a devDependency, but its register
+  module and `workbox-window` do ship in the client bundle (logged as a pending decision).
+  Install and offline reload are not yet verified on a device.
 
 ### Phase 3: Make the shared library a place, not a dump
 
@@ -472,6 +539,8 @@ cliff is a correctness bug at any audience size.
   across the whole library rather than across the pages fetched so far, and paging is currently
   suppressed while a search or favourites filter is active for exactly that reason. Deferred
   because it restructures the app's primary screen and the browser was unavailable to verify it.
+  *Update 2026-10-15: the tabs landed (RL-008). My Recipes and Explore are separate tabs;
+  search applies to the active tab.*
   Why now: this is risk 1. One structural change fixes the product legibility problem
   (whose recipes am I looking at?), the read-cost problem, and the 200-recipe cliff at
   the same time, which is why it is one item and not three.
@@ -496,6 +565,8 @@ cliff is a correctness bug at any audience size.
   seed the chip row from a curated list in `lib/constants.ts`, not from the corpus.
   Rescoped: defer until the circle's corpus is actually hard to scan by recency. Cheap
   enough to do on a whim, not worth scheduling.
+  *Update 2026-10-15: landed as RL-009 (curated chip row, one composite index
+  `tags` array-contains + `createdAt` desc, in the repo and not yet deployed).*
 
 - ~~**3.3 Minimal report mechanism.**~~ **Cut 2026-07-31** by the private-circle decision.
   Reporting is a mechanism for content from people you do not trust; in an invite-only
@@ -632,6 +703,9 @@ knowledgebase the project actually lacks.
   Those records orphan on sign-in with no migration path, and local-only mode already
   cannot generate recipes, so it is honestly a viewer and importer rather than a degraded
   full experience. The hidden control is the correct answer, not a deferred one.
+  *Update 2026-10-14: superseded in part. Decision 1a in decisions.md makes anonymous
+  accounts local-bookmark only: an anonymous account keeps device-only bookmarks, and adding
+  a verified email pushes them to the cloud (RL-034) and reads them back per session (RL-043).*
 
 - **Cloud unpublish on "Clear All Data". Decided 2026-07-31: UX-1's rename stands.**
   Clearing stays local-only, cloud copies survive. The trade accepted with open eyes: a
@@ -640,6 +714,9 @@ knowledgebase the project actually lacks.
   that feature is a "delete my account" flow, which is a Phase 4 server concern anyway
   (it needs to clean up favorites, suggestions, notifications, and follows across other
   users' documents, which client rules correctly forbid).
+  *Update 2026-10-15: the stopgaps are an operator runbook and script for access, export and
+  erasure by email (RL-055) and "Download my data" in Settings (RL-056). Self-service
+  deletion is RL-057, needs-human.*
 
 - **Reporting and moderation tooling.** Cut with 3.3 by the private-circle decision.
   Trust is social in an invite-only group, and 1.6 removes the anonymous-publish vector.
@@ -675,7 +752,9 @@ constraints; the phases above have been revised to match.
 5. **"Clear All Data": stays local-only.** UX-1's rename is the final answer; no opt-in
    cloud unpublish. The accepted trade and the honest alternative (a real account-deletion
    flow, which is server-side work) are recorded in Explicitly Not Doing.
+   *Update 2026-10-15: see the note under Explicitly Not Doing (RL-055, RL-056, RL-057).*
 6. **Local-only favorites: stay hidden.** FUN-16 stands as a decision, not a deferral.
+   *Update 2026-10-14: superseded in part by decision 1a (anonymous local bookmarks).*
 
 Both of those were resolved on 2026-08-10, and the first was resolved by being discarded.
 
@@ -697,6 +776,12 @@ Both of those were resolved on 2026-08-10, and the first was resolved by being d
    `credential-already-in-use` orphaning branch that 1.3 exists to apologise for. That path
    was optional and rare; it is now universal. If the beacon shows 1.3's notice firing, that
    is the trigger to reopen 4.2, per the Phase 4 note.
+
+   *Update 2026-10-14: decision 1a in decisions.md went further. Anonymous accounts now hold
+   local bookmarks only and every cloud write needs a verified email, with the existing data
+   to be wiped (RL-042). That removes the stranding path for new data; RL-032 deletes the
+   leftover migration code afterwards. Abuse limits are now in rules (RL-048, RL-049); AI
+   generation still has no per-user cap on Spark (RL-050, RL-001).*
 
 The questions themselves are preserved in the session that produced them; each decision
 above restates the question it answers, so nothing is lost by not repeating them here.

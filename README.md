@@ -39,6 +39,7 @@ Around that core, the app is a small social library:
 | **Cook from** | Tick off ingredients and steps as you go, scale the amounts to the number of people you are feeding, and switch between original, metric, and imperial units. |
 | **Share** | A link to a published recipe, or a self-contained link with the whole recipe compressed into the URL when there is no cloud copy. |
 | **Own** | Every recipe records who created it. Owners delete and review suggestions; everyone else can favourite and suggest. |
+| **Take it with you** | "Download my data" in Settings writes your local library and your cloud data (with other people's identities redacted) to one JSON file. |
 
 Per-serving macro estimates come with generated recipes, labelled as estimates because they
 come from a language model rather than a food database.
@@ -49,8 +50,9 @@ React 19, Vite 7, TypeScript, Tailwind CSS v4, React Router v7.
 
 Two stores, written in parallel. **Dexie (IndexedDB)** holds your local library and is
 authoritative for it, so browsing and reading do not wait on a network. **Firestore** holds
-the published feed, favourites, suggestions, notifications, profiles, and follows. Security
-rules are the real boundary and live in this repo, not the console.
+the published feed, favourites, suggestions, notifications, profiles, follows, terms
+acceptance, and per-user write counters. Security rules are the real boundary and live in
+this repo, not the console.
 
 Gemini is reached through **Firebase AI Logic**, a Google-hosted proxy that holds the API key
 server-side. The browser never sees a key, App Check is enforced on that path, and there is
@@ -101,20 +103,35 @@ been tried and reverted with evidence, which is the expensive knowledge here.
 
 ## Status
 
-A polished private beta rather than a shipped product, and invite-only by design.
+Pre-release, and not yet live. Everything described here is merged to `main`, but the
+production Firebase project still runs the old rules and the first release has not been cut.
+The new rules, the new indexes and the matching client go out together, in a fixed order, from
+the [release and deploy runbook](docs/operations.md#release-and-deploy-runbook-first-production-release).
+Until then, production behaves as it did after the August 2026 deploys.
 
-The engineering floor is unusually solid for this stage: ownership enforced server-side in
-rules, graceful degradation without Firebase, an accessibility pass done, a cleared audit
-backlog of 78 findings, and build, lint, and tests gated in CI on every pull request.
+The engineering floor is solid for this stage: ownership enforced server-side in rules,
+a verified email required for every cloud write, per-user write limits and terms acceptance in
+rules, graceful degradation without Firebase, a client error beacon, an accessibility pass,
+the 78-finding audit cleared and a second audit worked through as a backlog (43 of 58 tickets
+done), and build, lint, and tests gated in CI on every pull request. None of the recent work
+has been seen in a real browser by an agent; the human QA checklist covers that.
 
 What is honestly missing:
 
-- **Nothing reports a client-side error.** If the app breaks for someone, no one finds out.
-- **The invite-only circle is not enforced anywhere.** Publishing requires only a signed-in
-  user, and anonymous sign-in is one tap, so today the shared library is world-writable in
-  practice. This is a hard gate before the first invite goes out.
-- **One identity path can strand recipes.** Upgrading an anonymous account to an email address
-  that already exists leaves recipes published under the old identity behind. The app now says
-  so plainly instead of failing silently, but the real fix is server-side.
+- **Nothing is deployed.** The wipe of production data (RL-042), the indexes, the client, and
+  the rules are separate steps the author runs. Rules deploy as one unit, so the Terms
+  acceptance guards ride with the rate limits.
+- **The Terms, Privacy and Cookie pages are drafts.** They need the author's sign-off
+  (RL-046) before any release. Bracketed placeholders show as written.
+- **There is no analytics at all today.** GA4 is removed and the consent banner is built, but
+  PostHog is not connected until the author creates the project and approves the dependency
+  (RL-053, then RL-054).
+- **Generation cannot be capped per user on the free plan.** It runs client-side through
+  Firebase AI Logic. The accepted ceiling is App Check plus a console limit (RL-050);
+  anything stronger needs the Blaze plan and a proxy (RL-001, RL-014).
+- **The uid-stranding path is a leftover, not a live risk, once the wipe is done.** After
+  RL-040 and the wipe, anonymous accounts hold nothing in the cloud. RL-032 then deletes the
+  migration code and the stranded-identity notice.
 
-Those are Phase 1 of the [roadmap](ROADMAP.md), along with what comes after.
+What comes after is in the [roadmap](ROADMAP.md), which starts with a short "where we are and
+what is next".

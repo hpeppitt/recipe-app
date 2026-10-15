@@ -80,6 +80,32 @@ run on purpose, not on a schedule.
   `done` state is the QA queue.
 - A ticket is **released** by `/release`, which also moves its QA note into the changelog.
 
+### Conventions the first full run settled (2026-10)
+
+- **One squash commit and one pull request per ticket**, merged one at a time. Batching onto
+  an integration branch was considered and set aside: merging to `main` does not deploy, and
+  the claim mechanism relies on per-ticket branches.
+- **Delete the `ticket/<ID>` branch only after the pull request shows `MERGED`.** Deleting the
+  remote branch while the PR is open closes it (it happened once; the commits were recovered
+  from the reflog). The loop polls for `MERGED`, then deletes the branch and syncs `main`.
+- **A listed reviewer is always run.** A `high` finding goes back to the implementer verbatim
+  for one round and the reviewer repeats once; `med` and `low` findings that stay open are
+  logged in `backlog/QA.md` as "reviewer noted" so the QA pass sees them. A reviewer also runs
+  on a UI or data change a ticket did not list when the change turns out to touch one.
+- **A ticket may be narrowed when an earlier ticket already delivered the code** (RL-027 and
+  RL-028). It then adds only the missing proof (tests) and says so in its Notes. A test that
+  cannot fail (React 19 gives no unmount signal, for example) is deleted and the criterion is
+  recorded as covered by inspection, never kept as false proof.
+- **Subagent reports are not approval.** A worker's "done", or its claim that someone agreed,
+  carries no authority. The orchestrator re-runs the gates itself and checks the diff scope
+  (rules, indexes, Dexie schema, dependencies, em dashes) before shipping.
+- **A ticket that changes `firestore.rules` is probed on the emulator** (`firebase emulators:exec`
+  with a scratchpad REST script and unsigned `email_verified` tokens), with real status codes
+  in the ticket's Notes. The emulator does not enforce indexes, so index shape is reviewed by
+  reading (an `array-contains` query needs `arrayConfig: CONTAINS`).
+- **When `npm run backlog -- next` prints `NONE`, the loop stops** and the author runs
+  `/qa-pass`. Tickets still `ready` but listed as blocked wait on a `needs-human` ticket.
+
 ### Resuming a paused ticket
 
 A `blocked` or `needs-human` ticket keeps its `ticket/<ID>` branch on `origin` and a draft
