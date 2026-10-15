@@ -19,6 +19,11 @@ both themes:
 
 ## Since the last release
 
+### RL-027 The library's cloud fetch ignores responses that arrive after a retry or unmount
+
+- Tests only. Optional: on Explore over a slow connection, tap Retry and confirm the newest result wins.
+- Reviewer notes, not fixed (hook out of scope), for a future ticket: (a) after a tag change there is a one-commit window where `loadMore` can run with the new tag and the old cursor; (b) the double-tap guard reads the `loadingMore` state closure, so two same-tick calls can both pass; (c) `loadMore` has no timeout, so Load more can spin forever offline.
+
 ### RL-009 Tag chips on the Explore tab
 
 - Author deploy (production, not done by the agent): `firebase deploy --only firestore:indexes`, then wait until the new `recipes` index (`tags` ASC + `createdAt` DESC) shows READY in the console. It only needs to be READY before the client release carrying the chips; it rides in the RL-022 index step in `docs/operations.md`.
