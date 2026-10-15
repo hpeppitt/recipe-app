@@ -1,5 +1,6 @@
 import { useState, useEffect, useId, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { LegalLinks } from './LegalLinks';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Spinner } from '../ui/Spinner';
@@ -159,6 +160,9 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
             </Button>
           </div>
           {error && <p className="text-sm text-danger-600 mt-3">{error}</p>}
+          <div className="mt-3">
+            <LegalLinks />
+          </div>
         </>
       )}
 

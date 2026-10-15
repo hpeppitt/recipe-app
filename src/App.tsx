@@ -15,6 +15,7 @@ const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ 
 const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
+const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 export default function App() {
@@ -40,6 +41,9 @@ export default function App() {
           <Route path="/recipe/:id" element={<RecipeDetailPage />} />
           <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+          <Route path="/terms" element={<LegalPage doc="terms" />} />
+          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+          <Route path="/cookies" element={<LegalPage doc="cookies" />} />
           <Route path="/shared" element={<SharedRecipePage />} />
           <Route path="/shared/:id" element={<SharedRecipePage />} />
           <Route path="/profile/:uid" element={<ProfilePage />} />

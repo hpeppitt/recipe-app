@@ -178,6 +178,9 @@ shell route loads and a failed chunk load lands in the error fallback. Firebase 
 `firebase` chunk in `vite.config.ts`; `services/` imports it statically, so it still loads at
 start and is split only for caching.
 
+The three legal routes (`/terms`, `/privacy`, `/cookies`) are lazy `LegalPage` routes outside
+`AppShell` (`src/App.tsx`); their content comes from `src/content/legal/` via `lib/legal.ts`.
+
 ## Build and deploy
 
 `npm run build` is `tsc -b && vite build` — the type-check is part of the build, so a type

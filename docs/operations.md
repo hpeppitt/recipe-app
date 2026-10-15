@@ -142,6 +142,10 @@ has no `needs` or `workflow_run` dependency on `ci.yml`, so a push to `main` tha
 still deploys a preview. Its build step is only `npm run build` (typecheck and bundle), not lint
 or tests. Auto-merge on green CI normally keeps `main` green.
 
+Once the secret is set, the `qa` channel publishes `main` publicly, so the preview serves the
+DRAFT Terms, Privacy and Cookie pages at `/terms`, `/privacy` and `/cookies` to anyone with the
+link. That matters until the author signs them off in RL-046.
+
 **Secret** `FIREBASE_SERVICE_ACCOUNT` (repository secret): the JSON key of a service account
 with the **Firebase Hosting Admin** role only (least privilege). The author creates it either
 with `firebase init hosting:github` (it makes the account and stores the secret; decline the

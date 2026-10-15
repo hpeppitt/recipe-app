@@ -10,7 +10,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
 import { TopBar } from '../components/layout/TopBar';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function SettingsPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -185,6 +185,27 @@ export function SettingsPage() {
               recipe's own page.
             </p>
           </div>
+        </section>
+
+        {/* Legal */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Legal</h2>
+          <ul className="space-y-2">
+            {[
+              ['/terms', 'Terms of Service'],
+              ['/privacy', 'Privacy Policy'],
+              ['/cookies', 'Cookie Policy'],
+            ].map(([to, label]) => (
+              <li key={to}>
+                <Link
+                  to={to}
+                  className="flex items-center min-h-11 px-4 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary hover:bg-surface-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* Read from package.json via Vite `define`, so it cannot drift from

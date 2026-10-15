@@ -19,6 +19,16 @@ both themes:
 
 ## Since the last release
 
+### RL-045 Terms, Privacy and Cookie pages are reachable from Settings and the sign-up forms
+
+- **LOUD: these pages carry DRAFT text. The release that carries them waits for the author's sign-off in RL-046.** Note that once the Preview deploy secret is set, the preview channel from RL-013 publishes main at a public link, draft pages included.
+- Open Settings, scroll to Legal, open each of the three pages at 390 px in light and dark, signed out and in local-only mode. Check the draft notice at the top is prominent, the last-updated date reads well, bracketed placeholders ([STATE], [AUTHOR TO CONFIRM: ...]) show exactly as written, nothing scrolls sideways, and the back button returns to Settings. Also try 320 px.
+- Open the sign-in modal (email step) and the email form on Profile or the chat gate: "Read our Terms of Service and Privacy Policy." opens each link in a new tab and the half-typed email is still there. Check this in the installed PWA too (unverified from code: in an installed PWA a target=_blank link may open in an in-app browser view).
+- Reviewer notes (low): focus is not moved and there is no skip link when arriving at a legal page from Settings in the same SPA instance, so screen-reader and keyboard users get no announcement (focusing the h1 or main on document change would fix it); the new-tab path loads fresh so it is fine. The TopBar back button has no focus-visible style (pre-existing). Nothing in Settings marks the three pages as drafts (the on-page notice is prominent). The [DEPENDS ON RL-047] text in terms.ts says users must accept the terms while LegalLinks correctly implies no agreement yet; consistent now, re-check the wording when RL-047 lands. Draft notice contrast is estimated at about 7:1 light and 12:1 dark, not measured.
+- NOT verified: whether target=_blank in an installed standalone PWA opens an in-app browser or hands off to Safari or Chrome (on iOS that could take the user out of the app context). Test on a device.
+- Back on a legal page goes back in the app, or to Settings when the page was opened in a fresh tab.
+- Needs a browser: all of the above. Unit tests cover content, structure and hrefs only.
+
 ### RL-044 A grounded data inventory and draft Terms of Service, Privacy Policy and Cookie Policy exist in the repo
 
 - Nothing user-visible changes. The drafts are not rendered anywhere until RL-045, and must not be released before your sign-off in RL-046.
