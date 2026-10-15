@@ -19,6 +19,16 @@ both themes:
 
 ## Since the last release
 
+### RL-055 The operator can fulfil an access, export or erasure request for one uid from a written runbook and a dry-run-first script
+
+- No UI change. Read the new "Data requests" section in `docs/operations.md` end to end; it is what you will follow per request.
+- Emulator rehearsal: start the emulators (`npx -y firebase-tools emulators:start --only auth,firestore --project demo-rl055`, Java on `PATH`), sign up two accounts through `npm run dev:emulated`, have each publish a recipe, favourite, follow, suggest on and reply to the other's recipe. Run `node scripts/data-request.mjs export <uid> --emulator` and open the JSON in the temp dir: it should be complete, and the other account should appear only as `other-user-1` with no display name while its reply text is still there. Run `erase <uid> --emulator` (dry run) and read every line, then `erase <uid> --emulator --execute`, and check in the emulator UI that the other account's thread still reads, with "deleted-user" in place of the erased one.
+- Check `node scripts/data-request.mjs erase <uid> --execute` without `--confirm` refuses (it does so before any network call).
+- Decide the pending RL-055 rows in `backlog/DECISIONS.md`, especially the deletion of other people's suggestions on an erased owner's recipes and whether the Privacy Policy should say so.
+- First real request: authenticate with `gcloud auth application-default login`, run export and the dry run against production, expect a WARNING about the `messages.fromUid` collection-group index (harmless, see the runbook), and keep a log entry without the exported file.
+  - Reviewer noted (low): the collaborator scan reads every recipe (documented shortcut); redaction does not search free text for names typed into suggestions or replies; the batch-retry path was checked by reading only; the script was never run against production credentials.
+
+
 ### RL-048 Suggestions and replies are rate-limited per user in the rules, and the client says so when a limit is hit
 
 - **LOUD: deploy order gap. Neither order is safe for suggestions and replies.** Follow the combined order in `docs/operations.md` (client, then rules) and run the rules deploy straight after the client release. Until the rules are live, every suggestion and reply from the new client fails with the generic message; once they are live, any tab still on the old client cannot suggest or reply until it reloads. No fallback was built (pending in `backlog/DECISIONS.md`).
