@@ -89,9 +89,8 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
     transfers". RL-053 (needs-human).
 29. **PostHog cookie or storage names and lifetimes.** Cookies "Cookies". RL-054.
 30. **Google Analytics removed.** Privacy "Who we share it with"; Cookies "About this policy".
-    Today GA4 runs without consent when `VITE_FIREBASE_MEASUREMENT_ID` is set and identifies
-    every signed-in user, anonymous included, by uid. The policies do not mention it and are
-    untrue until RL-058 (ready) ships. Confirm whether production builds set the variable.
+    GA4 was removed by RL-058 (2026-10-15); it used to run without consent when
+    `VITE_FIREBASE_MEASUREMENT_ID` was set and identified every signed-in user by uid. Confirm whether production builds set the variable.
 31. **clientErrors retention.** Privacy "Error reports": no limit today. RL-010 (needs-human).
 32. **Limits on suggestions and replies.** Privacy "Lawful bases". RL-048 (built in the repo 2026-10-15; rules pending RL-051).
 33. **Pages exist.** All three documents assume they are reachable at `/terms`, `/privacy` and

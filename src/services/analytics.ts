@@ -1,32 +1,7 @@
-import { getAnalytics, logEvent as fbLogEvent, setUserId as fbSetUserId, type Analytics } from 'firebase/analytics';
-import { isFirebaseConfigured } from './firebase';
+// RL-054 routes logEvent and setAnalyticsUserId to PostHog behind RL-052's consent. No-ops until then.
+function logEvent(_name: string, _params?: Record<string, string | number | boolean>) {}
 
-let analytics: Analytics | null = null;
-
-function getAnalyticsInstance(): Analytics | null {
-  if (!isFirebaseConfigured || !import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) return null;
-  if (!analytics) {
-    try {
-      analytics = getAnalytics();
-    } catch {
-      return null;
-    }
-  }
-  return analytics;
-}
-
-function logEvent(name: string, params?: Record<string, string | number | boolean>) {
-  const instance = getAnalyticsInstance();
-  if (!instance) return;
-  fbLogEvent(instance, name, params);
-}
-
-// User-ID
-export function setAnalyticsUserId(uid: string | null) {
-  const instance = getAnalyticsInstance();
-  if (!instance) return;
-  fbSetUserId(instance, uid);
-}
+export function setAnalyticsUserId(_uid: string | null) {}
 
 // Auth events
 export const trackSignIn = (method: 'anonymous' | 'email') =>

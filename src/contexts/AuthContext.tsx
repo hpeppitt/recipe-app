@@ -357,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const appUser = toAppUser(fbUser);
         setUser(appUser);
 
-        // GA4 User-ID
+        // Analytics User-ID (no-op until RL-054)
         setAnalyticsUserId(fbUser.uid);
 
         if (fbUser.isAnonymous) {

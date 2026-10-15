@@ -21,7 +21,6 @@ import {
   clearEmailForLinking,
 } from './storage';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
-import { getAnalytics } from 'firebase/analytics';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 const firebaseConfig = {
@@ -29,7 +28,6 @@ const firebaseConfig = {
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 export const isFirebaseConfigured = !!(
@@ -80,10 +78,6 @@ if (isFirebaseConfigured) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
     connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
     console.info('[firebase] using local emulators; no live data is being touched');
-  }
-
-  if (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID) {
-    getAnalytics(app);
   }
 }
 
