@@ -35,6 +35,7 @@ both themes:
   - A user can move their own window without writing content; that only limits themselves.
   - Review fix: one window bump now admits exactly one suggestion or message (the window's `last` names it). Before the fix, one bump in a batch admitted any number; the emulator proves both.
   - Notification creates are still not tied to a suggestion or reply and are unthrottled (pre-existing, RL-049).
+  - Reviewer noted (low): the thread load-error text in SuggestionThread.tsx uses text-danger-600 with no dark variant (pre-existing); the suggest modal tests do not assert the draft survives an error; after a limit error Send stays enabled and the error stays until the next send; the modal textarea has no accessible label (pre-existing).
 
 ### RL-047 Sign-up requires accepting the current Terms, recorded privately per account with version and time
 
