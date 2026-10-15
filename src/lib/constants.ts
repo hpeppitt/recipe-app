@@ -18,6 +18,7 @@ export const STORAGE_KEYS = {
   STRANDED_IDENTITY: 'recipe-app-stranded-identity',
   INTRO_STATE: 'recipe-app-intro-state',
   LIBRARY_TAB: 'recipe-app-library-tab',
+  TERMS_ACCEPTANCE: 'recipe-app-terms-acceptance',
 } as const;
 
 export const SUGGESTION_CHIPS = [

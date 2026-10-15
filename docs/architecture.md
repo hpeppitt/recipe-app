@@ -15,7 +15,7 @@ flowchart TD
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
     Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration]
     Dexie[(IndexedDB<br/>via Dexie)]
-    FS[(Firestore<br/>8 collections)]
+    FS[(Firestore<br/>9 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
     AILogic[Firebase AI Logic proxy<br/>holds the Gemini key]
     Gemini[Gemini 3.6 Flash]
@@ -110,7 +110,11 @@ it is two regexes on a string already in memory.
 
 `AuthProvider` (`contexts/AuthContext.tsx`) wraps the app and exposes `useAuth()`. It holds
 `AppUser`, a plain object extracted from the Firebase `User` so no Firebase class instance
-travels through React state.
+travels through React state. It also holds the Terms prompt state (RL-047) in a separate
+`TermsContext`. `AuthProvider` sits outside the router, so `TermsGate`
+(`components/auth/TermsUpdateDialog.tsx`), mounted inside `BrowserRouter` in `App.tsx`, shows
+the blocking dialog on every route, including those outside `AppShell`, except the three
+policy pages.
 
 Ownership is a snapshot, not a join: every recipe carries `createdBy: { uid, displayName }`
 stamped at creation. `canManageRecipe` (`lib/ownership.ts`) is the single decision point,

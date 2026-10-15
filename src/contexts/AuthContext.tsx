@@ -19,6 +19,8 @@ import {
   createOrUpdateProfile,
   migrateFirestoreUid,
   pushLocalFavoritesToCloud,
+  getAcceptedTermsVersion,
+  recordTermsAcceptance,
   type UidMigrationOutcome,
 } from '../services/firestore';
 import { shouldNotify } from '../lib/migration';
@@ -31,9 +33,16 @@ import {
   addPreviousUid,
   getDeviceId,
   setStrandedIdentity,
+  getTermsAcceptance,
+  clearTermsAcceptance,
+  normaliseEmail,
 } from '../services/storage';
+import { TERMS_VERSION } from '../lib/legal';
 import { trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 import { reportError } from '../services/telemetry';
+
+/** Rechecks after a failed Terms read, per session; each needs an online or tab-visible event. */
+const TERMS_CHECK_RETRIES = 3;
 
 /**
  * Progress and outcome of a magic-link landing.
@@ -65,8 +74,24 @@ export interface AuthContextType {
   dismissLinkState: () => void;
 }
 
+/**
+ * The Terms prompt (RL-047), apart from AuthContextType so the many fake auth contexts
+ * in tests stay valid. AuthProvider sits outside the router, so it only holds the state;
+ * TermsGate, inside the router, decides where the dialog may show.
+ */
+export interface TermsContextType {
+  /** A verified account owes a current Terms acceptance. */
+  pending: boolean;
+  /** Records the acceptance; rejects so the dialog can offer Retry. */
+  accept: () => Promise<void>;
+  /** Declining signs out; rejects if sign-out fails. */
+  decline: () => Promise<void>;
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- exported so tests can inject a fake value; only affects HMR for this file
 export const AuthContext = createContext<AuthContextType | null>(null);
+// eslint-disable-next-line react-refresh/only-export-components -- same reason as AuthContext
+export const TermsContext = createContext<TermsContextType | null>(null);
 
 function toAppUser(user: User): AppUser {
   return {
@@ -138,6 +163,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const migrationRunRef = useRef(false);
   const favoritesPushedRef = useRef<string | null>(null);
+  // The uid owing a Terms acceptance; TermsGate shows the dialog while it matches the user.
+  const [termsPromptUid, setTermsPromptUid] = useState<string | null>(null);
+  const termsCheckRef = useRef<{ uid: string; done: Promise<void> } | null>(null);
+  // Set after a failed read, so coming back online or to the tab can try again, a few times.
+  const termsRetryRef = useRef<{ user: User; left: number } | null>(null);
+  const termsReportedRef = useRef(false);
+  // The signed-in uid right now, so a check that resolves after sign-out or a switch writes nothing.
+  const currentUidRef = useRef<string | null>(null);
+
+  /**
+   * Make sure a verified account has accepted the current Terms (RL-047). Never throws.
+   * Resolves true when the answer is known, false when the read failed.
+   *
+   * A failed read is UNKNOWN, not "not accepted": if the client ships before the
+   * rules, every read is denied, and a blocking dialog whose Accept is also denied
+   * would trap the user. So a read error lets them continue and arms a bounded retry;
+   * only a successful read of a missing or older version leads to a write or the dialog.
+   */
+  const checkTerms = async (u: User): Promise<boolean> => {
+    let version: string | null;
+    try {
+      version = await getAcceptedTermsVersion(u.uid);
+    } catch (err) {
+      if (currentUidRef.current !== u.uid) return true;
+      // Once per session: retries and later sign-ins would otherwise repeat it.
+      if (!termsReportedRef.current) {
+        termsReportedRef.current = true;
+        reportError(err, 'terms-check');
+      }
+      if (termsRetryRef.current?.user.uid !== u.uid) {
+        termsRetryRef.current = { user: u, left: TERMS_CHECK_RETRIES };
+      }
+      return false;
+    }
+    if (currentUidRef.current !== u.uid) return true;
+    termsRetryRef.current = null;
+    if (version === TERMS_VERSION) return true;
+    // Only an entry ticked for this very address counts; anyone else's is ignored.
+    const stored = getTermsAcceptance();
+    if (stored?.version === TERMS_VERSION && !!u.email && normaliseEmail(stored.email) === normaliseEmail(u.email)) {
+      try {
+        await recordTermsAcceptance(u.uid, stored.acceptedAt);
+        clearTermsAcceptance();
+        return true;
+      } catch (err) {
+        // Fall through to the dialog, which can retry.
+        reportError(err, 'terms-record');
+      }
+    }
+    if (currentUidRef.current !== u.uid) return true;
+    setTermsPromptUid(u.uid);
+    return true;
+  };
+
+  /**
+   * One check per uid per session: the existing-account upgrade reaches it from both
+   * onAuthStateChanged and the link completion, and both must wait for the same write.
+   * Runs before ensureProfile and the favourites push on every path. A failed read is
+   * not cached, so a later trigger checks again.
+   */
+  const checkTermsOnce = (u: User): Promise<void> => {
+    if (!u.emailVerified) return Promise.resolve();
+    if (termsCheckRef.current?.uid !== u.uid) {
+      const done = checkTerms(u).then((known) => {
+        if (!known && termsCheckRef.current?.uid === u.uid) termsCheckRef.current = null;
+      });
+      termsCheckRef.current = { uid: u.uid, done };
+    }
+    return termsCheckRef.current.done;
+  };
+
+  // Fired by `online` and by the tab becoming visible again; a no-op unless a read failed.
+  const retryTermsCheck = () => {
+    const retry = termsRetryRef.current;
+    if (!retry || retry.left <= 0 || termsCheckRef.current) return;
+    retry.left -= 1;
+    void checkTermsOnce(retry.user);
+  };
 
   /**
    * Carry local bookmarks into cloud favourites once per upgraded uid (RL-034).
@@ -178,14 +281,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLinkState({ status: 'idle' });
         return;
       }
+      // Before the listener may have fired for a new uid; this user is signed in now.
+      currentUidRef.current = result.user.uid;
       if (result.linked) {
         // Linking keeps the uid, so onAuthStateChanged does not fire again and
         // would leave this session holding the anonymous user and no profile.
         setUser(toAppUser(result.user));
+        await checkTermsOnce(result.user);
         ensureProfile(result.user);
         void pushFavoritesOnce(result.user, true);
       }
       if (result.previousUid) {
+        await checkTermsOnce(result.user);
         // The email already had an account, so the anonymous identity was left
         // behind. Migrate what can be migrated and let the notice report the rest.
         await runMigration(
@@ -238,7 +345,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // explanation whatsoever. They are now surfaced as `linkState`.
     runEmailLinkCompletion();
 
-    return onAuthStateChanged((fbUser) => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') retryTermsCheck();
+    };
+    window.addEventListener('online', retryTermsCheck);
+    document.addEventListener('visibilitychange', onVisible);
+
+    const unsubscribe = onAuthStateChanged((fbUser) => {
+      currentUidRef.current = fbUser?.uid ?? null;
       if (fbUser) {
         const appUser = toAppUser(fbUser);
         setUser(appUser);
@@ -283,13 +397,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           addPreviousUid(fbUser.uid);
         }
 
-        ensureProfile(fbUser);
+        // Acceptance first, so a new account's first contributing write already passes.
+        void checkTermsOnce(fbUser).then(() => ensureProfile(fbUser));
       } else {
         setUser(null);
+        termsCheckRef.current = null;
+        termsRetryRef.current = null;
+        setTermsPromptUid(null);
         setAnalyticsUserId(null);
       }
       setIsLoading(false);
     });
+    return () => {
+      unsubscribe();
+      window.removeEventListener('online', retryTermsCheck);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const handleSignInAnonymously = async () => {
@@ -322,6 +445,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignOut = async () => {
     trackSignOut();
     clearAnonymousUid();
+    // A ticked box belongs to whoever ticked it; the next person on this device ticks their own.
+    clearTermsAcceptance();
     await signOut();
   };
 
@@ -341,6 +466,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleDismissLinkState = () => setLinkState({ status: 'idle' });
 
+  // Rejections reach the dialog, which shows the inline error and Retry.
+  const handleAcceptTerms = async () => {
+    if (!termsPromptUid) return;
+    try {
+      await recordTermsAcceptance(termsPromptUid, Date.now());
+    } catch (err) {
+      reportError(err, 'terms-accept');
+      throw err;
+    }
+    clearTermsAcceptance();
+    setTermsPromptUid(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -357,7 +495,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         dismissLinkState: handleDismissLinkState,
       }}
     >
-      {children}
+      <TermsContext.Provider
+        value={{
+          pending: !!termsPromptUid && user?.uid === termsPromptUid,
+          accept: handleAcceptTerms,
+          decline: handleSignOut,
+        }}
+      >
+        {children}
+      </TermsContext.Provider>
     </AuthContext.Provider>
   );
 }

@@ -1,6 +1,8 @@
 import { useState, useEffect, useId, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LegalLinks } from './LegalLinks';
+import { TermsCheckbox, TermsHint } from './TermsCheckbox';
+import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
+import { TERMS_VERSION } from '../../lib/legal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Spinner } from '../ui/Spinner';
@@ -15,12 +17,14 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
   const { user, signInAnonymously, sendEmailLink } = useAuth();
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [email, setEmail] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   // Exactly one step renders at a time, so a single id can label the dialog and
   // follow the heading from step to step.
   const titleId = useId();
+  const hintId = useId();
 
   // Auto-dismiss if user is already authenticated (including anonymous)
   useEffect(() => {
@@ -36,6 +40,7 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
       dialog.showModal();
       setStep('choose');
       setEmail('');
+      setAccepted(false);
       setError(null);
     }
     if ((!open || user) && dialog.open) dialog.close();
@@ -55,13 +60,22 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
   };
 
   const handleSendEmail = async () => {
-    if (!email.trim()) return;
+    // loading guards a second Enter while the first send is in flight.
+    if (!email.trim() || loading) return;
+    if (!accepted) {
+      setError('Tick the box to accept the Terms before we send the link.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      // Stored first: the link can be opened before this promise settles.
+      setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: email.trim() });
       await sendEmailLink(email.trim());
       setStep('sent');
     } catch {
+      // No link went out, so nothing may later record this tick.
+      clearTermsAcceptance();
       setError('Failed to send sign-in link. Please try again.');
     } finally {
       setLoading(false);
@@ -131,6 +145,18 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
           <p className="text-sm text-text-secondary mt-1 mb-4">
             We'll send you a magic link — no password needed.
           </p>
+          <div className="mb-2">
+            <TermsCheckbox
+              checked={accepted}
+              onChange={(c) => {
+                setAccepted(c);
+                if (c) setError(null);
+              }}
+              disabled={loading}
+              invalid={!!error && !accepted}
+              describedBy={accepted ? undefined : hintId}
+            />
+          </div>
           <Input
             type="email"
             value={email}
@@ -145,7 +171,7 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
               if (e.key === 'Enter') handleSendEmail();
             }}
           />
-          <div className="flex gap-3 mt-4">
+          <div className="flex gap-3 mt-2">
             <Button
               variant="secondary"
               onClick={() => {
@@ -155,14 +181,20 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
             >
               Back
             </Button>
-            <Button onClick={handleSendEmail} disabled={loading || !email.trim()}>
+            <Button
+              onClick={handleSendEmail}
+              disabled={loading || !email.trim() || !accepted}
+              aria-describedby={accepted ? undefined : hintId}
+            >
               {loading ? <Spinner size="sm" /> : 'Send Link'}
             </Button>
           </div>
-          {error && <p className="text-sm text-danger-600 mt-3">{error}</p>}
-          <div className="mt-3">
-            <LegalLinks />
-          </div>
+          {!accepted && (
+            <div className="mt-2">
+              <TermsHint id={hintId} />
+            </div>
+          )}
+          {error && <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 mt-3">{error}</p>}
         </>
       )}
 

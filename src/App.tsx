@@ -6,6 +6,7 @@ import { LibraryPage } from './pages/LibraryPage';
 import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageFallback } from './components/ui/PageFallback';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
+import { TermsGate } from './components/auth/TermsUpdateDialog';
 import { useTheme } from './hooks/useTheme';
 
 // Library stays eager so first paint is unchanged; every other page is its own chunk.
@@ -51,6 +52,8 @@ export default function App() {
         </Suspense>
         </RouteErrorBoundary>
         <UpdatePrompt />
+        {/* Inside the router so it can stay off the policy pages (RL-047). */}
+        <TermsGate />
       </BrowserRouter>
     </AuthProvider>
   );

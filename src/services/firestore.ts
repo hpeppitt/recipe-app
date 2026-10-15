@@ -17,6 +17,7 @@ import {
   onSnapshot,
   increment,
   writeBatch,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
@@ -26,6 +27,7 @@ import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage } from '../lib/notifications';
 import { selectFavoritesToPush } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
+import { TERMS_VERSION } from '../lib/legal';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
@@ -689,6 +691,50 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
 }
 
 // --- Profiles ---
+
+// --- Terms acceptance (RL-047): owner-only, never on the public profile ---
+
+const TERMS_TIMEOUT_MS = 5000;
+
+// Not withTimeout: that swallows the rejection, and a permission-denied is worth reporting as such.
+async function rejectAfter<T>(promise: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} timed out`)), TERMS_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The Terms version this account accepted, or null when it has no record.
+ * Rejects on a failed or slow read; the caller treats that as unknown, not as "not accepted".
+ */
+export async function getAcceptedTermsVersion(uid: string): Promise<string | null> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const snap = await rejectAfter(getDoc(doc(firestore, 'termsAcceptance', uid)), 'Reading terms acceptance');
+  const version: unknown = snap.exists() ? snap.data().version : null;
+  return typeof version === 'string' ? version : null;
+}
+
+/**
+ * Record acceptance of the current Terms. Rejects on failure or after 5 s, so a dialog never
+ * hangs; a timed-out write may still commit later, and repeating it is harmless.
+ */
+export async function recordTermsAcceptance(uid: string, acceptedAt: number): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  await rejectAfter(
+    setDoc(doc(firestore, 'termsAcceptance', uid), {
+      version: TERMS_VERSION,
+      acceptedAt,
+      recordedAt: serverTimestamp(),
+    }),
+    'Recording terms acceptance'
+  );
+}
 
 export async function getProfile(uid: string): Promise<UserProfile | null> {
   if (!firestore) return null;

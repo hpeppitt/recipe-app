@@ -47,6 +47,7 @@ through `src/services/storage.ts`. None is cleared by "Delete Recipes on This De
 | `recipe-app-email-for-linking` | The email address an anonymous user asked to add | Removed when the link completes successfully. Stays if the link is never opened or fails | `sendEmailLinkForLinking` in `services/firebase.ts` via `setEmailForLinking` |
 | `emailForSignIn` | The email address a signed-out visitor asked to sign in with | Same as above | `sendEmailSignInLink` in `services/firebase.ts`, writing `localStorage` directly |
 | `recipe-app-stranded-identity` | `{ oldUid, oldDisplayName, recipeCount, at }` for the stranded-recipe notice | Removed when the notice is dismissed | `setStrandedIdentity`, from `AuthContext` |
+| `recipe-app-terms-acceptance` | **RL-047, in the repo, not yet released.** `{ version, acceptedAt, email }`: the Terms version ticked on an email form, the client time it was sent, and **the email address it was ticked for** (trimmed, lower-cased), so it is only recorded for that account | Removed once written to `termsAcceptance/{uid}`, when the send fails, on sign-out and on declining the Terms. Stays if the link is never opened | `setTermsAcceptance`, from `AuthModal`, `EmailLinkingForm` and `EmailLinkStatus` |
 
 ### On the device: other
 
@@ -73,6 +74,7 @@ noted. The operator can read everything in the Firebase console.
 | `recipes` `viewCount` | A raw +1 per page view, no identity stored | Anyone | With the recipe | `incrementRecipeViews`; open to signed-out visitors |
 | `profiles/{uid}` | `displayName`, `photoType`, `photoEmoji`, `photoBgColor`, `photoURL` (an uploaded avatar as a 128x128 JPEG `data:` URL, at most 100000 characters), `recipeCount`, `followerCount`, `followingCount`, `createdAt`. No email | **Anyone** | Indefinite. The rules allow the owner to delete it but no UI does | `createOrUpdateProfile` (from `AuthContext.ensureProfile`, `hooks/useProfile.ts`, `AvatarEditor`) |
 | `favorites/{uid}_{recipeId}` | `uid`, `recipeId`, `recipeOwnerId`, `createdAt` | The owner only | Until unfavourited | `addCloudFavorite`, `pushLocalFavoritesToCloud` |
+| `termsAcceptance/{uid}` | **RL-047, in the repo; rules deployed by RL-051.** `version` (the Terms date), `acceptedAt` (client time, ms), `recordedAt` (server time). Latest acceptance only, no history | The owner only (and the operator in the console) | Overwritten on re-acceptance. The rules allow the owner to delete it (for RL-057) but no UI does | `recordTermsAcceptance` in `services/firestore.ts`, from `AuthContext` and `TermsUpdateDialog` |
 | `follows/{a}_{b}` | `followerId`, `followingId`, `followerDisplayName`, `createdAt` | The two parties | Until unfollowed | `followUser` |
 | `suggestions/{id}` | `recipeId`, `recipeOwnerId`, `recipeTitle`, `recipeEmoji`, `suggestedBy` uid and display name, `message` (free text, no length cap), `status`, `createdAt` | The suggester and the recipe owner | **Indefinite. Nobody can delete one** (`allow delete: if false`) | `createSuggestion`, `updateSuggestionStatus` |
 | `suggestions/{id}/messages/{id}` | `fromUid`, `fromDisplayName`, `text`, `createdAt` | The two parties | **Indefinite. Immutable, no delete** | `addSuggestionMessage` |
@@ -110,7 +112,7 @@ noted. The operator can read everything in the Firebase console.
 | Consent banner and Settings control | RL-052 (ready) | New `STORAGE_KEYS` entry holding `{ analytics, at, version }` in localStorage. Leftover `_ga` cookies deleted once |
 | PostHog project, host and settings | RL-053 (needs-human) | Host (EU recommended), IP handling and data retention chosen by the author and recorded |
 | PostHog product analytics | RL-054 (ready) | Events go to PostHog only after opt-in, verified users identified by uid only, anonymous users not identified. `posthog-js` keeps its own cookie or localStorage entry (names not known until it ships) |
-| Terms acceptance record | RL-047 (ready) | Owner-only `termsAcceptance/{uid}` with `version`, `acceptedAt`, `recordedAt`, plus a `STORAGE_KEYS` entry holding the pending acceptance |
+| Terms acceptance record | RL-047 (built in the repo 2026-10-15; rules pending RL-051) | Owner-only `termsAcceptance/{uid}` with `version`, `acceptedAt`, `recordedAt`, plus the `recipe-app-terms-acceptance` key holding the pending acceptance with the normalised email (rows in section 1) |
 | Per-user limits on suggestions and replies | RL-048 (ready) | New `writeWindows/{uid}_{action}` counters, never deleted |
 | Operator data-request runbook | RL-055 (ready) | Export and erasure of one uid by the operator on email request; suggestions and replies on other people's recipes are anonymised, not deleted |
 | Self-service download | RL-056 (ready) | "Download my data" in Settings |

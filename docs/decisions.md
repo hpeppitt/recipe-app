@@ -219,6 +219,75 @@ transaction, before the push. Skips are reported only on the linked path, where 
 new; an existing account may already hold some favourites in the cloud, which the rules deny
 as updates, so its skips are logged to the console rather than reported.
 
+### Terms acceptance is private, rules-enforced, and blocking on a change (RL-047, 2026-10-15)
+
+Author decisions of 2026-10-14: acceptance is private, enforcement is by rules, and a changed
+version blocks with a minimal dialog where declining signs out.
+
+**Where.** `termsAcceptance/{uid}`, owner-only read, with `version`, `acceptedAt` and
+`recordedAt`. Not on the public profile, and nothing in analytics carries it. Only the latest
+acceptance is kept.
+
+**How it gets there.** Acceptance is given on a form but can only be recorded once the
+account is verified, which happens when the link is opened, possibly after a reload or on
+another device. So the form stores `{ version, acceptedAt, email }` in local storage just
+before it sends the link (stored first because the link can be opened before the send
+promise settles), and `AuthContext` writes it once the account is verified. The entry is
+bound to the address it was ticked for (trimmed, lower-cased) and is only used when the
+verified user's email matches, case-insensitively. Otherwise person A's tick on a shared
+device, with a send that failed or a link never opened, would be silently recorded for
+person B's account with A's time. A mismatched or email-less entry (the first version of
+this code wrote none) is ignored and the dialog shows. The entry is also cleared when the
+send fails, on sign-out and on Decline. The cross-device "needs
+email" prompt carries the same box, so a link opened elsewhere still has an entry when the
+user confirms their address.
+
+**Order.** The check fits the email-link order of operations above: it runs after
+`completeEmailSignIn` has returned (so after `authStateReady()` and the link itself) and
+before `ensureProfile` and the RL-034 favourites push on both upgrade paths, and before
+`ensureProfile` on an ordinary verified sign-in. On the existing-account path it also runs
+before the uid migration. One check per uid per session, shared by `onAuthStateChanged` and the
+link completion, so the existing-account path writes once. The profile is still ensured when
+the dialog is shown instead: profile writes are not guarded, and holding them back would
+change the RL-041 behaviour for no gain.
+
+**Enforcement.** `acceptedTerms()` guards recipe, suggestion and message creates only, the
+writes that put new content in front of other people. One extra document read each.
+
+**A failed read is unknown, not "not accepted".** The rules and the client ship separately.
+With the client live before the rules, the read and write of `termsAcceptance` match no rule
+and are denied. Had a denied read shown the dialog, its Accept would be denied too: a
+blocking dialog nobody can satisfy. So a failed read (denied, offline, slower than 5 s, anything)
+reports `terms-check` at most once per session and lets the user continue; the rules still stop a contributing write if the
+acceptance is really missing. Only a successful read of a missing document or an older
+version leads to the write or the dialog. A failed Accept shows an inline error with Retry,
+and Decline (sign out) is never disabled, not even while Accept is in flight. Each read and
+write is bounded at 5 seconds so offline Firestore cannot hang the dialog.
+
+A failed read is not cached. The per-uid "already checked" promise is dropped when the read
+fails, and the `online` event and the tab becoming visible again each recheck, at most three
+times per session, so a user who was offline at load or signed in before the rules deployed
+is asked once the answer can be known, rather than left blocked by the rules with no dialog
+for the rest of the session.
+
+**The dialog stays off the policy pages.** Its links open `/terms`, `/privacy` and `/cookies`
+in a new tab, which loads the whole app; a modal over them would hide the text the user is
+asked to accept, every link would loop, and Decline there would sign out every tab.
+`AuthProvider` sits outside the router and cannot read its location, so it only holds the
+prompt state (in a small `TermsContext`, kept apart from `AuthContextType` so the many fake
+auth contexts in tests stay valid), and `TermsGate`, mounted inside `BrowserRouter`, reads
+`useLocation()` and hides the dialog on those three paths. It shows as soon as the user
+navigates elsewhere in that tab. Subscribing the provider to history events was the other
+option; it would need patching `pushState`, which react-router does not announce. Deploy order is in
+[operations.md](operations.md).
+
+**When the version changes.** `TERMS_VERSION` (the Terms' `lastUpdated`) and the rules'
+`termsVersion()` literal are bumped together, guarded by a test. Every verified user then has
+an old acceptance, so the next load shows the dialog; contributing fails until they accept.
+Existing verified accounts from before RL-047 have no document at all and get the same dialog
+on their next load. Escape does not dismiss it. Anonymous accounts are never asked: they
+cannot contribute anyway (decision 1a).
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view

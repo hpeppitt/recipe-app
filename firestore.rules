@@ -42,6 +42,27 @@ service cloud.firestore {
       return signedIn() && request.auth.token.get('email_verified', false) == true;
     }
 
+    // --- Terms acceptance (RL-047) ---
+    //
+    // The version a contributor must have accepted. MUST equal TERMS_VERSION in
+    // src/lib/legal.ts; src/lib/legal.test.ts fails the build when they differ.
+    // Bump both together, and deploy these rules in the order docs/operations.md
+    // gives: a bump denies every contributing write until the user re-accepts.
+    function termsVersion() {
+      return '2026-10-15';
+    }
+
+    // Guards the content-creating writes only: recipe create, suggestion create
+    // and message create. exists() first, so a missing document denies as a plain
+    // false rather than an evaluation error. The exists() and get() of the same
+    // path bill one document read per guarded write, and count toward the
+    // per-request limit on document accesses (10 for a single write, 20 for a
+    // batch), alongside the suggestion rules' own get()s.
+    function acceptedTerms() {
+      let path = /databases/$(database)/documents/termsAcceptance/$(request.auth.uid);
+      return verified() && exists(path) && get(path).data.version == termsVersion();
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -68,6 +89,7 @@ service cloud.firestore {
       // Publish: must have a verified email, must stamp yourself as creator,
       // counters must start at zero
       allow create: if verified()
+        && acceptedTerms()
         && request.resource.data.createdBy.uid == request.auth.uid
         && request.resource.data.favoriteCount == 0
         && request.resource.data.viewCount == 0
@@ -154,6 +176,7 @@ service cloud.firestore {
       // wrong value leaves a suggestion no one can review and, since delete is
       // forbidden, no one can remove.
       allow create: if verified()
+        && acceptedTerms()
         && request.resource.data.suggestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId;
@@ -194,6 +217,7 @@ service cloud.firestore {
         // again here costs nothing and keeps the rule honest on its own terms
         // rather than depending on how the thread was reached.
         allow create: if verified()
+          && acceptedTerms()
           && request.resource.data.fromUid == request.auth.uid
           && (
             get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.recipeOwnerId == request.auth.uid
@@ -266,6 +290,25 @@ service cloud.firestore {
           && (request.resource.data.followerCount == resource.data.followerCount + 1
               || request.resource.data.followerCount == resource.data.followerCount - 1);
       }
+    }
+
+    // --- Terms acceptance: private, one document per account (RL-047) ---
+    //
+    // Owner-only read: the author decided acceptance is private, so it is not on
+    // the public profile. Only the latest acceptance is kept. acceptedAt is the
+    // client's clock when the box was ticked, so it is bounded like a recipe's
+    // createdAt; recordedAt must be serverTimestamp(). Delete is the owner's, for
+    // account erasure (RL-057); a deleted acceptance just blocks contributing again.
+    match /termsAcceptance/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if verified()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['version', 'acceptedAt', 'recordedAt'])
+        && request.resource.data.version == termsVersion()
+        && request.resource.data.acceptedAt is int
+        && request.resource.data.acceptedAt <= request.time.toMillis() + 60000
+        && request.resource.data.recordedAt == request.time;
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // --- Client error reports: write-only drop box ---

@@ -190,3 +190,51 @@ export function setEmailForLinking(email: string): void {
 export function clearEmailForLinking(): void {
   safeRemove(STORAGE_KEYS.EMAIL_FOR_LINKING);
 }
+
+// --- Terms acceptance (RL-047) ---
+//
+// Ticked on the email form, but only recordable once the link makes the account
+// verified, possibly after a reload, so it waits here until AuthContext writes it.
+
+export interface StoredTermsAcceptance {
+  version: string;
+  /** Client ms when the link was sent with the box ticked. */
+  acceptedAt: number;
+  /** Who ticked it, normalised, so another account on this device never inherits it. */
+  email: string;
+}
+
+export function normaliseEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** Null for anything unusable, including entries from before the email was stored. */
+export function getTermsAcceptance(): StoredTermsAcceptance | null {
+  const raw = safeGet(STORAGE_KEYS.TERMS_ACCEPTANCE);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredTermsAcceptance> | null;
+    if (
+      typeof parsed?.version !== 'string' ||
+      !Number.isInteger(parsed.acceptedAt) ||
+      typeof parsed.email !== 'string' ||
+      parsed.email === ''
+    ) {
+      return null;
+    }
+    return { version: parsed.version, acceptedAt: parsed.acceptedAt as number, email: parsed.email };
+  } catch {
+    return null;
+  }
+}
+
+export function setTermsAcceptance(acceptance: StoredTermsAcceptance): void {
+  safeSet(
+    STORAGE_KEYS.TERMS_ACCEPTANCE,
+    JSON.stringify({ ...acceptance, email: normaliseEmail(acceptance.email) })
+  );
+}
+
+export function clearTermsAcceptance(): void {
+  safeRemove(STORAGE_KEYS.TERMS_ACCEPTANCE);
+}

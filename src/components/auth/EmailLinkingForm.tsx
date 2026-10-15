@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
-import { LegalLinks } from './LegalLinks';
+import { TermsCheckbox, TermsHint } from './TermsCheckbox';
+import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
+import { TERMS_VERSION } from '../../lib/legal';
 import { Input } from '../ui/Input';
 
 /**
@@ -46,13 +48,20 @@ export function EmailLinkingForm({
 }) {
   const { user, linkEmail, sendEmailLink } = useAuth();
   const [email, setEmail] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const styles = TONES[tone];
+  const hintId = useId();
 
   const handleSubmit = async () => {
-    if (!email.trim()) return;
+    // loading guards a second Enter while the first send is in flight.
+    if (!email.trim() || loading) return;
+    if (!accepted) {
+      setError('Tick the box to accept the Terms before we send the link.');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -63,9 +72,13 @@ export function EmailLinkingForm({
       // to preserve and needs a plain sign-in link. Calling linkEmail with no
       // current user would simply fail.
       const send = user?.isAnonymous ? linkEmail : sendEmailLink;
+      // Stored first: the link can be opened before this promise settles.
+      setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: email.trim() });
       await send(email.trim());
       setSent(true);
     } catch {
+      // No link went out, so nothing may later record this tick.
+      clearTermsAcceptance();
       setError('Failed to send link. Please try again.');
     } finally {
       setLoading(false);
@@ -113,6 +126,16 @@ export function EmailLinkingForm({
           <p className={`text-xs mt-0.5 ${styles.body}`}>{description}</p>
         </div>
       </div>
+      <TermsCheckbox
+        checked={accepted}
+        onChange={(c) => {
+          setAccepted(c);
+          if (c) setError(null);
+        }}
+        disabled={loading}
+        invalid={!!error && !accepted}
+        describedBy={accepted ? undefined : hintId}
+      />
       <div className="flex gap-2">
         <Input
           type="email"
@@ -123,12 +146,17 @@ export function EmailLinkingForm({
             if (e.key === 'Enter') handleSubmit();
           }}
         />
-        <Button size="sm" onClick={handleSubmit} disabled={loading || !email.trim()}>
+        <Button
+          size="sm"
+          onClick={handleSubmit}
+          disabled={loading || !email.trim() || !accepted}
+          aria-describedby={accepted ? undefined : hintId}
+        >
           {loading ? 'Sending...' : submitLabel}
         </Button>
       </div>
-      {error && <p className="text-xs text-danger-600">{error}</p>}
-      <LegalLinks />
+      {!accepted && <TermsHint id={hintId} />}
+      {error && <p role="alert" className="text-xs text-danger-700 dark:text-danger-300">{error}</p>}
     </div>
   );
 }

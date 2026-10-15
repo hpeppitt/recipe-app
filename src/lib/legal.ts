@@ -32,3 +32,11 @@ export const COOKIES_LAST_UPDATED = COOKIES.lastUpdated;
 export const TERMS_VERSION = TERMS_LAST_UPDATED;
 
 export const LEGAL_DOCUMENTS = { terms: TERMS, privacy: PRIVACY, cookies: COOKIES } as const;
+
+/** Routes of the three pages. The blocking Terms dialog stays off them so they can be read. */
+export const LEGAL_PATHS: readonly string[] = ['/terms', '/privacy', '/cookies'];
+
+/** Matches the way React Router does: case-insensitive, trailing slashes ignored. */
+export function isLegalPath(pathname: string): boolean {
+  return LEGAL_PATHS.includes(pathname.replace(/\/+$/, '').toLowerCase());
+}
