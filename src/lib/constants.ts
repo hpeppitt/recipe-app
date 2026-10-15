@@ -37,3 +37,25 @@ export const DIFFICULTY_LABELS: Record<string, string> = {
   medium: 'Medium',
   hard: 'Hard',
 };
+
+/**
+ * Curated Explore tag chips (RL-009). Lower case and exact: Firestore
+ * `array-contains` matches the stored string byte for byte, and the AI writes
+ * tags as free text, so a recipe tagged "Italian" does not match "italian".
+ */
+/** Fields of the Explore tag query; firestore.indexes.json must match (indexes.test.ts). */
+export const EXPLORE_TAG_FIELD = 'tags';
+export const FEED_ORDER_FIELD = 'createdAt';
+
+export const EXPLORE_TAGS = [
+  'vegetarian',
+  'vegan',
+  'gluten-free',
+  'dessert',
+  'breakfast',
+  'dinner',
+  'quick',
+  'italian',
+  'asian',
+  'baking',
+] as const;

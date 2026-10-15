@@ -19,6 +19,15 @@ both themes:
 
 ## Since the last release
 
+### RL-009 Tag chips on the Explore tab
+
+- Author deploy (production, not done by the agent): `firebase deploy --only firestore:indexes`, then wait until the new `recipes` index (`tags` ASC + `createdAt` DESC) shows READY in the console. It only needs to be READY before the client release carrying the chips; it rides in the RL-022 index step in `docs/operations.md`.
+- On Explore at 390 px: the tag chip row scrolls sideways with no page overflow, chips are easy to tap, the active one is clearly filled in light and dark mode, and tapping it again clears it.
+- With the index READY, tap a few tags: the feed refetches and shows only tagged recipes; an empty tag shows "No recipes tagged X yet" with Clear tag. Before the index is READY a tapped chip shows Could not load.
+- The tag row now scrolls with the content (not sticky); the tab control, search and filter row stay sticky. Check 390 px and 320 px.
+- Reviewer noted (not fixed): the `scrollbar-none` class is undefined (pre-existing, shared with the filter row); the All chip and the tag chips look identical; `hover:bg-border` equals `surface-tertiary` in dark mode (pre-existing); the active tag chip is not scrolled into view; the tag persists while hidden under Following or My Recipes (intended, a momentary lens).
+- Tags are AI free text and may be capitalised ("Italian"); the filter matches lower case exactly. Check whether real recipes match the curated list.
+
 ### RL-052 Analytics load only after the user opts in through a consent banner, and the choice can be changed in Settings
 
 - The banner only exists when `VITE_POSTHOG_KEY` is set at build time, and it is not set on production until RL-054. With no key: load the app in a fresh profile and expect no banner and no Privacy switch in Settings. This is the production state.

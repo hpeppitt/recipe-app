@@ -23,6 +23,7 @@ import {
   type Firestore,
   type Timestamp,
 } from 'firebase/firestore';
+import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
@@ -143,19 +144,22 @@ export interface PublishedRecipePage {
  */
 export async function getPublishedRecipesPage(
   cursor?: FeedCursor | null,
-  pageSize = FEED_PAGE_SIZE
+  pageSize = FEED_PAGE_SIZE,
+  tag?: string | null
 ): Promise<PublishedRecipePage> {
   if (!firestore) return { recipes: [], cursor: null, hasMore: false };
 
-  const constraints = [
-    orderBy('createdAt', 'desc'),
+  // The tag filter needs the `tags` ARRAY_CONTAINS + `createdAt` DESC composite
+  // index in firestore.indexes.json (RL-009).
+  const q = query(
+    collection(firestore, 'recipes'),
+    ...(tag ? [where(EXPLORE_TAG_FIELD, 'array-contains', tag)] : []),
+    orderBy(FEED_ORDER_FIELD, 'desc'),
+    ...(cursor ? [startAfter(cursor)] : []),
     // One extra row is fetched purely to answer "is there a next page?" without a
     // second round trip, then dropped before returning.
-    limit(pageSize + 1),
-  ];
-  const q = cursor
-    ? query(collection(firestore, 'recipes'), orderBy('createdAt', 'desc'), startAfter(cursor), limit(pageSize + 1))
-    : query(collection(firestore, 'recipes'), ...constraints);
+    limit(pageSize + 1)
+  );
 
   const snap = await getDocs(q);
   const hasMore = snap.docs.length > pageSize;
