@@ -4,7 +4,6 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
@@ -24,7 +23,7 @@ import {
   type Timestamp,
 } from 'firebase/firestore';
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
-import { firestore } from './firebase';
+import { auth, firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
@@ -33,7 +32,7 @@ import { truncateNotificationMessage } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
 import { TERMS_VERSION } from '../lib/legal';
-import { nextWindow, SUGGESTION_CAP, REPLY_CAP, WINDOW_MS, type RateLimitAction } from '../lib/rateLimit';
+import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { RateLimitedError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
@@ -70,16 +69,30 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
     return;
   }
 
-  // Rules require both counters present and zero on create.
-  await setDoc(ref, {
-    ...content,
-    collaborators: collaborators ?? [],
-    favoriteCount: 0,
-    viewCount: 0,
-  });
+  // The rules deny a create whose createdBy.uid is not the caller (the 'local'
+  // placeholder, signed out, or a copy saved from someone else's link), so
+  // reject as that denial did, before reading or moving any window.
+  if (auth && auth.currentUser?.uid !== recipe.createdBy.uid) {
+    throw new Error('Publishing needs the signed-in creator');
+  }
+
+  // Rules require both counters present and zero on create, and the recipe
+  // window moved in the same request (RL-049). Throws RateLimitedError at the
+  // daily cap, having written nothing; the caller keeps the Dexie copy. The
+  // transaction re-reads the recipe: if it exists by then (a stale read above,
+  // or an earlier publish that landed after its caller timed out), it writes
+  // the re-publish merge instead, with no counters, window or recipeCount bump.
+  const created = await writeLimited(
+    firestore,
+    recipe.createdBy.uid,
+    'recipe',
+    ref,
+    { ...content, collaborators: collaborators ?? [], favoriteCount: 0, viewCount: 0 },
+    content
+  );
 
   // Increment the creator's recipeCount on their profile
-  if (recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
+  if (created && recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
     updateDoc(doc(firestore, 'profiles', recipe.createdBy.uid), {
       recipeCount: increment(1),
     }).catch((err) => {
@@ -337,7 +350,7 @@ export async function addCloudFavorite(
 
   // Notify recipe owner (don't block on this, don't notify self)
   if (uid !== recipeOwnerId) {
-    addDoc(collection(firestore, 'notifications'), {
+    notify(firestore, {
       recipientUid: recipeOwnerId,
       type: 'favorite',
       recipeId,
@@ -348,7 +361,7 @@ export async function addCloudFavorite(
       message: null,
       read: false,
       createdAt: Date.now(),
-    }).catch(() => {});
+    });
   }
 }
 
@@ -467,11 +480,9 @@ export async function isCloudFavorite(
 
 // --- Suggestions ---
 
-const CAPS: Record<RateLimitAction, number> = { suggestion: SUGGESTION_CAP, reply: REPLY_CAP };
-
 /**
  * Write `data` at `ref` and move writeWindows/{uid}_{action} in one transaction
- * (RL-048): the rules deny the content without the window move. Throws
+ * (RL-048, RL-049): the rules deny the content without the window move. Throws
  * RateLimitedError, having written nothing, at the cap. Rejects after 5 s rather
  * than queueing offline as addDoc did; a timed-out transaction may still commit.
  */
@@ -480,17 +491,24 @@ async function writeLimited(
   uid: string,
   action: RateLimitAction,
   ref: DocumentReference,
-  data: DocumentData
-): Promise<void> {
+  data: DocumentData,
+  /** When given, `ref` is read first and, if it exists, merged with this instead: no window move. */
+  ifExists?: DocumentData
+): Promise<boolean> {
   const windowRef = doc(fs, 'writeWindows', `${uid}_${action}`);
   try {
-    await rejectAfter(
+    return await rejectAfter(
       runTransaction(fs, async (tx) => {
+        if (ifExists && (await tx.get(ref)).exists()) {
+          tx.set(ref, ifExists, { merge: true });
+          return false;
+        }
         const snap = await tx.get(windowRef);
         const prev = snap.exists()
           ? { windowStartMs: (snap.data().windowStart as Timestamp).toMillis(), count: snap.data().count as number }
           : null;
-        const next = nextWindow(prev, Date.now(), CAPS[action], WINDOW_MS);
+        const { cap, windowMs } = RATE_LIMITS[action];
+        const next = nextWindow(prev, Date.now(), cap, windowMs);
         if (next === 'limited') throw new RateLimitedError(action);
         tx.set(ref, data);
         // A new window stamps windowStart; an increment must leave it as stored,
@@ -501,6 +519,7 @@ async function writeLimited(
         } else {
           tx.update(windowRef, { count: next.count, at: serverTimestamp(), last: ref.path });
         }
+        return true;
       }),
       `Sending the ${action}`
     );
@@ -508,6 +527,17 @@ async function writeLimited(
     if (err instanceof RateLimitedError) reportError(err, `rate-limited-${action}`);
     throw err;
   }
+}
+
+/**
+ * Write a notification through the notification window (RL-049), after the
+ * action it announces has committed. Fire-and-forget and never throws: a
+ * limited, offline, timed-out or denied notification is skipped, so it can never
+ * fail the favourite, follow, suggestion, reply or review itself. A limited one
+ * is reported once by writeLimited as 'rate-limited-notification'.
+ */
+function notify(fs: Firestore, data: DocumentData & { fromUid: string }): void {
+  writeLimited(fs, data.fromUid, 'notification', doc(collection(fs, 'notifications')), data).catch(() => {});
 }
 
 export async function createSuggestion(params: {
@@ -535,7 +565,7 @@ export async function createSuggestion(params: {
 
   // Notify recipe owner
   if (params.suggestedBy.uid !== params.recipeOwnerId) {
-    addDoc(collection(firestore, 'notifications'), {
+    notify(firestore, {
       recipientUid: params.recipeOwnerId,
       type: 'suggestion',
       recipeId: params.recipeId,
@@ -546,7 +576,7 @@ export async function createSuggestion(params: {
       message: truncateNotificationMessage(params.message),
       read: false,
       createdAt: Date.now(),
-    }).catch(() => {});
+    });
   }
 }
 
@@ -605,7 +635,7 @@ export async function addSuggestionMessage(
   // Fire-and-forget, matching the other notification writes: a failed
   // notification must not make a sent reply look like it failed.
   if (recipientUid) {
-    addDoc(collection(firestore, 'notifications'), {
+    notify(firestore, {
       recipientUid,
       type: 'suggestion_reply',
       recipeId: suggestion.recipeId,
@@ -616,7 +646,7 @@ export async function addSuggestionMessage(
       message: truncateNotificationMessage(text),
       read: false,
       createdAt: Date.now(),
-    }).catch(() => {});
+    });
   }
 }
 
@@ -689,7 +719,7 @@ export async function updateSuggestionStatus(
   // Close the loop back to the suggester. Fire-and-forget like the other
   // notification writes, so a failure here never blocks the review itself.
   if (reviewer && reviewer.uid !== suggestion.suggestedBy.uid) {
-    addDoc(collection(firestore, 'notifications'), {
+    notify(firestore, {
       recipientUid: suggestion.suggestedBy.uid,
       type: status === 'approved' ? 'suggestion_approved' : 'suggestion_rejected',
       recipeId: suggestion.recipeId,
@@ -704,7 +734,7 @@ export async function updateSuggestionStatus(
       message: typeof suggestion.message === 'string' ? truncateNotificationMessage(suggestion.message) : null,
       read: false,
       createdAt: Date.now(),
-    }).catch(() => {});
+    });
   }
 
   return collaborator ? { recipeId: suggestion.recipeId, collaborator } : null;
@@ -888,7 +918,7 @@ export async function followUser(
   // Gaining a follower was the one social event that produced no notification,
   // which is odd given it is the strongest signal a creator gets. Fire-and-forget
   // like the others, so a failed notification never fails the follow itself.
-  addDoc(collection(firestore, 'notifications'), {
+  notify(firestore, {
     recipientUid: followingId,
     type: 'follow',
     fromUid: followerId,
@@ -896,7 +926,7 @@ export async function followUser(
     message: null,
     read: false,
     createdAt: Date.now(),
-  }).catch(() => {});
+  });
 }
 
 export async function unfollowUser(

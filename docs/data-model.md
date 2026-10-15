@@ -47,7 +47,7 @@ the dual store addressable by one id.
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the three counters. Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
-| `writeWindows/{uid}_{action}` | composite, `action` is `suggestion` or `reply` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion or message it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
+| `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification` or `recipe` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
@@ -109,8 +109,10 @@ following, notifications and profiles stayed open to anonymous accounts.
 
 **recipes** — anyone may read, including signed-out visitors, deliberately: the library feed
 and shared links work without an account. Publishing requires a **verified email**, a
-**current Terms acceptance** (`acceptedTerms()`, RL-047, one extra document read), and
-stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
+**current Terms acceptance** (`acceptedTerms()`, RL-047, one extra document read), a
+**recipe-window move** (RL-049, at most 30 creates per day, see writeWindows below), and
+stamping your own uid as `createdBy.uid`, with both counters starting at zero. A re-publish
+is an update and needs no window. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
 verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`.
 Delete needs a verified owner. Recipes published anonymously before the 2026-08-10 gate can
@@ -174,6 +176,8 @@ the parent, so opening a thread costs one extra document read on top of its mess
 Every write needs a verified email. Creation requires your own `fromUid` and `read: false`,
 and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoji`, `fromUid`,
 `fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
+Since RL-049 a create also needs a notification-window move (at most 60 per hour per
+sender, see writeWindows below), so a notification costs 2 extra document reads.
 `type` must be one of the six: `favorite` and `follow` require `message` null; the four
 suggestion types allow null or a string of at most 500 characters, counted as UTF-16 units
 (an emoji is two). Suggestion and reply text has no length cap of its own, so the client cuts the
@@ -198,37 +202,70 @@ recipe's `createdAt`), and `recordedAt` equal to the request time, i.e. `serverT
 Deletable by the owner, for account erasure (RL-057); a deleted acceptance just blocks
 contributing again. Emulator-checked 2026-10-15 (ticket RL-047 Notes).
 
-**writeWindows** (RL-048, in the repo 2026-10-15, deployed by RL-051): the per-user limits on
-suggestions (10 per hour) and replies (30 per hour), enforced by the rules alone because
-product decision 2 rules out Cloud Functions. `createSuggestion` and `addSuggestionMessage`
-run a transaction that reads `writeWindows/{uid}_{action}`, decides with `nextWindow`
+**writeWindows** (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051): the
+per-user limits, enforced by the rules alone because product decision 2 rules out Cloud
+Functions:
+
+| Action | Cap | Window | Limited write | When limited |
+|---|---|---|---|---|
+| `suggestion` | 10 | 1 hour | suggestion create | message in the suggest dialog |
+| `reply` | 30 | 1 hour | message create | message under the reply box |
+| `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, approve, reject) | skipped silently, reported |
+| `recipe` | 30 | 1 day | recipe create only (a re-publish is an update and is not limited) | "You've published a lot today. Try again tomorrow." |
+
+`createSuggestion`, `addSuggestionMessage`, the create branch of `publishRecipe` and every
+notification writer (through `notify()` in `services/firestore.ts`, after the action it
+announces has committed) run a transaction that reads `writeWindows/{uid}_{action}`, decides with `nextWindow`
 (`src/lib/rateLimit.ts`), and writes the content and the window together. The suggestion and
 message create rules additionally require `existsAfter()` and `getAfter()` of that window
 with `at == request.time`, which proves the window moved in the same request, so a create
 without it is denied. The window rule: read by its owner only, decided from the document id
-(`{your uid}_suggestion` or `{your uid}_reply`), never from `resource.data`, because the
+(`{your uid}_` plus one of the four actions), never from `resource.data`, because the
 client reads a missing window on its first write and a rule that dereferences
 `resource.data` would deny that (RL-026). Create and update need a verified email, that exact
 id, only the keys `windowStart`, `count`, `at` and `last`, an int `count`, a timestamp
 `windowStart`, `at` equal to the request time, and `last` a string of at most 300 characters.
-`last` is the path of the document this bump counts (`suggestions/{id}` or
-`suggestions/{id}/messages/{id}`), and each create requires the window's `last` after the
+`last` is the path of the document this bump counts (`suggestions/{id}`,
+`suggestions/{id}/messages/{id}`, `notifications/{id}` or `recipes/{id}`), and each create requires the window's `last` after the
 request to equal its own path. The window has one value after a request, so one bump admits
 exactly one create: without it, one bump in a batch admitted any number of suggestions or
 messages (emulator-proved before the fix, 2026-10-15). Create needs `count == 1` and `windowStart` the request
-time. Update is either a new window (only once server time is past `windowStart` plus one
-hour; `count == 1`, `windowStart` the request time) or the same window (`windowStart`
-unchanged, `count` exactly one more, at most the cap). No delete, since that would reset the
+time. Update is either a new window (only once server time is past `windowStart` plus that
+action's window, one hour or one day; `count == 1`, `windowStart` the request time) or the
+same window (`windowStart` unchanged, `count` exactly one more, at most that action's cap).
+The rules take the action from the id after the underscore (a uid has none) and look up its
+cap and window in `capFor()` and `windowMsFor()`. No delete, since that would reset the
 limit. A user may move their own window without writing content; that only limits
 themselves. **Read cost: 2 extra document reads per limited write** (the window read in the
 transaction, and the rules' `getAfter()`; the two `getAfter()` calls on one path bill once),
 matching the counts in the suggestion and reply paragraphs above. **Access-call budget**: a transaction commit is a multi-document
 request (20 accesses). A suggestion create touches the recipe, `termsAcceptance` and the
-window; a message create touches the parent suggestion, `termsAcceptance` and the window;
-the window write itself touches none. Emulator-checked 2026-10-15 with every guard present
-(ticket RL-048 Notes). The caps and window live in the rules as `suggestionCap()`,
-`replyCap()` and `windowMs()`, and `src/lib/rateLimit.test.ts` fails when they differ from
-`SUGGESTION_CAP`, `REPLY_CAP` and `WINDOW_MS`.
+window (3 documents); a message create touches the parent suggestion, `termsAcceptance` and
+the window (3); a recipe create touches `termsAcceptance` and the window (2); a notification
+create touches only the window (1); the window write itself touches none. Emulator-checked
+2026-10-15 with every guard present (tickets RL-048 and RL-049 Notes). The caps and windows
+live in the rules as `suggestionCap()`, `replyCap()`, `notificationCap()`, `recipeCap()`,
+`windowMs()` and `recipeWindowMs()`, and `src/lib/rateLimit.test.ts` fails when they differ
+from `RATE_LIMITS` in `src/lib/rateLimit.ts`.
+
+A notification is written in its own small transaction after the favourite, follow,
+suggestion, reply or review has committed, never inside that batch, so a limited or failed
+notification can never undo the action. A limited one is skipped and reported once as
+`rate-limited-notification`; any other failure (offline, timeout, denied) is skipped
+silently as before. No path writes two notifications in one request.
+
+`publishRecipe`'s create branch reads the recipe again inside its transaction, before the
+window. If it exists by then (the outer `getDoc` was stale, or an earlier publish that timed
+out on the client landed meanwhile), the transaction writes the same merge a re-publish
+writes (no counters, no `collaborators`) and no window, and the `recipeCount` bump is
+skipped; a transaction that read the recipe as missing carries that as a precondition, so a
+create landing in between cannot be overwritten. **Read cost of a first publish:** the
+outer `getDoc`, the transaction's recipe and window reads, and the rules' `termsAcceptance`
+and window `getAfter()`: 5 billed reads (a re-publish costs the outer `getDoc` only, or 2
+when the transaction finds the recipe). Before this, a create over an existing recipe was
+accepted by the rules as an owner update and reset its counters. Checked with the web SDK
+against the emulator (ticket RL-049 Notes). `publishRecipe` also rejects, before any read,
+when the recipe's `createdBy.uid` is not the signed-in uid (the rules would deny it).
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.

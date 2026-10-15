@@ -12,6 +12,7 @@ import { withTimeout } from '../lib/utils';
 import {
   describeGenerationError,
   GENERATION_UNAVAILABLE,
+  rateLimitMessage,
   type FriendlyError,
 } from '../lib/errors';
 import { isFirebaseConfigured } from '../services/firebase';
@@ -297,6 +298,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       // when the write never landed. Bounded because an unreachable Firestore
       // retries instead of rejecting, so an unbounded await would hang the save.
       let published = false;
+      // Set when the publish was refused at the daily cap (RL-049); the recipe is
+      // already in Dexie, so the destination says why it stayed local.
+      let note: string | null = null;
       if (isFirebaseConfigured) {
         published = await withTimeout(
           publishRecipe(recipe)
@@ -306,6 +310,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
                 'Publishing recipe to the cloud failed; it stays local until shared',
                 err
               );
+              note = rateLimitMessage(err);
               return false;
             }),
           PUBLISH_TIMEOUT_MS,
@@ -317,7 +322,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       // The destination reads this to confirm what actually happened. Local-only
       // mode reports 'local' too, which is accurate: nothing was shared.
       navigate(`/recipe/${recipe.id}`, {
-        state: { saved: published ? 'cloud' : 'local' },
+        state: { saved: published ? 'cloud' : 'local', note },
       });
       // Deliberately stays locked after a successful save: the page is
       // navigating away and re-enabling would briefly re-arm the button.

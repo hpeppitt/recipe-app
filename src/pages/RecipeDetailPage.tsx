@@ -28,6 +28,8 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
+import { rateLimitMessage } from '../lib/errors';
+import { SavedToast } from '../components/recipe/SavedToast';
 import { TreeIntro } from '../components/recipe/TreeIntro';
 import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
 import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
@@ -65,6 +67,8 @@ export function RecipeDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
+  // Why the share fell back to a self-contained link, when known (RL-049 daily limit).
+  const [shareNote, setShareNote] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   // Holds the link when the clipboard is unavailable, so it can be shown for
   // manual copying instead of the action silently failing.
@@ -77,7 +81,8 @@ export function RecipeDetailPage() {
   // Set by the save flow via navigation state. 'local' means the recipe is on
   // this device but the cloud publish did not land, which the user previously
   // had no way of knowing — it was a console.error and nothing else.
-  const savedOutcome = (location.state as { saved?: 'cloud' | 'local' } | null)?.saved;
+  const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
+  const savedOutcome = savedState?.saved;
   const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
   // Which suggestion is mid-review. Both buttons on every row disable while one
   // is in flight: a slow link previously allowed a double-tap, or approving one
@@ -114,6 +119,7 @@ export function RecipeDetailPage() {
   const handleShare = async () => {
     if (!recipe || isSharing) return;
     setIsSharing(true);
+    setShareNote(null);
     try {
       let isPublished = false;
       if (isFirebaseConfigured) {
@@ -133,6 +139,7 @@ export function RecipeDetailPage() {
             return true;
           })().catch((err) => {
             console.error('Could not publish recipe before sharing', err);
+            setShareNote(rateLimitMessage(err));
             return false;
           }),
           SHARE_PUBLISH_TIMEOUT_MS,
@@ -793,25 +800,7 @@ export function RecipeDetailPage() {
         onClose={() => setShowSuggest(false)}
       />
 
-      {/* Saving used to be silent: the page simply changed. Worse, a failed cloud
-          publish was console-only, so the user believed a local-only recipe was
-          shared. Reuses the Share toast treatment. */}
-      {showSavedToast && savedOutcome && (
-        <div
-          role="status"
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
-        >
-          <p className="text-sm font-medium text-text-primary">
-            {savedOutcome === 'cloud' ? 'Recipe saved' : 'Saved on this device'}
-          </p>
-          {savedOutcome === 'local' && (
-            <p className="mt-0.5 text-xs text-text-secondary">
-              It couldn't be shared to the library just now, so others can't see it yet.
-              Sharing this recipe will retry.
-            </p>
-          )}
-        </div>
-      )}
+      {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
 
       {/* The publish step can take up to 4s and its only previous indication was
           disabled:opacity-50 on a 20px icon. Share now lives in a menu that
@@ -851,6 +840,7 @@ export function RecipeDetailPage() {
               recipients can't favourite it or suggest changes.
             </p>
           )}
+          {shareNote && <p className="text-xs text-text-secondary">{shareNote}</p>}
           <Button size="sm" variant="secondary" onClick={() => setShareFallback(null)}>
             Done
           </Button>
@@ -869,6 +859,7 @@ export function RecipeDetailPage() {
               recipients can't favourite it or suggest changes.
             </p>
           )}
+          {shareNote && <p className="mt-0.5 text-xs text-text-secondary">{shareNote}</p>}
         </div>
       )}
     </div>

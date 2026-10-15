@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in legal.test.ts.
 import rules from '../../firestore.rules?raw';
-import { nextWindow, SUGGESTION_CAP, REPLY_CAP, WINDOW_MS, RESET_MARGIN_MS } from './rateLimit';
+import {
+  nextWindow,
+  SUGGESTION_CAP,
+  REPLY_CAP,
+  NOTIFICATION_CAP,
+  RECIPE_CAP,
+  WINDOW_MS,
+  RECIPE_WINDOW_MS,
+  RATE_LIMITS,
+  RESET_MARGIN_MS,
+} from './rateLimit';
 
 const START = 1_000_000_000;
 const HOUR = 3_600_000;
@@ -80,5 +90,58 @@ describe('firestore.rules write limits (RL-048)', () => {
     expect(rules).toContain(`replies      ${REPLY_CAP} per hour`);
     expect(rules).toContain(`window       ${WINDOW_MS} ms`);
     expect(WINDOW_MS).toBe(HOUR);
+  });
+});
+
+describe('per-action limits (RL-049)', () => {
+  const literal = (fn: string) => {
+    const m = new RegExp(`function ${fn}\\(\\)\\s*\\{\\s*return (\\d+);`).exec(rules);
+    return m ? Number(m[1]) : undefined;
+  };
+
+  it('carry each action its own cap and window', () => {
+    expect(RATE_LIMITS).toEqual({
+      suggestion: { cap: SUGGESTION_CAP, windowMs: WINDOW_MS },
+      reply: { cap: REPLY_CAP, windowMs: WINDOW_MS },
+      notification: { cap: 60, windowMs: HOUR },
+      recipe: { cap: 30, windowMs: 24 * HOUR },
+    });
+  });
+
+  it('match the rules literals and comment block', () => {
+    expect(literal('notificationCap')).toBe(NOTIFICATION_CAP);
+    expect(literal('recipeCap')).toBe(RECIPE_CAP);
+    expect(literal('recipeWindowMs')).toBe(RECIPE_WINDOW_MS);
+    expect(rules).toContain(`notifications ${NOTIFICATION_CAP} per hour`);
+    expect(rules).toContain(`recipes      ${RECIPE_CAP} per day`);
+    expect(rules).toContain(`recipe window ${RECIPE_WINDOW_MS} ms`);
+  });
+
+  it('the rules map every action to its cap and window function', () => {
+    expect(rules).toContain(
+      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap()}[action]"
+    );
+    expect(rules).toContain(
+      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs()}[action]"
+    );
+    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe']");
+  });
+
+  it('bind notification and recipe creates to their window bump', () => {
+    expect(rules).toContain("movedWindow('notification', 'notifications/' + notificationId)");
+    expect(rules).toContain("movedWindow('recipe', 'recipes/' + recipeId)");
+  });
+
+  it('the daily window resets only after a day plus the margin', () => {
+    const { cap, windowMs } = RATE_LIMITS.recipe;
+    const full = { windowStartMs: START, count: cap };
+    expect(nextWindow(full, START + 2 * HOUR, cap, windowMs)).toBe('limited');
+    expect(nextWindow(full, START + windowMs + RESET_MARGIN_MS, cap, windowMs)).toBe('limited');
+    const after = START + windowMs + RESET_MARGIN_MS + 1;
+    expect(nextWindow(full, after, cap, windowMs)).toEqual({ windowStartMs: after, count: 1 });
+    expect(nextWindow({ windowStartMs: START, count: cap - 1 }, START + HOUR, cap, windowMs)).toEqual({
+      windowStartMs: START,
+      count: cap,
+    });
   });
 });

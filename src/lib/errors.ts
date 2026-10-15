@@ -1,6 +1,10 @@
 import type { RateLimitAction } from './rateLimit';
 
-/** Thrown before writing anything when a suggestion or reply would pass its cap (RL-048). */
+/**
+ * Thrown before writing anything when a limited write would pass its cap
+ * (RL-048, RL-049). A limited notification is swallowed by its writer, so only
+ * suggestion, reply and recipe ever reach a message.
+ */
 export class RateLimitedError extends Error {
   readonly action: RateLimitAction;
   constructor(action: RateLimitAction) {
@@ -13,6 +17,7 @@ export class RateLimitedError extends Error {
 /** The message for a rate-limited write, or null for any other failure. */
 export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;
+  if (err.action === 'recipe') return "You've published a lot today. Try again tomorrow.";
   const what = err.action === 'suggestion' ? 'suggestions' : 'replies';
   return `You've sent a lot of ${what} recently. Try again in a while.`;
 }

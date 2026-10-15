@@ -46,6 +46,21 @@ vi.mock('firebase/firestore', () => ({
   increment: (n: number) => ({ __increment: n }),
   writeBatch: () => ({ set: vi.fn(), update: vi.fn(), delete: vi.fn(), commit: vi.fn(async () => {}) }),
   arrayUnion: (...args: unknown[]) => ({ __arrayUnion: args }),
+  // RL-049: a notification is a transaction with the notification window. The
+  // window is absent, and the notification write goes to the addDoc spy at the
+  // moment it is staged, so the assertions below still read it.
+  serverTimestamp: () => 'SERVER_TS',
+  runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<void>) => {
+    let pending: Promise<void> | undefined;
+    await fn({
+      get: async () => ({ exists: () => false }),
+      set: (ref: { path: string }, data: unknown) => {
+        if (!ref.path.startsWith('writeWindows/')) pending = addDoc(ref, data);
+      },
+      update: () => {},
+    });
+    await pending;
+  },
 }));
 
 const { updateSuggestionStatus, subscribeRecipeSuggestions } = await import('./firestore');
