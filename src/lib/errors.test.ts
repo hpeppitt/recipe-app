@@ -124,3 +124,9 @@ describe('rateLimitMessage (RL-048)', () => {
     expect(rateLimitMessage(Object.assign(new Error('denied'), { code: 'permission-denied' }))).toBeNull();
   });
 });
+
+describe('rateLimitMessage (RL-049)', () => {
+  it('says the daily publish limit was hit', () => {
+    expect(rateLimitMessage(new RateLimitedError('recipe'))).toBe("You've published a lot today. Try again tomorrow.");
+  });
+});

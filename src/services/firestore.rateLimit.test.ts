@@ -22,22 +22,33 @@ vi.mock('./telemetry', () => ({ reportError: (...a: unknown[]) => reportError(..
 
 let autoId = 0;
 vi.mock('firebase/firestore', () => ({
-  // doc(collectionRef) mints an id, like the SDK.
+  // doc(collectionRef) mints an id, like the SDK. Notification ids (RL-049) do
+  // not advance autoId, so 'auto' + autoId still names the suggestion or message.
   doc: (first: { path?: string }, ...segments: string[]) =>
-    segments.length ? { path: segments.join('/') } : { path: `${first.path}/auto${++autoId}` },
+    segments.length
+      ? { path: segments.join('/') }
+      : { path: first.path === 'notifications' ? 'notifications/n' : `${first.path}/auto${++autoId}` },
   collection: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }),
   addDoc: (...args: unknown[]) => addDoc(...args),
   serverTimestamp: () => 'SERVER_TS',
   runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<void>) => {
     const staged: Op[] = [];
+    // RL-049: a notification transaction goes to the addDoc spy when it stages
+    // the notification, and is kept out of getPaths and ops, so the RL-048
+    // assertions below still see only the content transaction.
+    let notification: Promise<void> | undefined;
     await fn({
       get: async (ref: { path: string }) => {
-        getPaths.push(ref.path);
+        if (!ref.path.endsWith('_notification')) getPaths.push(ref.path);
         return { exists: () => windowDoc !== null, data: () => windowDoc };
       },
-      set: (ref: { path: string }, data: Record<string, unknown>) => staged.push({ op: 'set', path: ref.path, data }),
+      set: (ref: { path: string }, data: Record<string, unknown>) => {
+        if (ref.path.startsWith('notifications/')) notification = addDoc(ref, data);
+        else staged.push({ op: 'set', path: ref.path, data });
+      },
       update: (ref: { path: string }, data: Record<string, unknown>) => staged.push({ op: 'update', path: ref.path, data }),
     });
+    if (notification) return notification;
     await commitImpl();
     ops = staged;
   },

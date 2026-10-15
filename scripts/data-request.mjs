@@ -340,7 +340,7 @@ async function collect(db, auth, uid) {
     profile: await one(`profiles/${uid}`),
     termsAcceptance: await one(`termsAcceptance/${uid}`),
     rateLimit: await one(`rateLimits/${uid}`),
-    writeWindows: (await Promise.all([one(`writeWindows/${uid}_suggestion`), one(`writeWindows/${uid}_reply`)])).filter(Boolean),
+    writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
     ownRecipes,
     collaboratorRecipes,
     favorites,

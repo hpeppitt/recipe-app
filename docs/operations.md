@@ -249,8 +249,9 @@ them; that is the author's call, not something to improvise at deploy time.) In 
    to RL-021, and RL-045, RL-047, RL-048 and RL-049 (so RL-046 is signed off first).
 5. **The rules**: `firebase deploy --only firestore:rules`, then diff again; the diff must be
    empty. Record the date and both ruleset ids here (RL-022, RL-051). Run this **straight
-   after step 4, back to back**: from the moment the RL-048 client is live until these rules
-   are, every suggestion and reply fails (see "What each wrong order does for RL-048" below).
+   after step 4, back to back**: from the moment the RL-048 and RL-049 client is live until
+   these rules are, every suggestion, reply and first publish fails and no notification is
+   written (see "What each wrong order does for RL-048" and "for RL-049" below).
 6. **The author's own acceptance, straight away**: reload the live app signed in with your
    verified account. A stored acceptance for your address is written automatically;
    otherwise the dialog appears, so accept it. Confirm `termsAcceptance/{your uid}` exists
@@ -319,9 +320,26 @@ message create. There is deliberately no client fallback to the old plain write 
   no window move, so every suggestion and reply from a tab still on the old client is denied
   until it reloads onto the new client.
 
+**What each wrong order does for RL-049 (notification and publish limits).** The same
+coupling as RL-048, over two more write paths. The new client writes
+`writeWindows/{uid}_notification` with every notification and `writeWindows/{uid}_recipe`
+with every first publish; the new rules require those moves.
+
+- **Client live before the rules**: the older rules do not allow the two new window ids, so every
+  notification transaction is denied and skipped silently (favourites, follows, suggestions,
+  replies and reviews themselves still land; nobody is notified of them), and every first
+  publish fails. A first publish from the chat save stays on the device with the generic
+  "Saved on this device" toast; Share falls back to the self-contained link. Re-publishing an
+  already-published recipe keeps working (an update, no window). Emulator-checked against the
+  HEAD rules (ticket RL-049 Notes).
+- **Rules live before the client**: old clients write notifications and recipe creates with
+  no window move, so every notification from an old tab is denied (silently, as today's
+  fire-and-forget) and every first publish from an old tab fails until it reloads.
+
 So the combined order stays client first, then rules, as RL-047 needs, with a short expected
-gap for suggestions and replies. Keep steps 4 and 5 minutes apart, not hours, and tell
-testers not to suggest or reply in between.
+gap for suggestions, replies, notifications and first publishes. Keep steps 4 and 5 minutes
+apart, not hours, and tell testers not to suggest, reply, favourite, follow or save a new
+recipe in between.
 
 **A later Terms bump is the reverse: rules, then client, back to back.** Bump
 `TERMS_VERSION` and the `termsVersion()` literal in one change (`src/lib/legal.test.ts`
@@ -503,7 +521,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | Data | Erase |
 |---|---|
 | Auth user | Deleted, after Firestore |
-| `profiles/{uid}`, `termsAcceptance/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion` and `{uid}_reply` | Deleted |
+| `profiles/{uid}`, `termsAcceptance/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification` and `{uid}_recipe` | Deleted |
 | `recipes` with `createdBy.uid == uid` (with `createdBy.displayName`) | Deleted |
 | The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) | That element removed with `arrayRemove`. No query can match a uid inside those objects, so every recipe is read |
 | `favorites` with `uid == uid` | Deleted, and the favourited recipe's `favoriteCount` decremented (not below 0, not on the uid's own recipes) |
@@ -536,8 +554,8 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 - Free text: `clientErrors` reports with `uid` null (signed-out) or other users' reports, and
   the kept suggestion and reply text, can contain a name or anything the person typed. The
   script does not search text.
-- `writeWindows/{other uid}_*` `last` fields may still name a deleted suggestion or reply
-  path. A path holds ids only, no uid or name.
+- `writeWindows/{other uid}_*` `last` fields may still name a deleted suggestion, reply,
+  notification or recipe path. A path holds ids only, no uid or name.
 
 ## Verification gates
 

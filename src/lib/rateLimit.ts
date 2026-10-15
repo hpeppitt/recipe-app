@@ -1,14 +1,26 @@
 /**
- * Per-user write limits enforced by firestore.rules alone (RL-048). The rules
- * hold the same numbers in suggestionCap(), replyCap() and windowMs();
- * rateLimit.test.ts fails the build when they differ.
+ * Per-user write limits enforced by firestore.rules alone (RL-048, RL-049). The
+ * rules hold the same numbers in suggestionCap(), replyCap(), notificationCap(),
+ * recipeCap(), windowMs() and recipeWindowMs(); rateLimit.test.ts fails the
+ * build when they differ.
  */
 
-export type RateLimitAction = 'suggestion' | 'reply';
+export type RateLimitAction = 'suggestion' | 'reply' | 'notification' | 'recipe';
 
 export const SUGGESTION_CAP = 10;
 export const REPLY_CAP = 30;
+export const NOTIFICATION_CAP = 60;
+/** Recipe creates only; a re-publish is an update and is not counted. */
+export const RECIPE_CAP = 30;
 export const WINDOW_MS = 60 * 60 * 1000;
+export const RECIPE_WINDOW_MS = 24 * WINDOW_MS;
+
+export const RATE_LIMITS: Record<RateLimitAction, { cap: number; windowMs: number }> = {
+  suggestion: { cap: SUGGESTION_CAP, windowMs: WINDOW_MS },
+  reply: { cap: REPLY_CAP, windowMs: WINDOW_MS },
+  notification: { cap: NOTIFICATION_CAP, windowMs: WINDOW_MS },
+  recipe: { cap: RECIPE_CAP, windowMs: RECIPE_WINDOW_MS },
+};
 
 /**
  * How long past the window's end the client waits before starting a new one.

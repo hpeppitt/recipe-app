@@ -14,6 +14,8 @@ let getDocError: Error | null = null;
 
 vi.mock('./firebase', () => ({
   firestore: { __mock: true },
+  // RL-049: no auth here, so publishRecipe's signed-in-creator guard is skipped.
+  auth: null,
   isFirebaseConfigured: true,
 }));
 
@@ -42,6 +44,23 @@ vi.mock('firebase/firestore', () => ({
     commit: vi.fn(async () => {}),
   }),
   arrayUnion: (...args: unknown[]) => ({ __arrayUnion: args }),
+  // RL-049: the create path is a transaction with the recipe window. The window
+  // is absent, and the recipe write is forwarded to the setDoc spy so the
+  // first-publish assertions below still read it; firestore.writeLimits.test.ts
+  // covers the transaction itself.
+  serverTimestamp: () => 'SERVER_TS',
+  runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) => {
+    const writes: unknown[][] = [];
+    const result = await fn({
+      get: async () => ({ exists: () => false }),
+      set: (ref: { path: string }, data: unknown) => {
+        if (!ref.path.startsWith('writeWindows/')) writes.push([ref, data]);
+      },
+      update: () => {},
+    });
+    for (const w of writes) await setDoc(...(w as []));
+    return result;
+  },
 }));
 
 const { publishRecipe } = await import('./firestore');

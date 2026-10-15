@@ -340,6 +340,38 @@ in-flight transactions on one window, which Firestore's read preconditions seria
 deliberately no client fallback to the old plain write; see [operations.md](operations.md)
 and the pending entry in `backlog/DECISIONS.md`.
 
+### Notifications and recipe creates join the rules-only limits (RL-049, 2026-10-15)
+
+Same `writeWindows` pattern as RL-048, with two more actions: `notification` (60 per hour
+per sender) and `recipe` (30 per day, creates only). Caps are the groomer's choice.
+
+**Per-action windows.** The recipe window is a day, so the window length is no longer one
+constant. The rules take the action from the window id after the underscore (a uid has none)
+and look up its cap and window in `capFor()` and `windowMsFor()`; the client holds the same
+table as `RATE_LIMITS` in `src/lib/rateLimit.ts`, and the rules-text test checks every
+number. The 60 s reset margin applies to every action. A user at the recipe cap waits up to
+a day from the first publish of that window.
+
+**Notifications are post-commit and silent.** Each notification is its own small
+transaction (`notify()` in `services/firestore.ts`) after the favourite, follow, suggestion,
+reply or review has committed, never inside that batch. Putting the window in the primary
+batch would let a limited notification abort the favourite or follow. When limited, the
+notification is skipped and reported once as `rate-limited-notification`; any other failure
+stays silent, as the old fire-and-forget `addDoc` was. Offline, notifications are now
+skipped rather than queued. No path writes two notifications in one request, so the `last`
+binding (one bump admits one create) never blocks a legitimate write.
+
+**Recipe limit scope.** Only `publishRecipe`'s create branch is limited; a re-publish is an
+update and needs no window, so editing is never blocked. A limited publish throws
+`RateLimitedError('recipe')` having written nothing. The transaction re-reads the recipe
+first and takes the re-publish merge (no window, no counters, no `recipeCount` bump) if it
+exists by then, so neither a stale existence read nor a save-time publish that landed after
+its caller timed out can turn a later Share into a second create that resets the counters
+or counts twice. The recipe is already in Dexie
+(dual-write order), so the user loses nothing: the save toast and the Share toast say
+"You've published a lot today. Try again tomorrow." Offline, a first publish now fails
+instead of queueing; Share retries it.
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view
