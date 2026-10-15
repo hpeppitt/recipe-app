@@ -4,6 +4,7 @@ import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useTheme } from '../hooks/useTheme';
 import { useUnitSystem } from '../hooks/useUnitSystem';
+import { useConsent } from '../hooks/useConsent';
 import { Button } from '../components/ui/Button';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -20,6 +21,7 @@ export function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const { theme, setTheme } = useTheme();
   const { unitSystem, setUnitSystem } = useUnitSystem();
+  const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured } = useAuth();
   const navigate = useNavigate();
 
@@ -206,6 +208,18 @@ export function SettingsPage() {
               </li>
             ))}
           </ul>
+          {/* Hidden until PostHog is configured: with no provider there is nothing to consent to. */}
+          {analyticsConfigured && (
+            <label className="flex items-center justify-between gap-3 min-h-11 px-4 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary">
+              Privacy: allow analytics
+              <input
+                type="checkbox"
+                checked={analyticsGranted}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="h-5 w-5 accent-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              />
+            </label>
+          )}
         </section>
 
         {/* Read from package.json via Vite `define`, so it cannot drift from

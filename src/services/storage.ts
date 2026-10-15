@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import type { StrandedIdentity } from '../lib/migration';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
+import { parseConsent, serialiseConsent, type ConsentChoice } from '../lib/consent';
 import { parseLibraryTab, type LibraryTab } from '../lib/library';
 
 // Storage can throw on access (blocked cookies raise SecurityError from merely
@@ -237,4 +238,23 @@ export function setTermsAcceptance(acceptance: StoredTermsAcceptance): void {
 
 export function clearTermsAcceptance(): void {
   safeRemove(STORAGE_KEYS.TERMS_ACCEPTANCE);
+}
+
+// --- Analytics consent (RL-052) ---
+
+export function getConsentChoice(): ConsentChoice | null {
+  return parseConsent(safeGet(STORAGE_KEYS.ANALYTICS_CONSENT));
+}
+
+export function setConsentChoice(granted: boolean, at: number): void {
+  safeSet(STORAGE_KEYS.ANALYTICS_CONSENT, serialiseConsent(granted, at));
+}
+
+/** One-time flag for the leftover GA4 cookie cleanup. */
+export function getGaCookiesCleared(): boolean {
+  return safeGet(STORAGE_KEYS.GA_COOKIES_CLEARED) === '1';
+}
+
+export function setGaCookiesCleared(): void {
+  safeSet(STORAGE_KEYS.GA_COOKIES_CLEARED, '1');
 }

@@ -110,7 +110,7 @@ noted. The operator can read everything in the Firebase console.
 | Change | Ticket (status on 2026-10-15) | Effect on this inventory |
 |---|---|---|
 | GA4 removed | RL-058 (done 2026-10-15) | GA4 events, the GA4 User-ID and `firebase-installations-database` go away. `VITE_FIREBASE_MEASUREMENT_ID` removed |
-| Consent banner and Settings control | RL-052 (ready) | New `STORAGE_KEYS` entry holding `{ analytics, at, version }` in localStorage. Leftover `_ga` cookies deleted once |
+| Consent banner and Settings control | RL-052 (built in the repo 2026-10-15; inert until `VITE_POSTHOG_KEY` is set) | `recipe-app-analytics-consent` localStorage key holding `{ analytics, at, version }`, plus a `recipe-app-ga-cookies-cleared` flag. Leftover `_ga` cookies deleted once |
 | PostHog project, host and settings | RL-053 (needs-human) | Host (EU recommended), IP handling and data retention chosen by the author and recorded |
 | PostHog product analytics | RL-054 (ready) | Events go to PostHog only after opt-in, verified users identified by uid only, anonymous users not identified. `posthog-js` keeps its own cookie or localStorage entry (names not known until it ships) |
 | Terms acceptance record | RL-047 (built in the repo 2026-10-15; rules pending RL-051) | Owner-only `termsAcceptance/{uid}` with `version`, `acceptedAt`, `recordedAt`, plus the `recipe-app-terms-acceptance` key holding the pending acceptance with the normalised email (rows in section 1) |
