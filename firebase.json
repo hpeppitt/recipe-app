@@ -19,12 +19,20 @@
     ],
     "headers": [
       {
-        "//": "Firebase Hosting defaults every file to max-age=3600. For a Vite SPA that is exactly wrong on the entry point: index.html names the hashed bundle, so an hour of caching means a returning visitor keeps loading the *previous* build and a deploy looks like it never happened. Must stay no-cache.",
+        "//": "Firebase Hosting defaults every file to max-age=3600. For a Vite SPA that is exactly wrong on the entry point: index.html names the hashed bundle, so an hour of caching means a returning visitor keeps loading the *previous* build and a deploy looks like it never happened. Must stay no-cache. X-Frame-Options DENY stops another site framing the app (clickjacking); X-Content-Type-Options nosniff stops the browser guessing a file's type from its bytes. Both apply to /assets/** too, because Firebase applies every matching block.",
         "source": "/**",
         "headers": [
           {
             "key": "Cache-Control",
             "value": "no-cache"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
           }
         ]
       },
