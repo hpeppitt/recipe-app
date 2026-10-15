@@ -28,7 +28,7 @@ browser. "Delete Recipes on This Device" is the Settings control (`clearAllRecip
 | Firebase Auth session | IndexedDB `firebaseLocalStorageDb` (Firebase Auth SDK default persistence; name confirmed in `node_modules/@firebase/auth`) | The signed-in Firebase user: uid, email (if any), display name, and the tokens that keep the session alive | This device; sent to Google with Auth and Firestore requests | Until sign-out or clearing browser data | Firebase Auth SDK, started by `getAuth` in `src/services/firebase.ts` |
 | App Check token | IndexedDB `firebase-app-check-database` (name confirmed in `node_modules/@firebase/app-check`) | A short-lived App Check token from the reCAPTCHA v3 attestation | This device; sent with Firebase AI Logic requests | Refreshed automatically (`isTokenAutoRefreshEnabled: true`); lifetime set by Google, not verified | `initializeAppCheck` in `src/services/firebase.ts`, only when `VITE_RECAPTCHA_SITE_KEY` is set |
 | Firebase heartbeat | IndexedDB `firebase-heartbeat-database` (`node_modules/@firebase/app`, `MAX_NUM_STORED_HEARTBEATS = 30`) | One entry per day: the date and the Firebase SDK user-agent string | This device; summarised in a header the SDK sends to Firebase services | Rolling, at most 30 daily entries | Firebase App SDK, from `initializeApp` |
-| Firebase Installations | IndexedDB `firebase-installations-database` | An installation id used by GA4 | This device and Google | Not verified | Firebase Analytics SDK only (only `@firebase/analytics` imports installations), so present only when GA4 runs; removed by RL-058 |
+| Firebase Installations | IndexedDB `firebase-installations-database` | An installation id used by GA4 | This device and Google | Not verified | Removed with GA4 by RL-058 (2026-10-15); no longer created, but may remain on devices that ran GA4 earlier |
 
 ### On the device: localStorage
 
@@ -54,7 +54,7 @@ through `src/services/storage.ts`. None is cleared by "Delete Recipes on This De
 | Item | Where | Contents | Notes |
 |---|---|---|---|
 | Offline app shell | Cache Storage (Workbox precache, `vite.config.ts`) | The app's own HTML, JS, CSS and icons | No user data. No runtime caching of Firestore, Auth or AI calls |
-| Cookies | none set by the app | none | No `document.cookie` anywhere in `src/`. Third-party scripts can set their own: reCAPTCHA (Google) today, GA4 when configured. Their names and lifetimes are not in this repo |
+| Cookies | none set by the app | none | No `document.cookie` anywhere in `src/`. Third-party scripts can set their own: reCAPTCHA (Google). GA4 cookies may remain from before RL-058. Their names and lifetimes are not in this repo |
 
 ### In the cloud: Firebase Authentication
 
@@ -92,7 +92,7 @@ noted. The operator can read everything in the Firebase console.
 | Cloud Firestore (Google) | Everything in the Firestore table above | Normal use | `services/firestore.ts`, `services/telemetry.ts` |
 | Firebase AI Logic, Gemini Developer API backend (Google), model `gemini-3.6-flash` | The system instruction, every message the user types in the session and the conversation so far (the SDK chat keeps history), and for a variation the parent recipe's content as JSON. No uid, email or display name is put in the prompt by app code | Each generation turn | `services/gemini.ts` (`GoogleAIBackend`) |
 | App Check with reCAPTCHA v3 (Google) | Whatever Google's reCAPTCHA v3 script collects from the browser to score it. Not visible in this repo | On load when `VITE_RECAPTCHA_SITE_KEY` is set | `services/firebase.ts` |
-| Google Analytics 4 (Google) | Events `sign_in` (method), `sign_out`, `recipe_created`, `recipe_updated`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited` (recipe id), `suggestion_submitted` (recipe id), `suggestion_reviewed` (suggestion id, action), `profile_updated` (field), `user_followed`, `user_unfollowed` (**the other user's uid**). The GA4 User-ID is set to the Firebase uid of **every** signed-in user, anonymous included. No consent gate | Only when `VITE_FIREBASE_MEASUREMENT_ID` is set at build time. Whether production sets it is not visible in the repo | `services/analytics.ts`, `getAnalytics` in `services/firebase.ts`. Removed by RL-058 |
+| Google Analytics 4 (Google) | Events `sign_in` (method), `sign_out`, `recipe_created`, `recipe_updated`, `recipe_viewed`, `recipe_shared`, `recipe_deleted`, `recipe_favorited`, `recipe_unfavorited` (recipe id), `suggestion_submitted` (recipe id), `suggestion_reviewed` (suggestion id, action), `profile_updated` (field), `user_followed`, `user_unfollowed` (**the other user's uid**). The GA4 User-ID was set to the Firebase uid of **every** signed-in user, anonymous included. No consent gate | **Removed 2026-10-15 (RL-058).** Nothing is sent today; the event names remain as a no-op seam that RL-054 routes to PostHog | `services/analytics.ts` |
 | Share links | A `/shared#r=...` link carries the recipe content and `createdBy` uid and display name compressed in the URL hash. The hash is not sent to the server; it goes wherever the user pastes the link | When a recipe is shared without a cloud copy | `lib/share.ts` |
 
 ### Rights the app can honour itself today
@@ -109,7 +109,7 @@ noted. The operator can read everything in the Firebase console.
 
 | Change | Ticket (status on 2026-10-15) | Effect on this inventory |
 |---|---|---|
-| GA4 removed | RL-058 (ready) | GA4 events, the GA4 User-ID and `firebase-installations-database` go away. `VITE_FIREBASE_MEASUREMENT_ID` removed |
+| GA4 removed | RL-058 (done 2026-10-15) | GA4 events, the GA4 User-ID and `firebase-installations-database` go away. `VITE_FIREBASE_MEASUREMENT_ID` removed |
 | Consent banner and Settings control | RL-052 (ready) | New `STORAGE_KEYS` entry holding `{ analytics, at, version }` in localStorage. Leftover `_ga` cookies deleted once |
 | PostHog project, host and settings | RL-053 (needs-human) | Host (EU recommended), IP handling and data retention chosen by the author and recorded |
 | PostHog product analytics | RL-054 (ready) | Events go to PostHog only after opt-in, verified users identified by uid only, anonymous users not identified. `posthog-js` keeps its own cookie or localStorage entry (names not known until it ships) |
@@ -157,7 +157,7 @@ The ticket's starting inventory was checked line by line. What changed:
 13. **"Clear All Data"** is now labelled "Delete Recipes on This Device" in Settings. It clears
     local recipes **and** local bookmarks, and no localStorage keys.
 14. **Export** covers local recipes only, not local bookmarks either.
-15. **GA4 is live today when configured**, without consent, and sets the GA4 User-ID to the uid
+15. **GA4 was removed by RL-058 (2026-10-15).** Before that it ran without consent when configured and set the GA4 User-ID to the uid
     of every signed-in user including anonymous ones. Its events include another user's uid
     (`target_uid`). RL-058 removes it; the policies are written for after that.
 16. **Abuse limits.** The only per-account generation rate limit is in the undeployed Cloud

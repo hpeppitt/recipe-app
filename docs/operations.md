@@ -45,7 +45,6 @@ Copy `.env.example` to `.env`. Every value is public by design; **never put a se
 | `VITE_FIREBASE_AUTH_DOMAIN` | auth, Firestore, AI | ditto |
 | `VITE_FIREBASE_PROJECT_ID` | auth, Firestore, AI | ditto |
 | `VITE_FIREBASE_APP_ID` | Firebase SDK | |
-| `VITE_FIREBASE_MEASUREMENT_ID` | GA4 | optional; analytics is skipped without it |
 | `VITE_RECAPTCHA_SITE_KEY` | **recipe generation** | reCAPTCHA v3 *site* key. App Check is enforced on the AI Logic path, so the Gemini proxy rejects requests without it |
 | `VITE_APPCHECK_DEBUG_TOKEN` | local dev only | App Check enforcement blocks localhost unless the token is registered under App Check → Apps → Manage debug tokens. Leave blank to let the SDK mint a fresh one each run, then register that |
 | `VITE_USE_EMULATORS` | local dev only | `true` routes Auth and Firestore at the emulator suite. Double-guarded on `import.meta.env.DEV`, so a production build can never redirect writes away from the real project |
@@ -159,7 +158,7 @@ Actions, New repository secret. An agent cannot do this.
 `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID` (required to
 load the Firebase layer), `VITE_RECAPTCHA_SITE_KEY` (required for recipe generation), and
 `VITE_FIREBASE_APP_ID` (not required by `isFirebaseConfigured`, so the layer loads without it,
-but it is passed into the SDK config and identifies the web app, so set it), and `VITE_FIREBASE_MEASUREMENT_ID` (optional, analytics).
+but it is passed into the SDK config and identifies the web app, so set it).
 `VITE_APPCHECK_DEBUG_TOKEN` and `VITE_USE_EMULATORS` are local-dev only and are not mapped.
 Values are the same as in your local `.env`.
 
@@ -511,8 +510,8 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 - Backups: any Firestore backup, scheduled export or point-in-time recovery window keeps
   the data until it expires. Check the console for backups before replying, and delete any
   manual export the operator made.
-- Google Analytics 4 data, which is keyed by the uid as User-ID. Delete it separately with a
-  GA4 data deletion request until RL-058 removes GA4.
+- Google Analytics 4 data from before 2026-10-15, keyed by the uid as User-ID. GA4 was removed
+  by RL-058; delete any old data with a GA4 data deletion request.
 - Free text: `clientErrors` reports with `uid` null (signed-out) or other users' reports, and
   the kept suggestion and reply text, can contain a name or anything the person typed. The
   script does not search text.

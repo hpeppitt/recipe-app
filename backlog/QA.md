@@ -19,6 +19,11 @@ both themes:
 
 ## Since the last release
 
+### RL-058 GA4 is removed, and the analytics seam sends product events nowhere until PostHog is wired in
+
+- On the preview build, open devtools. Network: filter `google-analytics` and `googletagmanager`, load the app, sign in, create and view a recipe; expect no request to either host. Application > Cookies: expect no new `_ga` or `_ga_*` cookie (clear site data first; old ones may remain from earlier visits).
+- The GA4 property in the Google console can now be deleted by the author; this is optional and nothing in the repo depends on it. Remove the `VITE_FIREBASE_MEASUREMENT_ID` repository variable in GitHub if it is set (it is no longer read).
+
 ### RL-055 The operator can fulfil an access, export or erasure request for one uid from a written runbook and a dry-run-first script
 
 - No UI change. Read the new "Data requests" section in `docs/operations.md` end to end; it is what you will follow per request.

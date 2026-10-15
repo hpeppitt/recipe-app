@@ -19,7 +19,6 @@ flowchart TD
     Auth[Firebase Auth<br/>anonymous + email link]
     AILogic[Firebase AI Logic proxy<br/>holds the Gemini key]
     Gemini[Gemini 3.6 Flash]
-    GA[GA4]
 
     UI --> Hooks
     Hooks --> Lib
@@ -28,7 +27,6 @@ flowchart TD
     Hooks --> AILogic
     UI --> Auth
     AILogic --> Gemini
-    UI --> GA
     Auth -. App Check token .-> AILogic
 ```
 

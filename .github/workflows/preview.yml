@@ -46,7 +46,7 @@ jobs:
       # Repository variables, not secrets: Vite inlines these into a public bundle.
       # Only API_KEY, AUTH_DOMAIN and PROJECT_ID are needed to load (isFirebaseConfigured).
       # APP_ID is not required to load but should be set; RECAPTCHA_SITE_KEY is needed for
-      # generation; MEASUREMENT_ID is optional.
+      # generation.
       # VITE_APPCHECK_DEBUG_TOKEN and VITE_USE_EMULATORS are local-dev only and not mapped.
       - run: npm run build
         if: env.HAS_SECRET == 'true'
@@ -55,7 +55,6 @@ jobs:
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
           VITE_RECAPTCHA_SITE_KEY: ${{ vars.VITE_RECAPTCHA_SITE_KEY }}
 
       # Hosting only: firebase.json is read for the hosting block. No rules, indexes or functions.
