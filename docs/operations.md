@@ -1,7 +1,8 @@
 # Operations
 
 How to run, test, verify, and deploy. Verified against `package.json`, `firebase.json`,
-`.env.example`, and `.claude/` on 2026-07-31.
+`.env.example`, and `.claude/` on 2026-07-31; the Data requests section against
+`scripts/data-request.mjs` on 2026-10-15.
 
 ## Commands
 
@@ -16,6 +17,7 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run emulators` | Firebase Auth + Firestore emulators (see below) |
 | `npm run dev:emulated` | Dev server pointed at the emulator suite |
 | `npm run backlog -- <list\|next\|show\|set\|validate>` | The ticket backlog CLI (`scripts/backlog.mjs`, tested). `next` prints the ticket an agent should pick up, skipping any with a `ticket/<ID>` branch on `origin` |
+| `node scripts/data-request.mjs <export\|erase> <uid> [flags]` | One person's data export or erasure, by the operator (RL-055, tested in `scripts/data-request.test.mjs`). See [Data requests](#data-requests) |
 
 Tests run in node by default, with `fake-indexeddb` and the jest-dom matchers loaded from
 `src/test/setup.ts`.
@@ -374,6 +376,148 @@ grep -o 'url:"[^"]*"' dist/sw.js          # precache list: entry, route chunks, 
 After deploy, `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` must show
 `no-cache`. The offline reload itself needs a real browser: load once online, set devtools
 Network to Offline, reload `/` and a local recipe.
+
+## Data requests
+
+The app cannot export a person's cloud data or delete an account itself (self-service is
+RL-056 and RL-057). Until then the Privacy Policy says "email us", and this is what the
+operator does with that email. The tool is `scripts/data-request.mjs`. It uses the Firebase
+Admin SDK (`firebase-admin`, a dev dependency, never in the client bundle), which bypasses the
+security rules.
+
+**Deadline: one month from the day the request arrives.** GDPR and UK GDPR allow an extension
+of two further months for complex requests, but only if the requester is told within the
+first month. Plan to finish well inside it.
+
+### 1. Verify and record the request
+
+- **The requester must own the account.** Reply to the request from the operator address,
+  *to the email address on the account*, and ask them to confirm by replying. Act only on a
+  reply from that address. A request from a different address gets the same treatment: write
+  to the account's address, not the sender's. Never act on a uid or email alone.
+- Anonymous accounts have no email. They cannot prove ownership, and they hold local data
+  only (product decision 1a), so there is normally nothing in the cloud to act on.
+- **Record the request, not the data.** Keep a short log entry outside the repo: date
+  received, the account email, the uid, the right asked for (access, export, erasure),
+  the date verified, the date done, and the counts the script printed. Do not keep the
+  exported JSON or the email thread's attachments once the request is closed.
+
+### 2. Find the uid from the email
+
+Firebase console, Authentication, Users: search by email and copy the "User UID" column.
+Do not use `firebase auth:export` for this; it writes every user's data to a file.
+
+### 3. Authenticate (production runs only)
+
+Either application default credentials:
+
+```bash
+gcloud auth application-default login
+gcloud auth application-default set-quota-project recipe-lab-3832b
+```
+
+or `GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/key.json` for a service account
+key. Never commit a key, never put it in `.env`, and delete a downloaded key when done. The
+project is `--project <id>` if given, else `GCLOUD_PROJECT`, else the default in
+`.firebaserc` (`recipe-lab-3832b`). The first line of output names it; check it.
+
+A production run (no `--emulator`) refuses to start while `FIRESTORE_EMULATOR_HOST` or
+`FIREBASE_AUTH_EMULATOR_HOST` is set, even to an empty value, because Firestore would follow
+the variable while Auth went to production. Unset both in that shell first.
+
+### 4. Emulator first, every time
+
+Rehearse on the emulator before touching production. `--emulator` always overwrites
+`FIRESTORE_EMULATOR_HOST` and `FIREBASE_AUTH_EMULATOR_HOST` with `127.0.0.1` and the ports in
+`firebase.json` (8080 and 9099), refuses anything that is not a loopback host, and never
+loads credentials. A stale value in the shell cannot redirect it.
+
+```bash
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+npx -y firebase-tools emulators:start --only auth,firestore --project demo-rl055
+# seed a test user by signing up through `npm run dev:emulated`, then:
+node scripts/data-request.mjs export <uid> --emulator
+node scripts/data-request.mjs erase <uid> --emulator              # dry run
+node scripts/data-request.mjs erase <uid> --emulator --execute
+```
+
+### 5. Run it for real
+
+```bash
+node scripts/data-request.mjs export <uid>                        # access or export
+node scripts/data-request.mjs erase <uid>                         # dry run: read it all
+node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
+```
+
+- **Export** writes one new JSON file, by default under the system temp directory
+  (`recipe-lab-export-<uid>-<time>.json`, mode 600), or to `--out <file>`. It refuses any path
+  inside the repo (resolved through symlinks and compared without regard to case, since this
+  Mac reaches the repo as both `~/Projects` and `~/projects`), a directory that does not
+  exist, and an existing file. Send the file to the verified address, then delete it.
+- **Other people are redacted in the export.** Every other account's uid becomes a stable
+  `other-user-1`, `other-user-2` and so on, in fields and in document paths, and their display
+  names become null. Content is kept: the requester's own recipes, suggestions and replies,
+  the recipes they collaborate on, and the other party's text in threads they are part of
+  (they can read all of it in the app). The file says so in its `redaction` field.
+- **Erase** without `--execute` prints every delete and update it would make, then a count
+  per kind, and changes nothing. Read it before running for real. With `--execute` against
+  production it refuses unless the uid is typed a second time with `--confirm`; the check runs
+  before Firebase is initialised. Writes go in batches of at most 400. If a batch fails (for
+  example a counterparty's profile was deleted between the read and the write), that batch is
+  retried one write at a time and each write that still fails is printed as `FAILED`, so one
+  missing document does not block the rest. Afterwards it collects again and prints how many
+  writes are still planned; a failed write or anything other than 0 exits 1, so run the dry
+  run again and look. A run can be repeated safely: each counter decrement is in the same
+  batch as the delete that causes it, and the re-run plans only what is left.
+- **Collection-group index check.** The script cross-checks replies with a collection-group
+  query on `messages` where `fromUid == uid`. The emulator needs no index for it. Production
+  may: Firestore's automatic single-field indexes are collection-scoped, and a
+  collection-group query needs the collection-group scope enabled for `messages.fromUid`. If
+  it is missing the script prints a WARNING with the console link and carries on, because it
+  also reads every thread the uid is a party to, and the rules allow a reply only from one of
+  a thread's two parties. Treat the warning as expected until the index exists; adding it is a
+  `firestore.indexes.json` `fieldOverrides` change a human deploys.
+
+### What erase does, per collection
+
+| Data | Erase |
+|---|---|
+| Auth user | Deleted, after Firestore |
+| `profiles/{uid}`, `termsAcceptance/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion` and `{uid}_reply` | Deleted |
+| `recipes` with `createdBy.uid == uid` (with `createdBy.displayName`) | Deleted |
+| The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) | That element removed with `arrayRemove`. No query can match a uid inside those objects, so every recipe is read |
+| `favorites` with `uid == uid` | Deleted, and the favourited recipe's `favoriteCount` decremented (not below 0, not on the uid's own recipes) |
+| Other users' `favorites` of the uid's recipes (`recipeOwnerId == uid`) | Deleted: the recipe is gone |
+| `follows` on either side (with `followerDisplayName`) | Deleted, and the other party's `followerCount` or `followingCount` decremented (not below 0) |
+| `suggestions` the uid wrote on someone else's recipe | Kept for the recipe owner, anonymised: `suggestedBy.uid` becomes `deleted-user`, `suggestedBy.displayName` null, the text stays |
+| Replies (`messages`) the uid wrote in those threads | Kept, anonymised: `fromUid` becomes `deleted-user`, `fromDisplayName` null, the text stays. The other party's replies are untouched |
+| `suggestions` on the uid's own recipes (`recipeOwnerId == uid`) | Deleted with their whole `messages` thread, the other party's suggestion and replies included, because the recipe they are about is deleted. `recipeOwnerId` is checked against the recipe on create, so it is the owner field relied on |
+| `notifications` with `recipientUid` or `fromUid` equal to the uid (with `fromDisplayName`) | Deleted |
+| `clientErrors` with `uid == uid` | Deleted |
+
+**Not covered**, so say so in the reply to an erasure request:
+
+- Data under an earlier anonymous uid. Someone who used the app before signing in with an
+  email may have a second uid (an upgrade that forked instead of linking; see the
+  stranded-identity notice in [data-model.md](data-model.md)). Ask the requester whether they
+  used the app before signing in, look for that uid (the console's Users list, by creation
+  date, or recipes they name), and run export or erase for it too, as a separate run. An
+  anonymous uid cannot prove ownership by email, so match it by what the requester can name.
+
+- Recipe Lab data in the browser on the person's own devices (Dexie recipes and bookmarks,
+  localStorage). Tell them to use "Delete Recipes on This Device" or clear the site's data.
+- Other users' local libraries: anyone who opened a recipe, shared link or suggestion may
+  hold a copy in their own browser. Share links also carry `createdBy` in the URL itself.
+- Backups: any Firestore backup, scheduled export or point-in-time recovery window keeps
+  the data until it expires. Check the console for backups before replying, and delete any
+  manual export the operator made.
+- Google Analytics 4 data, which is keyed by the uid as User-ID. Delete it separately with a
+  GA4 data deletion request until RL-058 removes GA4.
+- Free text: `clientErrors` reports with `uid` null (signed-out) or other users' reports, and
+  the kept suggestion and reply text, can contain a name or anything the person typed. The
+  script does not search text.
+- `writeWindows/{other uid}_*` `last` fields may still name a deleted suggestion or reply
+  path. A path holds ids only, no uid or name.
 
 ## Verification gates
 
