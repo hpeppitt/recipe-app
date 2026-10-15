@@ -19,6 +19,18 @@ both themes:
 
 ## Since the last release
 
+### RL-052 Analytics load only after the user opts in through a consent banner, and the choice can be changed in Settings
+
+- The banner only exists when `VITE_POSTHOG_KEY` is set at build time, and it is not set on production until RL-054. With no key: load the app in a fresh profile and expect no banner and no Privacy switch in Settings. This is the production state.
+- To see the rest, build or run with `VITE_POSTHOG_KEY=phc_test` (any value; nothing is sent). Fresh profile: the banner shows at the top of the page, in normal flow (a deliberate change from "above the nav": fixed bottom items would collide with it), with the exact copy, a Cookie Policy link, and two equal buttons "Allow analytics" and "No thanks".
+- "No thanks" hides it and it stays hidden after a reload. Repeat with "Allow analytics" (clear site data between).
+- Settings > Legal shows "Privacy: allow analytics", reflecting the choice; flipping it changes it, and a banner never comes back after a choice. In a fresh profile, choosing in Settings makes the banner disappear.
+- At 390 px in light and dark: banner readable, buttons at least 44 px tall, link works, nothing hidden behind it. On a page with a FAB (Library) while the banner shows: the FAB is visible and tappable. Trigger an update prompt or a recipe toast: it is not hidden by or hiding the banner. The last content of a long page is not clipped. Tab through it with the keyboard; the page stays usable (no overlay, no focus trap).
+- Set a fake `_ga` and `_ga_TEST` cookie in devtools on the site domain (and any key setting), reload: both are gone and a later `_ga` cookie you add is left alone (it runs once). This runs with or without the key.
+- To test re-asking: bump `CONSENT_VERSION` in `src/lib/consent.ts` and reload; the banner returns. The PostHog request checks are in RL-054.
+- Reviewer noted (low): the banner only mounts inside AppShell routes (`/`, `/profile`, `/settings`), so a visitor who lands on `/shared/:id`, `/recipe/:id` or `/create` is not asked until they reach a shell page (analytics stay off meanwhile, which is the safe direction); the Cookie Policy page has no control to change the choice (Settings does). Banner moved from above the BottomNav to the top of the page to avoid the FAB, update prompt and toasts (deviation from the ticket wording, recorded in the ticket Notes).
+
+
 ### RL-058 GA4 is removed, and the analytics seam sends product events nowhere until PostHog is wired in
 
 - On the preview build, open devtools. Network: filter `google-analytics` and `googletagmanager`, load the app, sign in, create and view a recipe; expect no request to either host. Application > Cookies: expect no new `_ga` or `_ga_*` cookie (clear site data first; old ones may remain from earlier visits).

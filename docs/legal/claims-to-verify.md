@@ -82,7 +82,7 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 25. **Self-service download not promised.** Privacy "Your rights". Only after RL-056 (ready).
 26. **Consent banner and Settings control.** Privacy "The short version", "Lawful bases",
     "Your rights" (withdrawing consent); Cookies "Local storage" (choice key) and "Your
-    choices" (banner copy and Settings Legal section). RL-052 (ready). The Settings Legal section is built (RL-045, draft); still open for the author's check.
+    choices" (banner copy and Settings Legal section). RL-052 (built 2026-10-15, inert until PostHog is configured; the banner link reads "Cookie Policy" and the Settings switch "Privacy: allow analytics"). The Settings Legal section is built (RL-045, draft); still open for the author's check.
 27. **PostHog analytics.** Privacy "The short version", "Product analytics", "Who we share it
     with"; Cookies "Cookies". RL-054 (ready).
 28. **PostHog host, region and retention.** Privacy "Product analytics" and "International
