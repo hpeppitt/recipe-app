@@ -19,6 +19,11 @@ both themes:
 
 ## Since the last release
 
+### RL-030 Mark all notifications read works with more than 500 unread
+
+- Tests only. Optional: seed 501 unread notifications on the emulator for one account, open the bell and tap Mark all read; all should clear, with no error.
+- Reviewer noted, not fixed: (a) a notification deleted between the read and its chunk's commit fails that whole chunk (the batch is atomic); earlier chunks stay committed and a retry recovers. (b) `NotificationBell.tsx` passes `markAllRead` straight to `onClick`, and `useNotifications.ts` (line 54) awaits `markAllNotificationsRead` without a catch, so a rejection is not shown to the user: it surfaces only as an unhandled promise rejection in the console and the button does nothing visible. Not changed.
+
 ### RL-027 The library's cloud fetch ignores responses that arrive after a retry or unmount
 
 - Tests only. Optional: on Explore over a slow connection, tap Retry and confirm the newest result wins.
