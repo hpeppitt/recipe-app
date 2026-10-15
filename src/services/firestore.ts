@@ -30,7 +30,7 @@ import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage } from '../lib/notifications';
-import { selectFavoritesToPush } from '../lib/favoritesMigration';
+import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, SUGGESTION_CAP, REPLY_CAP, WINDOW_MS, type RateLimitAction } from '../lib/rateLimit';
@@ -400,6 +400,27 @@ export async function pushLocalFavoritesToCloud(uid: string): Promise<FavoritesP
     if (ok) pushed += 1;
   }
   return { attempted: rows.length, pushed, skipped: rows.length - pushed };
+}
+
+/** Bound on the one sign-in read of the user's cloud favourites. */
+const FAVORITE_HYDRATE_TIMEOUT_MS = 8000;
+
+/**
+ * Every cloud favourite of `uid`, read once per session to fill this device's
+ * Dexie favourites (RL-043). Read only. Never throws: a failure is reported and,
+ * like a timeout, returns null, so the caller tries again next session.
+ */
+export async function getCloudFavorites(uid: string): Promise<CloudFavoriteRow[] | null> {
+  if (!firestore) return null;
+  const read = getDocs(query(collection(firestore, 'favorites'), where('uid', '==', uid))).then(
+    (snap) => snap.docs.map((d) => d.data() as CloudFavoriteRow),
+    (err) => {
+      console.error('Reading cloud favourites failed', err);
+      reportError(err, 'favorites-hydrate');
+      return null;
+    }
+  );
+  return withTimeout(read, FAVORITE_HYDRATE_TIMEOUT_MS, null);
 }
 
 /**

@@ -11,6 +11,7 @@ const getPage = vi.fn();
 vi.mock('../services/firestore', () => ({
   getPublishedRecipesPage: (...a: unknown[]) => getPage(...a),
   getRecipesByUsers: vi.fn(async () => []),
+  getCloudFavorites: vi.fn(async () => []),
 }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));

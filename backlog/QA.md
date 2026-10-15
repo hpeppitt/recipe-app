@@ -19,6 +19,14 @@ both themes:
 
 ## Since the last release
 
+### RL-043 A verified user's cloud favourites appear on every device they sign into
+
+- Run `npm run emulators` and `npm run dev:emulated`. In browser profile A sign in with a verified email account and favourite a published recipe (Explore). In browser profile B (fresh, no local data) sign in to the same account, open Explore and pick Favorites: the recipe appears with a filled heart once its page is loaded. Open the recipe: the heart is filled.
+- In a profile signed in anonymously, open the Library and a recipe with the network panel open: there is no `favorites` list query (no `runQuery`/Listen request on `favorites`).
+- On B, unfavourite the hydrated recipe, then reload: it stays removed locally (the cloud doc was deleted by the unfavourite, so the next session's read does not bring it back).
+- Reviewer noted (not fixed): (med) a failed or timed-out first fetch is never retried this session, because the uid is marked hydrated before the fetch; the cheap fix is `hydratedUids.delete(uid)` on a null result, deliberately not applied to keep the once-per-session contract, and the author may prefer a retry. (med) An unfavourite whose cloud delete failed or timed out comes back next session, because the removal set is in memory. (low) "Delete Recipes on This Device" followed by a new session re-adds every verified cloud favourite as a row for recipes no longer on the device: confirm the UI tolerates such rows, and consider the Settings copy. (low) `pushLocalFavoritesToCloud` right after hydration can report inflated `skipped` counts for rows already in the cloud. (low) The module-level `hydratedUids` and `removedThisSession` sets leak across tests that reuse a uid.
+- Known limit, see backlog/DECISIONS.md: on B, the Favorites filter on My Recipes does not show the favourite (its recipe is not in this device's Dexie), and on Explore it shows only once the recipe's page has been loaded.
+
 ### RL-036 The recipe editor rejects negative amounts and enforces the same size caps as the rules
 
 - On the edit page type `-1` as an ingredient amount and press Save. "Amounts can't be negative." should appear under Ingredients, Save should be blocked, and a screen reader should announce it.
