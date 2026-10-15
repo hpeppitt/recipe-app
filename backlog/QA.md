@@ -19,6 +19,10 @@ both themes:
 
 ## Since the last release
 
+### RL-035 Unit abbreviations are never pluralised
+
+- Open a recipe with an ingredient in `pt` or `qt` at an amount of 2 or more. It should read "2 pt" or "2 qt", not "pts" or "qts". Cups should still pluralise ("2 cups"), including after switching units so that a volume converts to cups.
+
 ### RL-033 Hosting sends X-Frame-Options DENY and X-Content-Type-Options nosniff
 
 - On the preview channel (RL-013) or after release, run `curl -sI` on the site root and on an `/assets/` file. Both should show `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff`, and the Cache-Control values should be unchanged (`no-cache` on the root, `public, max-age=31536000, immutable` on the asset).

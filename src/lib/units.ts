@@ -301,7 +301,7 @@ export function convertAmount(
  * `oz` and `lb` too; that is common in recipe prose but wrong as typography, and
  * the line "words take an s, symbols do not" is the one that stays defensible.
  */
-const PLURAL_UNITS: CanonicalUnit[] = ['cup', 'pint', 'quart'];
+const PLURAL_UNITS: string[] = ['cup', 'pint', 'quart'];
 
 /**
  * Render a unit for display, pluralised to match the amount.
@@ -309,6 +309,10 @@ const PLURAL_UNITS: CanonicalUnit[] = ['cup', 'pint', 'quart'];
  * `convertAmount` returns bare canonical keys, so an unpluralised "2 cup plain
  * flour" was reaching the page. Applies to the stored unit too, since the model
  * emits both "cup" and "cups" and the singular reads equally badly there.
+ *
+ * Only the word spelling pluralises. The check is on the unit as written, so an
+ * abbreviation such as "pt" or "qt" (which canonicalise to pint and quart) stays
+ * as it is: "2 pt", not "2 pts".
  *
  * Anything not recognised as a unit is returned untouched, so free text like
  * "cloves" or "handful" is never mangled, and a value already ending in s is left
@@ -319,9 +323,9 @@ const PLURAL_UNITS: CanonicalUnit[] = ['cup', 'pint', 'quart'];
 export function formatUnit(unit: string | null, amount: number | null): string | null {
   if (!unit || amount == null || amount <= 1) return unit;
   if (/s$/i.test(unit)) return unit;
-  const canonical = canonicalUnit(unit);
-  if (!canonical || !PLURAL_UNITS.includes(canonical)) return unit;
-  return `${unit}s`;
+  const written = unit.trim().toLowerCase();
+  if (!PLURAL_UNITS.includes(written)) return unit;
+  return `${unit.trim()}s`;
 }
 
 /**

@@ -162,6 +162,30 @@ describe('formatUnit', () => {
     expect(formatUnit(null, 2)).toBeNull();
     expect(formatUnit('cup', null)).toBe('cup');
   });
+
+  it('leaves the abbreviations pt and qt unchanged, though they canonicalise to pint and quart', () => {
+    expect(formatUnit('qt', 2)).toBe('qt');
+    expect(formatUnit('pt', 3)).toBe('pt');
+  });
+
+  it('keeps the casing as written when pluralising', () => {
+    // Pinned to what the code has always done: the written casing is kept, with an s added.
+    expect(formatUnit('Cup', 2)).toBe('Cups');
+    expect(formatUnit('CUP', 2)).toBe('CUPs');
+    expect(formatUnit('Cup', 1)).toBe('Cup');
+  });
+
+  it('pluralises a converted cup, because the converter hands back the word', () => {
+    // 500 ml is about 2.1 imperial cups; the converter returns the bare key 'cup'.
+    const converted = convertAmount(500, 'ml', 'imperial');
+    expect(converted?.unit).toBe('cup');
+    expect(formatUnit(converted!.unit, converted!.amount)).toBe('cups');
+  });
+
+  it('returns an unknown unit unchanged, whatever the amount', () => {
+    expect(formatUnit('pinch', 4)).toBe('pinch');
+    expect(formatUnit('sprig', 2)).toBe('sprig');
+  });
 });
 
 describe('convertTemperatures', () => {
