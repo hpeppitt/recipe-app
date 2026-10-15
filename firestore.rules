@@ -63,6 +63,37 @@ service cloud.firestore {
       return verified() && exists(path) && get(path).data.version == termsVersion();
     }
 
+    // --- Write limits (RL-048) ---
+    //
+    // MUST equal SUGGESTION_CAP, REPLY_CAP and WINDOW_MS in src/lib/rateLimit.ts;
+    // src/lib/rateLimit.test.ts fails the build when they differ:
+    //   suggestions  10 per hour
+    //   replies      30 per hour
+    //   window       3600000 ms
+    function suggestionCap() {
+      return 10;
+    }
+    function replyCap() {
+      return 30;
+    }
+    function windowMs() {
+      return 3600000;
+    }
+
+    // Proves the limited create moved writeWindows/{uid}_{action} in the same
+    // request (the client writes both in one transaction) AND that this bump
+    // names this document: the window holds one `last` value after the request,
+    // so one bump admits exactly one create. Without `last`, one bump in a batch
+    // admitted any number of creates (emulator-checked before the fix).
+    // existsAfter() first, so a missing window denies as a plain false. Adds one
+    // document access (and one billed read) per guarded create.
+    function movedWindow(action, docPath) {
+      let path = /databases/$(database)/documents/writeWindows/$(request.auth.uid + '_' + action);
+      return existsAfter(path)
+        && getAfter(path).data.at == request.time
+        && getAfter(path).data.last == docPath;
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -179,7 +210,8 @@ service cloud.firestore {
         && acceptedTerms()
         && request.resource.data.suggestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending'
-        && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId;
+        && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId
+        && movedWindow('suggestion', 'suggestions/' + suggestionId);
       allow update: if verified()
         && resource.data.recipeOwnerId == request.auth.uid
         && changedKeys().hasOnly(['status'])
@@ -203,7 +235,9 @@ service cloud.firestore {
       // becomes most useful.
       //
       // Each get() bills one document read, so sending a reply costs 2 reads
-      // and opening a thread costs one read on top of its messages.
+      // (plus the writeWindows read in the client's transaction and the
+      // getAfter() in movedWindow(), RL-048) and opening a thread costs one read
+      // on top of its messages.
       match /messages/{messageId} {
         // Same two parties as the parent's read rule. The parent is fetched by
         // path, so this holds for a list without any filter on the messages.
@@ -222,7 +256,8 @@ service cloud.firestore {
           && (
             get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.recipeOwnerId == request.auth.uid
             || get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.suggestedBy.uid == request.auth.uid
-          );
+          )
+          && movedWindow('reply', 'suggestions/' + suggestionId + '/messages/' + messageId);
         allow update, delete: if false;
       }
     }
@@ -309,6 +344,61 @@ service cloud.firestore {
         && request.resource.data.acceptedAt <= request.time.toMillis() + 60000
         && request.resource.data.recordedAt == request.time;
       allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // --- Write windows: per-user fixed-window counters (RL-048) ---
+    //
+    // One document per user per action, id {uid}_{action}, written in the same
+    // transaction as the suggestion or message it counts (see movedWindow()).
+    // `last` is that document's path, relative to the database root.
+    // Separate from rateLimits, which stays closed for the Cloud Function.
+    //
+    // Read is derived from the id alone, never resource.data: the client reads
+    // its window before the first write, when the document does not exist, and a
+    // rule that dereferences resource.data denies a get of a missing document
+    // (RL-026). A uid has no underscore, so the id list below is exact; an id such
+    // as {uid}_suggestion_extra or another user's prefix matches nothing.
+    //
+    // `last` (at most 300 characters) is checked by movedWindow(), not here.
+    // Create: count 1, windowStart and at the request time. Update: either a new
+    // window (only once server time is past windowStart + window) or the same
+    // window with windowStart unchanged and count + 1, up to the cap. The
+    // same-window branch has no time check on purpose: the client keeps
+    // incrementing for a margin past expiry (RESET_MARGIN_MS) to absorb clock skew,
+    // which only ever makes it stricter. Delete would reset the limit, so never.
+    match /writeWindows/{windowId} {
+      allow read: if signedIn()
+        && windowId in [request.auth.uid + '_suggestion', request.auth.uid + '_reply'];
+      allow create: if isWindowWrite()
+        && request.resource.data.count == 1
+        && request.resource.data.windowStart == request.time;
+      allow update: if isWindowWrite()
+        && (
+          (request.time > resource.data.windowStart + duration.value(windowMs(), 'ms')
+            && request.resource.data.count == 1
+            && request.resource.data.windowStart == request.time)
+          || (request.resource.data.windowStart == resource.data.windowStart
+            && request.resource.data.count == resource.data.count + 1
+            && withinCap())
+        );
+      allow delete: if false;
+
+      function isWindowWrite() {
+        let d = request.resource.data;
+        return verified()
+          && windowId in [request.auth.uid + '_suggestion', request.auth.uid + '_reply']
+          && d.keys().hasOnly(['windowStart', 'count', 'at', 'last'])
+          && d.last is string && d.last.size() <= 300
+          && d.windowStart is timestamp
+          && d.count is int
+          && d.at == request.time;
+      }
+
+      function withinCap() {
+        let c = request.resource.data.count;
+        return (windowId == request.auth.uid + '_suggestion' && c <= suggestionCap())
+          || (windowId == request.auth.uid + '_reply' && c <= replyCap());
+      }
     }
 
     // --- Client error reports: write-only drop box ---

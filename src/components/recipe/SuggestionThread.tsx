@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { useSuggestionThread } from '../../hooks/useSuggestions';
 import { useAuth } from '../../contexts/AuthContext';
 import { timeAgo } from '../../lib/utils';
+import { rateLimitMessage } from '../../lib/errors';
 import type { Suggestion } from '../../types/social';
 
 interface SuggestionThreadProps {
@@ -41,10 +42,10 @@ export function SuggestionThread({ suggestion }: SuggestionThreadProps) {
     try {
       await send(text);
       setDraft('');
-    } catch {
+    } catch (err) {
       // Without this the reply vanished from the box and never appeared in the
       // thread, which reads as a delivered message.
-      setSendError("Couldn't send that reply. Please try again.");
+      setSendError(rateLimitMessage(err) ?? "Couldn't send that reply. Please try again.");
     } finally {
       setSending(false);
     }
@@ -123,7 +124,7 @@ export function SuggestionThread({ suggestion }: SuggestionThreadProps) {
                 </button>
               </div>
               {sendError && (
-                <p role="alert" className="text-xs text-danger-600">
+                <p role="alert" className="text-xs text-danger-700 dark:text-danger-300">
                   {sendError}
                 </p>
               )}

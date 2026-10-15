@@ -19,6 +19,23 @@ both themes:
 
 ## Since the last release
 
+### RL-048 Suggestions and replies are rate-limited per user in the rules, and the client says so when a limit is hit
+
+- **LOUD: deploy order gap. Neither order is safe for suggestions and replies.** Follow the combined order in `docs/operations.md` (client, then rules) and run the rules deploy straight after the client release. Until the rules are live, every suggestion and reply from the new client fails with the generic message; once they are live, any tab still on the old client cannot suggest or reply until it reloads. No fallback was built (pending in `backlog/DECISIONS.md`).
+- Needs a browser against `npm run emulators` plus `npm run dev:emulated` (no agent ran this walk). Temporarily lower the reply cap to 3 in BOTH `REPLY_CAP` (`src/lib/rateLimit.ts`) and `replyCap()` (`firestore.rules`); `npm test` fails if they differ. Then:
+  - Send replies quickly on one suggestion: the first three send; the fourth shows "You've sent a lot of replies recently. Try again in a while." under the reply box (readable in light and dark), and the draft stays in the box. In the emulator UI, `writeWindows/{uid}_reply` has `count` 3 and `last` naming the third message's path, and no fourth message exists.
+  - In `clientErrors`, one entry with context `rate-limited-reply` and your uid for that attempt.
+  - Suggestions still work normally below their cap: send one, see "Suggestion sent", and `writeWindows/{uid}_suggestion` has `count` 1. Optionally lower the suggestion cap the same way and confirm "You've sent a lot of suggestions recently. Try again in a while." in the dialog.
+  - Offline: stop the Firestore emulator and send a reply and a suggestion. Within about 5 seconds each shows the generic message ("Couldn't send that reply. Please try again." / "That didn't send. Check your connection and try again."), not the rate-limit message. They no longer queue and send later, which is a behaviour change.
+  - Put both caps back and confirm `npm test` passes, so the numbers in the rules and `rateLimit.ts` match (10 and 30).
+- On the preview build, after RL-051 deploys the rules: send replies quickly past 30 in an hour (or lower the cap on a preview only) and confirm the message, then confirm the `rate-limited-reply` entry in `clientErrors` in the console.
+- Reviewer and implementer notes, not fixed:
+  - A timed-out transaction may still commit later; the user sees a failure for a reply that landed, and resending counts twice against the cap.
+  - A client clock more than a minute fast may see a window reset denied after the hour, shown as the generic failure; a slow clock waits a little longer than an hour.
+  - A user can move their own window without writing content; that only limits themselves.
+  - Review fix: one window bump now admits exactly one suggestion or message (the window's `last` names it). Before the fix, one bump in a batch admitted any number; the emulator proves both.
+  - Notification creates are still not tied to a suggestion or reply and are unthrottled (pre-existing, RL-049).
+
 ### RL-047 Sign-up requires accepting the current Terms, recorded privately per account with version and time
 
 - **LOUD: do not release before RL-046 signs off the policies. Deploy in the combined order in `docs/operations.md` ("The pending release order"): the client carrying RL-047 goes live before ANY rules deploy, because `firestore.rules` deploys as one unit and now includes the RL-047 guards.** Rules first would stop every verified user on the old client from creating recipes, suggestions or messages until they reload.

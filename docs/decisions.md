@@ -288,6 +288,58 @@ Existing verified accounts from before RL-047 have no document at all and get th
 on their next load. Escape does not dismiss it. Anonymous accounts are never asked: they
 cannot contribute anyway (decision 1a).
 
+### Suggestions and replies are rate-limited in the rules alone (RL-048, 2026-10-15)
+
+**Why the rules.** Product decision 2 keeps the project on Spark with no Cloud Functions, so a
+per-user limit has to be something the rules can prove on their own. The existing
+`rateLimits/{uid}` collection stays closed: it is reserved for the undeployed Cloud Function,
+and opening it to clients would let a user reset that quota.
+
+**The pattern.** One document per user per action, `writeWindows/{uid}_{action}`, holding
+`windowStart`, `count`, `at` and `last`. The client writes the suggestion or message and the
+window in one transaction. The content's create rule requires `getAfter()` of the window to
+show `at == request.time` and `last` equal to the content's own path, which proves the window
+moved in the same request for this document and no other. `at` alone was not enough: one
+bump in a batch with any number of creates passed them all (emulator-proved 2026-10-15, found
+in review). Deriving the content id from the count was the other option; it does not work
+for replies, because the same id is free again under every other thread, and on a reset the
+client cannot know the server's `windowStart` to make ids unique across windows; the window's own
+rule only lets it open with `count == 1`, start a new window after the old one has expired by
+server time, or add exactly one up to the cap. A delete would reset the limit, so there is
+none. Read is decided from the document id, not `resource.data`, because the first read of a
+window is of a document that does not exist (RL-026).
+
+**Caps.** Suggestions 10 per hour, replies 30 per hour (groomer's choice; messaging abuse is
+the author's stated concern, and these two are what produce notifications). One number in
+two places: `suggestionCap()`, `replyCap()` and `windowMs()` in the rules and the constants
+in `src/lib/rateLimit.ts`, held together by a test that reads the rules file.
+
+**Clock skew.** The client decides with its own clock and the rules with `request.time`. A
+client that is fast would try to reset early and be denied for a reason the user cannot
+see, so the client resets only once the window has been over for `RESET_MARGIN_MS` (60 s)
+more; until then it keeps incrementing, which the rules accept while the count is within the
+cap. A slow client clock only makes the user wait a little longer than an hour. A window
+whose `windowStart` is in the future counts as open. A client clock more than a minute fast
+can see a reset denied, which surfaces as the generic failure.
+
+**Offline.** A transaction is not queued offline the way `addDoc` was. A suggestion or reply
+made offline now fails within 5 seconds with the existing generic message instead of
+appearing to send and landing later. The 5 s bound uses the same rejecting timer as the
+Terms calls (`rejectAfter`), not `withTimeout`, because `withTimeout` resolves a fallback
+and would swallow the `RateLimitedError` that must reach the UI. A timed-out transaction
+may still commit later; the user then sees a failure for a write that landed, and resending
+counts twice. The `last` binding does not change that: a resend is a new transaction that
+reads the window afresh and gets a new document id. What is safe is a replay of the same
+commit, which fails on the existing document (emulator: 409 ALREADY_EXISTS), and two
+in-flight transactions on one window, which Firestore's read preconditions serialise.
+
+**Detection.** Each limited attempt is reported once as `rate-limited-suggestion` or
+`rate-limited-reply` in `clientErrors`, with the uid, which is the abuse signal RL-050 reads.
+
+**Deploy order.** Unlike RL-047, both orders break something for a short gap, and there is
+deliberately no client fallback to the old plain write; see [operations.md](operations.md)
+and the pending entry in `backlog/DECISIONS.md`.
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view

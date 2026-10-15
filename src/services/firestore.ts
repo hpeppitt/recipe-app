@@ -18,6 +18,10 @@ import {
   increment,
   writeBatch,
   serverTimestamp,
+  runTransaction,
+  type DocumentReference,
+  type Firestore,
+  type Timestamp,
 } from 'firebase/firestore';
 import { firestore } from './firebase';
 import { arrayUnion } from 'firebase/firestore';
@@ -28,6 +32,8 @@ import { truncateNotificationMessage } from '../lib/notifications';
 import { selectFavoritesToPush } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
 import { TERMS_VERSION } from '../lib/legal';
+import { nextWindow, SUGGESTION_CAP, REPLY_CAP, WINDOW_MS, type RateLimitAction } from '../lib/rateLimit';
+import { RateLimitedError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
@@ -436,6 +442,49 @@ export async function isCloudFavorite(
 
 // --- Suggestions ---
 
+const CAPS: Record<RateLimitAction, number> = { suggestion: SUGGESTION_CAP, reply: REPLY_CAP };
+
+/**
+ * Write `data` at `ref` and move writeWindows/{uid}_{action} in one transaction
+ * (RL-048): the rules deny the content without the window move. Throws
+ * RateLimitedError, having written nothing, at the cap. Rejects after 5 s rather
+ * than queueing offline as addDoc did; a timed-out transaction may still commit.
+ */
+async function writeLimited(
+  fs: Firestore,
+  uid: string,
+  action: RateLimitAction,
+  ref: DocumentReference,
+  data: DocumentData
+): Promise<void> {
+  const windowRef = doc(fs, 'writeWindows', `${uid}_${action}`);
+  try {
+    await rejectAfter(
+      runTransaction(fs, async (tx) => {
+        const snap = await tx.get(windowRef);
+        const prev = snap.exists()
+          ? { windowStartMs: (snap.data().windowStart as Timestamp).toMillis(), count: snap.data().count as number }
+          : null;
+        const next = nextWindow(prev, Date.now(), CAPS[action], WINDOW_MS);
+        if (next === 'limited') throw new RateLimitedError(action);
+        tx.set(ref, data);
+        // A new window stamps windowStart; an increment must leave it as stored,
+        // which is what the rules' same-window branch compares against.
+        // `last` binds this bump to this one document; the rules check it.
+        if (next.count === 1) {
+          tx.set(windowRef, { windowStart: serverTimestamp(), count: 1, at: serverTimestamp(), last: ref.path });
+        } else {
+          tx.update(windowRef, { count: next.count, at: serverTimestamp(), last: ref.path });
+        }
+      }),
+      `Sending the ${action}`
+    );
+  } catch (err) {
+    if (err instanceof RateLimitedError) reportError(err, `rate-limited-${action}`);
+    throw err;
+  }
+}
+
 export async function createSuggestion(params: {
   recipeId: string;
   recipeOwnerId: string;
@@ -446,7 +495,7 @@ export async function createSuggestion(params: {
 }): Promise<void> {
   if (!firestore) return;
 
-  await addDoc(collection(firestore, 'suggestions'), {
+  await writeLimited(firestore, params.suggestedBy.uid, 'suggestion', doc(collection(firestore, 'suggestions')), {
     recipeId: params.recipeId,
     recipeOwnerId: params.recipeOwnerId,
     recipeTitle: params.recipeTitle,
@@ -519,7 +568,7 @@ export async function addSuggestionMessage(
 ): Promise<void> {
   if (!firestore) return;
 
-  await addDoc(collection(firestore, 'suggestions', suggestion.id, 'messages'), {
+  await writeLimited(firestore, from.uid, 'reply', doc(collection(firestore, 'suggestions', suggestion.id, 'messages')), {
     fromUid: from.uid,
     fromDisplayName: from.displayName,
     text,
@@ -694,13 +743,13 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
 
 // --- Terms acceptance (RL-047): owner-only, never on the public profile ---
 
-const TERMS_TIMEOUT_MS = 5000;
+const CALL_TIMEOUT_MS = 5000;
 
 // Not withTimeout: that swallows the rejection, and a permission-denied is worth reporting as such.
 async function rejectAfter<T>(promise: Promise<T>, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${what} timed out`)), TERMS_TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error(`${what} timed out`)), CALL_TIMEOUT_MS);
   });
   try {
     return await Promise.race([promise, timeout]);

@@ -3,6 +3,7 @@ import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { EmailLinkingForm } from '../auth/EmailLinkingForm';
 import { useAuth } from '../../contexts/AuthContext';
+import { rateLimitMessage } from '../../lib/errors';
 
 interface SuggestChangeModalProps {
   open: boolean;
@@ -66,7 +67,7 @@ export function SuggestChangeModal({
       // the user has just written something they wanted delivered.
       console.error('Submitting the suggestion failed', err);
       setError(
-        "That didn't send. Check your connection and try again."
+        rateLimitMessage(err) ?? "That didn't send. Check your connection and try again."
       );
     } finally {
       setLoading(false);
@@ -129,7 +130,7 @@ export function SuggestChangeModal({
             className="w-full px-3 py-2.5 rounded-xl border border-border bg-surface text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow text-sm resize-none"
           />
           {error && (
-            <p role="alert" className="text-sm text-danger-600 mt-3">
+            <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 mt-3">
               {error}
             </p>
           )}
