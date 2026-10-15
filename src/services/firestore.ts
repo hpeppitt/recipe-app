@@ -730,6 +730,9 @@ export async function markNotificationRead(
   });
 }
 
+// Firestore rejects a batch of more than 500 writes.
+const BATCH_LIMIT = 500;
+
 export async function markAllNotificationsRead(uid: string): Promise<void> {
   if (!firestore) return;
   const q = query(
@@ -738,9 +741,12 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
     where('read', '==', false)
   );
   const snap = await getDocs(q);
-  const batch = writeBatch(firestore);
-  snap.docs.forEach((d) => batch.update(d.ref, { read: true }));
-  await batch.commit();
+  // A failed later chunk leaves earlier ones committed; a retry only sees what is still unread.
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(firestore);
+    snap.docs.slice(i, i + BATCH_LIMIT).forEach((d) => batch.update(d.ref, { read: true }));
+    await batch.commit();
+  }
 }
 
 // --- Profiles ---
