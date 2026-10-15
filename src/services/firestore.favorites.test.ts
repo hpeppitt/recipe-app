@@ -12,6 +12,9 @@ import { makeRecipe } from '../test/factories';
 
 const deleteDoc = vi.fn(async () => {});
 const updateDoc = vi.fn(async () => {});
+const getDocs = vi.fn(async (..._a: unknown[]): Promise<unknown> => ({ docs: [] }));
+const reportError = vi.fn();
+vi.mock('./telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 
 type Fn = ReturnType<typeof vi.fn>;
 type MockBatch = { set: Fn; update: Fn; delete: Fn; commit: Fn };
@@ -28,7 +31,7 @@ vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }),
   collection: (_db: unknown, name: string) => ({ path: name }),
   getDoc: vi.fn(async () => ({ exists: () => false })),
-  getDocs: vi.fn(async () => ({ docs: [] })),
+  getDocs: (...args: unknown[]) => getDocs(...args),
   setDoc: vi.fn(async () => {}),
   addDoc: vi.fn(async () => {}),
   updateDoc: (...args: unknown[]) => updateDoc(...(args as [])),
@@ -52,7 +55,7 @@ vi.mock('firebase/firestore', () => ({
   arrayUnion: (...args: unknown[]) => ({ __arrayUnion: args }),
 }));
 
-const { removeCloudFavorite, pushLocalFavoritesToCloud } = await import('./firestore');
+const { removeCloudFavorite, pushLocalFavoritesToCloud, getCloudFavorites } = await import('./firestore');
 const { db } = await import('../db/database');
 
 beforeEach(() => {
@@ -203,5 +206,46 @@ describe('pushLocalFavoritesToCloud', () => {
     await pushLocalFavoritesToCloud('me');
 
     expect(await db.favorites.where('uid').equals('me').count()).toBe(2);
+  });
+});
+
+describe('getCloudFavorites', () => {
+  beforeEach(() => {
+    getDocs.mockReset();
+    reportError.mockClear();
+    deleteDoc.mockClear();
+    updateDoc.mockClear();
+    batches.length = 0;
+  });
+
+  it("queries the user's own favourites with a single uid filter and returns the doc data", async () => {
+    const row = { uid: 'me', recipeId: 'a', recipeOwnerId: 'o', createdAt: 7 };
+    getDocs.mockResolvedValueOnce({ docs: [{ data: () => row }] });
+
+    await expect(getCloudFavorites('me')).resolves.toEqual([row]);
+
+    expect(getDocs).toHaveBeenCalledWith([{ path: 'favorites' }, ['uid', '==', 'me']]);
+    expect(deleteDoc).not.toHaveBeenCalled();
+    expect(updateDoc).not.toHaveBeenCalled();
+    expect(batches).toHaveLength(0);
+  });
+
+  it('reports a failed read and resolves null instead of throwing', async () => {
+    getDocs.mockRejectedValueOnce(new Error('permission-denied'));
+
+    await expect(getCloudFavorites('me')).resolves.toBeNull();
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'favorites-hydrate');
+  });
+
+  it('resolves null when the read hangs past the bound', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      getDocs.mockReturnValueOnce(new Promise(() => {}));
+      const run = getCloudFavorites('me');
+      await vi.advanceTimersByTimeAsync(8000);
+      await expect(run).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

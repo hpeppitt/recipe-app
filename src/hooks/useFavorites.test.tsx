@@ -10,7 +10,9 @@ import type { AppUser } from '../types/recipe';
 const addCloud = vi.fn(async (..._a: unknown[]) => {});
 const isCloud = vi.fn(async (..._a: unknown[]) => false);
 const removeCloud = vi.fn(async (..._a: unknown[]) => {});
+const getCloud = vi.fn(async (..._a: unknown[]): Promise<unknown[] | null> => []);
 vi.mock('../services/firestore', () => ({
+  getCloudFavorites: (...a: unknown[]) => getCloud(...a),
   addCloudFavorite: (...a: unknown[]) => addCloud(...a),
   removeCloudFavorite: (...a: unknown[]) => removeCloud(...a),
   isCloudFavorite: (...a: unknown[]) => isCloud(...a),
@@ -23,9 +25,9 @@ vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => repo
 import { useFavorite, useCloudFavorite, useFavoriteIds } from './useFavorites';
 
 const noop = async () => {};
-function wrapperFor(user: AppUser | null) {
+function wrapperFor(user: AppUser | null, isLoading = false) {
   const value = {
-    user, isLoading: false, isConfigured: true, signInAnonymously: noop, sendEmailLink: noop,
+    user, isLoading, isConfigured: true, signInAnonymously: noop, sendEmailLink: noop,
     linkEmail: noop, signOut: noop, updateDisplayName: noop, linkState: { status: 'idle' },
     submitLinkEmail: noop, dismissLinkState: () => {},
   } as AuthContextType;
@@ -181,5 +183,74 @@ describe('useCloudFavorite toggle races and timeouts', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('cloud favourites hydration (RL-043)', () => {
+  const verified = (uid: string): AppUser => ({ ...fakeUser, uid });
+
+  beforeEach(async () => {
+    getCloud.mockReset();
+    await db.favorites.clear();
+  });
+
+  it('fetches once for a verified user and adds the missing rows, which the live query shows', async () => {
+    await db.favorites.put({ uid: 'h1', recipeId: 'local', createdAt: 5 });
+    getCloud.mockResolvedValue([
+      { uid: 'h1', recipeId: 'cloud', createdAt: 42, recipeOwnerId: 'o' },
+      { uid: 'h1', recipeId: 'local', createdAt: 1, recipeOwnerId: 'o' },
+    ]);
+    const { result, rerender, unmount } = renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h1')) });
+
+    await waitFor(() => expect(result.current.favoriteIds.has('cloud')).toBe(true));
+    expect(getCloud).toHaveBeenCalledTimes(1);
+    expect(getCloud).toHaveBeenCalledWith('h1');
+    expect(await db.favorites.get(['h1', 'cloud'])).toEqual({ uid: 'h1', recipeId: 'cloud', createdAt: 42 });
+    expect(await db.favorites.get(['h1', 'local'])).toEqual({ uid: 'h1', recipeId: 'local', createdAt: 5 });
+
+    rerender();
+    unmount();
+    renderHook(() => useFavorite('cloud'), { wrapper: wrapperFor(verified('h1')) });
+    await act(async () => {});
+    expect(getCloud).toHaveBeenCalledTimes(1);
+  });
+
+  it('hydrates a different uid after switching accounts', async () => {
+    getCloud.mockResolvedValue([]);
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h2')) });
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h3')) });
+    await waitFor(() => expect(getCloud).toHaveBeenCalledTimes(2));
+    expect(getCloud.mock.calls.map((c) => c[0])).toEqual(['h2', 'h3']);
+  });
+
+  it('does not fetch for an anonymous, signed-out or still-loading user', async () => {
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(anon) });
+    renderHook(() => useFavorite('r1'), { wrapper: wrapperFor(anon) });
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(null) });
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor({ ...fakeUser, uid: 'unverified', emailVerified: false }) });
+    renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h4'), true) });
+    await act(async () => {});
+    expect(getCloud).not.toHaveBeenCalled();
+  });
+
+  it('a failed read neither throws nor deletes local rows', async () => {
+    await db.favorites.put({ uid: 'h5', recipeId: 'keep', createdAt: 5 });
+    getCloud.mockResolvedValue(null);
+    const { result } = renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h5')) });
+    await waitFor(() => expect(getCloud).toHaveBeenCalledTimes(1));
+    await act(async () => {});
+    expect(result.current.favoriteIds).toEqual(new Set(['keep']));
+  });
+
+  it('does not re-add a favourite removed while the read was in flight', async () => {
+    await db.favorites.put({ uid: 'h6', recipeId: 'gone', createdAt: 5 });
+    let resolve!: (rows: unknown[]) => void;
+    getCloud.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { result } = renderHook(() => useFavorite('gone'), { wrapper: wrapperFor(verified('h6')) });
+    await waitFor(() => expect(result.current.isFavorite).toBe(true));
+    await act(() => result.current.toggleFavorite(meta));
+    await act(async () => resolve([{ uid: 'h6', recipeId: 'gone', createdAt: 5 }]));
+    await act(async () => {});
+    expect(await db.favorites.get(['h6', 'gone'])).toBeUndefined();
   });
 });

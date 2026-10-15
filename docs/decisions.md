@@ -640,3 +640,17 @@ false error on most page views, and swallowing permission-denied would hide real
 `isFollowing` and `isCloudFavorite` therefore query with equality filters the rules can
 prove and `limit(1)`: a missing document is an empty result and every real failure still
 rejects and is reported. Rejected: treating permission-denied as "not following" in the hook.
+
+### Cloud favourites hydrate once per session, add-only (RL-043)
+
+A verified account's cloud favourites are read once per session per uid with one
+`where('uid','==',uid)` query and only the missing rows are added to Dexie. Nothing local is
+deleted or overwritten, there is no live listener, and removals on another device do not
+propagate (no deletion sync). A favourite removed on this device in the session is skipped.
+The trigger lives in `hooks/useFavorites.ts` (`useFavoriteIds` and `useFavorite`), guarded
+by a module-level uid set, not in `AuthContext`, so it runs where favourites are shown and
+`AuthContext` stays as it was. Rejected for now: an `onSnapshot` listener (a standing read
+per session for a rarely changing list), a deletion sync (needs tombstones, so a Dexie schema
+change), and running it next to the RL-034 push in `AuthContext`. An assistant's call, cheap
+to overrule.
+

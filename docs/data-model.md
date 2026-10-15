@@ -136,6 +136,11 @@ A bookmark of a recipe with no cloud document fails on the bump update and stays
 The pushed document carries the local `createdAt`, and `recipeOwnerId` from the local recipe's
 `createdBy.uid` (or `'local'` when the recipe is not in Dexie). The Dexie half of the
 existing-account upgrade, `migrateFavoritesUid`, runs in one `rw` transaction on `favorites`.
+The owner read is what lets a verified account pull its favourites back down (RL-043): one
+`where('uid','==',uid)` list query, which needs no composite index, and the rows the device
+lacks are added to Dexie as `{ uid, recipeId, createdAt }` with the cloud `createdAt`
+(`recipeOwnerId` is not kept locally). Emulator-verified 2026-10-15: the owner's query returns
+200, another uid's query and a signed-out query return 403.
 
 **suggestions**: any user **with a verified email and a current Terms acceptance** (RL-047)
 may create one for someone else's recipe, and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must

@@ -75,6 +75,15 @@ opened). The pure list logic, roots only, dedup by id, newest first, variation c
 both stores, and the search, favourites and following filters, is `lib/library.ts`. The tabs
 replaced a merged feed whose union of a live query and a paged window had no stable cursor.
 
+Favourites flow both ways for a verified account. Writes go Dexie first, then
+`favorites/{uid}_{recipeId}`. Reads come only from Dexie, which is filled from the cloud once
+per session per uid (RL-043): `useHydrateFavorites` in `hooks/useFavorites.ts` calls
+`getCloudFavorites` and hands the rows to `addMissingFavorites` (`db/favorites.ts`), which
+adds what is missing in one transaction using the pure `selectFavoritesToHydrate`
+(`lib/favoritesMigration.ts`). It only adds: nothing local is deleted or overwritten, and a
+favourite removed on this device this session is skipped. There is no live listener and no
+deletion sync.
+
 The consequence to keep in mind: **the two stores can disagree.** A recipe published by
 another user exists only in the cloud, so local-only features (the version tree, local
 search) cannot see all of it. A recipe deleted locally may still have a cloud copy. Most of

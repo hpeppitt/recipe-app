@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/database';
-import { addFavorite, removeFavorite } from '../db/favorites';
+import { addFavorite, removeFavorite, addMissingFavorites } from '../db/favorites';
 import {
   addCloudFavorite,
   removeCloudFavorite,
   isCloudFavorite,
+  getCloudFavorites,
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,9 +18,37 @@ import { TOGGLE_ERROR, boundedWrite } from './useFollow';
 /** Upper bound on how long a toggle stays locked waiting on the cloud write. */
 const FAVORITE_SYNC_TIMEOUT_MS = 5000;
 
+/** Uids whose cloud favourites this tab has already read, so a remount or auth refresh does not refetch. */
+const hydratedUids = new Set<string>();
+
+/**
+ * Once per session per verified uid, add the cloud favourites this device lacks
+ * (RL-043). Anonymous and signed-out users never fetch. A failed read is not
+ * retried until the next session.
+ */
+function useHydrateFavorites() {
+  const { user, isLoading } = useAuth();
+  const uid = !isLoading && user && !user.isAnonymous && user.emailVerified ? user.uid : undefined;
+
+  useEffect(() => {
+    if (!uid || !isFirebaseConfigured || hydratedUids.has(uid)) return;
+    hydratedUids.add(uid);
+    void getCloudFavorites(uid).then(async (rows) => {
+      if (!rows) return;
+      try {
+        await addMissingFavorites(uid, rows);
+      } catch (err) {
+        console.error('Adding cloud favourites locally failed', err);
+        reportError(err, 'favorites-hydrate-local');
+      }
+    });
+  }, [uid]);
+}
+
 export function useFavoriteIds() {
   const { user } = useAuth();
   const uid = user?.uid;
+  useHydrateFavorites();
 
   const favorites = useLiveQuery(
     () => (uid ? db.favorites.where('uid').equals(uid).toArray() : []),
@@ -45,6 +74,8 @@ export function useFavorite(recipeId: string | undefined) {
   // deny their cloud favourite writes, so they are never attempted.
   const syncsToCloud = isFirebaseConfigured && !!user?.emailVerified;
   const togglingRef = useRef(false);
+  // Also here, so a deep link to a recipe hydrates without visiting the Library first.
+  useHydrateFavorites();
 
   const favorite = useLiveQuery(
     () => (uid && recipeId ? db.favorites.get([uid, recipeId]) : undefined),
