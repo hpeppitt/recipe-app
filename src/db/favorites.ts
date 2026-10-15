@@ -48,3 +48,8 @@ export async function migrateFavoritesUid(
     return favs.length;
   });
 }
+
+/** Every bookmark row on this device, for the data export (RL-056). */
+export async function exportAllFavorites() {
+  return db.favorites.toArray();
+}

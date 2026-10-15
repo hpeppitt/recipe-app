@@ -98,12 +98,16 @@ noted. The operator can read everything in the Firebase console.
 ### Rights the app can honour itself today
 
 - **Export**: "Export All Recipes" in Settings downloads the local Dexie `recipes` table as JSON
-  (`exportAllRecipes`). It does not include local bookmarks or any cloud data.
+  (`exportAllRecipes`). "Download my data" (RL-056) downloads local recipes and bookmarks plus,
+  for a signed-in non-anonymous account, the cloud data it can read (profile, published recipes,
+  favourites, follows, suggestions and replies, notifications, terms acceptance, write counters).
+  Other users' ids and names are redacted. It does not include the Auth user record or
+  `clientErrors`; the operator runbook (RL-055) covers those.
 - **Deletion**: per-recipe delete (local subtree, then the cloud copies the user owns);
   unfavourite; unfollow; "Delete Recipes on This Device" (local `recipes` and `favorites`).
 - **Correction**: display name and avatar on the profile; editing one's own recipes.
 - **Not possible in the app**: deleting the account, the profile, suggestions, replies,
-  notifications (sent or received), error reports, or the Auth user; exporting cloud data.
+  notifications (sent or received), error reports, or the Auth user.
 
 ## 2. Planned before release
 
@@ -157,7 +161,7 @@ The ticket's starting inventory was checked line by line. What changed:
     profile holds no email address.
 13. **"Clear All Data"** is now labelled "Delete Recipes on This Device" in Settings. It clears
     local recipes **and** local bookmarks, and no localStorage keys.
-14. **Export** covers local recipes only, not local bookmarks either.
+14. **Export**: "Export All Recipes" covers local recipes only. "Download my data" (RL-056) adds local bookmarks and the user's readable cloud data.
 15. **GA4 was removed by RL-058 (2026-10-15).** Before that it ran without consent when configured and set the GA4 User-ID to the uid
     of every signed-in user including anonymous ones. Its events include another user's uid
     (`target_uid`). RL-058 removes it; the policies are written for after that.

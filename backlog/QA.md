@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-056 A signed-in user can download all their data, local and cloud, from Settings
+
+- Run `npm run emulators` and `npm run dev:emulated` (or use the preview build). Sign in with a verified email account, favourite a published recipe, follow another account, and make a suggestion on someone's recipe. Settings, Data, "Download my data": the button shows "Preparing..." and is disabled, then a `recipe-lab-data-<date>.json` downloads and a status line says so. Open it: valid JSON, `version`, `exportedAt`, `uid` at the top, and the favourite, the follow and the suggestion (with any replies) are in `cloud`. Local recipes and bookmarks are in `local`.
+- Search the file for the other account's uid and display name: neither appears. They show as `other-user-1`, and the other person's reply text is still present.
+- Signed in anonymously (and signed out): the button reads "Download my data (this device only)", and the file has `cloud: null` and the note that anonymous accounts keep data on this device only.
+- Failure display: stop the emulators (or go offline) and click it as a verified user. Expect an alert saying the online data could not be read, and a file with the local part and an `errors` list. A signed-in but unverified email account sees "1 part could not be fully read" (suggestions are verified-only) and the rest of its data.
+- Double-tap the button: one file only. The status text names the missing parts in plain words and says "Verify your email to include suggestions" for an unverified account. The helper line under the button explains the difference from Export All Recipes.
+- Reviewer noted, not fixed (low): the status messages appear conditionally rather than in an always-present live region; the filename date is UTC, so it can be a day off near midnight; the status regions follow the page's existing pattern.
+- Check it at 390px wide and in dark mode: the button is at least 44px tall and the status text is readable.
+- Privacy Policy wording may now point at this download (author re-signs per RL-046). Lines that could now point at it (not edited, author-owned): `src/content/legal/privacy.ts` line 29 ("To see, export, correct or delete...") and line 208 (the portability line, which already carries a `[DEPENDS ON RL-056]` marker); `src/content/legal/terms.ts` line 84 ("Use Export All Recipes ... to keep a copy") could also mention Download my data.
+
 ### RL-043 A verified user's cloud favourites appear on every device they sign into
 
 - Run `npm run emulators` and `npm run dev:emulated`. In browser profile A sign in with a verified email account and favourite a published recipe (Explore). In browser profile B (fresh, no local data) sign in to the same account, open Explore and pick Favorites: the recipe appears with a filled heart once its page is loaded. Open the recipe: the heart is filled.
