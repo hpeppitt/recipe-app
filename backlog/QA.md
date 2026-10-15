@@ -19,6 +19,12 @@ both themes:
 
 ## Since the last release
 
+### RL-033 Hosting sends X-Frame-Options DENY and X-Content-Type-Options nosniff
+
+- On the preview channel (RL-013) or after release, run `curl -sI` on the site root and on an `/assets/` file. Both should show `X-Frame-Options: DENY` and `X-Content-Type-Options: nosniff`, and the Cache-Control values should be unchanged (`no-cache` on the root, `public, max-age=31536000, immutable` on the asset).
+- Then complete an email-link sign-in end to end. Firebase Auth helper pages are served under `/__/auth/` on the hosting domain when it is the auth domain, so this is the check that matters. If sign-in breaks, see the risk note in `docs/operations.md` (hosting section).
+- Open the app in a normal tab (not a test profile) and confirm reCAPTCHA and App Check still work, so recipe generation is not blocked.
+
 ### RL-030 Mark all notifications read works with more than 500 unread
 
 - Tests only. Optional: seed 501 unread notifications on the emulator for one account, open the bell and tap Mark all read; all should clear, with no error.

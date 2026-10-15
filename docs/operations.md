@@ -357,6 +357,23 @@ curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/assets/…js  # expect
 A deploy that changed `index.html` is confirmed live when the bundle hash it references
 matches the one in your local `dist/assets/`.
 
+**Security headers (RL-033).** The `/**` block also sends `X-Frame-Options: DENY` (no other
+site can frame the app) and `X-Content-Type-Options: nosniff` (no MIME sniffing). Firebase applies
+every matching block, so `/assets/**` gets both as well as its immutable cache header. The
+cache headers are unchanged. These take effect only on a hosting deploy (`/release`); a local
+build or `vite preview` does not show them. A Content-Security-Policy is out of scope: it needs
+its own inventory of Firebase, Analytics and App Check origins. Check on the live site with
+`curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/` and expect both headers.
+
+**Risk to watch after the first deploy.** Firebase Auth helper pages live under `/__/auth/`.
+When the hosting domain is also the auth domain (`VITE_FIREBASE_AUTH_DOMAIN`), Firebase serves
+them there, so email-link and redirect sign-in pass through this origin. Confirm both still work
+after the first deploy. If they break, the fix is `X-Frame-Options: SAMEORIGIN` or excluding
+`/__/**` from the header rule. Do not apply either fix speculatively. The repo does not record
+the auth domain value (it lives in the local `.env` and the repository variables), so it does not
+prove the two domains match; the `/__/` navigation carve-out in
+[decisions.md](decisions.md) assumes they can.
+
 ### Service worker and PWA
 
 `vite-plugin-pwa` generates `dist/sw.js`, a Workbox runtime file and `manifest.webmanifest` at
