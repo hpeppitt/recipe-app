@@ -68,7 +68,9 @@ Cookies = `src/content/legal/cookies.ts`. Facts behind the drafts are in
 Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 
 22. **Terms acceptance at sign-up.** Terms "Who can use it" and "Changes to these terms";
-    Privacy "Terms acceptance"; Cookies "Local storage" (pending acceptance key). RL-047 (ready).
+    Privacy "Terms acceptance"; Cookies "Local storage" (pending acceptance key). RL-047 built
+    in the repo 2026-10-15 (rules pending RL-051); still open for the author: the pending key
+    now also holds the normalised email address it was ticked for.
 23. **Email requests fulfilled by runbook.** Terms "Leaving"; Privacy "Suggestions and replies"
     (anonymisation on erasure) and "Your rights" (one-month reply, identity check). RL-055
     (ready).

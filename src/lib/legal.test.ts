@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+// ?raw rather than node:fs: the app tsconfig has no Node types, and Vite/Vitest read the file as-is.
+import rules from '../../firestore.rules?raw';
 import {
   DRAFT_NOTICE,
   LEGAL_DOCUMENTS,
@@ -6,6 +8,7 @@ import {
   PRIVACY_LAST_UPDATED,
   COOKIES_LAST_UPDATED,
   TERMS_VERSION,
+  isLegalPath,
   type LegalDocument,
 } from './legal';
 import { SUPPORT_EMAIL } from './constants';
@@ -70,5 +73,21 @@ describe('terms', () => {
 
   it('states the minimum age', () => {
     expect(allText(LEGAL_DOCUMENTS.terms)).toContain('at least 16');
+  });
+});
+
+describe('firestore.rules terms version (RL-047)', () => {
+  it('matches TERMS_VERSION, so a bump cannot ship on one side only', () => {
+    const literal = /function termsVersion\(\)\s*\{\s*return '([^']+)';/.exec(rules)?.[1];
+    expect(literal).toBe(TERMS_VERSION);
+  });
+});
+
+describe('isLegalPath', () => {
+  it.each(['/terms', '/terms/', '/Terms', '/PRIVACY/', '/cookies//'])('%s is a policy page', (p) => {
+    expect(isLegalPath(p)).toBe(true);
+  });
+  it.each(['/', '/termsx', '/terms/x', '/settings'])('%s is not', (p) => {
+    expect(isLegalPath(p)).toBe(false);
   });
 });

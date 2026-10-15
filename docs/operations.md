@@ -222,29 +222,88 @@ Deploy rules alone with `--only firestore:rules` only when `firestore.indexes.js
 unchanged, so a stale index file cannot ride along unnoticed. When a change adds indexes
 that a new query needs, deploy them on their own first.
 
-**RL-018 and RL-021 ordering (indexes, then client, then rules).** Deploy in three steps:
+**The pending release order (RL-022 and RL-051, combined).** `firestore.rules` deploys as
+one unit. Every rules change merged so far rides along with the next
+`firebase deploy --only firestore:rules`, including the RL-047 acceptance guards on recipe,
+suggestion and message creates. So the client carrying the RL-047 acceptance flow must be
+live before any rules deploy from today's repo. That makes RL-022's rules step also RL-047's,
+and the client released before it must be the RL-047 client, which cannot ship before RL-046
+signs off the policies. (Deploying RL-022 from a ruleset older than RL-047 would decouple
+them; that is the author's call, not something to improvise at deploy time.) In order:
 
-1. `firebase deploy --only firestore:indexes`, then wait until all three new indexes show
-   READY in the console's index list: the two `suggestions` indexes (`recipeId` +
-   `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` + `createdAt`) and the
-   `recipes` index (`createdBy.uid` ASC + `createdAt` DESC, RL-021).
-2. Release the new client (`--only hosting`).
-3. `firebase deploy --only firestore:rules`.
+1. **RL-042 wipe**: production Firestore is emptied. Do not use the live app between the
+   wipe and step 5. (The wipe also deletes any `termsAcceptance` document, including the
+   author's.)
+2. **Diff the live ruleset** against HEAD (above) and record the current ruleset id as the
+   rollback target.
+3. **Indexes (RL-018, RL-021)**: `firebase deploy --only firestore:indexes`, then wait until
+   all three new indexes show READY in the console's index list: the two `suggestions`
+   indexes (`recipeId` + `recipeOwnerId` + `createdAt`, and `recipeId` + `suggestedBy.uid` +
+   `createdAt`) and the `recipes` index (`createdBy.uid` ASC + `createdAt` DESC).
+4. **The client release** via `/release` (`--only hosting`), carrying RL-040, RL-041, RL-015
+   to RL-021, and RL-045, RL-047, RL-048 and RL-049 (so RL-046 is signed off first).
+5. **The rules**: `firebase deploy --only firestore:rules`, then diff again; the diff must be
+   empty. Record the date and both ruleset ids here (RL-022, RL-051).
+6. **The author's own acceptance, straight away**: reload the live app signed in with your
+   verified account. A stored acceptance for your address is written automatically;
+   otherwise the dialog appears, so accept it. Confirm `termsAcceptance/{your uid}` exists
+   with the current version before any contributing write; until it does, your own recipe,
+   suggestion and message creates are denied.
+
+   RL-051 asks for this document to exist *before* the rules go live. The client cannot do
+   that: until step 5 no rule matches `termsAcceptance`, so its read and write are denied
+   (the designed fallback above). The only way to have it in place beforehand is to create
+   it by hand in the Firestore console (console writes bypass rules) as
+   `termsAcceptance/{your uid}` with `version` (string, the current `TERMS_VERSION`),
+   `acceptedAt` (integer ms) and `recordedAt` (timestamp). Create it only AFTER step 1: the
+   wipe deletes it. Re-check its `version` against `TERMS_VERSION` in `src/lib/legal.ts` at
+   deploy time: if RL-046 changes the terms date, `TERMS_VERSION` and the rules literal both
+   change and a document made earlier is stale, so your writes are denied and the dialog
+   asks again. Either way is acceptable; which one is the author's call, and RL-051's wording
+   should be adjusted to match.
+7. **Live QA** of the RL-040, RL-041, RL-015 to RL-021, RL-047, RL-048 and RL-049 checks in
+   `backlog/QA.md`.
 
 Why the client waits for READY: the RL-021 client issues an ordered `in` query on recipes.
 Until that index is built the query fails, and `useFollowingRecipes` shows an empty list for
-every follower and reports the failure through `reportError` (`load-following-recipes`). Why rules go last: the pre-RL-018 client subscribes with an unfiltered
-`recipeId`-only query, and the new read rule denies that query whole, so the old client's
-suggestions panel breaks for everyone, owner included, the moment the rules go live. The old
-`suggestions` index (`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json`
-until that client is gone, as [data-model.md](data-model.md) records.
+every follower and reports the failure through `reportError` (`load-following-recipes`). Why
+rules go last: the pre-RL-018 client subscribes with an unfiltered `recipeId`-only query,
+and the new read rule denies that query whole, so the old client's suggestions panel breaks
+for everyone, owner included, the moment the rules go live. The old client also writes no
+terms acceptance, so under the RL-047 guards it can create nothing. The old `suggestions`
+index (`recipeId` ASC, `createdAt` DESC) stays in `firestore.indexes.json` until that client
+is gone, as [data-model.md](data-model.md) records.
 
-**RL-019 ordering (avatar rule).** The profile `photoURL` rule and the `Avatar` change are
-independent, so deploy order does not matter. The old client only writes data URLs or null,
+**RL-019 (avatar rule)** is order-independent. The old client only writes data URLs or null,
 so deploying the rules does not break it. Profiles that already hold a non-data `photoURL`
 stay readable, and their avatar falls back to emoji or initials once the new client ships,
 not when the rules deploy. After the rules deploy, an owner update that sets `photoURL` to a
 non-data value is denied.
+
+**What each wrong order does for RL-047:**
+
+- **Client live before the rules** (the expected window between steps 4 and 5): the
+  `termsAcceptance` read and write match no rule and are denied. The client treats a failed
+  read as unknown, reports it once per session as `terms-check`, lets the user continue, and
+  retries a few times when the browser comes back online or the tab becomes visible.
+  `TermsUpdateDialog` is only shown after a successful read, so nobody is blocked. Expect
+  `terms-check` reports in `clientErrors` from verified sessions until step 6. A stored
+  acceptance stays in its browser (bound to the address it was ticked for) and is written on
+  the first check after the rules are live. Old and new clients can still create recipes,
+  suggestions and messages.
+- **Rules live before the client**: every verified user on the old client can no longer
+  create recipes, suggestions or messages (no `termsAcceptance` document, and the old client
+  cannot write one) until they load the new client, which then records the acceptance or
+  shows the dialog. Edits, favourites, follows and profiles keep working.
+
+**A later Terms bump is the reverse: rules, then client, back to back.** Bump
+`TERMS_VERSION` and the `termsVersion()` literal in one change (`src/lib/legal.test.ts`
+fails if they differ), deploy the rules, then release the client. Client first would be the
+trap: the new client reads the old version, shows the blocking dialog, and its Accept is
+denied by the old rules' literal, so the only way out is Decline (sign out) until the rules
+land. Rules first instead means that, until the client is released, contributing writes fail
+for everyone (their acceptance is now the old version and the old client does not know it),
+while browsing, edits, favourites and follows keep working. Keep that window short.
 
 `firebase.json` also declares a `functions` codebase pointing at `functions/`. **Do not
 deploy it.** It requires the Blaze plan, and moving to Blaze ends the free Gemini tier on

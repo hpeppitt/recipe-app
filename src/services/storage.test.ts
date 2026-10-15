@@ -232,3 +232,35 @@ describe('round trip on a working store', () => {
     expect(fresh.getDeviceId()).toBe(id);
   });
 });
+
+describe('terms acceptance (RL-047)', () => {
+  it('round-trips with a normalised email and clears', () => {
+    vi.stubGlobal('localStorage', memoryStore());
+    storage.setTermsAcceptance({ version: '2026-10-15', acceptedAt: 123, email: '  A@Example.COM ' });
+    expect(storage.getTermsAcceptance()).toEqual({ version: '2026-10-15', acceptedAt: 123, email: 'a@example.com' });
+    storage.clearTermsAcceptance();
+    expect(storage.getTermsAcceptance()).toBeNull();
+  });
+
+  it.each([
+    ['not json', '{nope'],
+    ['null', 'null'],
+    ['missing version', '{"acceptedAt":1,"email":"a@b.c"}'],
+    ['non-int acceptedAt', '{"version":"v","acceptedAt":1.5,"email":"a@b.c"}'],
+    ['string acceptedAt', '{"version":"v","acceptedAt":"1","email":"a@b.c"}'],
+    ['no email (first version of RL-047)', '{"version":"v","acceptedAt":1}'],
+    ['empty email', '{"version":"v","acceptedAt":1,"email":""}'],
+  ])('an unusable value (%s) reads as none', (_n, raw) => {
+    vi.stubGlobal('localStorage', memoryStore({ [STORAGE_KEYS.TERMS_ACCEPTANCE]: raw }));
+    expect(storage.getTermsAcceptance()).toBeNull();
+  });
+
+  it('blocked storage reads as none and never throws', () => {
+    vi.stubGlobal('localStorage', { getItem: boom, setItem: boom, removeItem: boom });
+    expect(storage.getTermsAcceptance()).toBeNull();
+    expect(() => {
+      storage.setTermsAcceptance({ version: 'v', acceptedAt: 1, email: 'a@b.c' });
+      storage.clearTermsAcceptance();
+    }).not.toThrow();
+  });
+});

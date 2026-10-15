@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Spinner } from '../ui/Spinner';
+import { TermsCheckbox, TermsHint } from './TermsCheckbox';
+import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
+import { TERMS_VERSION } from '../../lib/legal';
 
 /**
  * Reports what happened when the user arrived on a magic link.
@@ -19,6 +22,9 @@ export function EmailLinkStatus() {
   const { linkState, submitLinkEmail, dismissLinkState } = useAuth();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const hintId = useId();
 
   if (linkState.status === 'idle') return null;
 
@@ -59,15 +65,25 @@ export function EmailLinkStatus() {
   if (linkState.status === 'needs-email') {
     const handle = async () => {
       if (!email.trim() || submitting) return;
+      if (!accepted) {
+        setTermsError(true);
+        return;
+      }
       setSubmitting(true);
       try {
+        // This browser never saw the form that sent the link, so the box here is
+        // the acceptance AuthContext records once the link completes (RL-047).
+        setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email });
         await submitLinkEmail(email);
+      } catch {
+        clearTermsAcceptance();
       } finally {
         setSubmitting(false);
       }
     };
     return (
-      <Banner tone="warning" role="alert">
+      // No role: a whole form announced as an alert is noise; only the error below is live.
+      <Banner tone="warning">
         <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
           Confirm the email address to finish signing in
         </p>
@@ -77,7 +93,19 @@ export function EmailLinkStatus() {
           You opened this link in a different browser from the one that asked for it,
           so we need the address again to check the link belongs to you.
         </p>
-        <div className="flex gap-2 mt-2">
+        <div className="mt-1">
+          <TermsCheckbox
+            checked={accepted}
+            onChange={(c) => {
+              setAccepted(c);
+              if (c) setTermsError(false);
+            }}
+            disabled={submitting}
+            invalid={termsError && !accepted}
+            describedBy={accepted ? undefined : hintId}
+          />
+        </div>
+        <div className="flex gap-2 mt-1">
           <Input
             type="email"
             value={email}
@@ -88,10 +116,25 @@ export function EmailLinkStatus() {
               if (e.key === 'Enter') handle();
             }}
           />
-          <Button size="sm" onClick={handle} disabled={submitting || !email.trim()}>
+          <Button
+            size="sm"
+            onClick={handle}
+            disabled={submitting || !email.trim() || !accepted}
+            aria-describedby={accepted ? undefined : hintId}
+          >
             {submitting ? <Spinner size="sm" /> : 'Continue'}
           </Button>
         </div>
+        {!accepted && (
+          <div className="mt-2">
+            <TermsHint id={hintId} />
+          </div>
+        )}
+        {termsError && !accepted && (
+          <p role="alert" className="text-xs text-danger-700 dark:text-danger-300 mt-1">
+            Tick the box to accept the Terms before we finish signing you in.
+          </p>
+        )}
       </Banner>
     );
   }
@@ -135,7 +178,7 @@ function Banner({
   children,
 }: {
   tone: 'neutral' | 'warning' | 'success';
-  role: 'status' | 'alert';
+  role?: 'status' | 'alert';
   children: React.ReactNode;
 }) {
   const toneClasses = {

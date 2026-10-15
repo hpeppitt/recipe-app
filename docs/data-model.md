@@ -33,8 +33,9 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Seven top-level collections plus one
-subcollection. Recipe documents use the same UUID as the IndexedDB row, which is what makes
+Project `recipe-lab-3832b` (`.firebaserc`). Nine top-level collections (`recipes`, `favorites`,
+`suggestions`, `notifications`, `profiles`, `termsAcceptance`, `clientErrors`, `rateLimits`,
+`follows`) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 | Collection | Document id | Shape | Notes |
@@ -45,6 +46,7 @@ the dual store addressable by one id.
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the three counters. Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
+| `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
@@ -87,11 +89,25 @@ app's routes to a verified email (`linkWithCredential` on an anonymous account, 
 `signInWithEmailLink`) mint a fresh ID token carrying the claim, so there is no lag between
 verifying and being able to write; confirmed against the Auth emulator on 2026-08-10.
 
+**Contributing also needs the current Terms (RL-047, in the repo 2026-10-15, deployed by
+RL-051).** `acceptedTerms()` is `verified()` plus a document read of
+`termsAcceptance/{your uid}` whose `version` equals the rules' `termsVersion()` literal. It
+checks `exists()` first, so a missing document denies as a plain false rather than an
+evaluation error. It guards exactly three writes, on top of their existing checks: recipe
+create, suggestion create and message create. It does not guard edits, deletes, favourites,
+follows, notifications, profiles or counters. The `exists()` and `get()` of one path bill one
+document read per guarded write and count toward the per-request document-access limit (10
+for a single write, 20 for a batch). The literal must equal `TERMS_VERSION` in
+`src/lib/legal.ts`; `src/lib/legal.test.ts` fails when they differ. Bumping both makes every
+contributing write fail for anyone on the old version until they accept again, which is why
+the client blocks with `TermsUpdateDialog` (see [decisions.md](decisions.md)).
+
 This replaces the consume/contribute line deployed 2026-08-10, under which favouriting,
 following, notifications and profiles stayed open to anonymous accounts.
 
 **recipes** — anyone may read, including signed-out visitors, deliberately: the library feed
-and shared links work without an account. Publishing requires a **verified email** and
+and shared links work without an account. Publishing requires a **verified email**, a
+**current Terms acceptance** (`acceptedTerms()`, RL-047, one extra document read), and
 stamping your own uid as `createdBy.uid`, with both counters starting at zero. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
 verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`.
@@ -119,10 +135,10 @@ The pushed document carries the local `createdAt`, and `recipeOwnerId` from the 
 `createdBy.uid` (or `'local'` when the recipe is not in Dexie). The Dexie half of the
 existing-account upgrade, `migrateFavoritesUid`, runs in one `rw` transaction on `favorites`.
 
-**suggestions** — any user **with a verified email** may create one for someone else's recipe,
-and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must
+**suggestions**: any user **with a verified email and a current Terms acceptance** (RL-047)
+may create one for someone else's recipe, and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must
 match the recipe's `createdBy.uid`, checked with a `get()` on the recipe, so each create costs
-one extra document read; a wrong owner would leave a suggestion nobody can review or delete.
+two extra document reads (the recipe, and the `termsAcceptance` document for `acceptedTerms()`); a wrong owner would leave a suggestion nobody can review or delete.
 Only the recipe owner, with a verified email, may update, and
 only the `status` field, and only to `approved` or `rejected`. On approval the client adds the
 suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
@@ -140,8 +156,9 @@ otherwise; each needs its own composite index above. A query by `recipeId` alone
 whole, even for the owner.
 
 **suggestions/{id}/messages** — creatable only by the two participants (checked with a
-`get()` on the parent, so a reply costs 2 document reads), only with your own `fromUid`, with
-a verified email, and immutable once sent. Replies stay allowed after approval or rejection on purpose.
+`get()` on the parent, so a reply costs 2 document reads by the rules comment's count, now 3
+with the sender's `termsAcceptance` read), only with your own `fromUid`, with a verified email
+and a current Terms acceptance (RL-047), and immutable once sent. Replies stay allowed after approval or rejection on purpose.
 Readable by the same two parties, with a verified email, checked with the same `get()` on
 the parent, so opening a thread costs one extra document read on top of its messages.
 
@@ -164,6 +181,14 @@ upgrade to an email, so an anonymous account has no profile document.
 **follows** — readable by the follower or the followed. The follower creates and deletes,
 with a verified email,
 and the id must be `{their uid}_{followingId}`. No updates.
+
+**termsAcceptance** (RL-047): readable only by its owner. Created and updated (a `setDoc`
+overwrite) only by the owner with a verified email, with exactly the keys `version`,
+`acceptedAt` and `recordedAt`: `version` equal to the rules' literal, `acceptedAt` an integer
+no more than 60 seconds ahead of server time (it is the client's clock, bounded like a
+recipe's `createdAt`), and `recordedAt` equal to the request time, i.e. `serverTimestamp()`.
+Deletable by the owner, for account erasure (RL-057); a deleted acceptance just blocks
+contributing again. Emulator-checked 2026-10-15 (ticket RL-047 Notes).
 
 **rateLimits** — closed to everyone.
 
