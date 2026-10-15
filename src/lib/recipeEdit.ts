@@ -110,11 +110,19 @@ function isBlankIngredient(row: IngredientDraft): boolean {
   return !row.name.trim() && !row.amount.trim() && !row.unit.trim() && !row.notes.trim();
 }
 
+// Must equal the literals in hasBoundedContent() in firestore.rules (RL-016);
+// recipeEdit.test.ts fails if they drift. Title is measured trimmed, as saved.
+export const MAX_TITLE_LENGTH = 200;
+export const MAX_INGREDIENTS = 100;
+export const MAX_INSTRUCTIONS = 100;
+
 export function validateDraft(draft: RecipeDraft): DraftErrors {
   const errors: DraftErrors = {};
 
   if (!draft.title.trim()) {
     errors.title = 'A recipe needs a title.';
+  } else if (draft.title.trim().length > MAX_TITLE_LENGTH) {
+    errors.title = `Titles can be at most ${MAX_TITLE_LENGTH} characters.`;
   }
 
   if (draft.ingredients.every(isBlankIngredient)) {
@@ -129,10 +137,16 @@ export function validateDraft(draft: RecipeDraft): DraftErrors {
     )
   ) {
     errors.ingredients = 'Amounts must be numbers. Put ranges or notes in the notes field.';
+  } else if (draft.ingredients.some((r) => (draftToNumber(r.amount) ?? 0) < 0)) {
+    errors.ingredients = "Amounts can't be negative.";
+  } else if (draft.ingredients.filter((r) => !isBlankIngredient(r)).length > MAX_INGREDIENTS) {
+    errors.ingredients = `A recipe can have at most ${MAX_INGREDIENTS} ingredients.`;
   }
 
   if (draft.instructions.every((r) => !r.text.trim())) {
     errors.instructions = 'Add at least one step.';
+  } else if (draft.instructions.filter((r) => r.text.trim()).length > MAX_INSTRUCTIONS) {
+    errors.instructions = `A recipe can have at most ${MAX_INSTRUCTIONS} steps.`;
   }
 
   const numeric = [

@@ -6,8 +6,13 @@ import {
   isDraftDirty,
   EMPTY_INGREDIENT,
   EMPTY_INSTRUCTION,
+  MAX_TITLE_LENGTH,
+  MAX_INGREDIENTS,
+  MAX_INSTRUCTIONS,
   type RecipeDraft,
 } from './recipeEdit';
+// ?raw rather than node:fs, as in rateLimit.test.ts.
+import rules from '../../firestore.rules?raw';
 import { makeRecipe } from '../test/factories';
 import type { Recipe } from '../types/recipe';
 
@@ -117,6 +122,61 @@ describe('validateDraft', () => {
 
   it('rejects a non-numeric time', () => {
     expect(validateDraft(draftOf({ cookTime: 'about an hour' })).cookTime).toBeDefined();
+  });
+});
+
+describe('validateDraft size caps and negative amounts', () => {
+  const ing = (name: string) => ({ ...EMPTY_INGREDIENT, name });
+  const step = (text: string) => ({ ...EMPTY_INSTRUCTION, text });
+
+  it('rejects a negative amount and keeps blank amounts valid', () => {
+    const neg = draftOf({ ingredients: [{ ...ing('flour'), amount: '-1' }] });
+    expect(validateDraft(neg).ingredients).toBe("Amounts can't be negative.");
+    expect(validateDraft(draftOf({ ingredients: [ing('flour')] })).ingredients).toBeUndefined();
+  });
+
+  it('title: at the cap passes, one over fails, measured trimmed', () => {
+    expect(validateDraft(draftOf({ title: 'a'.repeat(MAX_TITLE_LENGTH) })).title).toBeUndefined();
+    expect(validateDraft(draftOf({ title: ` ${'a'.repeat(MAX_TITLE_LENGTH)} ` })).title).toBeUndefined();
+    expect(validateDraft(draftOf({ title: 'a'.repeat(MAX_TITLE_LENGTH + 1) })).title).toBe(
+      `Titles can be at most ${MAX_TITLE_LENGTH} characters.`
+    );
+  });
+
+  it('ingredients: cap passes, one over fails, blank rows ignored', () => {
+    const rows = Array.from({ length: MAX_INGREDIENTS }, () => ing('x'));
+    const blanks = [{ ...EMPTY_INGREDIENT }, { ...EMPTY_INGREDIENT }];
+    expect(validateDraft(draftOf({ ingredients: [...rows, ...blanks] })).ingredients).toBeUndefined();
+    expect(validateDraft(draftOf({ ingredients: [...rows, ing('y')] })).ingredients).toBe(
+      `A recipe can have at most ${MAX_INGREDIENTS} ingredients.`
+    );
+  });
+
+  it('negative amount wins over the count cap', () => {
+    const rows = Array.from({ length: MAX_INGREDIENTS + 1 }, () => ing('x'));
+    rows[0] = { ...rows[0], amount: '-2' };
+    expect(validateDraft(draftOf({ ingredients: rows })).ingredients).toBe("Amounts can't be negative.");
+  });
+
+  it('instructions: cap passes, one over fails, blank rows ignored', () => {
+    const rows = Array.from({ length: MAX_INSTRUCTIONS }, () => step('do'));
+    expect(
+      validateDraft(draftOf({ instructions: [...rows, { ...EMPTY_INSTRUCTION }] })).instructions
+    ).toBeUndefined();
+    expect(validateDraft(draftOf({ instructions: [...rows, step('more')] })).instructions).toBe(
+      `A recipe can have at most ${MAX_INSTRUCTIONS} steps.`
+    );
+  });
+
+  it('constants equal the caps in firestore.rules', () => {
+    const grab = (re: RegExp) => {
+      const m = rules.match(re);
+      if (!m) throw new Error(`pattern not found in firestore.rules: ${re}`);
+      return Number(m[1]);
+    };
+    expect(grab(/d\.title\.size\(\) <= (\d+)/)).toBe(MAX_TITLE_LENGTH);
+    expect(grab(/d\.ingredients\.size\(\) <= (\d+)/)).toBe(MAX_INGREDIENTS);
+    expect(grab(/d\.instructions\.size\(\) <= (\d+)/)).toBe(MAX_INSTRUCTIONS);
   });
 });
 

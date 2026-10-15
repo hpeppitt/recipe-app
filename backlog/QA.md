@@ -19,6 +19,14 @@ both themes:
 
 ## Since the last release
 
+### RL-036 The recipe editor rejects negative amounts and enforces the same size caps as the rules
+
+- On the edit page type `-1` as an ingredient amount and press Save. "Amounts can't be negative." should appear under Ingredients, Save should be blocked, and a screen reader should announce it.
+- Paste a title over 200 characters: "Titles can be at most 200 characters." appears by the title and Save is blocked.
+- Add more than 100 ingredient rows or 100 step rows (blank rows do not count): the matching "at most 100" error appears and Save is blocked.
+- Reviewer noted (not fixed, page is outside this ticket's files): (med) Save on RecipeEditPage does not scroll or focus to the first error, and Save sits in a non-sticky footer, so on a long recipe the title or ingredients error can be off-screen; (med) the title, servings, prep and cook errors rendered by Input.tsx have no role=alert, aria-describedby or aria-invalid, so they are not announced; (low) 'Amounts can't be negative.' does not name the row; error text uses text-danger-500 (about 3.8:1 on a light surface); the 100-item caps are only reachable on Save and the message does not say how many to remove; the rules-sync test checks only the three numbers, not that hasBoundedContent is still wired into create and update. Worth one follow-up ticket for the edit form's error focus and announcements.
+
+
 ### RL-035 Unit abbreviations are never pluralised
 
 - Open a recipe with an ingredient in `pt` or `qt` at an amount of 2 or more. It should read "2 pt" or "2 qt", not "pts" or "qts". Cups should still pluralise ("2 cups"), including after switching units so that a volume converts to cups.
