@@ -74,9 +74,9 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 23. **Email requests fulfilled by runbook.** Terms "Leaving"; Privacy "Suggestions and replies"
     (anonymisation on erasure) and "Your rights" (one-month reply, identity check). RL-055
     built in the repo 2026-10-15 (`scripts/data-request.mjs`, runbook in
-    `docs/operations.md`). Still open for the author (pending in `backlog/DECISIONS.md`): when
-    a recipe owner is erased, other people's suggestions and replies on that owner's recipes
-    are deleted with the recipes, which the policy does not yet say.
+    `docs/operations.md`). RL-060 (2026-10-17): when a recipe owner is erased, other
+    people's suggestions and replies on that owner's recipes are kept and the owner side is
+    anonymised, matching the policy text.
 24. **Self-service account deletion not promised.** Terms "Leaving", Privacy "Your rights".
     Add the control's name only after RL-057 (needs-human) ships.
 25. **Self-service download not promised.** Privacy "Your rights". Only after RL-056 (ready).

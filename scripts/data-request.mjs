@@ -124,6 +124,11 @@ export function anonymisedSuggestionPatch() {
   return { 'suggestedBy.uid': PLACEHOLDER_UID, 'suggestedBy.displayName': null };
 }
 
+/** What stays on a kept suggestion whose recipe owner is erased. */
+export function anonymisedOwnerSuggestionPatch() {
+  return { recipeOwnerId: PLACEHOLDER_UID };
+}
+
 /** What stays on a reply the uid wrote in a thread that is kept. */
 export function anonymisedMessagePatch() {
   return { fromUid: PLACEHOLDER_UID, fromDisplayName: null };
@@ -146,31 +151,45 @@ export function buildErasePlan(uid, fetched) {
   const del = (path) => ({ kind: 'delete', path });
   const counterAbove0 = (path, field) => (fetched.counters?.[path]?.[field] ?? 0) > 0;
 
-  // Suggestions on the uid's own recipes go with the recipes, other party's text and
-  // replies included. recipeOwnerId is checked against the recipe on create, so it is
-  // the reliable owner field. Messages are deleted before their parent so a failed run
-  // leaves no orphaned thread that only the parent could have led back to.
+  // Suggestions on the uid's own recipes: the recipe is deleted but another person's
+  // suggestion and replies are kept, with the owner side anonymised (RL-060). recipeOwnerId
+  // is checked against the recipe on create, so it is the reliable owner field. A
+  // self-suggestion has no other party, so it goes with its thread, messages first so a
+  // failed run leaves no orphaned thread.
   const suggestions = uniqueByPath([...(fetched.suggestionsAuthored ?? []), ...(fetched.suggestionsOnOwn ?? [])]);
-  const deletedThreads = new Set();
+  // In a kept thread the parent patch goes LAST in its group: it is what stops a re-run
+  // finding the thread, so it must be the commit point. If the group splits across batches
+  // or a write fails, the replies are still found and fixed on the re-run.
+  const handled = new Set();
+  const replyUpdates = (s) =>
+    (s.messages ?? []).filter((m) => m.data.fromUid === uid).map((m) => ({ kind: 'update', path: m.path, set: anonymisedMessagePatch() }));
   for (const s of suggestions) {
-    if (s.data.recipeOwnerId === uid) {
-      deletedThreads.add(s.path);
-      add('suggestion on own recipe (deleted with its thread)', [...(s.messages ?? []).map((m) => del(m.path)), del(s.path)]);
+    const own = s.data.recipeOwnerId === uid;
+    const mine = s.data.suggestedBy?.uid === uid;
+    if (!own && !mine) continue;
+    handled.add(s.path);
+    if (own && mine) {
+      add('self-suggestion on own recipe (deleted with its thread)', [...(s.messages ?? []).map((m) => del(m.path)), del(s.path)]);
+    } else if (own) {
+      add('suggestion on own recipe (kept, owner anonymised)', [
+        ...replyUpdates(s),
+        { kind: 'update', path: s.path, set: anonymisedOwnerSuggestionPatch() },
+      ]);
+    } else {
+      add('suggestion on another recipe (anonymised)', [
+        ...replyUpdates(s),
+        { kind: 'update', path: s.path, set: anonymisedSuggestionPatch() },
+      ]);
     }
   }
-  for (const s of suggestions) {
-    if (deletedThreads.has(s.path)) continue;
-    add('suggestion on another recipe (anonymised)', [{ kind: 'update', path: s.path, set: anonymisedSuggestionPatch() }]);
-  }
 
-  // Replies by the uid in kept threads: from the threads fetched above, plus any the
-  // collection-group query found elsewhere.
+  // Stray replies by the uid that the collection-group query found outside those threads.
   const messages = uniqueByPath([
     ...suggestions.flatMap((s) => s.messages ?? []),
     ...(fetched.strayMessages ?? []),
   ]);
   for (const m of messages) {
-    if (m.data.fromUid !== uid || deletedThreads.has(parentOf(m.path))) continue;
+    if (m.data.fromUid !== uid || handled.has(parentOf(m.path))) continue;
     add('reply in a kept thread (anonymised)', [{ kind: 'update', path: m.path, set: anonymisedMessagePatch() }]);
   }
 
