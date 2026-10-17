@@ -27,7 +27,7 @@ export const COOKIES: LegalDocument = {
       heading: 'Cookies',
       paragraphs: [
         'Google reCAPTCHA (strictly necessary). Used with Firebase App Check to check that requests to the AI come from the real app and not a script. Set by Google. [AUTHOR TO CONFIRM: cookie names, domains and lifetimes, from Google\'s documentation.]',
-        'PostHog (optional, analytics). A cookie and a matching local storage entry, both named ph_ followed by the project key and _posthog, holding a random id for your browser, your account id once known, and the current visit. Used to count which features are used. Set only after you choose "Allow analytics". The cookie lasts up to a year. [AUTHOR TO CONFIRM: the lifetime against PostHog\'s documentation.]',
+        'PostHog (optional, analytics). A cookie and a matching local storage entry, both named ph_ followed by the project key and _posthog, holding a random id for your browser, your account id once known, and the current visit. Used to count which features are used. Set only after you choose "Allow analytics". The cookie lasts 365 days.',
       ],
     },
     {
