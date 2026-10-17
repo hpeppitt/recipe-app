@@ -238,11 +238,10 @@ loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
   usage and AI Logic usage). Console work, so it is a human ticket.
 - [ ] **RL-010** TTL policy on `clientErrors.receivedAt` (30 days suggested). The ticket
   carries the steps; it records the command here when done.
-- [ ] **RL-053** create the PostHog project (host, IP capture off, session recording off,
-  autocapture off, retention written down) and approve `posthog-js`. Then **RL-054** (loop) wires
-  the events. Only after that set `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` (build variables
-  and the local `.env`), update the Privacy and Cookie wording that depends on them, and
-  release the client again.
+- [ ] PostHog (RL-053 and RL-054 done 2026-10-17): to turn analytics on, set
+  `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` as build variables and release the client
+  again. Before inviting anyone else, revisit the project settings (IP, autocapture,
+  recording) the author accepted as the only user.
 - [ ] **RL-032** (loop, after the wipe) removes the uid migration, the stranded-identity notice
   and unused helpers; release that client.
 - [ ] Optional housekeeping: set the Preview secret and variables (RL-013, "Preview deploys"),

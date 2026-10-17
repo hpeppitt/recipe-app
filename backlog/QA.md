@@ -19,6 +19,16 @@ both themes:
 
 ## Since the last release
 
+### RL-054 Product events go to PostHog, only after consent (PR #68)
+
+- Build the preview with `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` set. In a fresh browser profile with the network panel open, load the app: the consent banner shows and there is no request to the PostHog host.
+- Choose "No thanks", use the app, reload: still no PostHog request, and no `ph_*_posthog` cookie or localStorage entry.
+- In Settings, turn analytics on: events appear in PostHog's live view. Create a recipe: a `recipe_created` and an `$ai_generation` event arrive, and neither carries the prompt or recipe text.
+- Signed in anonymously, the person in PostHog is the anonymous uid. After signing in with an email, it is the account uid, with no email or name.
+- Turn analytics off in Settings: requests stop straight away.
+- Build without the two variables: no banner, no Settings toggle, no console errors.
+- Read `/privacy` and `/cookies`: the PostHog sections match what you saw.
+
 ### RL-056 A signed-in user can download all their data, local and cloud, from Settings
 
 - Run `npm run emulators` and `npm run dev:emulated` (or use the preview build). Sign in with a verified email account, favourite a published recipe, follow another account, and make a suggestion on someone's recipe. Settings, Data, "Download my data": the button shows "Preparing..." and is disabled, then a `recipe-lab-data-<date>.json` downloads and a status line says so. Open it: valid JSON, `version`, `exportedAt`, `uid` at the top, and the favourite, the follow and the suggestion (with any replies) are in `cloud`. Local recipes and bookmarks are in `local`.

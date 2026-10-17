@@ -5,14 +5,14 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // before publishing. See docs/legal/claims-to-verify.md.
 export const TERMS: LegalDocument = {
   title: 'Terms of Service',
-  lastUpdated: '2026-10-15',
+  lastUpdated: '2026-10-17',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
     {
       heading: 'About these terms',
       paragraphs: [
-        `These terms apply when you use ${APP_NAME}, a web app for creating recipes with AI and sharing them. ${APP_NAME} is run by [AUTHOR TO CONFIRM: the operator's legal name, and whether an individual or a business] ("we", "us").`,
+        `These terms apply when you use ${APP_NAME}, a web app for creating recipes with AI and sharing them. ${APP_NAME} is run by Harry Peppitt, an individual in New South Wales, Australia ("we", "us").`,
         `By using ${APP_NAME} you agree to these terms. If you do not agree, do not use it.`,
         `${APP_NAME} is free to use. There are no payments in the app.`,
       ],
@@ -24,7 +24,7 @@ export const TERMS: LegalDocument = {
         'You can browse published recipes without an account.',
         'You can continue without an email address as an anonymous account. An anonymous account can only save bookmarks on your own device. It cannot generate, publish, favourite in the cloud, follow, suggest, reply or keep a profile. If you sign out of an anonymous account you cannot get it back.',
         'Everything else needs an account with a verified email address. You sign in with a link sent to that address. There are no passwords.',
-        '[DEPENDS ON RL-047: When you create an account you must accept the current version of these terms. We keep a private record of the version you accepted and when.]',
+        'When you create an account you must accept the current version of these terms. We keep a private record of the version you accepted and when.',
       ],
     },
     {
@@ -75,7 +75,7 @@ export const TERMS: LegalDocument = {
       heading: 'Leaving',
       paragraphs: [
         'You can stop using the app at any time. You can delete your own recipes from each recipe\'s page.',
-        `To have your account and its data deleted, email ${SUPPORT_EMAIL} from the address on the account. [DEPENDS ON RL-055: the operator's data-request runbook.] There is no self-service account deletion yet. [DEPENDS ON RL-057: only mention a "Delete my account" control once it ships.]`,
+        `To have your account and its data deleted, email ${SUPPORT_EMAIL} from the address on the account. There is no self-service account deletion yet.`,
       ],
     },
     {
@@ -89,20 +89,20 @@ export const TERMS: LegalDocument = {
     {
       heading: 'Limits on our liability',
       paragraphs: [
-        'To the extent the law allows, we are not liable for any loss arising from your use of the app, including from following an AI-generated recipe. [AUTHOR TO CONFIRM: wording and scope of this clause with a lawyer.]',
+        'To the extent the law allows, we are not liable for any loss arising from your use of the app, including from following an AI-generated recipe.',
       ],
     },
     {
       heading: 'Changes to these terms',
       paragraphs: [
         'We may update these terms. The date at the top shows the current version.',
-        'If a change is significant, we will tell you in the app. [DEPENDS ON RL-047: you will be asked to accept the new version before you can keep contributing. If you decline you will be signed out.]',
+        'If a change is significant, you will be asked in the app to accept the new version before you can keep contributing. If you decline you will be signed out.',
       ],
     },
     {
       heading: 'Governing law',
       paragraphs: [
-        'These terms are governed by the laws of [STATE], Australia. Disputes go to the courts of [STATE], Australia.',
+        'These terms are governed by the laws of New South Wales, Australia. Disputes go to the courts of New South Wales, Australia.',
         'If you live in the European Union or the United Kingdom, you keep any protection the law of your country gives you that cannot be excluded by agreement.',
       ],
     },

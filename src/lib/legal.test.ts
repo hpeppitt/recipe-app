@@ -67,8 +67,9 @@ describe('terms', () => {
     expect(TERMS_VERSION).toBe(LEGAL_DOCUMENTS.terms.lastUpdated);
   });
 
-  it('leaves the governing state for the author', () => {
-    expect(allText(LEGAL_DOCUMENTS.terms)).toContain('[STATE], Australia');
+  it('names the governing state the author chose (RL-046)', () => {
+    expect(allText(LEGAL_DOCUMENTS.terms)).toContain('laws of New South Wales, Australia');
+    expect(allText(LEGAL_DOCUMENTS.terms)).not.toContain('[STATE]');
   });
 
   it('states the minimum age', () => {
