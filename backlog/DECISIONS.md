@@ -9,6 +9,8 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-17 | RL-060 | A kept suggestion on an erased owner's recipe keeps `recipeTitle` and `recipeEmoji` (author confirmed at approval). | Null them. | pending |
+| 2026-10-17 | RL-060 | A suggestion the erased uid made on their own recipe (owner and suggester both the uid) is deleted with its thread, since no other party is in it. | Anonymise it too. | pending |
 | 2026-10-15 | RL-049 | Notifications are written in their own transaction after the primary write commits, and a limited one is skipped silently (reported as `rate-limited-notification`). The recipient never gets it. | Put the notification window in the favourite or follow batch (a limited notification would then abort the favourite), or queue skipped notifications for later. | pending |
 | 2026-10-15 | RL-049 | Recipe creates use a 1 day window (cap 30); the rules carry a per-action window through `windowMsFor()` and `windowMs()` stays the hourly window, so the RL-048 rules-text test is unchanged. | A rolling window, or a `windowMs(action)` signature (would have broken the RL-048 literal test). | pending |
 | 2026-10-15 | RL-049 | Deploy order unchanged: client then rules, back to back. In the gap no notification is written and no first publish lands; after the rules, old tabs can neither notify nor publish new recipes until they reload. No client fallback, same as RL-048. | A fallback to the plain write when the window is denied (the rules are authoritative, so it would only help during the gap). | pending |

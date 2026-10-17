@@ -19,6 +19,13 @@ both themes:
 
 ## Since the last release
 
+### RL-060 Erasing a recipe owner keeps other people's suggestion threads, with the owner side anonymised
+
+- The Privacy Policy marker `[DEPENDS ON RL-060 ...]` is gone from "Suggestions and replies". Re-read that paragraph during the RL-046 sign-off.
+- The erase table in `docs/operations.md` ("Data requests") changed for suggestions on the erased user's own recipes. Read it before the next real erasure request.
+  - Reviewer noted (low): a reply by a suggester in a kept thread now notifies `deleted-user` (`src/services/firestore.ts` about lines 637-645). It is newly reachable in this direction because those threads used to be deleted; practical impact is near zero because the thread is not reachable in the app.
+  - Reviewer noted (low): the permanent fix for the stray-reply lookup is a collection-group `fieldOverride` for `messages.fromUid` in `firestore.indexes.json`. It is outside this ticket and needs a deploy, for the author to decide.
+
 ### RL-054 Product events go to PostHog, only after consent (PR #68)
 
 - Build the preview with `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` set. In a fresh browser profile with the network panel open, load the app: the consent banner shows and there is no request to the PostHog host.

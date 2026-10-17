@@ -235,17 +235,43 @@ describe('buildErasePlan', () => {
   const deletes = ops.filter((o) => o.kind === 'delete').map((o) => o.path);
   const updates = ops.filter((o) => o.kind === 'update');
 
-  it('deletes suggestions on own recipes with their whole thread, messages first', () => {
+  it('keeps another user\'s suggestion on an own recipe and anonymises only the owner side', () => {
     const g = plan.groups.find((x) => x.ops.some((o) => o.path === 'suggestions/s2'));
-    expect(g.ops.map((o) => o.path)).toEqual(['suggestions/s2/messages/m3', 'suggestions/s2/messages/m4', 'suggestions/s2']);
-    expect(updates.some((o) => o.path.startsWith('suggestions/s2'))).toBe(false);
+    expect(g.ops).toEqual([
+      { kind: 'update', path: 'suggestions/s2/messages/m4', set: { fromUid: PLACEHOLDER_UID, fromDisplayName: null } },
+      { kind: 'update', path: 'suggestions/s2', set: { recipeOwnerId: PLACEHOLDER_UID } },
+    ]);
+    expect(deletes.some((p) => p.startsWith('suggestions/s2'))).toBe(false);
+  });
+
+  it('puts the parent patch last in a kept-thread group, so it is the commit point', () => {
+    for (const parent of ['suggestions/s1', 'suggestions/s2']) {
+      const g = plan.groups.find((x) => x.ops.some((o) => o.path === parent));
+      expect(g.ops.length).toBeGreaterThan(1);
+      expect(g.ops[g.ops.length - 1].path).toBe(parent);
+    }
+  });
+
+  it('leaves the other party\'s replies in a kept thread untouched', () => {
+    expect(ops.some((o) => o.path === 'suggestions/s2/messages/m3')).toBe(false);
+  });
+
+  it('deletes a self-suggestion with its whole thread, messages first', () => {
+    const self = doc('suggestions/s5', { recipeOwnerId: U, suggestedBy: { uid: U, displayName: 'T' } }, {
+      messages: [doc('suggestions/s5/messages/m7', { fromUid: U }), doc('suggestions/s5/messages/m8', { fromUid: U })],
+    });
+    const p = buildErasePlan(U, { suggestionsAuthored: [self], suggestionsOnOwn: [self] });
+    expect(p.groups).toHaveLength(1);
+    expect(p.groups[0].ops.map((o) => `${o.kind} ${o.path}`)).toEqual([
+      'delete suggestions/s5/messages/m7', 'delete suggestions/s5/messages/m8', 'delete suggestions/s5',
+    ]);
   });
 
   it('anonymises the uid\'s suggestion and reply on another recipe, once each, and nothing of the other party', () => {
-    const anon = updates.filter((o) => o.set).map((o) => [o.path, o.set]);
+    const anon = updates.filter((o) => o.set && !o.path.startsWith('suggestions/s2')).map((o) => [o.path, o.set]);
     expect(anon).toEqual([
-      ['suggestions/s1', { 'suggestedBy.uid': PLACEHOLDER_UID, 'suggestedBy.displayName': null }],
       ['suggestions/s1/messages/m1', { fromUid: PLACEHOLDER_UID, fromDisplayName: null }],
+      ['suggestions/s1', { 'suggestedBy.uid': PLACEHOLDER_UID, 'suggestedBy.displayName': null }],
     ]);
   });
 

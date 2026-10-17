@@ -597,7 +597,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | `follows` on either side (with `followerDisplayName`) | Deleted, and the other party's `followerCount` or `followingCount` decremented (not below 0) |
 | `suggestions` the uid wrote on someone else's recipe | Kept for the recipe owner, anonymised: `suggestedBy.uid` becomes `deleted-user`, `suggestedBy.displayName` null, the text stays |
 | Replies (`messages`) the uid wrote in those threads | Kept, anonymised: `fromUid` becomes `deleted-user`, `fromDisplayName` null, the text stays. The other party's replies are untouched |
-| `suggestions` on the uid's own recipes (`recipeOwnerId == uid`) | Deleted with their whole `messages` thread, the other party's suggestion and replies included, because the recipe they are about is deleted. `recipeOwnerId` is checked against the recipe on create, so it is the owner field relied on |
+| `suggestions` on the uid's own recipes (`recipeOwnerId == uid`) | Kept and anonymised (RL-060): `recipeOwnerId` becomes `deleted-user`, the uid's own replies in the thread are anonymised as above, and the other party's suggestion, text and replies are untouched, though the recipe is deleted. The suggester can still read the thread (the rules never read the recipe) but the app only reaches it from the recipe page, so they see it through their data export. A suggestion the uid made on their own recipe has no other party and is deleted with its whole thread. `recipeOwnerId` is checked against the recipe on create, so it is the owner field relied on |
 | `notifications` with `recipientUid` or `fromUid` equal to the uid (with `fromDisplayName`) | Deleted |
 | `clientErrors` with `uid == uid` | Deleted |
 
@@ -620,7 +620,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 - Google Analytics 4 data from before 2026-10-15, keyed by the uid as User-ID. GA4 was removed
   by RL-058; delete any old data with a GA4 data deletion request.
 - Free text: `clientErrors` reports with `uid` null (signed-out) or other users' reports, and
-  the kept suggestion and reply text, can contain a name or anything the person typed. The
+  the kept suggestion and reply text (kept threads on a deleted recipe also keep its `recipeTitle` and `recipeEmoji`), can contain a name or anything the person typed. The
   script does not search text.
 - `writeWindows/{other uid}_*` `last` fields may still name a deleted suggestion, reply,
   notification or recipe path. A path holds ids only, no uid or name.
