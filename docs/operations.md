@@ -46,7 +46,8 @@ Copy `.env.example` to `.env`. Every value is public by design; **never put a se
 | `VITE_FIREBASE_PROJECT_ID` | auth, Firestore, AI | ditto |
 | `VITE_FIREBASE_APP_ID` | Firebase SDK | |
 | `VITE_RECAPTCHA_SITE_KEY` | **recipe generation** | reCAPTCHA v3 *site* key. App Check is enforced on the AI Logic path, so the Gemini proxy rejects requests without it |
-| `VITE_POSTHOG_KEY` | optional | PostHog project key. A public key, not a secret. Unset (the production state until RL-054) means no consent banner, no Settings privacy toggle and no analytics. Read through `isPostHogConfigured()` in `services/analytics.ts` |
+| `VITE_POSTHOG_KEY` | optional | PostHog project key. A public key, not a secret. Unset (the production state today) means no consent banner, no Settings privacy toggle and no analytics. Read through `isPostHogConfigured()` in `services/analytics.ts`, which needs both this and `VITE_POSTHOG_HOST` |
+| `VITE_POSTHOG_HOST` | optional | PostHog ingestion host, for example `https://eu.i.posthog.com`. Set it with the key; either one alone counts as unset |
 | `VITE_APPCHECK_DEBUG_TOKEN` | local dev only | App Check enforcement blocks localhost unless the token is registered under App Check → Apps → Manage debug tokens. Leave blank to let the SDK mint a fresh one each run, then register that |
 | `VITE_USE_EMULATORS` | local dev only | `true` routes Auth and Firestore at the emulator suite. Double-guarded on `import.meta.env.DEV`, so a production build can never redirect writes away from the real project |
 

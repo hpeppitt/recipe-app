@@ -46,12 +46,15 @@ those calls can throw. What that does to the email-link flow was not verified en
 
 **Analytics seam and consent gate (RL-052).** `services/analytics.ts` holds the one consent
 state (parsed by pure `lib/consent.ts`, stored through `services/storage.ts`). `logEvent` and
-`setAnalyticsUserId` call `analyticsProvider.send` and `.identify`, empty until RL-054, only
-when consent is `granted`. `setAnalyticsConsent(granted)` persists, updates the state and calls
+`setAnalyticsUserId` call `analyticsProvider.send` and `.identify` (PostHog `capture`,
+`identify`, `reset`) only when consent is `granted`. `initialisePostHog()` is the only
+`posthog.init`: `main.tsx` calls it before render, and it does nothing without both
+`VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` or without consent. `AuthContext` re-identifies the
+current uid when consent is granted after sign-in. `setAnalyticsConsent(granted)` persists, updates the state and calls
 every `onConsentChange` listener: RL-054's single hook for opting PostHog in or out, so no
 provider reads consent itself. `hooks/useConsent.ts` (`useSyncExternalStore`) keeps
 `ConsentBanner` (mounted in `AppShell` in normal flow above `<main>`, never fixed, so it cannot cover the FAB, update prompt or toasts) and the Settings switch in sync. Both appear only when
-`VITE_POSTHOG_KEY` is set. Bumping `CONSENT_VERSION` makes every stored choice parse as not
+`VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` are set. Bumping `CONSENT_VERSION` makes every stored choice parse as not
 chosen, so the banner asks again. `AppShell` also runs `clearLeftoverGaCookies` once per browser.
 
 The rule that keeps this honest: nothing in `lib/` imports from `services/` or `hooks/`.
