@@ -19,6 +19,21 @@ both themes:
 
 ## Since the last release
 
+### RL-061 Share on an unpublished recipe asks anonymous and signed-out users to sign up
+
+- On the preview build, as an anonymous user, open a recipe saved from a share link and tap Share: the sign-up dialog shows and nothing is copied.
+- As an anonymous user, open a published recipe from Explore and tap Share: its `/shared/<id>` link is copied with no dialog.
+- Add an email, open the link, return to the recipe and tap Share: a `/shared/<id>` link is copied if you created it, otherwise a self-contained link.
+- Repeat the first step signed out.
+- Check the dialog at 390 px in light and dark mode, and on "Not now" note where keyboard focus lands (expected: top of the page, not the More options button; see reviewer note).
+- Reviewer noted (med): focus is not restored to the More options button after the dialog closes (`RecipeDetailPage.tsx` about 529-532 and 139, with `SignUpDialog.tsx:28`); fix is a ref on the button focused in onClose.
+- Reviewer noted (med): a failed or timed-out published check shows the sign-up dialog, so a user on a slow connection with a published recipe sees "Sign up to share" after up to 4s; consider a distinct "could not check, try again" message (`RecipeDetailPage.tsx` about 130-141).
+- Reviewer noted (med): the Share item is only visually disabled while auth loads, with no text or aria hint (`RecipeDetailPage.tsx` about 533-536).
+- Reviewer noted (med): the "Preparing share link..." role=status node mounts with its text so some screen readers will not announce it; pre-existing (`RecipeDetailPage.tsx` about 830-838).
+- Reviewer noted (low): the early return that opens the dialog does not clear shareFallback or shareCopied, so an earlier "Copy this link" card or "Link copied" toast can sit beside the dialog (`RecipeDetailPage.tsx` about 121-141).
+- Reviewer noted (low): the isSharing double-tap guard reads a stale closure value but is safe in practice (`RecipeDetailPage.tsx:120`).
+- Reviewer noted (low): tests stub showModal and close so they cannot catch focus behaviour, and there is no test for the auth-loading disabled state or the 4s timeout path (`RecipeDetailPage.test.tsx`).
+
 ### RL-059 Published recipes store their tags in lower case, so the curated Explore chips find them
 
 - On the preview build, as a verified user, generate a recipe whose AI tags include a capitalised cuisine (for example ask for "an Italian pasta dinner") and save it.

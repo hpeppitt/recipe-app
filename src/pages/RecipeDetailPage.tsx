@@ -22,6 +22,7 @@ import { VariationChips } from '../components/recipe/VariationChips';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
 import { SuggestionThread } from '../components/recipe/SuggestionThread';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -42,7 +43,7 @@ const CLOUD_DELETE_TIMEOUT_MS = 10000;
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, isConfigured } = useAuth();
+  const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   const location = useLocation();
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
@@ -77,6 +78,7 @@ export function RecipeDetailPage() {
     mode: 'cloud' | 'self-contained';
   } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const [showShareSignUp, setShowShareSignUp] = useState(false);
   const [showSuggest, setShowSuggest] = useState(false);
   // Set by the save flow via navigation state. 'local' means the recipe is on
   // this device but the cloud publish did not land, which the user previously
@@ -122,15 +124,27 @@ export function RecipeDetailPage() {
     setShareNote(null);
     try {
       let isPublished = false;
-      if (isFirebaseConfigured) {
+      if (isFirebaseConfigured && !user?.emailVerified) {
+        // Unverified accounts never publish (decision 1a, RL-061): an already
+        // public recipe is shareable, anything else asks for an email first.
+        isPublished = await withTimeout(
+          getPublishedRecipe(recipe.id).then(
+            (doc) => !!doc,
+            () => false
+          ),
+          SHARE_PUBLISH_TIMEOUT_MS,
+          false
+        );
+        if (!isPublished) {
+          setShowShareSignUp(true);
+          return;
+        }
+      } else if (isFirebaseConfigured) {
         // Bounded so an unreachable backend degrades to a self-contained link
         // instead of leaving the user waiting on a Firestore retry loop.
         isPublished = await withTimeout(
           (async () => {
             if (await getPublishedRecipe(recipe.id)) return true;
-            // Only verified accounts may publish (decision 1a); anyone else
-            // shares the self-contained link rather than a denied write.
-            if (!user?.emailVerified) return false;
             // Publishing at save time is fire-and-forget, so it may never have
             // landed. Retry here rather than hand out a link that 404s.
             // publishRecipe itself now distinguishes create from update, so a
@@ -516,7 +530,7 @@ export function RecipeDetailPage() {
                       setShowMenu(false);
                       handleShare();
                     }}
-                    disabled={isSharing}
+                    disabled={isSharing || authLoading}
                     className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary disabled:opacity-50"
                   >
                     {isSharing ? 'Preparing link...' : 'Share'}
@@ -791,6 +805,13 @@ export function RecipeDetailPage() {
           if (target) handleReview(target.id, 'reject', target.message);
         }}
         onCancel={() => setRejecting(null)}
+      />
+
+      <SignUpDialog
+        open={showShareSignUp}
+        title="Sign up to share this recipe"
+        body="Share links open from the shared library, so the recipe needs an account with an email. Once you're signed in, tap Share again."
+        onClose={() => setShowShareSignUp(false)}
       />
 
       <SuggestChangeModal

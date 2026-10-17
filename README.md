@@ -37,7 +37,7 @@ Around that core, the app is a small social library:
 | **Branch** | Variations become child recipes with a navigable tree, lineage breadcrumbs, and sibling chips. |
 | **Edit** | Owners can edit any recipe in place: fields, ingredients, steps, notes, tags. Edits keep the recipe's position in the tree, so fixing a typo does not fork it. |
 | **Cook from** | Tick off ingredients and steps as you go, scale the amounts to the number of people you are feeding, and switch between original, metric, and imperial units. |
-| **Share** | A link to a published recipe, or a self-contained link with the whole recipe compressed into the URL when there is no cloud copy. |
+| **Share** | A link to a published recipe. With Firebase configured, an unverified or anonymous user with no cloud copy gets the sign-up dialog. A self-contained link (the whole recipe compressed into the URL) still comes from local-only mode, a publish timeout or failure, the daily publish limit, and a copy saved from someone else's link. |
 | **Own** | Every recipe records who created it. Owners delete and review suggestions; everyone else can favourite and suggest. |
 | **Take it with you** | "Download my data" in Settings writes your local library and your cloud data (with other people's identities redacted) to one JSON file. |
 
