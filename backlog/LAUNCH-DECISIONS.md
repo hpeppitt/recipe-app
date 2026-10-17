@@ -6,12 +6,16 @@ Nothing below has been done. Each item needs you. The order is the release runbo
 
 ## Blocked on you, in order
 
-1. **New branding.** The design link (claude.ai/design/p/b9d99896...) returned 403 to me, so I could
-   not read it. Decide: export the design (assets, colours, fonts, logo) into the repo or share it
-   in a form I can read, then groom it into per-screen tickets with `/groom`. Until then the app
-   keeps its current look and no branding work is possible.
-   Also decide if branding ships before or after the first test release. Recommendation: after.
-   The release is already large and the wipe and rules order is delicate.
+1. **New branding.** WebFetch got 403, but the design opens in your logged-in Chrome. File is
+   "App Prototype.html", 11 pages, design system "Organic". First page seen: warm cream background,
+   terracotta orange accent (Create button, active tab, rank 1), olive green badges, soft green and
+   peach card tints, chunky soft serif headings, emoji recipe art, rounded pill chips. Screens seen:
+   Explore ("What's growing", branching fast this week, most branched), bottom nav Explore, Saved,
+   Create, Activity, You. I have not walked the other 10 pages, and the chat prompt mentions a
+   marketing website mockup, so some pages may not be app screens. Decide: should I walk all pages
+   and run `/groom` on the result (it is a redesign of most screens, so expect many tickets, and
+   the exact fonts and hex values need exporting from the design), and does branding ship in the
+   first test release? Recommendation: no, ship the test release on the current look.
 2. **Merge or hold the policy branch.** `docs/policy-lookups` (47d825d) is committed locally and not
    pushed. Say "push and PR" and I will.
 3. **RL-046 sign-off.** Seven `[AUTHOR TO CONFIRM]` markers remain in `privacy.ts`:
