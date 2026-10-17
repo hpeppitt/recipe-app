@@ -14,8 +14,8 @@ export const PRIVACY: LegalDocument = {
       heading: 'About this policy',
       paragraphs: [
         `This policy explains what ${APP_NAME} stores about you, why, where, who can see it, how long it is kept, and what you can do about it.`,
-        `${APP_NAME} is run by [AUTHOR TO CONFIRM: the operator's legal name, and whether an individual or a business], who decides how your information is used ("we", "us"). Under the GDPR and UK GDPR we are the controller. [AUTHOR TO CONFIRM: whether an EU or UK representative must be named.]`,
-        'We aim to meet the Australian Privacy Principles in the Privacy Act 1988 (Cth), the EU General Data Protection Regulation (GDPR) and the UK GDPR. [AUTHOR TO CONFIRM: whether the Privacy Act applies to the operator, for example under the small business exemption, and whether to state that.]',
+        `${APP_NAME} is run by Harry Peppitt, an individual in New South Wales, Australia, who decides how your information is used ("we", "us"). Under the GDPR and UK GDPR we are the controller.`,
+        'We aim to meet the Australian Privacy Principles in the Privacy Act 1988 (Cth), the EU General Data Protection Regulation (GDPR) and the UK GDPR.',
       ],
     },
     {
@@ -44,7 +44,7 @@ export const PRIVACY: LegalDocument = {
         'Why: to sign you in with an email link and to tie your content to you.',
         'Where: Google Firebase Authentication. Google sends the sign-in email.',
         'Who sees it: you and us. Other users see your display name, never your email.',
-        'How long: until your account is deleted. There is no automatic expiry, including for anonymous accounts. [AUTHOR TO CONFIRM: whether to set one.]',
+        'How long: until your account is deleted. There is no automatic expiry, including for anonymous accounts.',
       ],
     },
     {
@@ -94,7 +94,7 @@ export const PRIVACY: LegalDocument = {
         'Why: so you and the recipe owner can discuss a change.',
         'Where: Google Cloud Firestore.',
         'Who sees it: you and the recipe owner only.',
-        `How long: they are kept until deleted on request. You cannot delete or edit them in the app once sent. On an erasure request, suggestions and replies you wrote on other people's recipes are anonymised (your name and id are removed and the text kept) so the other person's thread still makes sense. [DEPENDS ON RL-055: the runbook that does this.] Email ${SUPPORT_EMAIL}.`,
+        `How long: they are kept until deleted on request. You cannot delete or edit them in the app once sent. On an erasure request, suggestions and replies you wrote on other people's recipes are anonymised (your name and id are removed and the text kept) so the other person's thread still makes sense. If the erased account owned the recipe, its suggestion threads are kept the same way, with the owner's side anonymised. [DEPENDS ON the follow-up to RL-055 that keeps those threads; today the runbook deletes them.] Email ${SUPPORT_EMAIL}.`,
       ],
     },
     {
@@ -104,7 +104,17 @@ export const PRIVACY: LegalDocument = {
         'Why: to tell you what happened.',
         'Where: Google Cloud Firestore.',
         'Who sees it: the person it is addressed to.',
-        `How long: there is currently no time limit, and there is no control in the app to delete them. They are deleted on request to ${SUPPORT_EMAIL}. [AUTHOR TO CONFIRM: whether to set a retention period; no ticket does yet.]`,
+        `How long: there is currently no time limit, and there is no control in the app to delete them. They are deleted on request to ${SUPPORT_EMAIL}.`,
+      ],
+    },
+    {
+      heading: 'Rate limits',
+      paragraphs: [
+        'What: for each kind of limited action (suggesting, replying, notifying, publishing), a counter with your account id, when the current period started, how many you have done in it, and the last item it counted.',
+        'Why: to stop anyone flooding other users or the app.',
+        'Where: Google Cloud Firestore.',
+        'Who sees it: you and us.',
+        `How long: until your account is deleted. They are deleted on request to ${SUPPORT_EMAIL}.`,
       ],
     },
     {
@@ -134,7 +144,7 @@ export const PRIVACY: LegalDocument = {
         'Why: to find and fix bugs.',
         'Where: Google Cloud Firestore.',
         'Who sees it: only us. The app itself cannot read reports back.',
-        `How long: there is currently no automatic time limit. [DEPENDS ON RL-010: a retention period, 30 days suggested, once it is set in production.] They are deleted on request to ${SUPPORT_EMAIL}.`,
+        `How long: 30 days, then they are deleted automatically. They are deleted sooner on request to ${SUPPORT_EMAIL}.`,
       ],
     },
     {
@@ -143,16 +153,15 @@ export const PRIVACY: LegalDocument = {
         'What: which features are used, such as creating, viewing, sharing, favouriting or deleting a recipe, with recipe ids; the pages you open and what you click; which AI model made a recipe and how long it took; errors the app runs into; and your browser, device type and approximate location, worked out from your IP address.',
         'Who you are: your account id, never your email or name. An anonymous account is known only by its random anonymous account id. What you type to the AI and the recipe text are never sent.',
         'Why: to understand which features are used and to find and fix problems.',
-        'Where: PostHog. [AUTHOR TO CONFIRM: the PostHog host and region chosen in RL-053, for example EU Cloud.]',
+        'Where: PostHog US Cloud, in the United States.',
         'Who sees it: us and PostHog.',
-        'How long: [AUTHOR TO CONFIRM: the retention period set in the PostHog project in RL-053.]',
+        'How long: PostHog\'s default for our plan. [AUTHOR TO CONFIRM: the period shown in the PostHog project settings.]',
         'Only if you allow it. Nothing is sent until you choose "Allow analytics". You can change your choice at any time in Settings.',
       ],
     },
     {
       heading: 'Terms acceptance',
       paragraphs: [
-        '[DEPENDS ON RL-047: this section is true only once it ships.]',
         'What: the version of the Terms of Service you accepted and when.',
         'Why: to show that you agreed to the terms.',
         'Where: Google Cloud Firestore.',
@@ -176,7 +185,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
         'Contract: running your account, signing you in, storing and publishing your recipes and profile, favourites, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
-        'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), and limits on how often suggestions and replies can be sent [DEPENDS ON RL-048]. You can object to these; see your rights below.',
+        'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), and limits on how often you can suggest, reply, notify and publish. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
         'Legal obligation: keeping a record of a privacy request we handled. [AUTHOR TO CONFIRM: that this is the right basis for the request log described in RL-055.]',
       ],
@@ -195,18 +204,18 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Your information may be stored or processed outside your country, including in the United States.',
         'Google (Firebase, Gemini, reCAPTCHA): [AUTHOR TO CONFIRM: the safeguard relied on, for example Google\'s data processing terms with Standard Contractual Clauses, or the EU-US Data Privacy Framework, and the regions used.]',
-        'PostHog: [AUTHOR TO CONFIRM: the safeguard relied on, and whether data stays in the EU if EU Cloud is chosen in RL-053.]',
+        'PostHog: data is stored in the United States. [AUTHOR TO CONFIRM: the safeguard relied on, for example PostHog\'s data processing agreement with Standard Contractual Clauses.]',
         'Us: [AUTHOR TO CONFIRM: the safeguard for information we access from Australia, which has no EU or UK adequacy decision.]',
       ],
     },
     {
       heading: 'Your rights',
       paragraphs: [
-        `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month. [DEPENDS ON RL-055: the operator's runbook for these requests.]`,
+        `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
-        `Export (portability): "Export All Recipes" in Settings downloads the recipes on your device. For your cloud data, email ${SUPPORT_EMAIL}. [DEPENDS ON RL-056: only mention a "Download my data" control once it ships.]`,
+        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
-        `Erasure: delete recipes from their page, unfavourite, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}. [DEPENDS ON RL-057: only mention a "Delete my account" control once it ships.]`,
+        `Erasure: delete recipes from their page, unfavourite, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',
@@ -227,7 +236,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Changes to this policy',
       paragraphs: [
-        'We will update this policy when what we collect changes. The date at the top shows the current version. We will tell you in the app about significant changes. [AUTHOR TO CONFIRM: how; the app has no way to announce a policy change today.]',
+        'We will update this policy when what we collect changes. The date at the top shows the current version. If a change is significant, we will update the Terms of Service too, and the app will ask you to accept them again before you keep contributing.',
       ],
     },
     {

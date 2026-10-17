@@ -42,7 +42,7 @@ export const COOKIES: LegalDocument = {
         'Stranded recipes notice: shown once if recipes could not move to your new account, removed when you dismiss it.',
         'Your analytics choice: whether you allowed analytics and when.',
         'Old analytics clean-up: a note that leftover Google Analytics cookies were removed from this browser, so it is done only once.',
-        '[DEPENDS ON RL-047: Pending terms acceptance: the terms version you accepted and when, kept until your account is verified.]',
+        'Pending terms acceptance: the terms version you accepted and when, kept until your account is verified.',
       ],
     },
     {
