@@ -33,6 +33,7 @@ import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
+import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { RateLimitedError } from '../lib/errors';
@@ -65,7 +66,9 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
 
   const { chatHistory, ...data } = recipe;
   const ref = doc(firestore, 'recipes', recipe.id);
-  const { collaborators, ...content } = data;
+  const { collaborators, ...rest } = data;
+  // Published tags are lower case so the Explore chips match (RL-059). Dexie keeps its case.
+  const content = { ...rest, tags: normalizeTags(rest.tags) };
 
   const existing = await getDoc(ref);
   if (existing.exists()) {

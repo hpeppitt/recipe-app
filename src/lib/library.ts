@@ -8,6 +8,15 @@ import { recipeHaystack } from './search';
 
 export type LibraryTab = 'mine' | 'explore';
 
+/**
+ * Trimmed, lower-case, de-duplicated tags in first-seen order, for the published
+ * copy (RL-059): the Explore chips query `array-contains`, which is exact.
+ * Tolerates a missing array on old recipes.
+ */
+export function normalizeTags(tags: string[] | undefined): string[] {
+  return [...new Set((tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))];
+}
+
 /** Validates a stored tab value; anything unknown falls back to My Recipes. */
 export function parseLibraryTab(raw: string | null | undefined): LibraryTab {
   return raw === 'explore' ? 'explore' : 'mine';

@@ -1,6 +1,28 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, parseLibraryTab } from './library';
+import { buildFeed, filterFeed, normalizeTags, parseLibraryTab } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
+
+describe('normalizeTags', () => {
+  it('trims, lower-cases, drops empties and de-duplicates in first-seen order', () => {
+    expect(normalizeTags(['Italian', ' italian ', '', 'Quick'])).toEqual(['italian', 'quick']);
+  });
+
+  it('lower-cases mixed case', () => {
+    expect(normalizeTags(['GlUtEn-Free'])).toEqual(['gluten-free']);
+  });
+
+  it('trims surrounding whitespace and drops whitespace-only tags', () => {
+    expect(normalizeTags(['  vegan\t', '   '])).toEqual(['vegan']);
+  });
+
+  it('keeps first-seen order across case-only duplicates', () => {
+    expect(normalizeTags(['Quick', 'Dinner', 'QUICK', 'dinner'])).toEqual(['quick', 'dinner']);
+  });
+
+  it('returns [] for a missing array', () => {
+    expect(normalizeTags(undefined)).toEqual([]);
+  });
+});
 
 describe('parseLibraryTab', () => {
   it('restores Explore', () => {

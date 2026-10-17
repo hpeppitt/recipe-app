@@ -19,6 +19,14 @@ both themes:
 
 ## Since the last release
 
+### RL-059 Published recipes store their tags in lower case, so the curated Explore chips find them
+
+- On the preview build, as a verified user, generate a recipe whose AI tags include a capitalised cuisine (for example ask for "an Italian pasta dinner") and save it.
+- Open Explore and tap the `italian` chip (or whichever chip matches the cuisine): the new recipe is listed.
+- Open the recipe's own page: its tags still show as generated (for example "Italian"), not lower-cased.
+- Reviewer noted (low): a non-string tag would make `normalizeTags` throw before any write, so nothing partial is stored; the recipe schema types tags as strings, so this is theoretical. (low) Re-publishing a recipe rewrites previously mixed-case published tags, which is intended; nothing backfills old documents (RL-042 wipes them).
+- Reviewer noted (low): no test covers `publishRecipe` applying `normalizeTags` itself, only the pure function, in line with the repo's lib-tests convention.
+
 ### RL-060 Erasing a recipe owner keeps other people's suggestion threads, with the owner side anonymised
 
 - The Privacy Policy marker `[DEPENDS ON RL-060 ...]` is gone from "Suggestions and replies". Re-read that paragraph during the RL-046 sign-off.
