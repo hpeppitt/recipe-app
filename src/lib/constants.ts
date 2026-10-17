@@ -40,8 +40,9 @@ export const DIFFICULTY_LABELS: Record<string, string> = {
 
 /**
  * Curated Explore tag chips (RL-009). Lower case and exact: Firestore
- * `array-contains` matches the stored string byte for byte, and the AI writes
- * tags as free text, so a recipe tagged "Italian" does not match "italian".
+ * `array-contains` matches the stored string byte for byte. `publishRecipe`
+ * lower-cases published tags (RL-059), so the chips match regardless of the
+ * case the AI wrote. The word itself must still match exactly.
  */
 /** Fields of the Explore tag query; firestore.indexes.json must match (indexes.test.ts). */
 export const EXPLORE_TAG_FIELD = 'tags';
