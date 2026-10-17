@@ -19,17 +19,11 @@ const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
 
 const posthogKey = process.env.VITE_POSTHOG_KEY;
 const posthogHost = process.env.VITE_POSTHOG_HOST;
-if ((!posthogKey || !posthogHost) && process.env.NODE_ENV !== 'production') {
-  const variable = posthogKey ? 'VITE_POSTHOG_HOST' : 'VITE_POSTHOG_KEY';
-  throw new Error(
-    `${variable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${variable} is configured`
-  );
-}
+// No exception autocapture: it would send without the caller's consent.
 const posthog = posthogKey && posthogHost
   ? new PostHog(posthogKey, {
       host: posthogHost,
       privacyMode: true,
-      enableExceptionAutocapture: true,
       flushAt: 1,
       flushInterval: 0,
     })
@@ -58,6 +52,8 @@ interface GenerateRequest {
   mode?: 'create' | 'vary';
   history?: HistoryEntry[];
   parent?: Record<string, unknown>;
+  /** The caller's analytics consent. Only `true` lets the generation reach PostHog. */
+  analyticsConsent?: boolean;
 }
 
 function assertValidHistory(history: unknown): HistoryEntry[] {
@@ -133,7 +129,8 @@ export const generateRecipe = onCall(
       throw new HttpsError('unauthenticated', 'Sign in to generate recipes.');
     }
 
-    const { mode, history, parent } = (request.data ?? {}) as GenerateRequest;
+    const { mode, history, parent, analyticsConsent } = (request.data ?? {}) as GenerateRequest;
+    const observer = analyticsConsent === true ? posthog : null;
     const safeHistory = assertValidHistory(history);
 
     let systemInstruction: string;
@@ -167,10 +164,10 @@ export const generateRecipe = onCall(
 
     let text: string;
     try {
-      const response = posthog
+      const response = observer
         ? await new ObservedGoogleGenAI({
             apiKey: GEMINI_API_KEY.value(),
-            posthog,
+            posthog: observer,
           }).models.generateContent({
             ...generation,
             posthogDistinctId: request.auth.uid,
@@ -186,7 +183,7 @@ export const generateRecipe = onCall(
       console.error('Gemini generation failed', err);
       throw new HttpsError('internal', 'Gemini could not generate a recipe right now.');
     } finally {
-      await posthog?.flush();
+      await observer?.flush();
     }
 
     if (!text.trim()) {
