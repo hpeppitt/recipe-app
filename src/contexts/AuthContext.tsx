@@ -38,7 +38,7 @@ import {
   normaliseEmail,
 } from '../services/storage';
 import { TERMS_VERSION } from '../lib/legal';
-import { trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
+import { onConsentChange, trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 import { reportError } from '../services/telemetry';
 
 /** Rechecks after a failed Terms read, per session; each needs an online or tab-visible event. */
@@ -351,6 +351,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.addEventListener('online', retryTermsCheck);
     document.addEventListener('visibilitychange', onVisible);
 
+    // A user may authenticate before choosing analytics consent. Identify them
+    // once consent opens the capture gate, using the same stable Firebase UID.
+    const unsubscribeConsent = onConsentChange((granted) => {
+      if (granted && currentUidRef.current) {
+        setAnalyticsUserId(currentUidRef.current);
+      }
+    });
+
     const unsubscribe = onAuthStateChanged((fbUser) => {
       currentUidRef.current = fbUser?.uid ?? null;
       if (fbUser) {
@@ -410,6 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => {
       unsubscribe();
+      unsubscribeConsent();
       window.removeEventListener('online', retryTermsCheck);
       document.removeEventListener('visibilitychange', onVisible);
     };

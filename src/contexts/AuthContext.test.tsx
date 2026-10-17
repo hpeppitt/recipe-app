@@ -59,10 +59,16 @@ vi.mock('../services/storage', () => ({
   },
 }));
 let storedTerms: { version: string; acceptedAt: number; email: string } | null = null;
+const setAnalyticsUserId = vi.fn();
+let consentListener: (granted: boolean) => void = () => {};
 vi.mock('../services/analytics', () => ({
   trackSignIn: vi.fn(),
   trackSignOut: vi.fn(),
-  setAnalyticsUserId: vi.fn(),
+  setAnalyticsUserId: (...a: unknown[]) => setAnalyticsUserId(...a),
+  onConsentChange: (cb: (granted: boolean) => void) => {
+    consentListener = cb;
+    return () => {};
+  },
 }));
 const reportError = vi.fn();
 vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
@@ -123,6 +129,26 @@ describe('AuthProvider profile creation', () => {
 
     expect(createOrUpdateProfile).toHaveBeenCalledWith('anon-1', { displayName: 'CrispyWaffle' });
     expect(result.current.user).toMatchObject({ uid: 'anon-1', emailVerified: true, isAnonymous: false });
+  });
+});
+
+describe('AuthProvider analytics identity', () => {
+  beforeEach(() => {
+    setAnalyticsUserId.mockClear();
+    completeEmailSignIn.mockReset();
+    completeEmailSignIn.mockResolvedValue(null);
+  });
+
+  it('identifies a signed-in user when consent is granted later, not when it is declined', async () => {
+    renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(verified));
+    await waitFor(() => expect(completeEmailSignIn).toHaveBeenCalled());
+    setAnalyticsUserId.mockClear();
+
+    act(() => consentListener(false));
+    expect(setAnalyticsUserId).not.toHaveBeenCalled();
+    act(() => consentListener(true));
+    expect(setAnalyticsUserId).toHaveBeenCalledWith('me');
   });
 });
 

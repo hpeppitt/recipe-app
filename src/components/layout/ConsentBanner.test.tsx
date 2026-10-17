@@ -22,6 +22,7 @@ beforeEach(() => {
   localStorage.clear();
   reloadConsent();
   vi.stubEnv('VITE_POSTHOG_KEY', 'phc_test');
+  vi.stubEnv('VITE_POSTHOG_HOST', 'https://eu.i.posthog.com');
   window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
 });
 

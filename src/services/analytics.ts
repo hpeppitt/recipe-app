@@ -1,3 +1,4 @@
+import posthog from 'posthog-js';
 import {
   expiryCookieStrings,
   gaCookieNames,
@@ -15,12 +16,49 @@ import {
 
 type Params = Record<string, string | number | boolean>;
 
-/**
- * VITE_POSTHOG_KEY is a public project key, not a secret. Read at call time so
- * tests can stub it. RL-054 reuses this to initialise PostHog.
- */
+/** Public client configuration. Read at call time so tests can stub it. */
 export const getPostHogKey = (): string => import.meta.env.VITE_POSTHOG_KEY ?? '';
-export const isPostHogConfigured = (): boolean => getPostHogKey() !== '';
+export const getPostHogHost = (): string => import.meta.env.VITE_POSTHOG_HOST ?? '';
+export const isPostHogConfigured = (): boolean =>
+  getPostHogKey() !== '' && getPostHogHost() !== '';
+
+let posthogInitialised = false;
+
+const posthogLog = {
+  info(message: string, attributes?: Params): void {
+    posthog.logger.info(message, attributes);
+  },
+};
+
+/**
+ * The sole PostHog initializer. It intentionally runs only after consent, while
+ * still running before React renders when stored consent has already been granted.
+ */
+export function initialisePostHog(): boolean {
+  const key = getPostHogKey();
+  const host = getPostHogHost();
+  if (!key || !host) return false;
+
+  if (!isGranted(getConsent())) return false;
+  if (posthogInitialised) return true;
+
+  posthog.init(key, {
+    api_host: host,
+    defaults: '2026-05-30',
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
+    logs: {
+      serviceName: 'recipe-app-web',
+      environment: import.meta.env.MODE,
+    },
+  });
+  posthogInitialised = true;
+  posthogLog.info('posthog_log_capture_initialized', { runtime: 'browser' });
+  return true;
+}
 
 // --- Consent gate. Nothing below the gate runs unless the user said yes. ---
 
@@ -48,13 +86,27 @@ export function setAnalyticsConsent(granted: boolean): void {
   setConsentChoice(granted, at);
   // Held in memory too, so blocked storage still honours the choice this session.
   choice = parseConsent(serialiseConsent(granted, at));
+
+  if (granted && initialisePostHog()) {
+    posthog.opt_in_capturing();
+    posthogLog.info('analytics_consent_granted', { source: 'settings' });
+  } else if (posthogInitialised) {
+    posthogLog.info('analytics_consent_revoked', { source: 'settings' });
+    posthog.opt_out_capturing();
+  }
+
   listeners.forEach((l) => l(granted));
 }
 
-/** RL-054 fills these in with posthog-js. Called only after consent is granted. */
 export const analyticsProvider = {
-  send(_name: string, _params?: Params): void {},
-  identify(_uid: string | null): void {},
+  send(name: string, params?: Params): void {
+    if (initialisePostHog()) posthog.capture(name, params);
+  },
+  identify(uid: string | null): void {
+    if (!initialisePostHog()) return;
+    if (uid) posthog.identify(uid);
+    else posthog.reset();
+  },
 };
 
 function logEvent(name: string, params?: Params) {
@@ -63,6 +115,34 @@ function logEvent(name: string, params?: Params) {
 
 export function setAnalyticsUserId(uid: string | null) {
   if (isGranted(getConsent())) analyticsProvider.identify(uid);
+}
+
+/** Records a Firebase AI Logic generation without prompt or response content. */
+export function captureAiGeneration({
+  model,
+  sessionId,
+  traceId,
+  latency,
+}: {
+  model: string;
+  sessionId: string;
+  traceId: string;
+  latency: number;
+}): void {
+  if (!isGranted(getConsent()) || !initialisePostHog()) return;
+
+  posthog.capture('$ai_generation', {
+    $ai_provider: 'google',
+    $ai_model: model,
+    $ai_session_id: sessionId,
+    $ai_trace_id: traceId,
+    $ai_latency: latency,
+  });
+  posthogLog.info('ai_generation_completed', {
+    provider: 'google',
+    model,
+    latency_ms: latency,
+  });
 }
 
 /** Deletes leftover GA4 cookies once per browser, whatever the consent choice. */
