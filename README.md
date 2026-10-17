@@ -123,9 +123,9 @@ What is honestly missing:
   acceptance guards ride with the rate limits.
 - **The Terms, Privacy and Cookie pages are drafts.** They need the author's sign-off
   (RL-046) before any release. Bracketed placeholders show as written.
-- **There is no analytics at all today.** GA4 is removed and the consent banner is built, but
-  PostHog is not connected until the author creates the project and approves the dependency
-  (RL-053, then RL-054).
+- **There is no analytics in production today.** GA4 is removed. `posthog-js` is wired in
+  behind the consent banner, but nothing is sent until `VITE_POSTHOG_KEY` and
+  `VITE_POSTHOG_HOST` are set in the build and the user allows analytics (RL-053, RL-054).
 - **Generation cannot be capped per user on the free plan.** It runs client-side through
   Firebase AI Logic. The accepted ceiling is App Check plus a console limit (RL-050);
   anything stronger needs the Blaze plan and a proxy (RL-001, RL-014).

@@ -2,7 +2,11 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { randomUUID } from 'node:crypto';
 import { GoogleGenAI } from '@google/genai';
+// @ts-expect-error -- this CommonJS package's legacy resolver cannot read the wrapper's typed subpath export
+import { GoogleGenAI as ObservedGoogleGenAI } from '@posthog/ai/gemini';
+import { PostHog } from 'posthog-node';
 import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from './prompts';
 
 initializeApp();
@@ -12,6 +16,18 @@ initializeApp();
  * Set it with: firebase functions:secrets:set GEMINI_API_KEY
  */
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+
+const posthogKey = process.env.VITE_POSTHOG_KEY;
+const posthogHost = process.env.VITE_POSTHOG_HOST;
+// No exception autocapture: it would send without the caller's consent.
+const posthog = posthogKey && posthogHost
+  ? new PostHog(posthogKey, {
+      host: posthogHost,
+      privacyMode: true,
+      flushAt: 1,
+      flushInterval: 0,
+    })
+  : null;
 
 // Kept in step with the client: gemini-2.0-flash was shut down 2026-06-01.
 const MODEL = 'gemini-3.6-flash';
@@ -36,6 +52,8 @@ interface GenerateRequest {
   mode?: 'create' | 'vary';
   history?: HistoryEntry[];
   parent?: Record<string, unknown>;
+  /** The caller's analytics consent. Only `true` lets the generation reach PostHog. */
+  analyticsConsent?: boolean;
 }
 
 function assertValidHistory(history: unknown): HistoryEntry[] {
@@ -111,7 +129,8 @@ export const generateRecipe = onCall(
       throw new HttpsError('unauthenticated', 'Sign in to generate recipes.');
     }
 
-    const { mode, history, parent } = (request.data ?? {}) as GenerateRequest;
+    const { mode, history, parent, analyticsConsent } = (request.data ?? {}) as GenerateRequest;
+    const observer = analyticsConsent === true ? posthog : null;
     const safeHistory = assertValidHistory(history);
 
     let systemInstruction: string;
@@ -130,24 +149,41 @@ export const generateRecipe = onCall(
 
     await enforceRateLimit(request.auth.uid);
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() });
+    const generation = {
+      model: MODEL,
+      config: { systemInstruction, responseMimeType: 'application/json' },
+      contents: safeHistory.map((entry) => ({
+        role: entry.role,
+        parts: [{ text: entry.text }],
+      })),
+    };
+    // This callable receives no durable conversation id, so its invocation is
+    // the conversation and the generation is its single turn.
+    const sessionId = randomUUID();
+    const traceId = randomUUID();
 
     let text: string;
     try {
-      const response = await ai.models.generateContent({
-        model: MODEL,
-        config: { systemInstruction, responseMimeType: 'application/json' },
-        contents: safeHistory.map((entry) => ({
-          role: entry.role,
-          parts: [{ text: entry.text }],
-        })),
-      });
+      const response = observer
+        ? await new ObservedGoogleGenAI({
+            apiKey: GEMINI_API_KEY.value(),
+            posthog: observer,
+          }).models.generateContent({
+            ...generation,
+            posthogDistinctId: request.auth.uid,
+            posthogTraceId: traceId,
+            posthogProperties: { $ai_session_id: sessionId },
+          })
+        : await new GoogleGenAI({ apiKey: GEMINI_API_KEY.value() })
+            .models.generateContent(generation);
       text = response.text ?? '';
     } catch (err) {
       // Never forward the SDK's message: it embeds the request URL, which carries
       // the API key. Log it server-side and hand the client something safe.
       console.error('Gemini generation failed', err);
       throw new HttpsError('internal', 'Gemini could not generate a recipe right now.');
+    } finally {
+      await observer?.flush();
     }
 
     if (!text.trim()) {

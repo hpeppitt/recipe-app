@@ -6,7 +6,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  lastUpdated: '2026-10-15',
+  lastUpdated: '2026-10-17',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -25,7 +25,7 @@ export const PRIVACY: LegalDocument = {
         'Your email address is used only to sign you in. It is not shown to other users.',
         'What you type to generate a recipe is sent to Google\'s Gemini AI.',
         'We do not sell your information and we show no advertising.',
-        'Optional analytics only run if you allow them. [DEPENDS ON RL-052 and RL-054]',
+        'Optional analytics only run if you allow them.',
         `To see, export, correct or delete your information, email ${SUPPORT_EMAIL}. Some of it you can also change in the app.`,
       ],
     },
@@ -140,9 +140,9 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Product analytics',
       paragraphs: [
-        '[DEPENDS ON RL-052, RL-053 and RL-054: this section is true only once they ship.]',
-        'What: which features are used, such as creating, viewing, sharing, favouriting or deleting a recipe, with recipe ids. If you have a verified account you are identified by your account id only, never by email or name. Anonymous and signed-out visitors are not identified. Prompts and recipe text are never sent.',
-        'Why: to understand which features are used.',
+        'What: which features are used, such as creating, viewing, sharing, favouriting or deleting a recipe, with recipe ids; the pages you open and what you click; which AI model made a recipe and how long it took; errors the app runs into; and your browser, device type and approximate location, worked out from your IP address.',
+        'Who you are: your account id, never your email or name. An anonymous account is known only by its random anonymous account id. What you type to the AI and the recipe text are never sent.',
+        'Why: to understand which features are used and to find and fix problems.',
         'Where: PostHog. [AUTHOR TO CONFIRM: the PostHog host and region chosen in RL-053, for example EU Cloud.]',
         'Who sees it: us and PostHog.',
         'How long: [AUTHOR TO CONFIRM: the retention period set in the PostHog project in RL-053.]',
@@ -177,7 +177,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Contract: running your account, signing you in, storing and publishing your recipes and profile, favourites, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
         'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), and limits on how often suggestions and replies can be sent [DEPENDS ON RL-048]. You can object to these; see your rights below.',
-        'Consent: product analytics. You can withdraw consent at any time in Settings. [DEPENDS ON RL-052]',
+        'Consent: product analytics. You can withdraw consent at any time in Settings.',
         'Legal obligation: keeping a record of a privacy request we handled. [AUTHOR TO CONFIRM: that this is the right basis for the request log described in RL-055.]',
       ],
     },
@@ -185,8 +185,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'Who we share it with',
       paragraphs: [
         'Google, which provides Firebase Hosting, Authentication, Cloud Firestore, Firebase AI Logic with Gemini, App Check and reCAPTCHA.',
-        'PostHog, for analytics, only if you allow it. [DEPENDS ON RL-054]',
-        '[DEPENDS ON RL-058: this list is complete only once Google Analytics is removed. Until then the app can also send usage events to Google Analytics without consent when it is configured.]',
+        'PostHog, for analytics, only if you allow it.',
         'Other users see what is described under "What is public".',
         'We do not sell your information, use it for advertising, or share it with anyone else unless the law requires it.',
       ],
@@ -209,7 +208,7 @@ export const PRIVACY: LegalDocument = {
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
         `Erasure: delete recipes from their page, unfavourite, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}. [DEPENDS ON RL-057: only mention a "Delete my account" control once it ships.]`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
-        'Withdrawing consent: turn analytics off in Settings at any time. [DEPENDS ON RL-052] This does not affect what was sent before.',
+        'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',
       ],
     },

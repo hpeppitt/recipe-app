@@ -3,6 +3,7 @@ import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
 import { RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
 import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
 import { firebaseApp } from './firebase';
+import { captureAiGeneration } from './analytics';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
@@ -68,10 +69,23 @@ function parseRecipeJson(text: string): GeneratedRecipe {
 
 /** Wraps an AI Logic chat so multi-turn history is managed by the SDK. */
 function toChatSession(chat: AIChatSession): ChatSession {
+  const sessionId = crypto.randomUUID();
+
   return {
     async sendMessage(message: string): Promise<GeneratedRecipe> {
+      const startedAt = performance.now();
       const result = await chat.sendMessage(message);
-      return parseRecipeJson(result.response.text());
+      const output = result.response.text();
+      const recipe = parseRecipeJson(output);
+
+      captureAiGeneration({
+        model: MODEL,
+        sessionId,
+        traceId: crypto.randomUUID(),
+        latency: (performance.now() - startedAt) / 1000,
+      });
+
+      return recipe;
     },
   };
 }

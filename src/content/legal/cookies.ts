@@ -5,14 +5,14 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // Bracketed notes are for the author; see docs/legal/claims-to-verify.md.
 export const COOKIES: LegalDocument = {
   title: 'Cookie Policy',
-  lastUpdated: '2026-10-15',
+  lastUpdated: '2026-10-17',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
     {
       heading: 'About this policy',
       paragraphs: [
-        `This policy explains the cookies and other browser storage ${APP_NAME} uses. ${APP_NAME} itself sets no cookies. Two services it uses can set their own: Google reCAPTCHA, and PostHog if you allow analytics. Everything else is kept in your browser's local storage or IndexedDB. [DEPENDS ON RL-058: true only once Google Analytics, which sets its own cookies and an IndexedDB store, is removed.]`,
+        `This policy explains the cookies and other browser storage ${APP_NAME} uses. ${APP_NAME} itself sets no cookies. Two services it uses can set their own: Google reCAPTCHA, and PostHog if you allow analytics. Everything else is kept in your browser's local storage or IndexedDB.`,
         'The Privacy Policy explains what happens to your information more broadly.',
       ],
     },
@@ -27,7 +27,7 @@ export const COOKIES: LegalDocument = {
       heading: 'Cookies',
       paragraphs: [
         'Google reCAPTCHA (strictly necessary). Used with Firebase App Check to check that requests to the AI come from the real app and not a script. Set by Google. [AUTHOR TO CONFIRM: cookie names, domains and lifetimes, from Google\'s documentation.]',
-        'PostHog (optional, analytics). Used to count which features are used. Set only after you choose "Allow analytics". [DEPENDS ON RL-054.] [AUTHOR TO CONFIRM: whether posthog-js uses a cookie, localStorage or both with the shipped settings, and the names and lifetimes.]',
+        'PostHog (optional, analytics). A cookie and a matching local storage entry, both named ph_ followed by the project key and _posthog, holding a random id for your browser, your account id once known, and the current visit. Used to count which features are used. Set only after you choose "Allow analytics". The cookie lasts up to a year. [AUTHOR TO CONFIRM: the lifetime against PostHog\'s documentation.]',
       ],
     },
     {
@@ -40,7 +40,8 @@ export const COOKIES: LegalDocument = {
         'Account ids: the id of an anonymous account while you use one, used to move your bookmarks to your new account when you sign in with an email. Also a list of every account id that has signed in on this browser, which is not currently used for anything, is never sent anywhere, and is not removed when you sign out.',
         'Pending sign-in email: the address you entered while a sign-in link is on its way, so the link can finish signing you in. Removed when sign-in succeeds. It stays if the link is never used.',
         'Stranded recipes notice: shown once if recipes could not move to your new account, removed when you dismiss it.',
-        '[DEPENDS ON RL-052: Your analytics choice: whether you allowed analytics and when.]',
+        'Your analytics choice: whether you allowed analytics and when.',
+        'Old analytics clean-up: a note that leftover Google Analytics cookies were removed from this browser, so it is done only once.',
         '[DEPENDS ON RL-047: Pending terms acceptance: the terms version you accepted and when, kept until your account is verified.]',
       ],
     },
@@ -63,7 +64,7 @@ export const COOKIES: LegalDocument = {
     {
       heading: 'Your choices',
       paragraphs: [
-        '[DEPENDS ON RL-052 and RL-045: When you first visit, a banner asks whether to allow optional analytics, with two equal buttons, "Allow analytics" and "No thanks". Nothing is tracked unless you allow it. You can change your choice at any time in Settings, in the Legal section. If you turn analytics off, it stops straight away.]',
+        'When you first visit, a banner asks whether to allow optional analytics, with two equal buttons, "Allow analytics" and "No thanks". Nothing is tracked unless you allow it. You can change your choice at any time in Settings, in the Legal section. If you turn analytics off, it stops straight away.',
         'You can also clear cookies and site data in your browser settings. This signs you out and deletes the recipes and bookmarks stored on that device.',
         '"Delete Recipes on This Device" in Settings removes your local recipes and bookmarks, but not your settings or the other items above.',
       ],
