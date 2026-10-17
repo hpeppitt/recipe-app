@@ -94,7 +94,7 @@ export const PRIVACY: LegalDocument = {
         'Why: so you and the recipe owner can discuss a change.',
         'Where: Google Cloud Firestore.',
         'Who sees it: you and the recipe owner only.',
-        `How long: they are kept until deleted on request. You cannot delete or edit them in the app once sent. On an erasure request, suggestions and replies you wrote on other people's recipes are anonymised (your name and id are removed and the text kept) so the other person's thread still makes sense. If the erased account owned the recipe, its suggestion threads are kept the same way, with the owner's side anonymised. [DEPENDS ON the follow-up to RL-055 that keeps those threads; today the runbook deletes them.] Email ${SUPPORT_EMAIL}.`,
+        `How long: they are kept until deleted on request. You cannot delete or edit them in the app once sent. On an erasure request, suggestions and replies you wrote on other people's recipes are anonymised (your name and id are removed and the text kept) so the other person's thread still makes sense. If the erased account owned the recipe, the recipe is deleted but suggestion threads on it are kept with the owner's side anonymised, so the person who suggested still has their suggestion and its replies in their data and can download them. [DEPENDS ON RL-060; today the runbook deletes them.] Email ${SUPPORT_EMAIL}.`,
       ],
     },
     {
