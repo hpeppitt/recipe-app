@@ -183,6 +183,74 @@ the run.
   deploys them.
 - The preview URL is public to anyone who has the link.
 
+## Release and deploy runbook (first production release)
+
+The one ordered checklist for the first release since August 2026. It does not repeat the
+reasoning: each step points at the section that holds it. Nothing here is automated, and the
+loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
+
+**A. Decide first (no deploy yet)**
+
+- [ ] Walk the QA checklist (`/qa-pass`, `backlog/QA-CHECKLIST.md`) and accept or overrule each
+  row in `backlog/DECISIONS.md`. An overruled decision becomes a `/groom` input.
+- [ ] **RL-046** sign off the Terms, Privacy and Cookie drafts: set `[STATE]`, resolve every
+  `[DEPENDS ON ...]` and `[AUTHOR TO CONFIRM]` marker (the ticket's Notes list each file and
+  line), and record the date and `TERMS_VERSION` in [decisions.md](decisions.md). If the terms
+  date changes, `TERMS_VERSION` and the rules literal change together (`src/lib/legal.test.ts`
+  fails if they differ). **Do not release the client before this.**
+- [ ] Decide whether your own `termsAcceptance` document is made by hand before the rules or
+  by accepting on the live app straight after (see "The pending release order", step 6).
+- [ ] Confirm the production build gets the values it needs from the local `.env` (to confirm
+  against the `/release` skill): `VITE_FIREBASE_*` and `VITE_RECAPTCHA_SITE_KEY`. Leave
+  `VITE_POSTHOG_KEY` unset until the PostHog item in section C, so no consent banner shows.
+
+**B. The release, in this order** (details: "Deploying", "The pending release order")
+
+- [ ] **RL-042** wipe production Firestore and every Firebase Auth user. From here until the
+  rules are live, do not use the live app.
+- [ ] Diff the live ruleset against HEAD and write down the current ruleset id as the rollback
+  target.
+- [ ] Indexes: `firebase deploy --only firestore:indexes`, then wait until every new index is
+  READY: RL-018 (two on `suggestions`), RL-021 (`recipes` by `createdBy.uid`), RL-009
+  (`recipes` by `tags` + `createdAt`).
+- [ ] Client: `/release` (hosting only). It carries the RL-040 to RL-049 work, the consent
+  banner (RL-052, hidden without a key), GA4 removal (RL-058), the PWA shell and the security
+  headers (RL-033).
+- [ ] Rules, straight after the client, minutes not hours: `firebase deploy --only
+  firestore:rules`, then diff again; the diff must be empty. Record the date and both ruleset
+  ids (RL-022 and RL-051 are this one deploy; the wrong orders are described under "What each
+  wrong order does for RL-047", "RL-048" and "RL-049"). Tell testers not to suggest, reply,
+  favourite, follow or save a new recipe in the gap.
+- [ ] Your own Terms acceptance (step 6 of the pending order): confirm
+  `termsAcceptance/{your uid}` exists with the current version.
+- [ ] Headers: `curl -sSD -` the site root and an `/assets/` file (cache headers unchanged,
+  plus `X-Frame-Options: DENY` and `nosniff`), then complete an email-link sign-in and a
+  redirect sign-in end to end ("Risk to watch after the first deploy": `/__/auth/` helper
+  pages).
+- [ ] Live QA: the RL-040 to RL-049 checks in `backlog/QA.md`.
+
+**C. After the release**
+
+- [ ] **RL-050** App Check: look at the Firestore App Check metrics, enforce once nearly all
+  requests carry valid tokens, register debug tokens, set the AI Logic per-user limit, and
+  add the abuse watch (weekly look at `clientErrors` filtered by `rate-limited-`, Firestore
+  usage and AI Logic usage). Console work, so it is a human ticket.
+- [ ] **RL-010** TTL policy on `clientErrors.receivedAt` (30 days suggested). The ticket
+  carries the steps; it records the command here when done.
+- [ ] **RL-053** create the PostHog project (host, IP capture off, session recording off,
+  autocapture off, retention written down) and approve `posthog-js`. Then **RL-054** (loop) wires
+  the events. Only after that set `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` (build variables
+  and the local `.env`), update the Privacy and Cookie wording that depends on them, and
+  release the client again.
+- [ ] **RL-032** (loop, after the wipe) removes the uid migration, the stranded-identity notice
+  and unused helpers; release that client.
+- [ ] Optional housekeeping: set the Preview secret and variables (RL-013, "Preview deploys"),
+  delete the GA4 property and the `VITE_FIREBASE_MEASUREMENT_ID` repository variable if it
+  exists, change `SUPPORT_EMAIL` in `src/lib/constants.ts` before inviting anyone else.
+
+A later Terms bump is the reverse order, rules first, then the client ("A later Terms bump is
+the reverse"). Never deploy `functions/` (see "Deploying").
+
 ## Deploying
 
 Target project is `recipe-lab-3832b` (`.firebaserc`).
