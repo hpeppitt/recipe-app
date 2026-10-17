@@ -139,6 +139,14 @@ capped, truncated documents to a `clientErrors` collection with create-only rule
 Consequence: the beacon call sites are the migration seam if volume ever justifies a real
 provider.
 
+### PostHog for product analytics, replacing GA4 (RL-053, 2026-10-17)
+
+Decided 2026-10-14: PostHog replaces GA4, which RL-058 removed. On 2026-10-17 the author
+created the project and approved `posthog-js` as a client dependency. It loads only after
+analytics consent. The author accepted PostHog's default project settings while they are the
+only user. Host region and retention are still to be recorded for the Privacy Policy (RL-046).
+The `clientErrors` beacon above stays; PostHog exception capture is an addition behind consent.
+
 ### Ownership as a snapshot, not a join
 
 Every recipe carries `createdBy: { uid, displayName }` stamped at creation, and
