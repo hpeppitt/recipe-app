@@ -105,7 +105,8 @@ noted. The operator can read everything in the Firebase console.
   favourites, follows, suggestions and replies, notifications, terms acceptance, write counters).
   Other users' ids and names are redacted. It does not include the Auth user record or
   `clientErrors`; the operator runbook (RL-055) covers those.
-- **Deletion**: per-recipe delete (local subtree, then the cloud copies the user owns);
+- **Deletion**: per-recipe delete (for a verified account the cloud copies the user owns, then
+  the local subtree; otherwise the local subtree only);
   unfavourite; unfollow; "Delete Recipes on This Device" (local `recipes` and `favorites`).
 - **Correction**: display name and avatar on the profile; editing one's own recipes.
 - **Not possible in the app**: deleting the account, the profile, suggestions, replies,

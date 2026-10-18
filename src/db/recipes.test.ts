@@ -4,6 +4,7 @@ import {
   searchRecipes,
   searchVariations,
   deleteRecipeTree,
+  getSubtreeIds,
   importRecipes,
   exportAllRecipes,
   addLocalCollaborator,
@@ -196,6 +197,25 @@ describe('deleteRecipeTree', () => {
 
   it('returns an empty list when the recipe does not exist', async () => {
     expect(await deleteRecipeTree('nope')).toEqual([]);
+  });
+});
+
+describe('getSubtreeIds', () => {
+  it('returns the root, child and grandchild ids without deleting anything', async () => {
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'r1', rootId: 'r1' }),
+      makeRecipe({ id: 'r2', rootId: 'r1', parentId: 'r1', depth: 1 }),
+      makeRecipe({ id: 'r3', rootId: 'r1', parentId: 'r2', depth: 2 }),
+      makeRecipe({ id: 'x1', rootId: 'x1' }),
+    ]);
+
+    expect((await getSubtreeIds('r1')).sort()).toEqual(['r1', 'r2', 'r3']);
+    expect(await db.recipes.count()).toBe(4);
+    expect((await deleteRecipeTree('r1')).sort()).toEqual(['r1', 'r2', 'r3']);
+  });
+
+  it('returns an empty list when the recipe does not exist', async () => {
+    expect(await getSubtreeIds('nope')).toEqual([]);
   });
 });
 

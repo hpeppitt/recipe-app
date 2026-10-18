@@ -97,14 +97,17 @@ export async function getRecipeAncestors(recipe: Recipe): Promise<Recipe[]> {
   return ancestors;
 }
 
-/** Deletes a recipe and all its descendants, returning the ids removed. */
-export async function deleteRecipeTree(id: string): Promise<string[]> {
+/** The ids `deleteRecipeTree(id)` would remove, without removing anything. */
+export async function getSubtreeIds(id: string): Promise<string[]> {
   const recipe = await db.recipes.get(id);
   if (!recipe) return [];
-
   const treeRecipes = await db.recipes.where('rootId').equals(recipe.rootId).toArray();
-  const toDelete = collectSubtreeIds(treeRecipes, id);
+  return collectSubtreeIds(treeRecipes, id);
+}
 
+/** Deletes a recipe and all its descendants, returning the ids removed. */
+export async function deleteRecipeTree(id: string): Promise<string[]> {
+  const toDelete = await getSubtreeIds(id);
   await db.recipes.bulkDelete(toDelete);
   return toDelete;
 }
