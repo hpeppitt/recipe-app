@@ -46,6 +46,38 @@ release, before RL-022 deploys the rules). Existing data, including recipes publ
 anonymously before the 2026-08-10 gate, is wiped (RL-042), which is why `isOwnerUpdate` and
 recipe delete no longer stay on `signedIn()` for pre-gate owners.
 
+### 1b. A verified user's own recipes live in the cloud (2026-10-18)
+
+The author, 2026-10-18: "the behaviour needs to change where they're stored. Recipes should
+be stored in the cloud and retrieved from the cloud on every device so it's always the same.
+If this clashes with our previous logic, go with cloud as the source of truth and load from
+local if there's no internet connection".
+
+Trigger: a recipe made on a phone was in Firestore and on Explore but missing from My Recipes
+and the profile on a computer, because both read Dexie only.
+
+- Firestore is the source of truth for a verified user's own recipes. Dexie is their cache and
+  offline fallback.
+- Creation needs a verified email (1a), so anonymous and signed-out users only keep local
+  bookmarks of other people's recipes.
+- Save and edit are cloud first and cached in Dexie on success. A failure is shown as an error
+  with a retry. There is no offline create and no queue, because generation needs the network
+  anyway (RL-082, RL-083).
+- The sync overwrites from every server snapshot and removes own rows the snapshot lacks. Edits
+  from two devices are last write wins, with no timestamp comparison (RL-076, wired by RL-078).
+- Rows of other accounts that signed in on this device are tidied away, including rows stamped
+  with uids from before the 2026-10-18 wipe. Saved copies and `'local'` rows are never touched.
+- My Recipes is split into Created (own, no parent) and Branched (own variations, including of
+  other people's recipes). Other people's recipes appear only under Saved (RL-084).
+- A live listener is used although RL-043 rejected one for favourites, because "always the
+  same" is the requirement and own recipes are one query.
+- Synced rows take the cloud's lower-case tags, reversing the RL-059 note that Dexie keeps its
+  case.
+- Signing out of a verified account removes that account's own recipes from the device. They
+  reload on the next sign-in (RL-085).
+- Imports are Saved copies, never published, and never carry the importer's or another of this
+  device's account uids (RL-086).
+
 ### 2. Blaze: only if abuse appears
 
 Stay on the Spark plan and keep the free Gemini tier.
@@ -74,12 +106,16 @@ My Recipes from Explore with cursor pagination, not tabs over one source. **Land
 (2026-10-15)** as two tabs over two stores, one source per tab: My Recipes reads Dexie, Explore
 reads the paged cloud feed.
 
+*2026-10-18: see 1b. My Recipes still reads Dexie, now filled from the cloud, and RL-084 splits it.*
+
 Consequence: it proceeds regardless of audience size, because the 200-document read ceiling
 is a correctness bug, not a scale concern.
 
 ### 5. "Clear All Data" stays local-only
 
 Clearing removes local recipes; cloud copies survive. The control was renamed to say so, and is now labelled "Delete Recipes on This Device".
+
+*2026-10-18: see 1b. A verified user's cleared recipes come back from the cloud (copy is RL-081).*
 
 Trade accepted with open eyes: a member who wants to withdraw published recipes must delete
 them individually, and there is no bulk exit. The honest version of that feature is
@@ -387,6 +423,8 @@ or counts twice. The recipe is already in Dexie
 "You've published a lot today. Try again tomorrow." Offline, a first publish now fails
 instead of queueing; Share retries it.
 
+*2026-10-18: see 1b. A limited save now writes nothing anywhere and the chat page says why (RL-082).*
+
 ### Serving scaling is a display transform, and scales almost nothing (2026-07-31)
 
 Nothing is persisted. A saved scaled copy would be duplicate-recipe pollution for a view
@@ -433,6 +471,8 @@ publish.
 
 `totalTime` is derived from prep + cook rather than being a third editable field, because
 three independently editable times can disagree and the app renders the total.
+
+*2026-10-18: see 1b. Edits are cloud first (RL-083); an edit still never creates a cloud copy.*
 
 ### Suggestion replies as a subcollection, not an array (UX-37)
 
@@ -562,6 +602,8 @@ silent `.catch(() => {})` that left recipes public at `/shared/:id` with no loca
 There is no background retry queue; that was out of scope. The cloud delete is attempted
 only for a user with `emailVerified`, per the ticket and RL-040, since nobody else can
 publish under the current rules.
+
+*2026-10-18: see 1b. The order is reversed, cloud first, by RL-080.*
 
 ### Recipe writes are bounded in time and size (RL-016, 2026-10-14)
 

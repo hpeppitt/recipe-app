@@ -19,6 +19,13 @@ both themes:
 
 ## Since the last release
 
+### RL-076 Pure sync plan for a verified user's own cloud recipes
+
+- Nothing to check in a browser yet. `planOwnRecipeSync` is pure and unused until RL-078 wires the listener, which is the ticket that makes it visible.
+- Reviewer noted (low): the plan treats the snapshot as complete, so RL-078 must skip `snapshot.metadata.fromCache` and any narrowed query, or an offline device would lose its cached own rows (`recipeSync.ts` about 75-78).
+- Reviewer noted (low): a Dexie row with no `createdBy` would throw and abort the whole plan (`recipeSync.ts:101`); the type forbids it.
+- Reviewer noted (low): a valid cloud doc by another author sharing an id with an own local row protects that row; no test covers it.
+
 ### RL-061 Share on an unpublished recipe asks anonymous and signed-out users to sign up
 
 - On the preview build, as an anonymous user, open a recipe saved from a share link and tap Share: the sign-up dialog shows and nothing is copied.
