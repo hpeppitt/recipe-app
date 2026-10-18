@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+<script src="./l-icon.js"></script>
+<style>body{margin:0;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}</style>
+</helmet>
+<div style="min-height:100vh;overflow-x:hidden">
+
+<header style="position:sticky;top:0;z-index:10;background:color-mix(in oklch,var(--color-bg) 88%,transparent);backdrop-filter:blur(10px)">
+  <nav style="max-width:1180px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <a href="#top" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--color-text)">
+      <span style="width:34px;height:34px;border-radius:42% 58% 55% 45%;background:var(--color-accent);display:grid;place-items:center;color:var(--color-bg);font:400 18px var(--font-heading)">R</span>
+      <span style="font:400 22px var(--font-heading)">Recipe Lab</span>
+    </a>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 20px;font-size:15px;font-weight:600;margin-right:auto;min-width:0;white-space:nowrap">
+      <a href="#how" style="color:var(--color-text);text-decoration:none">How it works</a>
+      <a href="#start" style="color:var(--color-text);text-decoration:none">Start a recipe</a>
+      <a href="#features" style="color:var(--color-text);text-decoration:none">Features</a>
+      <a href="#social" style="color:var(--color-text);text-decoration:none">Cook together</a>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <a class="btn btn-ghost" href="App Prototype.dc.html" style="white-space:nowrap">Sign in</a>
+      <a class="btn btn-primary" href="App Prototype.dc.html" style="white-space:nowrap">Start cooking</a>
+    </div>
+  </nav>
+</header>
+
+<section id="top" style="max-width:1180px;margin:0 auto;padding:56px 24px 72px;display:flex;flex-wrap:wrap;gap:48px;align-items:center;position:relative">
+  <div style="position:absolute;right:-180px;top:20px;width:620px;height:620px;border-radius:50%;background:var(--color-accent-200);z-index:0"></div>
+  <div style="flex:1 1 420px;max-width:560px;position:relative;z-index:1">
+    <span class="tag tag-accent-2" style="white-space:nowrap;align-self:flex-start">Free · works in your browser</span>
+    <h1 style="font:400 clamp(44px,6vw,72px)/1.02 var(--font-heading);margin:20px 0 0;text-wrap:balance">Make any recipe yours, and keep the original.</h1>
+    <p style="font-size:20px;line-height:1.5;color:var(--color-neutral-800);margin:22px 0 0;text-wrap:pretty">Ask for less sugar, no nuts or whatever's in your fridge. Recipe Lab rewrites the recipe and files it as a new branch, so every version your family has cooked lives in one tree.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:32px">
+      <a class="btn btn-primary" href="App Prototype.dc.html" style="white-space:nowrap;font-size:17px;padding:16px 28px">Start cooking, free</a>
+      <a class="btn btn-secondary" href="#how" style="white-space:nowrap;font-size:17px;padding:16px 28px">See how it works</a>
+    </div>
+    <sc-if value="{{ showNativeNote }}" hint-placeholder-val="{{ true }}">
+      <p style="font-size:14px;color:var(--color-neutral-700);margin:18px 0 0">iPhone and Android apps are on the way. Your recipes will come with you.</p>
+    </sc-if>
+  </div>
+  <div style="flex:0 0 auto;position:relative;z-index:1;width:350px;height:714px;margin:0 auto">
+    <div style="transform:scale(0.8);transform-origin:top left;width:438px;height:892px">
+      <dc-import name="App Prototype" start="{{ heroStart }}" rid="lseb" view="{{ heroView }}" hint-size="438px,892px"></dc-import>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--color-surface);border-radius:48px 48px 0 0">
+  <div style="max-width:1180px;margin:0 auto;padding:80px 24px 72px">
+    <h2 style="font:400 clamp(32px,4vw,44px)/1.1 var(--font-heading);margin:0;max-width:640px">How it works</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:36px;margin-top:44px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font:400 28px var(--font-heading)">1</span>
+        <h3 style="font:400 24px var(--font-heading);margin:8px 0 0">Find or write a recipe</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);max-width:320px">Search by dish or by ingredient, or describe what you want and Recipe Lab writes it.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--color-accent-2);color:var(--color-bg);display:grid;place-items:center;font:400 28px var(--font-heading)">2</span>
+        <h3 style="font:400 24px var(--font-heading);margin:8px 0 0">Branch it</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);max-width:320px">Say what to change in one line. You get a new version and the original stays as it was.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span style="width:64px;height:64px;border-radius:50%;background:var(--color-text);color:var(--color-bg);display:grid;place-items:center;font:400 28px var(--font-heading)">3</span>
+        <h3 style="font:400 24px var(--font-heading);margin:8px 0 0">Grow the family</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);max-width:320px">Share it. Others cook it, suggest edits and branch their own, all in the same tree.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="start" style="background:var(--color-surface)">
+  <div style="max-width:1180px;margin:0 auto;padding:0 24px 88px">
+    <h2 style="font:400 clamp(28px,3.4vw,36px)/1.1 var(--font-heading);margin:0;max-width:640px">Four ways to start a recipe</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:32px">
+      <div style="background:var(--color-bg);border-radius:32px;padding:28px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-200);display:grid;place-items:center"><l-icon name="clipboard-paste" style="font-size:24px;color:var(--color-accent-800)"></l-icon></span>
+        <h3 style="font:400 22px/1.2 var(--font-heading);margin:8px 0 0">Bring one in</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800)">Paste the text, drop a screenshot or share a link. Recipe Lab turns it into a clean recipe you can cook and change.</p>
+      </div>
+      <div style="background:var(--color-bg);border-radius:32px;padding:28px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:52px;height:52px;border-radius:50%;background:var(--color-neutral-200);display:grid;place-items:center"><l-icon name="sparkles" style="font-size:24px;color:var(--color-neutral-800)"></l-icon></span>
+        <h3 style="font:400 22px/1.2 var(--font-heading);margin:8px 0 0">Describe it</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800)">Say what you want in plain words, like "a quick weeknight dal". Recipe Lab writes the full recipe.</p>
+      </div>
+      <div style="background:var(--color-bg);border-radius:32px;padding:28px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-2-200);display:grid;place-items:center"><l-icon name="git-branch" style="font-size:24px;color:var(--color-accent-2-800)"></l-icon></span>
+        <h3 style="font:400 22px/1.2 var(--font-heading);margin:8px 0 0">Branch an existing one</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800)">Start from any recipe in Recipe Lab and change what you need. The original stays untouched.</p>
+      </div>
+      <div style="background:var(--color-bg);border-radius:32px;padding:28px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-100);display:grid;place-items:center"><l-icon name="refrigerator" style="font-size:24px;color:var(--color-accent-800)"></l-icon></span>
+        <h3 style="font:400 22px/1.2 var(--font-heading);margin:8px 0 0">Start from your fridge</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800)">List what you have. See recipes that use all of it, or have one written around it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="background:var(--color-bg)">
+  <div style="max-width:1180px;margin:0 auto;padding:96px 24px 40px;display:flex;flex-direction:column;gap:96px">
+
+    <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:center">
+      <div style="flex:0 0 auto;width:315px;height:642px;margin:0 auto;position:relative">
+        <div style="position:absolute;left:-60px;top:80px;width:420px;height:420px;border-radius:50%;background:var(--color-accent-2-200)"></div>
+        <div style="position:relative;transform:scale(0.72);transform-origin:top left;width:438px;height:892px"><dc-import name="App Prototype" start="branch" rid="lseb" signed-in="{{ true }}" hint-size="438px,892px"></dc-import></div>
+      </div>
+      <div style="flex:1 1 380px;max-width:500px">
+        <span class="tag tag-accent" style="white-space:nowrap;align-self:flex-start">Branch with AI</span>
+        <h2 style="font:400 clamp(30px,3.6vw,40px)/1.1 var(--font-heading);margin:16px 0 0">Change a recipe in one sentence.</h2>
+        <p style="font-size:18px;line-height:1.55;color:var(--color-neutral-800);margin:16px 0 0;text-wrap:pretty">"Less sugar." "Dairy-free." "Make it in one tray." Tap a quick change or type your own and Recipe Lab rewrites the ingredients and method to match.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap-reverse;gap:56px;align-items:center">
+      <div style="flex:1 1 380px;max-width:500px">
+        <span class="tag tag-accent-2" style="white-space:nowrap;align-self:flex-start">Family tree</span>
+        <h2 style="font:400 clamp(30px,3.6vw,40px)/1.1 var(--font-heading);margin:16px 0 0">Every version, in one place.</h2>
+        <p style="font-size:18px;line-height:1.55;color:var(--color-neutral-800);margin:16px 0 0;text-wrap:pretty">See where a recipe started and every way it's been changed since. Switch between a tree, a timeline and a map, and jump to any version.</p>
+      </div>
+      <div style="flex:0 0 auto;width:315px;height:642px;margin:0 auto;position:relative">
+        <div style="position:absolute;right:-60px;top:60px;width:420px;height:420px;border-radius:50%;background:var(--color-accent-200)"></div>
+        <div style="position:relative;transform:scale(0.72);transform-origin:top left;width:438px;height:892px"><dc-import name="App Prototype" start="tree" rid="lseb" view="timeline" hint-size="438px,892px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:center">
+      <div style="flex:0 0 auto;width:315px;height:642px;margin:0 auto;position:relative">
+        <div style="position:absolute;left:-60px;top:120px;width:420px;height:420px;border-radius:50%;background:var(--color-surface)"></div>
+        <div style="position:relative;transform:scale(0.72);transform-origin:top left;width:438px;height:892px"><dc-import name="App Prototype" start="changes" rid="lseb" hint-size="438px,892px"></dc-import></div>
+      </div>
+      <div style="flex:1 1 380px;max-width:500px">
+        <span class="tag tag-accent" style="white-space:nowrap;align-self:flex-start">What changed</span>
+        <h2 style="font:400 clamp(30px,3.6vw,40px)/1.1 var(--font-heading);margin:16px 0 0">Know exactly what's different.</h2>
+        <p style="font-size:18px;line-height:1.55;color:var(--color-neutral-800);margin:16px 0 0;text-wrap:pretty">Compare any two versions line by line. Added, removed and changed ingredients are marked, and only the steps that changed are shown.</p>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap-reverse;gap:56px;align-items:center">
+      <div style="flex:1 1 380px;max-width:500px">
+        <span class="tag tag-accent-2" style="white-space:nowrap;align-self:flex-start">For families</span>
+        <h2 style="font:400 clamp(30px,3.6vw,40px)/1.1 var(--font-heading);margin:16px 0 0">Suggest a fix instead of a comment.</h2>
+        <p style="font-size:18px;line-height:1.55;color:var(--color-neutral-800);margin:16px 0 0;text-wrap:pretty">Tap the line you'd change and send it to the author. They can apply it in one tap, or keep it as a branch with your name on it.</p>
+      </div>
+      <div style="flex:0 0 auto;width:315px;height:642px;margin:0 auto;position:relative">
+        <div style="position:absolute;right:-60px;top:100px;width:420px;height:420px;border-radius:50%;background:var(--color-accent-2-200)"></div>
+        <div style="position:relative;transform:scale(0.72);transform-origin:top left;width:438px;height:892px"><dc-import name="App Prototype" start="thread" signed-in="{{ true }}" hint-size="438px,892px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:420px">
+      <div class="card" style="border-radius:32px;padding:32px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:48px;height:48px;border-radius:50%;background:var(--color-accent-200);display:grid;place-items:center"><l-icon name="scale" style="font-size:24px;color:var(--color-accent-800)"></l-icon></span>
+        <h3 style="font:400 22px var(--font-heading);margin:8px 0 0">Scale servings</h3>
+        <p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800)">Cooking for two or twelve. Every amount updates as you go.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="social" style="max-width:1180px;margin:0 auto;padding:56px 24px 0">
+  <div style="background:var(--color-surface);border-radius:56px;padding:clamp(32px,5vw,64px);display:flex;flex-wrap:wrap-reverse;gap:56px;align-items:center;overflow:hidden">
+    <div style="flex:1 1 380px;max-width:520px">
+      <span class="tag tag-accent-2" style="white-space:nowrap;align-self:flex-start">Cook together</span>
+      <h2 style="font:400 clamp(30px,3.6vw,40px)/1.1 var(--font-heading);margin:16px 0 0">Your kitchen, shared.</h2>
+      <div style="display:flex;flex-direction:column;gap:28px;margin-top:36px">
+        <div style="display:flex;gap:18px;align-items:flex-start">
+          <span style="flex:none;width:52px;height:52px;border-radius:50%;background:var(--color-accent-200);display:grid;place-items:center"><l-icon name="share-2" style="font-size:24px;color:var(--color-accent-800)"></l-icon></span>
+          <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font:400 22px/1.2 var(--font-heading);margin:0">Share your profile and recipes</h3><p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);text-wrap:pretty">Send a link to one recipe or your whole profile. Anyone can open it in the browser, no account needed to cook.</p></div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:flex-start">
+          <span style="flex:none;width:52px;height:52px;border-radius:50%;background:var(--color-accent-2-200);display:grid;place-items:center"><l-icon name="user-plus" style="font-size:24px;color:var(--color-accent-2-800)"></l-icon></span>
+          <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font:400 22px/1.2 var(--font-heading);margin:0">Follow cooks you know and love</h3><p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);text-wrap:pretty">See what friends and family start and branch, and what the cooks you admire are making this week.</p></div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:flex-start">
+          <span style="flex:none;width:52px;height:52px;border-radius:50%;background:var(--color-bg);display:grid;place-items:center"><l-icon name="heart" style="font-size:24px;color:var(--color-accent-700)"></l-icon></span>
+          <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font:400 22px/1.2 var(--font-heading);margin:0">Save your favourites</h3><p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);text-wrap:pretty">Save the recipes and versions you come back to, all in one place.</p></div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:flex-start">
+          <span style="flex:none;width:52px;height:52px;border-radius:50%;background:var(--color-accent-2-200);display:grid;place-items:center"><l-icon name="bell" style="font-size:24px;color:var(--color-accent-2-800)"></l-icon></span>
+          <div style="display:flex;flex-direction:column;gap:6px"><h3 style="font:400 22px/1.2 var(--font-heading);margin:0">Stay in the loop</h3><p style="margin:0;font-size:16px;line-height:1.55;color:var(--color-neutral-800);text-wrap:pretty">Get notified when someone likes, follows or branches your recipes, so you can see where they go next.</p></div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;width:315px;height:642px;margin:0 auto;position:relative">
+      <div style="position:absolute;left:-50px;top:90px;width:420px;height:420px;border-radius:50%;background:var(--color-accent-200)"></div>
+      <div style="position:relative;transform:scale(0.72);transform-origin:top left;width:438px;height:892px"><dc-import name="App Prototype" start="profile" signed-in="{{ true }}" hint-size="438px,892px"></dc-import></div>
+    </div>
+  </div>
+</section>
+
+<section style="max-width:1180px;margin:0 auto;padding:56px 24px 96px">
+  <div style="background:var(--color-accent-2);border-radius:56px;padding:clamp(40px,6vw,72px);position:relative;overflow:hidden">
+    <div style="position:absolute;right:-90px;bottom:-140px;width:380px;height:380px;border-radius:50%;background:var(--color-accent-2-600)"></div>
+    <div style="position:relative;max-width:620px">
+      <h2 style="font:400 clamp(34px,4.6vw,52px)/1.05 var(--font-heading);margin:0;color:var(--color-bg)">Start your first recipe tree tonight.</h2>
+      <p style="font-size:19px;line-height:1.5;color:var(--color-bg);margin:18px 0 0">Free, in your browser. No download needed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:30px">
+        <a class="btn" href="App Prototype.dc.html" style="white-space:nowrap;background:var(--color-bg);color:var(--color-text);font-size:17px;padding:16px 28px" style-hover="background:var(--color-neutral-100)">Start cooking, free</a>
+        <a class="btn" href="App Prototype.dc.html" style="white-space:nowrap;background:transparent;color:var(--color-bg);border:2px solid var(--color-bg);font-size:17px;padding:14px 26px" style-hover="background:var(--color-accent-2-600)">Sign in</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer style="background:var(--color-surface)">
+  <div style="max-width:1180px;margin:0 auto;padding:40px 24px;display:flex;flex-wrap:wrap;gap:24px;align-items:center">
+    <span style="font:400 20px var(--font-heading);margin-right:auto">Recipe Lab</span>
+    <div style="display:flex;flex-wrap:wrap;gap:20px;font-size:14px;font-weight:600">
+      <a href="#how" style="color:var(--color-text);text-decoration:none">How it works</a>
+      <a href="#start" style="color:var(--color-text);text-decoration:none">Start a recipe</a>
+      <a href="#features" style="color:var(--color-text);text-decoration:none">Features</a>
+      <a href="#social" style="color:var(--color-text);text-decoration:none">Cook together</a>
+      <a href="#" style="color:var(--color-text);text-decoration:none">Privacy</a>
+      <a href="#" style="color:var(--color-text);text-decoration:none">Terms</a>
+      <a href="#" style="color:var(--color-text);text-decoration:none">Contact</a>
+    </div>
+    <span style="font-size:14px;color:var(--color-neutral-700);width:100%">© 2026 Recipe Lab</span>
+  </div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;heroScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;recipe&quot;,&quot;timeline&quot;,&quot;changes&quot;,&quot;explore&quot;],&quot;default&quot;:&quot;recipe&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero&quot;},&quot;showNativeNote&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Hero&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const h = this.props.heroScreen ?? 'recipe';
+    return {
+      heroStart: h === 'timeline' ? 'tree' : h,
+      heroView: h === 'timeline' ? 'timeline' : 'tree',
+      showNativeNote: this.props.showNativeNote ?? true,
+    };
+  }
+}
+</script>
+</body>
+</html>

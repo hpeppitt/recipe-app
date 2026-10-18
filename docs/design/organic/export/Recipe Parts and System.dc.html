@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+<script src="./icons.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}.dv-turn{padding:44px 48px 36px;scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#201e1d;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:400 26px/1.2 var(--font-heading);color:#201e1d}.dv-intro{max-width:760px;font:14px/1.55 var(--font-body);color:var(--color-neutral-800);margin:0 0 28px;text-wrap:pretty}.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;width:390px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:600 13px/1.3 var(--font-body);color:#201e1d}.dv-note{font:13px/1.5 var(--font-body);color:var(--color-neutral-700);margin:0;text-wrap:pretty}.dv-card{background:var(--color-bg);border-radius:36px;box-shadow:var(--shadow-lg);overflow:hidden}.dv-opt:target .dv-oid{background:var(--color-accent);color:#fff}svg.lucide{display:block}</style>
+</helmet>
+
+<section class="dv-turn" id="t16">
+  <div class="dv-thd"><a class="dv-tid" href="#t16">16</a><span class="dv-tname">Tree intro</span></div>
+  <p class="dv-intro">TreeIntro's diagram redrawn in the 3a language: root card, rounded elbows, terracotta path to "Here".</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="16a">
+      <div class="dv-olabel"><a class="dv-oid" href="#16a">16a</a>Sheet on first visit to the tree</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:100px 22px 0;opacity:.35"><h2 style="margin:0;font-size:30px">Banana bread</h2><div style="margin-top:16px;height:64px;border-radius:26px;background:var(--color-surface)"></div><div style="margin:12px 0 0 56px;height:58px;border-radius:24px;background:var(--color-surface)"></div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 28px;display:flex;flex-direction:column;gap:16px">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <div style="padding:16px 14px;border-radius:28px;background:var(--color-surface)">
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:20px;background:var(--color-bg)"><span style="font-size:18px">🍞</span><b style="font-size:13px;flex:1">Banana bread</b><span style="font-size:11px;color:var(--color-neutral-700)">Original</span></div>
+            <div style="margin-left:26px">
+              <sc-for list="{{ mini }}" as="n" hint-placeholder-count="3">
+                <div style="position:relative;padding:8px 0 0 {{ n.indent }}">
+                  <sc-if value="{{ n.rail }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span></sc-if>
+                  <span style="position:absolute;left:{{ n.elbow }};top:0;width:14px;height:28px;border-left:3px solid {{ n.line }};border-bottom:3px solid {{ n.line }};border-bottom-left-radius:12px"></span>
+                  <div style="margin-left:18px;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:18px;background:var(--color-bg);box-shadow:{{ n.ring }};font-size:12px"><b style="flex:1">"{{ n.prompt }}"</b><sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}"><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-weight:600;font-size:10px;padding:2px 8px">Here</span></sc-if></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font-family:var(--font-heading);font-size:24px;line-height:1.1">Every recipe can grow branches</div>
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
+            <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">1</span>Someone asks for a change, like "less sugar".</div>
+            <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">2</span>A new version grows off it. The original never changes.</div>
+            <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">3</span>The terracotta line shows how you got here.</div>
+          </div>
+          <button class="btn btn-primary" style="height:52px;font-size:15px">Got it</button>
+        </div>
+      </div>
+      <p class="dv-note">Shown once, the first time the tree page opens. The diagram is a scaled-down 3a, so what you learn is what you see behind the sheet.</p>
+    </div>
+
+    <div class="dv-opt" id="16b">
+      <div class="dv-olabel"><a class="dv-oid" href="#16b">16b</a>Inline card on the first branch you open</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1"></span><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px"><i data-lucide="network"></i></span></div>
+        <div style="padding:4px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <h1 style="font-size:32px;line-height:1.04;margin:0">Less sugar, extra banana</h1>
+          <div style="padding:16px;border-radius:30px;background:var(--color-accent-2-700);color:var(--color-accent-2-100);display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:flex-start"><div style="flex:1;font-family:var(--font-heading);font-size:20px;line-height:1.15;color:var(--color-accent-2-100)">This is a branch</div><span style="font-size:18px"><i data-lucide="x"></i></span></div>
+            <svg width="318" height="70" viewBox="0 0 318 70" style="display:block">
+              <path d="M20 18 H290" stroke="var(--color-accent-2-500)" stroke-width="4" fill="none" stroke-linecap="round"></path>
+              <path d="M110 18 C128 18 128 52 146 52 H200" stroke="var(--color-accent-300)" stroke-width="4" fill="none" stroke-linecap="round"></path>
+              <circle cx="20" cy="18" r="9" fill="var(--color-accent-2-700)" stroke="var(--color-accent-2-100)" stroke-width="4"></circle>
+              <circle cx="110" cy="18" r="8" fill="var(--color-accent-2-700)" stroke="var(--color-accent-300)" stroke-width="4"></circle>
+              <circle cx="200" cy="18" r="7" fill="var(--color-accent-2-700)" stroke="var(--color-accent-2-500)" stroke-width="4"></circle>
+              <circle cx="290" cy="18" r="7" fill="var(--color-accent-2-700)" stroke="var(--color-accent-2-500)" stroke-width="4"></circle>
+              <circle cx="200" cy="52" r="11" fill="var(--color-accent-300)"></circle>
+            </svg>
+            <div style="font-size:14px;line-height:1.45">Hana's Banana bread is the original. Ola made it with less sugar, then Hana added banana. Each one is its own recipe.</div>
+            <div style="display:flex;gap:8px"><span style="height:38px;padding:0 16px;border-radius:999px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);display:flex;align-items:center;font-family:var(--font-heading);font-size:13px">See the family</span><span style="height:38px;padding:0 14px;display:flex;align-items:center;font-size:13px;font-weight:600">Got it</span></div>
+          </div>
+          <div style="opacity:.4;display:flex;flex-direction:column;gap:10px"><div style="height:30px;width:220px;border-radius:999px;background:var(--color-surface)"></div><div style="height:180px;border-radius:24px;background:var(--color-surface)"></div></div>
+        </div>
+      </div>
+      <p class="dv-note">Teaches at the moment branching becomes relevant, on the recipe page. Uses the subway line from 2c rather than the tree, and links to the tree page.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t17" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t17">17</a><span class="dv-tname">Lineage breadcrumb</span></div>
+  <p class="dv-intro">Per your mapping, root recipes use 2a and branches use 2a + 2b, so the breadcrumb only appears on branches. Both options carry the "See what changed" entry point.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="17a">
+      <div class="dv-olabel"><a class="dv-oid" href="#17a">17a</a>Sentence strip, collapses when deep</div>
+      <div class="dv-card" style="width:390px;height:520px;position:relative;display:flex;flex-direction:column;padding:50px 22px 0;gap:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700)">Depth 2</div>
+        <div style="padding:12px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:600"><span>🍞 Banana bread</span><i data-lucide="chevron-right"></i><span>Less sugar</span><i data-lucide="chevron-right"></i><span style="font-weight:400">this</span></div>
+          <div><b>Hana</b> asked for <i>"extra banana"</i>.</div>
+          <span style="align-self:flex-start;height:34px;padding:0 14px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><i data-lucide="diff"></i>See what changed</span>
+        </div>
+        <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-top:8px">Depth 5, collapsed</div>
+        <div style="padding:12px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:14px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px;font-weight:600"><span>🍞 Banana bread</span><i data-lucide="chevron-right"></i><span style="padding:0 8px;border-radius:999px;background:var(--color-accent-2-200)">+3</span><i data-lucide="chevron-right"></i><span>Walnut</span><i data-lucide="chevron-right"></i><span style="font-weight:400">this</span></div>
+          <div><b>Sami</b> asked for <i>"brown butter frosting"</i>.</div>
+          <span style="align-self:flex-start;height:34px;padding:0 14px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><i data-lucide="diff"></i>See what changed</span>
+        </div>
+      </div>
+      <p class="dv-note">Root and parent always show; the middle collapses to "+N", which expands inline. The prompt reads as a sentence under the path.</p>
+    </div>
+
+    <div class="dv-opt" id="17b">
+      <div class="dv-olabel"><a class="dv-oid" href="#17b">17b</a>Version pill opens the ancestry</div>
+      <div class="dv-card" style="width:390px;height:520px;position:relative">
+        <div style="padding:50px 22px 0"><div style="display:flex;align-items:center;gap:10px;height:46px;padding:0 6px;border-radius:999px;background:var(--color-surface)"><span style="display:flex;gap:3px;padding-left:8px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-neutral-500)"></span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-neutral-500)"></span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-accent)"></span></span><span style="flex:1;font-size:13px"><b>Generation 3</b> · from Less sugar</span><span style="height:34px;padding:0 12px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600">Path<i data-lucide="chevron-up"></i></span></div></div>
+        <div style="margin:10px 16px 0;padding:14px 16px;border-radius:30px;background:var(--color-bg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+          <sc-for list="{{ path }}" as="p" hint-placeholder-count="3">
+            <div style="display:flex;gap:12px">
+              <div style="display:flex;flex-direction:column;align-items:center;width:20px"><span style="width:16px;height:16px;flex:none;border-radius:999px;background:{{ p.dot }};box-shadow:inset 0 0 0 3px {{ p.ring }}"></span><span style="flex:1;width:3px;background:{{ p.line }};min-height:18px"></span></div>
+              <div style="flex:1;padding-bottom:14px"><div style="font-weight:700;font-size:15px">{{ p.title }}</div><div style="font-size:12px;color:var(--color-neutral-700)">{{ p.sub }}</div></div>
+              <span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">{{ p.act }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <p class="dv-note">Keeps the top of the page to one line. The popover lists each ancestor with its prompt; "Compare" opens 3e against that ancestor, not only the parent.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t18" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t18">18</a><span class="dv-tname">Metadata, servings and nutrition</span></div>
+  <p class="dv-intro">2a covered pills and the stepper but not the nutrition panel. Both options show all three on one page.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="18a">
+      <div class="dv-olabel"><a class="dv-oid" href="#18a">18a</a>Pills + inline stepper + expandable nutrition</div>
+      <div class="dv-card" style="width:390px;height:620px;position:relative;padding:50px 22px 0;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><i data-lucide="clock"></i>1 hr 10</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><i data-lucide="gauge"></i>Easy</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><i data-lucide="leaf"></i>Vegetarian</span>
+          <span class="tag tag-accent" style="font-size:13px;padding:5px 12px;gap:5px;font-weight:600"><i data-lucide="flame"></i>240 kcal</span>
+        </div>
+        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Ingredients</h4><div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:var(--color-surface);padding:3px"><span style="width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:var(--color-bg)"><i data-lucide="minus"></i></span><span style="font-size:13px;font-weight:600;padding:0 6px">12 slices</span><span style="width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:var(--color-bg)"><i data-lucide="plus"></i></span></div></div>
+        <div style="display:flex;gap:10px;padding:10px 14px;border-radius:18px;background:var(--color-accent-100);font-size:13px;color:var(--color-accent-900)"><i data-lucide="scale"></i>Scaled ×1.5 from 8. <u>Reset</u></div>
+        <div style="display:flex;gap:12px;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent);padding-bottom:9px"><b style="min-width:62px;color:var(--color-accent-700)">6</b>very ripe bananas</div>
+        <div style="display:flex;gap:12px;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent);padding-bottom:9px"><b style="min-width:62px;color:var(--color-accent-700)">170 g</b>butter, browned</div>
+        <div style="margin-top:6px;border-radius:28px;background:var(--color-surface);padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center"><span style="flex:1;font-family:var(--font-heading);font-size:17px">Nutrition per slice</span><i data-lucide="chevron-up"></i></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <sc-for list="{{ macros }}" as="m" hint-placeholder-count="4"><div style="padding:10px 6px;border-radius:18px;background:var(--color-bg);text-align:center"><div style="font-family:var(--font-heading);font-size:18px">{{ m.v }}</div><div style="font-size:11px;color:var(--color-neutral-700)">{{ m.k }}</div></div></sc-for>
+          </div>
+          <div style="font-size:11px;color:var(--color-neutral-700)">Estimated from ingredients. Changes with each branch.</div>
+        </div>
+      </div>
+      <p class="dv-note">Scaled amounts turn terracotta and a strip explains why, so a scaled recipe is never mistaken for the original. Nutrition is collapsed by default.</p>
+    </div>
+
+    <div class="dv-opt" id="18b">
+      <div class="dv-olabel"><a class="dv-oid" href="#18b">18b</a>Stat strip + nutrition bars</div>
+      <div class="dv-card" style="width:390px;height:620px;position:relative;padding:50px 22px 0;display:flex;flex-direction:column;gap:16px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);border-radius:28px;background:var(--color-surface);padding:12px 4px">
+          <div style="text-align:center;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-neutral-700)">Time</div><div style="font-family:var(--font-heading);font-size:18px">1 hr 10</div></div>
+          <div style="text-align:center;border-right:1px solid var(--color-divider)"><div style="font-size:11px;color:var(--color-neutral-700)">Level</div><div style="font-family:var(--font-heading);font-size:18px">Easy</div></div>
+          <div style="text-align:center"><div style="font-size:11px;color:var(--color-neutral-700)">Per slice</div><div style="font-family:var(--font-heading);font-size:18px">240 kcal</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 8px 8px 18px;border-radius:999px;background:var(--color-accent-2-100)"><span style="flex:1;font-size:14px;color:var(--color-accent-2-900)">Makes</span><span style="width:40px;height:40px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center"><i data-lucide="minus"></i></span><span style="font-family:var(--font-heading);font-size:20px;min-width:70px;text-align:center">8 slices</span><span style="width:40px;height:40px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center"><i data-lucide="plus"></i></span></div>
+        <div style="display:flex;align-items:center"><h4 style="margin:0;flex:1">Nutrition</h4><div class="seg" style="display:flex"><label class="seg-opt" style="background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="n18">Per slice</label><label class="seg-opt"><input type="radio" name="n18">Whole</label></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <sc-for list="{{ macros }}" as="m" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;font-size:13px"><span style="flex:1">{{ m.k }}</span><b>{{ m.v }}</b></div><div style="height:10px;border-radius:999px;background:var(--color-surface)"><div style="height:10px;width:{{ m.w }};border-radius:999px;background:{{ m.c }}"></div></div></div>
+          </sc-for>
+        </div>
+        <div style="font-size:11px;color:var(--color-neutral-700)">Estimated from ingredients. Bars show share of a 2,000 kcal day.</div>
+      </div>
+      <p class="dv-note">The three facts people check first become a strip; servings get a full-width stepper. Nutrition lives lower on the page with bars.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t19" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t19">19</a><span class="dv-tname">System patterns</span></div>
+  <p class="dv-intro">ConfirmDialog, EmptyState, error and Skeleton, in two treatments. Pick one and it applies app-wide.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="19a" style="width:816px">
+      <div class="dv-olabel"><a class="dv-oid" href="#19a">19a</a>Soft: blobs and Caprasimo headlines</div>
+      <div style="display:grid;grid-template-columns:390px 390px;gap:36px">
+        <div class="dv-card" style="height:420px;position:relative">
+          <div style="padding:60px 22px;opacity:.35"><div style="height:80px;border-radius:26px;background:var(--color-surface)"></div></div>
+          <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent);display:grid;place-items:center;padding:22px">
+            <div style="width:100%;padding:22px;border-radius:32px;background:var(--color-bg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:10px">
+              <div style="font-family:var(--font-heading);font-size:22px">Delete this version?</div>
+              <div style="font-size:14px;color:var(--color-neutral-800)">Its 3 branches stay, and move up to Less sugar.</div>
+              <div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-secondary" style="flex:1;height:48px">Keep it</button><button class="btn btn-primary" style="flex:1;height:48px;background:var(--color-accent-700)">Delete</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="dv-card" style="height:420px;position:relative;display:flex;flex-direction:column;padding:0 24px 28px;justify-content:flex-end;gap:10px">
+          <div style="position:absolute;top:-60px;right:-70px;width:240px;height:240px;border-radius:999px;background:var(--color-accent-2-200)"></div>
+          <span style="position:relative;width:84px;height:84px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-2-300);display:grid;place-items:center;font-size:36px;color:var(--color-accent-2-900)"><i data-lucide="bookmark"></i></span>
+          <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Nothing saved yet</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">Tap the bookmark on any recipe and it'll wait for you here.</div>
+          <button class="btn btn-primary" style="align-self:flex-start;height:46px;padding:0 20px;margin-top:6px">Explore recipes</button>
+        </div>
+        <div class="dv-card" style="height:420px;position:relative;display:flex;flex-direction:column;padding:0 24px 28px;justify-content:flex-end;gap:10px">
+          <div style="position:absolute;top:-60px;left:-70px;width:240px;height:240px;border-radius:999px;background:var(--color-accent-200)"></div>
+          <span style="position:relative;width:84px;height:84px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-300);display:grid;place-items:center;font-size:36px;color:var(--color-accent-900)"><i data-lucide="cloud-off"></i></span>
+          <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Couldn't load the family</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">You're offline. Recipes on this device still open.</div>
+          <button class="btn btn-secondary" style="align-self:flex-start;height:46px;padding:0 20px;margin-top:6px;gap:6px"><i data-lucide="rotate-cw"></i>Try again</button>
+        </div>
+        <div class="dv-card" style="height:420px;padding:50px 20px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="height:30px;width:60%;border-radius:999px;background:var(--color-neutral-300)"></div>
+          <div style="height:52px;border-radius:999px;background:var(--color-neutral-200)"></div>
+          <sc-for list="{{ skel }}" as="s" hint-placeholder-count="3"><div style="display:flex;gap:14px;padding:16px;border-radius:30px;background:var(--color-surface)"><span style="width:56px;height:56px;border-radius:999px;background:var(--color-neutral-300)"></span><div style="flex:1;display:flex;flex-direction:column;gap:8px;padding-top:4px"><span style="height:14px;width:{{ s }};border-radius:999px;background:var(--color-neutral-300)"></span><span style="height:10px;width:90%;border-radius:999px;background:var(--color-neutral-200)"></span></div></div></sc-for>
+        </div>
+      </div>
+      <p class="dv-note">Dialog, empty, error, skeleton. Empty and error lean on an off-canvas circle and a blob icon, bottom-aligned so the action is in thumb reach. Skeletons pulse between neutral-200 and 300.</p>
+    </div>
+
+    <div class="dv-opt" id="19b" style="width:816px">
+      <div class="dv-olabel"><a class="dv-oid" href="#19b">19b</a>Quiet: sheets and plain text</div>
+      <div style="display:grid;grid-template-columns:390px 390px;gap:36px">
+        <div class="dv-card" style="height:420px;position:relative">
+          <div style="padding:60px 22px;opacity:.35"><div style="height:80px;border-radius:26px;background:var(--color-surface)"></div></div>
+          <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent)"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 22px 26px;border-radius:32px 32px 0 0;background:var(--color-bg);display:flex;flex-direction:column;gap:10px">
+            <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+            <div style="font-weight:700;font-size:17px">Delete this version?</div>
+            <div style="font-size:14px;color:var(--color-neutral-800)">Its 3 branches stay, and move up to Less sugar.</div>
+            <button class="btn btn-primary" style="height:50px;background:var(--color-accent-700);margin-top:6px">Delete</button>
+            <button class="btn btn-ghost" style="height:40px;color:var(--color-text)">Cancel</button>
+          </div>
+        </div>
+        <div class="dv-card" style="height:420px;padding:60px 24px 0;display:flex;flex-direction:column;gap:8px">
+          <div style="font-family:var(--font-heading);font-size:30px">Saved</div>
+          <div style="margin-top:40px;font-size:15px;font-weight:700">Nothing saved yet</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">Tap <i data-lucide="bookmark" style="display:inline-block;vertical-align:-2px"></i> on any recipe and it'll wait for you here.</div>
+          <a style="font-size:14px;font-weight:600;margin-top:4px">Explore recipes</a>
+        </div>
+        <div class="dv-card" style="height:420px;padding:60px 20px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:var(--font-heading);font-size:30px">Banana bread</div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 12px 12px 16px;border-radius:999px;background:var(--color-accent-100);color:var(--color-accent-900);font-size:14px"><i data-lucide="cloud-off"></i><span style="flex:1">You're offline. Showing what's on this device.</span><span style="height:34px;padding:0 14px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;font-weight:600">Retry</span></div>
+          <div style="opacity:.5;display:flex;flex-direction:column;gap:10px"><div style="height:64px;border-radius:26px;background:var(--color-surface)"></div><div style="margin-left:40px;height:58px;border-radius:24px;background:var(--color-surface)"></div></div>
+        </div>
+        <div class="dv-card" style="height:420px;padding:50px 20px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="height:26px;width:50%;border-radius:999px;background:var(--color-neutral-300)"></div>
+          <sc-for list="{{ skel }}" as="s" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:8px;padding:6px 0"><span style="height:14px;width:{{ s }};border-radius:999px;background:var(--color-neutral-300)"></span><span style="height:10px;width:90%;border-radius:999px;background:var(--color-neutral-200)"></span><span style="height:10px;width:70%;border-radius:999px;background:var(--color-neutral-200)"></span></div></sc-for>
+        </div>
+      </div>
+      <p class="dv-note">Confirmations are bottom sheets. Empty states are a line of text in the page's own layout. Errors are inline banners that keep stale content visible. Less to build, less personality.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t20" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t20">20</a><span class="dv-tname">Dark Organic</span></div>
+  <p class="dv-intro">Two dark grounds. In both, the 100 to 900 ramps flip: tinted fills use the 800 to 900 steps and text on them uses 100 to 200. Accent is lifted so it reaches 4.5:1 for body text.</p>
+  <div class="dv-opts">
+    <sc-for list="{{ darks }}" as="d" hint-placeholder-count="2">
+      <div class="dv-opt" id="{{ d.id }}">
+        <div class="dv-olabel"><a class="dv-oid" href="#{{ d.id }}">{{ d.id }}</a>{{ d.name }}</div>
+        <div style="width:390px;height:844px;border-radius:36px;box-shadow:var(--shadow-lg);overflow:hidden;background:{{ d.bg }};color:{{ d.text }};display:flex;flex-direction:column;position:relative">
+          <div style="padding:50px 12px 0;display:flex;align-items:center;gap:4px"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1"></span><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px;color:{{ d.accent }}"><i data-lucide="heart"></i></span><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px"><i data-lucide="ellipsis"></i></span></div>
+          <div style="flex:1;overflow:hidden;padding:4px 22px 0">
+            <div style="display:flex;align-items:flex-start;gap:16px"><h1 style="flex:1;font-size:34px;line-height:1.04;margin:0;color:{{ d.text }}">Less sugar, extra banana</h1><span style="width:72px;height:72px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:{{ d.a900 }};display:grid;place-items:center;font-size:36px">🍌</span></div>
+            <div style="margin-top:14px;padding:12px 16px;border-radius:22px;background:{{ d.s900 }};color:{{ d.s200 }};font-size:14px;display:flex;gap:10px"><i data-lucide="git-branch"></i><span><b>Hana</b> asked for <i>"extra banana"</i> on Ola's <b>Less sugar</b>. <u>See what changed</u></span></div>
+            <div style="display:flex;gap:6px;margin-top:14px"><span class="tag" style="background:{{ d.surface }};color:{{ d.text }};font-size:13px;padding:5px 12px">1 hr 10</span><span class="tag" style="background:{{ d.surface }};color:{{ d.text }};font-size:13px;padding:5px 12px">Easy</span><span class="tag" style="background:{{ d.a900 }};color:{{ d.a200 }};font-size:13px;padding:5px 12px">240 kcal</span></div>
+            <h4 style="margin:22px 0 6px;color:{{ d.text }}">Ingredients</h4>
+            <sc-for list="{{ d.rows }}" as="g" hint-placeholder-count="4"><div style="display:flex;gap:12px;padding:9px 12px;margin:0 -12px;border-radius:16px;font-size:15px;background:{{ g.bg }}"><b style="min-width:62px">{{ g.amt }}</b><span style="flex:1">{{ g.name }}</span><span style="font-size:12px;color:{{ d.muted }}">{{ g.was }}</span></div></sc-for>
+            <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+              <sc-for list="{{ d.sw }}" as="s" hint-placeholder-count="6"><div style="display:flex;flex-direction:column;gap:4px;align-items:center;font-size:10px;color:{{ d.muted }}"><span style="width:42px;height:42px;border-radius:999px;background:{{ s.c }};box-shadow:inset 0 0 0 1px {{ d.divider }}"></span>{{ s.k }}</div></sc-for>
+            </div>
+          </div>
+          <div style="padding:12px 20px 28px;display:flex;gap:10px;box-shadow:0 -1px 0 {{ d.divider }}">
+            <span style="height:52px;flex:1;border-radius:999px;box-shadow:inset 0 0 0 1px {{ d.divider }};display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-size:15px">Suggest</span>
+            <span style="height:52px;flex:2;border-radius:999px;background:{{ d.accent }};color:{{ d.bg }};display:flex;align-items:center;justify-content:center;gap:6px;font-family:var(--font-heading);font-size:15px"><i data-lucide="git-branch-plus"></i>Branch this recipe</span>
+          </div>
+        </div>
+        <p class="dv-note">{{ d.note }}</p>
+      </div>
+    </sc-for>
+  </div>
+</section>
+
+<section class="dv-turn" id="t21" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t21">21</a><span class="dv-tname">Desktop, two-pane</span></div>
+  <p class="dv-intro">From 1024px the tab bar becomes a left rail and a second pane opens. Below 1024px the app stays the mobile column. The two options differ in what the second pane holds.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="21a" style="width:1280px">
+      <div class="dv-olabel"><a class="dv-oid" href="#21a">21a</a>List | recipe</div>
+      <div style="position:relative;width:1280px;height:800px;border-radius:28px;box-shadow:var(--shadow-lg);overflow:hidden;background:var(--color-bg);display:grid;grid-template-columns:220px 420px 1fr">
+        <div onClick="{{ closeFam }}" style="position:absolute;inset:0;z-index:2;display:{{ famDisplay }};background:color-mix(in srgb,var(--color-neutral-900) 35%,transparent)"></div>
+        <div style="position:absolute;top:16px;right:16px;bottom:16px;width:420px;z-index:3;display:{{ famDisplay }};flex-direction:column;gap:14px;padding:24px 22px 0;border-radius:32px;background:var(--color-surface);box-shadow:var(--shadow-lg);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:8px"><span style="flex:1;font-family:var(--font-heading);font-size:20px">Banana bread family</span><div class="seg" style="display:flex;background:var(--color-bg)"><label class="seg-opt" style="background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="f21a">Tree</label><label class="seg-opt"><input type="radio" name="f21a">Timeline</label><label class="seg-opt"><input type="radio" name="f21a">Map</label></div><button onClick="{{ closeFam }}" aria-label="Close" style="width:40px;height:40px;border:0;border-radius:999px;background:var(--color-bg);color:inherit;display:grid;place-items:center;font-size:18px;cursor:pointer"><i data-lucide="x"></i></button></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:22px;background:var(--color-bg)"><span style="font-size:20px">🍞</span><div style="flex:1"><div style="font-weight:700;font-size:14px">Banana bread</div><div style="font-size:12px;color:var(--color-neutral-700)">Original · Hana</div></div></div>
+          <div style="margin-left:26px">
+            <sc-for list="{{ mini }}" as="n" hint-placeholder-count="3">
+              <div style="position:relative;padding:8px 0 0 {{ n.indent }}">
+                <sc-if value="{{ n.rail }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span></sc-if>
+                <span style="position:absolute;left:{{ n.elbow }};top:0;width:14px;height:30px;border-left:3px solid {{ n.line }};border-bottom:3px solid {{ n.line }};border-bottom-left-radius:12px"></span>
+                <div style="margin-left:18px;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:20px;background:var(--color-bg);box-shadow:{{ n.ring }};font-size:13px"><span style="flex:1"><b>{{ n.title }}</b><br><span style="font-size:12px;color:var(--color-neutral-700)">"{{ n.prompt }}" · {{ n.by }}</span></span><sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}"><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-weight:600">Here</span></sc-if></div>
+              </div>
+            </sc-for>
+          </div>
+          <button class="btn btn-primary" style="height:50px;margin-top:auto;margin-bottom:22px;gap:6px"><i data-lucide="git-branch-plus"></i>Branch from this one</button>
+        </div>
+        <div style="padding:28px 16px;display:flex;flex-direction:column;gap:4px;background:var(--color-surface)">
+          <div style="font-family:var(--font-heading);font-size:22px;padding:0 12px 20px">Recipe Lab</div>
+          <sc-for list="{{ rail }}" as="r" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:12px;height:44px;padding:0 14px;border-radius:999px;background:{{ r.bg }};color:{{ r.fg }};font-weight:600;font-size:14px"><i data-lucide="{{ r.icon }}"></i>{{ r.label }}</div></sc-for>
+        </div>
+        <div style="padding:28px 20px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden;box-shadow:1px 0 0 var(--color-divider)">
+          <div style="display:flex;align-items:center;gap:10px;height:50px;padding:0 18px;border-radius:999px;background:var(--color-neutral-100);box-shadow:var(--shadow-sm);font-size:14px;color:var(--color-neutral-700)"><i data-lucide="search"></i>Search, or describe a dish…</div>
+          <sc-for list="{{ feed }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;gap:14px;padding:14px;border-radius:28px;background:{{ r.bg }};box-shadow:{{ r.ring }}">
+              <span style="width:52px;height:52px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:26px">{{ r.emoji }}</span>
+              <div style="flex:1;min-width:0"><div style="font-family:var(--font-heading);font-size:17px">{{ r.title }}</div><div style="font-size:12px;color:var(--color-neutral-700);margin-top:2px">{{ r.time }} · {{ r.first }}</div></div>
+              <span class="tag tag-accent-2" style="align-self:flex-start;gap:4px;font-weight:600"><i data-lucide="git-branch"></i>{{ r.branches }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:36px 48px 0;overflow:hidden;display:flex;flex-direction:column;gap:16px;max-width:720px">
+          <div style="display:flex;align-items:flex-start;gap:20px"><h1 style="flex:1;margin:0;font-size:44px;line-height:1.02">Banana bread</h1><span style="width:96px;height:96px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:48px">🍞</span></div>
+          <div style="font-size:15px;color:var(--color-neutral-800)">Moist, deeply caramelised loaf with brown butter and a crackly top. By Hana.</div>
+          <div style="display:flex;gap:6px"><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">1 hr 10</span><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">Easy</span><span class="tag tag-accent-2" style="font-size:13px;padding:5px 12px;gap:4px;font-weight:600"><i data-lucide="git-branch"></i>6 branches</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:36px;margin-top:8px">
+            <div><h4 style="margin:0 0 8px">Ingredients</h4><sc-for list="{{ ingredients }}" as="g" hint-placeholder-count="5"><div style="display:flex;gap:12px;padding:8px 0;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:52px">{{ g.amt }}</b>{{ g.name }}</div></sc-for></div>
+            <div><h4 style="margin:0 0 8px">Method</h4><sc-for list="{{ method }}" as="m" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:8px 0;font-size:14px;line-height:1.5"><span style="width:28px;height:28px;flex:none;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-family:var(--font-heading);font-size:13px">{{ m.n }}</span>{{ m.t }}</div></sc-for></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:8px"><button onClick="{{ openFam }}" class="btn btn-secondary" style="height:48px;padding:0 20px;gap:6px"><i data-lucide="network"></i>Family</button><button class="btn btn-secondary" style="height:48px;padding:0 20px">Suggest</button><button class="btn btn-primary" style="height:48px;padding:0 22px;gap:6px"><i data-lucide="git-branch-plus"></i>Branch this recipe</button></div>
+        </div>
+      </div>
+      <p class="dv-note">Classic master-detail: selecting in the list replaces the right pane without a navigation. Ingredients and method sit side by side on wide screens. Works for Explore, Saved and Activity alike.</p>
+    </div>
+
+    <div class="dv-opt" id="21b" style="width:1280px">
+      <div class="dv-olabel"><a class="dv-oid" href="#21b">21b</a>Recipe | its family</div>
+      <div style="width:1280px;height:800px;border-radius:28px;box-shadow:var(--shadow-lg);overflow:hidden;background:var(--color-bg);display:grid;grid-template-columns:88px 1fr 420px">
+        <div style="padding:28px 0;display:flex;flex-direction:column;align-items:center;gap:14px;background:var(--color-surface)">
+          <sc-for list="{{ rail }}" as="r" hint-placeholder-count="5"><div style="width:48px;height:48px;border-radius:999px;background:{{ r.bg }};color:{{ r.fg }};display:grid;place-items:center;font-size:20px"><i data-lucide="{{ r.icon }}"></i></div></sc-for>
+        </div>
+        <div style="padding:36px 56px 0;overflow:hidden;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--color-neutral-700)"><span style="color:var(--color-accent-700);font-weight:600">🍞 Banana bread</span><i data-lucide="chevron-right"></i><span style="color:var(--color-accent-700);font-weight:600">Less sugar</span><i data-lucide="chevron-right"></i><span>this</span></div>
+          <h1 style="margin:0;font-size:44px;line-height:1.02;max-width:600px">Less sugar, extra banana</h1>
+          <div style="padding:12px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:14px;display:flex;gap:10px;max-width:600px"><i data-lucide="git-branch"></i><span><b>Hana</b> asked for <i>"extra banana"</i> on Ola's <b>Less sugar</b>.</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:36px;margin-top:8px">
+            <div><h4 style="margin:0 0 8px">Ingredients</h4><sc-for list="{{ diffRows }}" as="g" hint-placeholder-count="5"><div style="display:flex;gap:10px;padding:8px 10px;margin:0 -10px;border-radius:14px;font-size:14px;background:{{ g.bg }}"><b style="min-width:52px">{{ g.amt }}</b><span style="flex:1">{{ g.name }}</span><span style="font-size:12px;color:var(--color-neutral-700)">{{ g.was }}</span></div></sc-for></div>
+            <div><h4 style="margin:0 0 8px">Method</h4><sc-for list="{{ method }}" as="m" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:8px 0;font-size:14px;line-height:1.5"><span style="width:28px;height:28px;flex:none;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-family:var(--font-heading);font-size:13px">{{ m.n }}</span>{{ m.t }}</div></sc-for></div>
+          </div>
+        </div>
+        <div style="background:var(--color-surface);padding:28px 22px 0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+          <div style="display:flex;align-items:center"><span style="flex:1;font-family:var(--font-heading);font-size:20px">Banana bread family</span><div class="seg" style="display:flex;background:var(--color-bg)"><label class="seg-opt" style="background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="f21">Tree</label><label class="seg-opt"><input type="radio" name="f21">Timeline</label><label class="seg-opt"><input type="radio" name="f21">Map</label></div></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:22px;background:var(--color-bg)"><span style="font-size:20px">🍞</span><div style="flex:1"><div style="font-weight:700;font-size:14px">Banana bread</div><div style="font-size:12px;color:var(--color-neutral-700)">Original · Hana</div></div></div>
+          <div style="margin-left:26px">
+            <sc-for list="{{ mini }}" as="n" hint-placeholder-count="3">
+              <div style="position:relative;padding:8px 0 0 {{ n.indent }}">
+                <sc-if value="{{ n.rail }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:0;top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span></sc-if>
+                <span style="position:absolute;left:{{ n.elbow }};top:0;width:14px;height:30px;border-left:3px solid {{ n.line }};border-bottom:3px solid {{ n.line }};border-bottom-left-radius:12px"></span>
+                <div style="margin-left:18px;display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:20px;background:var(--color-bg);box-shadow:{{ n.ring }};font-size:13px"><span style="flex:1"><b>{{ n.title }}</b><br><span style="font-size:12px;color:var(--color-neutral-700)">"{{ n.prompt }}" · {{ n.by }}</span></span><sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}"><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-weight:600">Here</span></sc-if></div>
+              </div>
+            </sc-for>
+          </div>
+          <button class="btn btn-primary" style="height:50px;margin-top:auto;margin-bottom:24px;gap:6px"><i data-lucide="git-branch-plus"></i>Branch from this one</button>
+        </div>
+      </div>
+      <p class="dv-note">Uses the width for what's unique to this app: the family is always visible beside the recipe, with changes marked inline (2c). The 3d carousel isn't needed here; the tree replaces it.</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { fam: true };
+  renderVals() {
+    const A = 'var(--color-accent)', G = 'var(--color-neutral-400)';
+    const mini = [
+      { title: 'Less sugar', prompt: 'less sugar', by: 'Ola', indent: '0px', elbow: '0px', line: A, rail: true },
+      { title: 'Less sugar, extra banana', prompt: 'extra banana', by: 'Hana', indent: '36px', elbow: '36px', line: A, here: true, rail: true },
+      { title: 'Chocolate chunk', prompt: 'add chocolate', by: 'Sami', indent: '0px', elbow: '0px', line: G }
+    ].map(n => ({ ...n, ring: n.here ? '0 0 0 2px var(--color-accent)' : 'none' }));
+    const path = [
+      { title: '🍞 Banana bread', sub: 'Original · Hana', act: 'Compare', dot: 'var(--color-bg)', ring: 'var(--color-text)', line: 'var(--color-accent)' },
+      { title: 'Less sugar', sub: '"less sugar" · Ola', act: 'Compare', dot: 'var(--color-bg)', ring: 'var(--color-accent)', line: 'var(--color-accent)' },
+      { title: 'Less sugar, extra banana', sub: '"extra banana" · Hana · you are here', act: '', dot: 'var(--color-accent)', ring: 'var(--color-accent)', line: 'transparent' }
+    ];
+    const macros = [
+      { k: 'Calories', v: '240', w: '12%', c: 'var(--color-accent)' }, { k: 'Carbs', v: '34 g', w: '45%', c: 'var(--color-accent-400)' },
+      { k: 'Fat', v: '11 g', w: '30%', c: 'var(--color-accent-2-500)' }, { k: 'Protein', v: '4 g', w: '15%', c: 'var(--color-accent-2-700)' }
+    ];
+    const rowsBase = [['4','very ripe bananas','was 3','c'],['115 g','butter, browned','',''],['100 g','light brown sugar','was 150 g','c'],['1 tbsp','banana purée swirl','new','a']];
+    const mkDark = (id, name, p, note) => ({
+      id, name, note, ...p,
+      rows: rowsBase.map(([amt,name,was,t]) => ({ amt, name, was, bg: t === 'c' ? p.a900 : t === 'a' ? p.s900 : 'transparent' })),
+      sw: [['bg',p.bg],['surface',p.surface],['text',p.text],['accent',p.accent],['accent-2',p.accent2],['a-900',p.a900]].map(([k,c]) => ({ k, c }))
+    });
+    const darks = [
+      mkDark('20a', 'Warm night · brown ground', { bg: '#1e1915', surface: '#2b241e', text: '#f3e8d6', muted: '#b6a994', accent: '#e8925a', accent2: '#aebf92', a900: '#4a2a16', a200: '#ffd9c2', s900: '#2f3622', s200: '#dbe8c6', divider: 'rgba(243,232,214,.14)' }, 'The light theme inverted: sand becomes roasted brown. Terracotta lifted to #e8925a (about 6:1 on the ground). The most direct mapping of the existing tokens.'),
+      mkDark('20b', 'Olive dusk · sage ground', { bg: '#181b14', surface: '#242a1e', text: '#eef0e1', muted: '#a9b099', accent: '#e38a50', accent2: '#b9c99c', a900: '#46291a', a200: '#ffd6bd', s900: '#2c3522', s200: '#d9e7c3', divider: 'rgba(238,240,225,.13)' }, 'The ground takes the sage hue, so terracotta reads warmer against it and the two accents swap weight. Calmer; a little further from the light theme.')
+    ];
+    const rail = [['Explore','compass',1],['Saved','bookmark'],['Create','plus'],['Activity','bell'],['You','user-round']].map(([label,icon,on]) => ({ label, icon, bg: on ? 'var(--color-bg)' : 'transparent', fg: on ? 'var(--color-accent-700)' : 'var(--color-neutral-800)' }));
+    const feed = [
+      { emoji: '🍞', title: 'Banana bread', time: '1 hr 10', first: 'Hana', branches: 6, on: 1 },
+      { emoji: '🍳', title: 'Shakshuka', time: '35 min', first: 'Sami', branches: 9 },
+      { emoji: '🍜', title: 'Miso butter noodles', time: '15 min', first: 'Ola', branches: 3 },
+      { emoji: '🍋', title: 'Lemon olive oil cake', time: '55 min', first: 'Ana', branches: 4 },
+      { emoji: '🥟', title: 'Pork and chive dumplings', time: '1 hr 30', first: 'Lin', branches: 2 }
+    ].map(r => ({ ...r, bg: r.on ? 'var(--color-accent-100)' : 'var(--color-surface)', ring: r.on ? 'inset 0 0 0 2px var(--color-accent)' : 'none' }));
+    const ingredients = [['3','very ripe bananas'],['115 g','butter, browned'],['150 g','light brown sugar'],['2','eggs'],['190 g','plain flour'],['1 tsp','bicarbonate of soda']].map(([amt,name]) => ({ amt, name }));
+    const C = 'var(--color-accent-100)', AD = 'var(--color-accent-2-100)';
+    const diffRows = [['4','very ripe bananas','was 3',C],['115 g','butter, browned','',''],['100 g','light brown sugar','was 150 g',C],['2','eggs','',''],['1 tbsp','banana purée swirl','new',AD],['190 g','plain flour','','']].map(([amt,name,was,bg]) => ({ amt, name, was, bg: bg || 'transparent' }));
+    const method = [
+      { n: 1, t: 'Brown the butter until it smells nutty. Cool for 10 minutes.' },
+      { n: 2, t: 'Mash the bananas with the sugar, then beat in the eggs and butter.' },
+      { n: 3, t: 'Fold in flour, soda and salt until just combined. Bake at 175°C for 55 minutes.' }
+    ];
+    return { famDisplay: this.state.fam ? 'flex' : 'none', openFam: () => this.setState({ fam: true }), closeFam: () => this.setState({ fam: false }), mini, path, macros, darks, rail, feed, ingredients, diffRows, method, skel: ['55%', '70%', '45%'] };
+  }
+}
+</script>
+</body>
+</html>

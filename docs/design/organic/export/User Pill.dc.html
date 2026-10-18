@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+</helmet>
+<span class="tag tag-neutral" style="flex:none;gap:5px;padding:2px 10px 2px 2px;font-size:12px;line-height:20px;white-space:nowrap"><span style="width:20px;height:20px;flex:none;border-radius:999px;background:{{ color }};display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--color-neutral-900)">{{ initial }}</span>{{ name }}</span>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:120,&quot;height&quot;:40},&quot;user&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Hana&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;initial&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;H&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;color&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;var(--color-accent-300)&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const name = this.props.user ?? 'Hana';
+    return { name, initial: this.props.initial ?? name.charAt(0), color: this.props.color ?? 'var(--color-accent-300)' };
+  }
+}
+</script>
+</body>
+</html>
