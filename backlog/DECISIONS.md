@@ -9,6 +9,8 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-18 | RL-062 | Tailwind's own `--radius-sm/md/lg` and `--spacing` are not overridden; only `--radius-card: 32px` is added. Overriding would silently resize 18 existing `rounded-sm/md/lg` uses and every spacing utility. | Adopt the Organic 4.4px spacing base and 8/16/28px radii globally. | pending |
+| 2026-10-18 | RL-062 | Figtree is one variable latin woff2 (400 to 700) named `figtree-latin-variable.woff2`; `OFL.txt` is the Figtree licence with the Caprasimo copyright line added above it. | Separate static files per weight; two licence files. | pending |
 | 2026-10-17 | RL-060 | A kept suggestion on an erased owner's recipe keeps `recipeTitle` and `recipeEmoji` (author confirmed at approval). | Null them. | pending |
 | 2026-10-17 | RL-060 | A suggestion the erased uid made on their own recipe (owner and suggester both the uid) is deleted with its thread, since no other party is in it. | Anonymise it too. | pending |
 | 2026-10-15 | RL-049 | Notifications are written in their own transaction after the primary write commits, and a limited one is skipped silently (reported as `rate-limited-notification`). The recipient never gets it. | Put the notification window in the favourite or follow batch (a limited notification would then abort the favourite), or queue skipped notifications for later. | pending |

@@ -1,25 +1,75 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Caprasimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/caprasimo-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/figtree-latin-variable.woff2") format("woff2");
+}
+
 @theme {
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-200: #c7d2fe;
-  --color-primary-300: #a5b4fc;
-  --color-primary-400: #818cf8;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-primary-800: #3730a3;
-  --color-primary-900: #312e81;
+  /* Organic ramps: values from docs/design/organic/tokens.css. neutral-* overrides Tailwind's built-in neutral. */
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-on-accent: #f5ead8;
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #82796a;
+  --color-neutral-700: #645c50;
+  --color-neutral-800: #474238;
+  --color-neutral-900: #2e2b25;
+  --color-accent-100: #fff2eb;
+  --color-accent-200: #ffe1d0;
+  --color-accent-300: #ffc6a5;
+  --color-accent-400: #f6a06b;
+  --color-accent-500: #d67f48;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-800: #643312;
+  --color-accent-900: #402310;
+  --color-accent-2-100: #f0fae1;
+  --color-accent-2-200: #e1eecc;
+  --color-accent-2-300: #ccdbb2;
+  --color-accent-2-400: #aebf92;
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f;
+  --color-accent-2-800: #3d472b;
+  --color-accent-2-900: #272e1b;
+
+  --color-primary-50: var(--color-accent-100);
+  --color-primary-100: var(--color-accent-200);
+  --color-primary-200: var(--color-accent-300);
+  --color-primary-300: var(--color-accent-400);
+  --color-primary-400: var(--color-accent-500);
+  --color-primary-500: var(--color-accent);
+  /* accent-700, not the swatch: cream on #c67139 is 3.03:1, on accent-700 5.72:1 (AA). */
+  --color-primary-600: var(--color-accent-700);
+  --color-primary-700: var(--color-accent-800);
+  --color-primary-800: var(--color-accent-900);
+  --color-primary-900: var(--color-accent-900);
   /* Dark-mode counterpart to the primary-50 tint. The primary scale is
      deliberately not remapped in .dark, because tinted chips pair primary-50
      with dark primary-700 text and would invert into illegibility. */
-  --color-primary-950: #1e1b4b;
+  --color-primary-950: var(--color-accent-900);
 
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f9fafb;
-  --color-surface-tertiary: #f3f4f6;
-  --color-text-primary: #111827;
+  --color-surface: #f5ead8;
+  --color-surface-secondary: #ebddc5;
+  --color-surface-tertiary: #eee7db;
+  --color-text-primary: #201e1d;
   /*
    * De-emphasised greys, chosen against contrast rather than by eye.
    *
@@ -30,13 +80,28 @@
    *
    * Hierarchy is necessarily compressed by this: "tertiary" was pale precisely
    * because it was de-emphasised, and de-emphasis by low contrast is the thing
-   * that fails. The remaining gap (light 7.6:1 vs 4.9:1) still reads as two
-   * levels without either being unreadable.
+   * that fails. The remaining gap (light 7.45:1 vs 4.92:1 on surface-secondary) still
+   * reads as two levels without either being unreadable. Organic light values:
+   * secondary 7.45:1 or better and tertiary 5.53 / 4.92 / 5.36:1 on the three surfaces.
    */
-  --color-text-secondary: #4b5563;
-  --color-text-tertiary: #646b7a;
-  --color-border: #e5e7eb;
-  --color-border-strong: #d1d5db;
+  --color-text-secondary: #474238;
+  --color-text-tertiary: #645c50;
+  --color-border: var(--color-divider);
+  --color-border-strong: #c0b6a5;
+
+  --font-sans: "Figtree", system-ui, sans-serif;
+  --font-heading: "Caprasimo", system-ui, sans-serif;
+  --text-h1: 42px;
+  --text-h2: 32px;
+  --text-h3: 25px;
+  --text-h4: 20px;
+  --text-h5: 16px;
+  --text-h6: 13px;
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+  /* Organic radius-lg (28px) * 1.15. Tailwind's own radius and spacing are left alone. */
+  --radius-card: 32px;
 
   --color-danger-50: #fef2f2;
   --color-danger-300: #fca5a5;
@@ -88,9 +153,30 @@ body {
   min-height: 100dvh;
   background-color: var(--color-surface);
   color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    /* Caprasimo has one weight; stop a font-semibold class faking bold. */
+    font-synthesis-weight: none;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 ::-webkit-scrollbar {

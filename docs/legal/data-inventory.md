@@ -52,7 +52,7 @@ through `src/services/storage.ts`. None is cleared by "Delete Recipes on This De
 
 | Item | Where | Contents | Notes |
 |---|---|---|---|
-| Offline app shell | Cache Storage (Workbox precache, `vite.config.ts`) | The app's own HTML, JS, CSS and icons | No user data. No runtime caching of Firestore, Auth or AI calls |
+| Offline app shell | Cache Storage (Workbox precache, `vite.config.ts`) | The app's own HTML, JS, CSS, icons and fonts | No user data. No runtime caching of Firestore, Auth or AI calls |
 | Cookies | none set by the app | none | No `document.cookie` anywhere in `src/`. Third-party scripts can set their own: reCAPTCHA (Google). GA4 cookies may remain from before RL-058. Their names and lifetimes are not in this repo |
 
 ### In the cloud: Firebase Authentication

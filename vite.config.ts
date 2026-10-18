@@ -21,10 +21,10 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        // Both are the light --color-surface (#ffffff). The dark variant lives in
+        // Both are the light --color-surface (#f5ead8, Organic cream). The dark variant lives in
         // index.html as theme-color meta tags, since a manifest takes one value.
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#f5ead8',
+        background_color: '#f5ead8',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },

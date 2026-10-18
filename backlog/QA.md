@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-062 Organic colours and self-hosted type
+
+- On the preview build at 390x844, walk the standing checks and confirm the cream ground, terracotta buttons and links, Caprasimo headings and Figtree body on Library, a recipe, the version tree, Settings and `/shared/:id`.
+- No heading looks fake-bold (Caprasimo has one weight).
+- DevTools Network shows no request to any Google Fonts host and both fonts load from `/fonts/`. An offline reload still shows the fonts.
+- Dark mode is interim: dark surfaces with terracotta links until RL-065 hides it. Check it is legible, not that it is pretty.
+- Include a fraction such as one third in an ingredient quantity: the Figtree latin subset may not cover U+2153 and U+2154, which would fall back to the system font.
+- Reviewer noted (med): the 10px chat timestamp is `text-primary-200` on primary-600 at exactly 4.50:1 (`ChatMessage.tsx:15`); use `primary-100` or `on-accent`.
+- Reviewer noted (med): only Figtree is preloaded, so on a cold first visit headings flash in the system font and reflow; preloading Caprasimo is a one-line fix in `index.html`.
+- Reviewer noted (low): small all-caps 14px Settings and edit-page section headings now render in Caprasimo and may look heavy (RL-063 or QA call); heart icons and bullet glyphs are about 3:1 (non-text); `public/icon.svg` and the PWA icons are still indigo and now clash with the cream manifest colours (needs its own ticket); dark-mode borders `dark:border-primary-800` nearly vanish until RL-065 hides dark.
+
 ### RL-085 Verified sign-out removes the account's own recipes from the device
 
 - On the preview, as a verified user with some own recipes and one saved copy of someone else's
