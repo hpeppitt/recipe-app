@@ -396,8 +396,8 @@ with every first publish; the new rules require those moves.
 - **Client live before the rules**: the older rules do not allow the two new window ids, so every
   notification transaction is denied and skipped silently (favourites, follows, suggestions,
   replies and reviews themselves still land; nobody is notified of them), and every first
-  publish fails. A first publish from the chat save stays on the device with the generic
-  "Saved on this device" toast; Share falls back to the self-contained link. Re-publishing an
+  publish fails. Since RL-082 a failed first publish from the chat save writes nothing and the
+  chat page shows the save error; Share falls back to the self-contained link. Re-publishing an
   already-published recipe keeps working (an update, no window). Emulator-checked against the
   HEAD rules (ticket RL-049 Notes).
 - **Rules live before the client**: old clients write notifications and recipe creates with

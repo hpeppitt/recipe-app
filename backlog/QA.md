@@ -19,6 +19,18 @@ both themes:
 
 ## Since the last release
 
+### RL-082 Saving a generated recipe is cloud first
+
+- On the preview as a verified user, generate a recipe and save it. The recipe page opens with "Recipe saved", and the recipe is on Explore.
+- Generate again, set DevTools to offline, and tap Save. After about 4 seconds the chat page shows "Couldn't save the recipe. Check your connection and try again.", the Save button works again, and nothing new appears in My Recipes.
+- Go back online and tap Save on the same card. Exactly one copy appears in My Recipes and on Explore.
+- The save error sits in the same red box as generation errors and has no "Try again" button (that button re-runs generation, so it is deliberately not offered).
+- Reviewer noted (med, data): a publish that times out at 4 s may still land, so "Couldn't save" is not strictly true; a user who leaves instead of retrying gets a public recipe with no Dexie row until RL-078's listener fills it (`useRecipeChat.ts` about 320-329). A distinct timeout message ("taking longer than expected, tap Save again") would help.
+- Reviewer noted (med, data): the built recipe is cached in `builtRef` and keyed only on the card, so a session change between a failed save and its retry reuses the old `createdBy.uid` and `publishRecipe` throws; key it on `user?.uid` too (`useRecipeChat.ts` about 315-317).
+- Reviewer noted (med, UI): `saveRecipe` does not clear the previous error when a retry starts, so the old message shows next to "Saving…" (`useRecipeChat.ts` about 276-283).
+- Reviewer noted (med, UI): the auto-scroll effect in `RecipeChatPage.tsx` (about 106-108) does not depend on `error`, so a save error from an older card can land off-screen.
+- Reviewer noted (low): the error box has no `role="alert"`; tests lack a late-landing-publish retry case and a concurrent double-tap case; the timeout test spends a real 4 s.
+
 ### RL-076 Pure sync plan for a verified user's own cloud recipes
 
 - Nothing to check in a browser yet. `planOwnRecipeSync` is pure and unused until RL-078 wires the listener, which is the ticket that makes it visible.

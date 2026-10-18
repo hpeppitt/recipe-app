@@ -8,12 +8,43 @@ import {
   exportAllRecipes,
   addLocalCollaborator,
   clearAllRecipes,
+  buildRecipe,
+  createRecipe,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 beforeEach(async () => {
   await db.recipes.clear();
   await db.favorites.clear();
+});
+
+describe('buildRecipe and createRecipe', () => {
+  const { id, parentId, rootId, depth, createdBy, collaborators, prompt, chatHistory, createdAt, updatedAt, ...generated } =
+    makeRecipe({ title: 'Soup' });
+  const owner = { uid: 'me', displayName: 'Me' };
+
+  it('buildRecipe returns a root record without writing it', async () => {
+    const r = buildRecipe(generated, 'soup', [], null, null, -1, owner);
+
+    expect(r).toMatchObject({ title: 'Soup', prompt: 'soup', parentId: null, depth: 0, createdBy: owner });
+    expect(r.rootId).toBe(r.id);
+    expect(await db.recipes.count()).toBe(0);
+  });
+
+  it('buildRecipe places a variation under its parent and mints a new id each call', () => {
+    const a = buildRecipe(generated, 'p', [], 'parent', 'root', 1, owner);
+    const b = buildRecipe(generated, 'p', [], 'parent', 'root', 1, owner);
+
+    expect(a).toMatchObject({ parentId: 'parent', rootId: 'root', depth: 2 });
+    expect(b.id).not.toBe(a.id);
+  });
+
+  it('createRecipe builds and adds the row', async () => {
+    const r = await createRecipe(generated, 'soup', []);
+
+    expect(await db.recipes.get(r.id)).toEqual(r);
+    expect(r.createdBy.uid).toBe('local');
+  });
 });
 
 describe('searchRecipes (dedup scoring)', () => {
