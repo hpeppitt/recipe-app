@@ -149,3 +149,22 @@ describe('Settings: Download my data', () => {
     expect(screen.getByText(/To move recipes between devices, use Export All Recipes/)).toBeTruthy();
   });
 });
+
+describe('Settings: Delete Recipes on This Device copy', () => {
+  const reloadText = /stay there and load again the next time you open the app/;
+  it.each([
+    ['verified', member, true],
+    ['anonymous', anon, false],
+    ['unverified', { ...member, emailVerified: false }, false],
+    ['signed out', null, false],
+  ])('%s user: account-reload copy is %s', (_n, u, verified) => {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
+    user = u;
+    render();
+    expect(reloadText.test(screen.getByText(/^Recipes (saved to your account|you've shared)/).textContent ?? '')).toBe(verified);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Recipes on This Device' }));
+    const dialog = screen.getByRole('dialog');
+    expect(reloadText.test(dialog.textContent ?? '')).toBe(verified);
+    expect(/cannot be undone/.test(dialog.textContent ?? '')).toBe(!verified);
+  });
+});

@@ -19,6 +19,13 @@ both themes:
 
 ## Since the last release
 
+### RL-081 Delete Recipes on This Device copy for verified users
+
+- As a verified user on the preview, open Settings at 390 px in both themes. Read the helper text under "Delete Recipes on This Device" and the confirm dialog. Confirm the delete, reload, and see the account recipes return. This is the author's read of the wording.
+- Signed out or anonymous, the old text still shows ("cannot be undone").
+- Needs the author: src/content/legal/privacy.ts lines 57 and 217 and cookies.ts:69 describe Delete Recipes on This Device as removing recipes; for a verified account they reload, so the wording overstates the removal (bump lastUpdated if edited).
+- Reviewer noted (low): SettingsPage.tsx:33 drops the sync hook's !isLoading guard; handleClear has no in-flight guard (pre-existing); the promise 'load again' fails while sync status is error.
+
 ### RL-032 Remove the cloud uid migration and the stranded-identity notice
 
 - On the emulator or preview: bookmark a recipe as anonymous, then sign in with an email that
