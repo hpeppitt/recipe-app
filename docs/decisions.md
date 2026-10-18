@@ -422,6 +422,8 @@ or counts twice. The recipe is already in Dexie
 (dual-write order), so the user loses nothing: the save toast and the Share toast say
 "You've published a lot today. Try again tomorrow." Offline, a first publish now fails
 instead of queueing; Share retries it.
+The "already in Dexie (dual-write order)" clause is superseded by 1b and RL-082: the chat save
+now publishes first and writes Dexie only on success.
 
 *2026-10-18: see 1b. A limited save now writes nothing anywhere and the chat page says why (RL-082).*
 

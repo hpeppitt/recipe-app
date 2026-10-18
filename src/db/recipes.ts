@@ -6,7 +6,12 @@ import type { Recipe, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
-export async function createRecipe(
+/**
+ * The record `createRecipe` would store, without writing it. A verified user's
+ * save publishes first and caches only on success (RL-082), so the id has to be
+ * minted before anything is written, and kept for a retry.
+ */
+export function buildRecipe(
   generated: GeneratedRecipe,
   prompt: string,
   chatHistory: ChatMessage[],
@@ -14,10 +19,10 @@ export async function createRecipe(
   parentRootId: string | null = null,
   parentDepth: number = -1,
   createdBy: CreatedBy = { uid: 'local', displayName: null }
-): Promise<Recipe> {
+): Recipe {
   const id = crypto.randomUUID();
   const now = Date.now();
-  const recipe: Recipe = {
+  return {
     id,
     parentId,
     rootId: parentRootId ?? id,
@@ -30,8 +35,19 @@ export async function createRecipe(
     createdAt: now,
     updatedAt: now,
   };
+}
+
+export async function createRecipe(
+  ...args: Parameters<typeof buildRecipe>
+): Promise<Recipe> {
+  const recipe = buildRecipe(...args);
   await db.recipes.add(recipe);
   return recipe;
+}
+
+/** Caches a recipe that is already in the cloud, overwriting any row with its id. */
+export async function cacheRecipe(recipe: Recipe): Promise<void> {
+  await db.recipes.put(recipe);
 }
 
 export async function getRecipe(id: string): Promise<Recipe | undefined> {

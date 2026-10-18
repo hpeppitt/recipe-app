@@ -38,6 +38,12 @@ Project `recipe-lab-3832b` (`.firebaserc`). Ten top-level collections (`recipes`
 `rateLimits`, `follows`) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
+**Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
+publishes to Firestore first and only then `put`s the same record in Dexie. Nothing is written
+locally when the publish fails or times out, so a verified user never has a local-only own
+recipe; the retry reuses the record's id, which `publishRecipe`'s in-transaction re-read turns
+into a merge if the earlier attempt landed. Local-only mode still adds to Dexie alone.
+
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
 | `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |

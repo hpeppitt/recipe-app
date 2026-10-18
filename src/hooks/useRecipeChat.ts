@@ -1,7 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
-import { createRecipe, searchRecipes, searchVariations } from '../db/recipes';
+import {
+  buildRecipe,
+  cacheRecipe,
+  createRecipe,
+  searchRecipes,
+  searchVariations,
+} from '../db/recipes';
 import {
   publishRecipe,
   searchPublishedRecipes,
@@ -22,7 +28,7 @@ import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
 import { reportError } from '../services/telemetry';
 
-/** How long a save waits for the cloud publish before reporting local-only. */
+/** How long a save waits for the cloud publish before reporting a failure. */
 const PUBLISH_TIMEOUT_MS = 4000;
 
 /** A dedup match, which may live only in the shared cloud library. */
@@ -132,6 +138,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   // after an error silently skipped dedup for the rest of the session.
   const generatedOnceRef = useRef(false);
   const savingRef = useRef(false);
+  // The record built for the version last sent to the cloud. A retry of that
+  // version reuses its id, so a publish that timed out but landed is merged by
+  // publishRecipe instead of becoming a second recipe (RL-049, RL-082).
+  const builtRef = useRef<{ source: GeneratedRecipe; recipe: Recipe } | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -266,9 +276,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const saveRecipe = useCallback(async (target?: { recipe: GeneratedRecipe; prompt: string }) => {
     const toSave = target?.recipe ?? latestRecipe;
     if (!toSave) return;
-    // createRecipe mints a fresh UUID per call, so a double-tap would write two
-    // distinct recipes to Dexie and publish both. The ref guards the gap before
-    // the isSaving re-render lands.
+    // Each build mints a fresh UUID, so a double-tap would save two distinct
+    // recipes. The ref guards the gap before the isSaving re-render lands.
     if (savingRef.current) return;
     savingRef.current = true;
     setIsSaving(true);
@@ -282,48 +291,63 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         displayName: user?.displayName ?? null,
       };
 
-      const recipe = await createRecipe(
+      const args = [
         toSave,
         prompt,
         messages,
         parentRecipe?.id ?? null,
         parentRecipe?.rootId ?? null,
         parentRecipe?.depth ?? -1,
-        createdBy
-      );
+        createdBy,
+      ] as const;
 
-      // Bounded wait on the publish rather than fire-and-forget. The outcome has
-      // to be known before navigating, because the confirmation is shown on the
-      // destination page and "Saved and shared" is a claim we should not make
-      // when the write never landed. Bounded because an unreachable Firestore
-      // retries instead of rejecting, so an unbounded await would hang the save.
-      let published = false;
-      // Set when the publish was refused at the daily cap (RL-049); the recipe is
-      // already in Dexie, so the destination says why it stayed local.
-      let note: string | null = null;
-      if (isFirebaseConfigured) {
-        published = await withTimeout(
-          publishRecipe(recipe)
-            .then(() => true)
-            .catch((err) => {
-              console.error(
-                'Publishing recipe to the cloud failed; it stays local until shared',
-                err
-              );
-              note = rateLimitMessage(err);
-              return false;
-            }),
-          PUBLISH_TIMEOUT_MS,
-          false
-        );
+      if (!isFirebaseConfigured) {
+        // Local-only mode cannot generate, so this is not reached in practice;
+        // kept as the plain Dexie save it always was.
+        const recipe = await createRecipe(...args);
+        trackRecipeCreated(recipe.id, !!parentRecipe);
+        navigate(`/recipe/${recipe.id}`, { state: { saved: 'local', note: null } });
+        return;
+      }
+
+      // Cloud first (decision 1b): the sync removes own rows the server lacks,
+      // so a Dexie row written before a failed publish would vanish later.
+      const recipe =
+        builtRef.current?.source === toSave ? builtRef.current.recipe : buildRecipe(...args);
+      builtRef.current = { source: toSave, recipe };
+
+      // Bounded because an unreachable Firestore retries instead of rejecting.
+      const failure = await withTimeout<{ err: unknown } | null>(
+        publishRecipe(recipe).then(
+          () => null,
+          (err: unknown) => ({ err })
+        ),
+        PUBLISH_TIMEOUT_MS,
+        { err: new Error('Publishing the recipe timed out') }
+      );
+      if (failure) {
+        console.error('Publishing recipe to the cloud failed; nothing was saved', failure.err);
+        savingRef.current = false;
+        setIsSaving(false);
+        setError({
+          message:
+            rateLimitMessage(failure.err) ??
+            "Couldn't save the recipe. Check your connection and try again.",
+        });
+        return;
+      }
+
+      try {
+        await cacheRecipe(recipe);
+      } catch (err) {
+        // The recipe is in the cloud, so the save is done; the own-recipe
+        // listener (RL-078) fills the row.
+        console.error('Caching the saved recipe locally failed', err);
+        reportError(err, 'save-recipe-cache');
       }
 
       trackRecipeCreated(recipe.id, !!parentRecipe);
-      // The destination reads this to confirm what actually happened. Local-only
-      // mode reports 'local' too, which is accurate: nothing was shared.
-      navigate(`/recipe/${recipe.id}`, {
-        state: { saved: published ? 'cloud' : 'local', note },
-      });
+      navigate(`/recipe/${recipe.id}`, { state: { saved: 'cloud', note: null } });
       // Deliberately stays locked after a successful save: the page is
       // navigating away and re-enabling would briefly re-arm the button.
     } catch (err) {
