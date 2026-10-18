@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTree, collectSubtreeIds, countDescendantsByRoot } from './tree';
+import { ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle } from './tree';
 import { makeRecipe } from '../test/factories';
 
 describe('collectSubtreeIds', () => {
@@ -103,5 +103,61 @@ describe('countDescendantsByRoot', () => {
   it('reports nothing for a root with no variations', () => {
     const counts = countDescendantsByRoot([{ id: 'root', rootId: 'root' }]);
     expect(counts.get('root')).toBeUndefined();
+  });
+});
+
+describe('ancestorChain', () => {
+  const root = makeRecipe({ id: 'root', parentId: null });
+  const a = makeRecipe({ id: 'a', parentId: 'root' });
+  const b = makeRecipe({ id: 'b', parentId: 'a' });
+
+  it('returns root first and excludes the id', () => {
+    expect(ancestorChain([b, root, a], 'b').map((r) => r.id)).toEqual(['root', 'a']);
+  });
+
+  it('is empty for the root', () => {
+    expect(ancestorChain([root, a], 'root')).toEqual([]);
+  });
+
+  it('stops at a missing parent', () => {
+    expect(ancestorChain([a, b], 'b').map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('survives a cycle', () => {
+    const x = makeRecipe({ id: 'x', parentId: 'y' });
+    const y = makeRecipe({ id: 'y', parentId: 'x' });
+    expect(ancestorChain([x, y], 'x').map((r) => r.id)).toEqual(['y']);
+  });
+});
+
+describe('familySubtitle', () => {
+  const now = new Date(2026, 9, 18);
+  const by = (uid: string, displayName: string | null) => ({ uid, displayName });
+  const march = new Date(2026, 2, 10).getTime();
+  const root = (over = {}) =>
+    makeRecipe({ id: 'root', parentId: null, createdAt: march, createdBy: by('u1', 'Ada'), ...over });
+  const child = (uid: string) => makeRecipe({ id: `c-${uid}`, parentId: 'root', createdBy: by(uid, null) });
+
+  it('counts versions and distinct cooks', () => {
+    expect(familySubtitle([root(), child('u1'), child('u2')], now)).toBe(
+      '3 versions, 2 cooks, started by Ada in March'
+    );
+  });
+
+  it('uses singulars', () => {
+    expect(familySubtitle([root()], now)).toBe('1 version, 1 cook, started by Ada in March');
+  });
+
+  it('drops a null name', () => {
+    expect(familySubtitle([root({ createdBy: by('u1', null) })], now)).toBe('1 version, 1 cook, started in March');
+  });
+
+  it('drops the month when createdAt is 0', () => {
+    expect(familySubtitle([root({ createdAt: 0 })], now)).toBe('1 version, 1 cook, started by Ada');
+  });
+
+  it('appends the year when it is not this year', () => {
+    const old = new Date(2025, 2, 10).getTime();
+    expect(familySubtitle([root({ createdAt: old })], now)).toContain('in March 2025');
   });
 });

@@ -92,3 +92,43 @@ export function countDescendantsByRoot(
 
   return counts;
 }
+
+/**
+ * Ancestors of `id`, root first, excluding `id` itself. Stops at a missing
+ * parent, and the seen-set stops a corrupted parentId cycle from spinning.
+ */
+export function ancestorChain(recipes: Recipe[], id: string): Recipe[] {
+  const byId = new Map(recipes.map((r) => [r.id, r]));
+  const chain: Recipe[] = [];
+  const seen = new Set<string>([id]);
+  let current = byId.get(id);
+  while (current?.parentId) {
+    const parent = byId.get(current.parentId);
+    if (!parent || seen.has(parent.id)) break;
+    seen.add(parent.id);
+    chain.unshift(parent);
+    current = parent;
+  }
+  return chain;
+}
+
+/** "{N} versions, {M} cooks, started by {name} in {Month}" for one family. */
+export function familySubtitle(recipes: Recipe[], now: Date = new Date()): string {
+  const root = recipes.find((r) => r.parentId === null);
+  const versions = recipes.length;
+  const cooks = new Set(recipes.map((r) => r.createdBy.uid)).size;
+  let text = `${versions} ${versions === 1 ? 'version' : 'versions'}, ${cooks} ${cooks === 1 ? 'cook' : 'cooks'}`;
+  const name = root?.createdBy.displayName;
+  const created = root?.createdAt ?? 0;
+  // A createdAt of 0 means a cloud record without one (see toRecipeLike).
+  const when = created
+    ? new Date(created).toLocaleDateString(undefined, {
+        month: 'long',
+        ...(new Date(created).getFullYear() !== now.getFullYear() && { year: 'numeric' }),
+      })
+    : '';
+  if (name || when) text += ', started';
+  if (name) text += ` by ${name}`;
+  if (when) text += ` in ${when}`;
+  return text;
+}

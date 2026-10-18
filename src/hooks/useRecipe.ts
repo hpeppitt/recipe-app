@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { getRecipe } from '../db/recipes';
-import { collectSubtreeIds } from '../lib/tree';
+import { ancestorChain, collectSubtreeIds } from '../lib/tree';
 import { useRecipeTree } from './useRecipeTree';
 import { getPublishedRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
@@ -149,22 +149,7 @@ export function useRecipeLineage(recipe: Recipe | undefined) {
     [recipes, recipe]
   );
 
-  const ancestors = useMemo(() => {
-    if (!recipe) return [];
-    const byId = new Map(recipes.map((r) => [r.id, r]));
-    const chain: Recipe[] = [];
-    const seen = new Set<string>([recipe.id]);
-    let current: Recipe | undefined = recipe;
-    while (current?.parentId) {
-      const parent = byId.get(current.parentId);
-      // Cycle guard: a corrupted parentId chain would otherwise spin forever.
-      if (!parent || seen.has(parent.id)) break;
-      seen.add(parent.id);
-      chain.unshift(parent);
-      current = parent;
-    }
-    return chain;
-  }, [recipes, recipe]);
+  const ancestors = useMemo(() => (recipe ? ancestorChain(recipes, recipe.id) : []), [recipes, recipe]);
 
   /**
    * Every descendant, not just direct children. The delete warning counted

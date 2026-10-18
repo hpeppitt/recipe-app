@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-067 Version tree page shell
+
+- On a family with at least three versions from two accounts, open the tree. Check the subtitle numbers and month, that the "Branch from" button label shows the current recipe's title and opens the variation composer, and that Back from the tree returns to the recipe in one press.
+- Check at 390 and 320 px: the bar stays at the bottom, the last node scrolls clear of it, and the long title truncates to one line. On an iPhone, the bar clears the home indicator.
+- The view switch is hidden for now (only Tree exists); `?view=anything` still shows the tree.
+- Reviewer noted (med): if a family has no record with a null parent (a partial cloud tree), the page shows "Recipe not found" for a recipe that exists, with no title or Branch bar; the tree hook exposes no error, so a failed tree fetch cannot reach Try again either (likely pre-existing).
+- Reviewer noted (low): loading and error states have no `role="status"` or `role="alert"`; the 30px title has no `break-words` for an unbroken long title at 320px; `env(safe-area-inset-bottom)` is always 0 until `index.html` gets `viewport-fit=cover`; the "cooks" count undercounts when pre-auth `'local'` recipes mix with real accounts; the new `ancestorChain` returns no ancestors if a recipe is missing from its own tree list.
+
 ### RL-066 recipeDiff
 
 - Covered by tests and has no UI yet; nothing to check in a browser.
