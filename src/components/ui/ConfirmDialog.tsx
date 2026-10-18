@@ -44,9 +44,9 @@ export function ConfirmDialog({
       onClose={onCancel}
       aria-labelledby={titleId}
       aria-describedby={messageId}
-      className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
+      className="backdrop:bg-black/50 bg-surface rounded-card p-6 max-w-sm w-[calc(100%-2rem)] shadow-lg"
     >
-      <h2 id={titleId} className="text-lg font-semibold text-text-primary mb-2">
+      <h2 id={titleId} className="font-heading text-h4 text-text-primary mb-2">
         {title}
       </h2>
       <p id={messageId} className="text-sm text-text-secondary mb-6">

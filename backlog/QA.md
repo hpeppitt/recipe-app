@@ -30,6 +30,21 @@ both themes:
 - Reviewer noted (med): only Figtree is preloaded, so on a cold first visit headings flash in the system font and reflow; preloading Caprasimo is a one-line fix in `index.html`.
 - Reviewer noted (low): small all-caps 14px Settings and edit-page section headings now render in Caprasimo and may look heavy (RL-063 or QA call); heart icons and bullet glyphs are about 3:1 (non-text); `public/icon.svg` and the PWA icons are still indigo and now clash with the cream manifest colours (needs its own ticket); dark-mode borders `dark:border-primary-800` nearly vanish until RL-065 hides dark.
 
+### RL-063 Shared UI primitives restyled to Organic
+
+- At 390x844 check buttons (primary, secondary, ghost, danger, disabled), chips and the filter chips on Library, the theme `SegmentedControl` in Settings, inputs on the edit page, the delete confirm dialog, skeletons while a recipe loads, and an empty state.
+- Tab through each with the keyboard and confirm the accent focus ring is visible.
+- Disabled buttons are at 45% opacity: check they are still readable.
+- EmptyState stays centred (left-alignment not attempted, so no caller was at risk).
+- Primary button uses accent-700 fill (5.72:1) rather than the design's #c67139 swatch (3.03:1); author's call, a class-name change only.
+- Reviewer noted (med): Skeleton default `rounded-card` vs a caller's `rounded-full`: `cn` has no tailwind-merge, so the `ProfilePage.tsx:407` avatar placeholder may render as a rounded square. Check it.
+- Reviewer noted (med): the focus ring uses primary-500, about 2.7:1 on the Input's surface-secondary fill (below the 3:1 non-text minimum). primary-600 would clear it.
+- Reviewer noted (med): secondary Button and inactive Chip edges use `border-border`, roughly 1.3:1, so they read as plain text rather than tappable. `border-border-strong` would fix it. This follows the ticket's spec, so it is a design call for the author.
+- Reviewer noted (low): Input error border danger-500 is about 2.6:1.
+- Reviewer noted (low): a long unbroken tag in an EmptyState title could overflow at 320px.
+- Reviewer noted (low): the ConfirmDialog button row does not wrap.
+- Reviewer noted (low): LibraryPage still hand-rolls `font-semibold`, `rounded-lg` and a `rounded-xl` search input that will not match the pill Input (page tickets).
+
 ### RL-085 Verified sign-out removes the account's own recipes from the device
 
 - On the preview, as a verified user with some own recipes and one saved copy of someone else's

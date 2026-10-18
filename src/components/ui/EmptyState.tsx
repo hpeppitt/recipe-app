@@ -41,7 +41,7 @@ export function EmptyState({
       {compact ? (
         <p className="text-sm font-medium text-text-secondary">{title}</p>
       ) : (
-        <h2 className="text-lg font-semibold text-text-primary mb-1">{title}</h2>
+        <h2 className="font-heading text-h3 text-text-primary mb-1">{title}</h2>
       )}
       {description && (
         <p className={`text-sm text-text-secondary max-w-xs ${compact ? 'mt-1' : ''}`}>

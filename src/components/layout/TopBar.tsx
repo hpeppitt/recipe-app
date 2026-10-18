@@ -17,7 +17,7 @@ export function TopBar({ title, showBack = false, onBack, right }: TopBarProps) 
         {showBack && (
           <button
             onClick={onBack ?? (() => navigate(-1))}
-            className="mr-1 -ml-3 w-11 h-11 flex items-center justify-center flex-shrink-0 rounded-lg hover:bg-surface-tertiary transition-colors"
+            className="mr-1 -ml-3 w-11 h-11 flex items-center justify-center flex-shrink-0 rounded-full hover:bg-surface-tertiary transition-colors"
             aria-label="Go back"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -25,7 +25,7 @@ export function TopBar({ title, showBack = false, onBack, right }: TopBarProps) 
             </svg>
           </button>
         )}
-        <h1 className="flex-1 text-lg font-semibold truncate">{title}</h1>
+        <h1 className="flex-1 font-heading text-h4 truncate">{title}</h1>
         {right && <div className="flex items-center gap-1">{right}</div>}
       </div>
     </header>
