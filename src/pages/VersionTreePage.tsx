@@ -5,7 +5,8 @@ import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
-import { familySubtitle, type TreeNode } from '../lib/tree';
+import { TreeView } from '../components/tree/TreeView';
+import { familySubtitle } from '../lib/tree';
 
 // Later view tickets (Timeline RL-070, Map RL-072) append here. The switch only
 // renders once there is more than one.
@@ -106,7 +107,7 @@ export function VersionTreePage() {
             />
           ) : showTree ? (
             <div className="space-y-4">
-              <TreeNodeView node={tree} currentId={id} onNavigate={(rid) => navigate(`/recipe/${rid}`)} depth={0} />
+              <TreeView tree={tree} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
               {/* The common case is a single card sitting alone with nothing
                   explaining what this screen is for. The sticky bar below is
                   the action that fills the tree. */}
@@ -139,77 +140,6 @@ export function VersionTreePage() {
               <span className="truncate">{`Branch from "${recipe.title}"`}</span>
             </Button>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface TreeNodeViewProps {
-  node: TreeNode;
-  currentId?: string;
-  onNavigate: (id: string) => void;
-  depth: number;
-}
-
-function TreeNodeView({ node, currentId, onNavigate, depth }: TreeNodeViewProps) {
-  const isCurrent = node.recipe.id === currentId;
-  const isRoot = depth === 0;
-
-  return (
-    <div className="relative">
-      {/* Connector line from parent */}
-      {/* Stub joining this node up to the parent's vertical rule; tracks the
-          indent, so it moved with ml-6 -> ml-3. */}
-      {depth > 0 && (
-        <div className="absolute left-3 -top-4 w-px h-4 bg-border" />
-      )}
-
-      <button
-        onClick={() => onNavigate(node.recipe.id)}
-        className={`w-full min-w-56 text-left p-3 rounded-xl border-2 transition-all ${
-          isCurrent
-            ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
-            : isRoot
-            ? 'border-primary-200 bg-primary-50/50 hover:border-primary-300'
-            : 'border-border bg-surface hover:border-border-strong'
-        }`}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-xl">{node.recipe.emoji}</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">
-              {node.recipe.title}
-            </p>
-            <p className="text-xs text-text-tertiary truncate">
-              {node.recipe.depth === 0
-                ? 'Original'
-                : node.recipe.prompt
-                  ? `"${node.recipe.prompt}"`
-                  : 'Variation'}
-            </p>
-          </div>
-          {isCurrent && (
-            <span className="text-xs bg-primary-600 text-white px-2 py-0.5 rounded-full flex-shrink-0">
-              Current
-            </span>
-          )}
-        </div>
-      </button>
-
-      {node.children.length > 0 && (
-        // 24px per level, halved from 48px. Combined with the cards' min-width,
-        // a deep chain now scrolls horizontally instead of crushing the cards.
-        <div className="ml-3 mt-4 space-y-4 border-l-2 border-border pl-3">
-          {node.children.map((child) => (
-            <TreeNodeView
-              key={child.recipe.id}
-              node={child}
-              currentId={currentId}
-              onNavigate={onNavigate}
-              depth={depth + 1}
-            />
-          ))}
         </div>
       )}
     </div>
