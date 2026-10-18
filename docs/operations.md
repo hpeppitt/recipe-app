@@ -726,3 +726,14 @@ git -c user.email="20333887+hpeppitt@users.noreply.github.com" commit --amend --
 2026-07-31 with no release history. Real tagging starts at the end of roadmap Phase 1, which
 is `v0.2.0` and the first version this project can actually point at. Do not retrofit
 invented semver onto the past — see [CHANGELOG.md](../CHANGELOG.md).
+
+### First release record (RL-042, v0.3.0, 2026-10-18)
+
+- Wiped production on `recipe-lab-3832b`: `firebase firestore:delete --all-collections --force`
+  (collections removed: clientErrors, favorites, follows, notifications, profiles, recipes), then
+  all 14 Firebase Auth users deleted with the Admin SDK and application default credentials,
+  with `GOOGLE_CLOUD_QUOTA_PROJECT=recipe-lab-3832b` set for that one command (the ADC quota
+  project is another project without the Identity Toolkit API). No backup, as authorised.
+- Rollback target for the rules: ruleset `2dc8bfba-ddb2-44c6-bf59-4d3e420a9656` (2026-08-14).
+- Indexes deployed and all six READY before the client release.
+- Built with `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` blanked, so analytics are off.

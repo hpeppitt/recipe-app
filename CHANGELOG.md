@@ -12,6 +12,50 @@ release, newest first.
 
 ---
 
+## v0.3.0 - 2026-10-18
+
+The first release as an accounts app. Production data and every sign-in were wiped first, so
+everyone starts fresh.
+
+### Added
+
+- **Accounts you can trust.** Anonymous visitors can browse and bookmark on their own device.
+  Saving, publishing, sharing, favouriting in the cloud, following, suggesting and replying
+  need a verified email, signed in with a link. Sign-up asks you to accept the Terms, and
+  asks again if they change.
+- **Terms, Privacy and Cookie pages**, linked from Settings and the sign-up forms. They are
+  drafts for testing, not legal advice.
+- **Analytics only if you agree.** A banner asks once. Nothing is tracked unless you allow
+  it, and you can change your mind in Settings. This build ships with analytics off.
+- **Download all my data** from Settings, local and cloud.
+- **Explore tab and tag chips**, separate from My Recipes. Tags are stored in lower case so
+  the chips find recipes.
+- **Cloud favourites follow you** to every device you sign into, and local bookmarks move to
+  your account when you add an email.
+- **Share asks you to sign up** if you have no verified email, instead of handing out a long
+  link.
+- **Works offline as an app**, with an install prompt and an update prompt.
+- **Limits that say so.** Suggestions, replies, notifications and new recipes are rate
+  limited, and the app tells you when you hit one.
+
+### Changed
+
+- Google Analytics is gone. The app sends no product events anywhere in this release.
+- Reply and suggestion threads are visible only to the recipe owner and the suggester.
+- Deleting a recipe waits for the cloud and tells you when published copies remain.
+- Share links are checked before they open. Amounts snap to an eighth. Unit abbreviations are
+  never pluralised. The recipe editor refuses negative amounts.
+- Security headers are sent on every page, and app dependencies have no known critical or
+  high advisories.
+
+### Fixed
+
+- Re-publishing a recipe no longer overwrites its collaborators.
+- Mark all read works with more than 500 notifications. Cold loads tell "not found" from
+  "could not load". Corrupt browser storage no longer breaks the app.
+
+---
+
 ## v0.2.0 — 2026-08-11
 
 The first tagged version, and the end of roadmap Phase 1. Everything above this line in the
