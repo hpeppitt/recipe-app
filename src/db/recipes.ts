@@ -2,6 +2,7 @@ import { db } from './database';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { parseImportedRecipes } from '../lib/import';
+import { planOwnRecipeSync } from '../lib/recipeSync';
 import type { Recipe, CreatedBy, Collaborator } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
@@ -48,6 +49,24 @@ export async function createRecipe(
 /** Caches a recipe that is already in the cloud, overwriting any row with its id. */
 export async function cacheRecipe(recipe: Recipe): Promise<void> {
   await db.recipes.put(recipe);
+}
+
+/**
+ * Makes Dexie mirror a server snapshot of `uid`'s own recipes (RL-078, decision 1b) in one
+ * transaction, so a save landing between the read and the write cannot be lost to a stale plan.
+ */
+export async function applyOwnRecipeSync(
+  uid: string,
+  cloudDocs: unknown[],
+  previousUids: string[]
+): Promise<void> {
+  await db.transaction('rw', db.recipes, async () => {
+    // A row with no owner (an old or hand-made import) would throw in the plan; leave it alone.
+    const rows = (await db.recipes.toArray()).filter((r) => typeof r.createdBy?.uid === 'string');
+    const { put, remove } = planOwnRecipeSync(uid, rows, cloudDocs, previousUids);
+    if (put.length) await db.recipes.bulkPut(put);
+    if (remove.length) await db.recipes.bulkDelete(remove);
+  });
 }
 
 export async function getRecipe(id: string): Promise<Recipe | undefined> {

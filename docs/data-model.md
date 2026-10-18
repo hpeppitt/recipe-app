@@ -49,6 +49,17 @@ re-publishes the edited record with a fresh `updatedAt` within 5 seconds, and on
 `cacheRecipe`s the same record. On a failure, a timeout or a missing cloud copy nothing is
 written to Dexie. Anonymous, signed-out and local-only edits still write Dexie alone.
 
+**Own recipes listener** (RL-078, decision 1b): for a verified user, one `onSnapshot` per
+session on `recipes where createdBy.uid == uid`, with no `orderBy` and no limit. An
+equality-only query needs no composite index, and `recipes` reads are public, so no rules
+change. Cost: every own recipe is read once when the listener attaches, then one read per
+changed document; metadata-only events are free. Only server snapshots with no pending writes
+are applied. Each one makes Dexie mirror it: own rows are overwritten (the cloud wins every
+field but `chatHistory`) and own rows the snapshot lacks are removed. The tidy rule: rows
+whose `createdBy.uid` is another uid that signed in on this device (`getPreviousUids`) are
+removed. Saved copies of other users' recipes, `'local'` rows and rows with no `createdBy`
+are never touched. The listener never writes to Firestore.
+
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
 | `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |

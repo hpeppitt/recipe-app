@@ -8,6 +8,7 @@ import { PageFallback } from './components/ui/PageFallback';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { TermsGate } from './components/auth/TermsUpdateDialog';
 import { useTheme } from './hooks/useTheme';
+import { useOwnRecipesSync } from './hooks/useOwnRecipesSync';
 
 // Library stays eager so first paint is unchanged; every other page is its own chunk.
 const RecipeChatPage = lazy(() => import('./pages/RecipeChatPage').then(m => ({ default: m.RecipeChatPage })));
@@ -18,6 +19,12 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ defa
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+
+// Mounted beside the routes so the own-recipes listener covers every page (RL-078).
+function OwnRecipesSync() {
+  useOwnRecipesSync();
+  return null;
+}
 
 export default function App() {
   useTheme();
@@ -54,6 +61,7 @@ export default function App() {
         <UpdatePrompt />
         {/* Inside the router so it can stay off the policy pages (RL-047). */}
         <TermsGate />
+        <OwnRecipesSync />
       </BrowserRouter>
     </AuthProvider>
   );

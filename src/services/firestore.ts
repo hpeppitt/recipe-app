@@ -121,6 +121,30 @@ export async function getPublishedRecipe(
   };
 }
 
+/**
+ * Live view of a user's own recipes (RL-078). Only server snapshots with no pending local
+ * writes are passed on: the sync treats each one as complete, so an empty answer from the
+ * cache would delete every own row in Dexie. Metadata changes are included so the server's
+ * confirmation of a cached or pending result still arrives (it costs no reads).
+ */
+export function subscribeOwnRecipes(
+  uid: string,
+  onDocs: (docs: DocumentData[]) => void,
+  onError: (err: Error) => void
+): () => void {
+  if (!firestore) return () => {};
+  const q = query(collection(firestore, 'recipes'), where('createdBy.uid', '==', uid));
+  return onSnapshot(
+    q,
+    { includeMetadataChanges: true },
+    (snap) => {
+      if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+      onDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    },
+    onError
+  );
+}
+
 export type PublishedRecipe = SharedRecipe & {
   id: string;
   parentId: string | null;
