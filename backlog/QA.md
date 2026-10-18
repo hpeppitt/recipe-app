@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-079 My Recipes and the own profile wait for the first cloud sync
+
+- At 390x844 in both themes, sign a verified account that has recipes into a fresh browser profile. My Recipes should go from three skeleton rows to the list with no empty-state flash. The own profile shows two skeleton rows, then the list.
+- Set DevTools to offline and reload: My Recipes shows "You're offline. Showing the recipes saved on this device." above the list. Go back online and the line disappears.
+- Check the offline line's contrast in dark mode.
+- An anonymous or signed-out visitor never sees the line or the skeleton.
+- If the sync never lands, the skeleton gives way to the usual empty state after 6 seconds.
+- Reviewer noted (med): offline with an empty Dexie (a fresh device) the offline line sits above "You haven't created a recipe yet" with a Create button, so a verified user with cloud recipes is told they have none (`LibraryPage.tsx` 276-280 and 378-385); needs an offline-specific empty message.
+- Reviewer noted (med): if the first sync is still `waiting` after 6 s online, the page shows the "no recipes" empty state with no syncing hint; a softer empty state or a "Still syncing" line would avoid reading slowness as no data (`useOwnRecipesWaiting.ts:19`).
+- Reviewer noted (low): the 6 s timer starts at page mount, not when the My Recipes tab is shown, so switching from Explore after 6 s skips the skeleton; the own profile does not subscribe to online/offline and has no offline note; the offline `role="status"` line mounts with its text already in it, which some screen readers do not announce.
+
 ### RL-078 A verified user's own recipes stay in step on every device
 
 - Against the emulators (`npm run emulators` plus `npm run dev:emulated`) or the preview, sign the same verified account into two browser profiles, A and B.
