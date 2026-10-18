@@ -6,11 +6,15 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { TreeView } from '../components/tree/TreeView';
+import { TimelineView } from '../components/tree/TimelineView';
 import { familySubtitle } from '../lib/tree';
 
-// Later view tickets (Timeline RL-070, Map RL-072) append here. The switch only
-// renders once there is more than one.
-const VIEWS = [{ value: 'tree', label: 'Tree' }] as const;
+// Later view tickets (Map RL-072) append here. The switch only renders once there is
+// more than one.
+const VIEWS = [
+  { value: 'tree', label: 'Tree' },
+  { value: 'timeline', label: 'Timeline' },
+] as const;
 type ViewId = (typeof VIEWS)[number]['value'];
 
 function BackButton() {
@@ -107,7 +111,11 @@ export function VersionTreePage() {
             />
           ) : showTree ? (
             <div className="space-y-4">
-              <TreeView tree={tree} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
+              {view === 'timeline' ? (
+                <TimelineView recipes={recipes} currentId={id} />
+              ) : (
+                <TreeView tree={tree} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
+              )}
               {/* The common case is a single card sitting alone with nothing
                   explaining what this screen is for. The sticky bar below is
                   the action that fills the tree. */}
