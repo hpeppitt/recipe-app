@@ -701,3 +701,9 @@ per session for a rarely changing list), a deletion sync (needs tombstones, so a
 change), and running it next to the RL-034 push in `AuthContext`. An assistant's call, cheap
 to overrule.
 
+
+### Policy sign-off for solo testing (RL-046, 2026-10-18)
+
+The author signed off the Terms, Privacy and Cookie policies as drafts for testing by the operator and a few invited people. Terms `TERMS_VERSION` is `2026-10-17` (unchanged); Privacy and Cookie are dated `2026-10-18`. The draft notice stays on every page and a lawyer review is still advised before a public launch.
+
+Answers recorded: the request log rests on legitimate interests (not legal obligation); the policy states plainly that the operator accesses data from Australia, which has no EU or UK adequacy decision, and claims no further transfer mechanism; PostHog is on the free plan (one year retention) and its key stays unset for the first release; reCAPTCHA, Hosting log and Gemini wording is deliberately cautious (reCAPTCHA cookie `_GRECAPTCHA` about six months from third-party listings, Hosting logs up to 30 days "may keep", Gemini free tier). Testers are invited from outside the EEA, Switzerland and the UK only while the Gemini free tier is in use, because Google's terms allow only the paid tier for those regions.
