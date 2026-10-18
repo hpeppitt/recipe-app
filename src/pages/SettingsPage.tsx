@@ -29,6 +29,8 @@ export function SettingsPage() {
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured } = useAuth();
+  // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
+  const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
 
   const handleExport = async () => {
@@ -264,8 +266,9 @@ export function SettingsPage() {
               Delete Recipes on This Device
             </Button>
             <p className="text-xs text-text-tertiary">
-              Recipes you've shared stay in the shared library. Delete those from each
-              recipe's own page.
+              {accountReloads
+                ? 'Recipes saved to your account stay there and load again the next time you open the app. To remove one for good, delete it from its own page.'
+                : "Recipes you've shared stay in the shared library. Delete those from each recipe's own page."}
             </p>
           </div>
         </section>
@@ -313,7 +316,11 @@ export function SettingsPage() {
       <ConfirmDialog
         open={showClearConfirm}
         title="Delete Recipes on This Device"
-        message="This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+        message={
+          accountReloads
+            ? 'This deletes all recipes, variations and favourites stored on this device. Recipes saved to your account stay there and load again the next time you open the app.'
+            : "This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+        }
         confirmLabel="Delete"
         confirmVariant="danger"
         onConfirm={handleClear}
