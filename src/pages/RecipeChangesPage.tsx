@@ -10,6 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
 import type { Ingredient, Recipe } from '../types/recipe';
+import { ChevronLeft } from '../components/ui/icons';
 
 const MODES = [
   { value: 'changes', label: 'Changes only' },
@@ -256,9 +257,7 @@ export function RecipeChangesPage() {
         className="-ml-2 w-11 h-11 flex items-center justify-center rounded-full border border-border-strong text-text-primary hover:bg-surface-tertiary transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
         aria-label="Go back"
       >
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-        </svg>
+        <ChevronLeft className="w-5 h-5" />
       </button>
     </header>
   );

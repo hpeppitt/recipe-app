@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils';
+import { Plus } from './icons';
 
 interface FABProps {
   onClick: () => void;
@@ -21,9 +22,7 @@ export function FAB({ onClick, className, label = 'Create recipe' }: FABProps) {
         className
       )}
     >
-      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-      </svg>
+      <Plus className="w-7 h-7" />
     </button>
   );
 }

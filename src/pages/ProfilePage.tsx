@@ -17,6 +17,7 @@ import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { pluralize } from '../lib/utils';
+import { Pencil, User } from '../components/ui/icons';
 
 /**
  * A stat, optionally tappable.
@@ -147,9 +148,7 @@ function OwnProfile() {
               />
               <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors" />
               <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 border-2 border-surface flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
-                </svg>
+                <Pencil className="w-3.5 h-3.5 text-white" />
               </span>
             </button>
 
@@ -186,9 +185,7 @@ function OwnProfile() {
                 </h2>
                 {/* Always visible for the same reason as the avatar badge: on touch
                     there is no hover, so a hover-only pencil is no affordance at all. */}
-                <svg className="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
-                </svg>
+                <Pencil className="w-4 h-4 text-text-tertiary" />
               </button>
             )}
             {nameSaved && <span className="text-xs text-success-600">Name saved!</span>}
@@ -571,9 +568,7 @@ export function ProfilePage() {
         <div className="flex-1 flex flex-col items-center justify-center p-8 max-w-lg mx-auto">
           <div className="text-center space-y-4">
             <div className="w-20 h-20 rounded-full bg-surface-secondary flex items-center justify-center mx-auto">
-              <svg className="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-              </svg>
+              <User className="w-10 h-10 text-text-tertiary" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-text-primary">Sign in to view your profile</h2>

@@ -34,6 +34,7 @@ import { SavedToast } from '../components/recipe/SavedToast';
 import { TreeIntro } from '../components/recipe/TreeIntro';
 import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
 import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
+import { EllipsisVertical, Heart } from '../components/ui/icons';
 
 /** How long Share waits on the cloud before falling back to a self-contained link. */
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
@@ -510,13 +511,9 @@ export function RecipeDetailPage() {
                 aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
               >
                 {isFavorite ? (
-                  <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
-                  </svg>
+                  <Heart className="w-5 h-5 text-red-500" filled />
                 ) : (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 5.65a5.5 5.5 0 0 0-7.752.22 5.5 5.5 0 0 0-7.752-.22 5.52 5.52 0 0 0 0 7.81l6.573 6.631a1.75 1.75 0 0 0 2.358 0l6.573-6.631a5.52 5.52 0 0 0 0-7.81Z" />
-                  </svg>
+                  <Heart className="w-5 h-5" />
                 )}
               </button>
             )}
@@ -534,9 +531,7 @@ export function RecipeDetailPage() {
               aria-expanded={showMenu}
               aria-haspopup="menu"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-              </svg>
+              <EllipsisVertical className="w-5 h-5" />
               {pendingSuggestions.length > 0 && (
                 <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-bold px-1">
                   {pendingSuggestions.length > 99 ? '99+' : pendingSuggestions.length}

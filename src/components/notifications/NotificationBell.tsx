@@ -4,6 +4,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { Avatar } from '../ui/Avatar';
 import { Spinner } from '../ui/Spinner';
 import { timeAgo } from '../../lib/utils';
+import { Bell } from '../ui/icons';
 
 // A keyed map rather than a growing ternary chain: four types made the inline
 // conditional unreadable, and an unknown type now falls back instead of
@@ -66,19 +67,7 @@ export function NotificationBell() {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <svg
-          className="w-5 h-5 text-text-secondary"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={1.5}
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0"
-          />
-        </svg>
+        <Bell className="w-5 h-5 text-text-secondary" />
         {/* Badge is positioned against the 20px icon, not the 44px hit area, so
             the larger touch target doesn't push it out to the corner. */}
         {unreadCount > 0 && (

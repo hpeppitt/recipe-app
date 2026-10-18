@@ -20,6 +20,7 @@ import { canGenerate } from '../lib/generation';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
+import { ChevronDown } from '../components/ui/icons';
 
 /**
  * The query words this match actually shares, so the panel can say why it is
@@ -255,12 +256,7 @@ export function RecipeChatPage() {
                   </span>
                   <span className="text-xs text-text-tertiary">(original)</span>
                 </div>
-                <svg
-                  className={`w-4 h-4 text-text-tertiary transition-transform ${parentExpanded ? 'rotate-180' : ''}`}
-                  fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
+                <ChevronDown className={`w-4 h-4 text-text-tertiary transition-transform ${parentExpanded ? 'rotate-180' : ''}`} />
               </button>
               {parentExpanded && (
                 <div className="p-4 border-t border-border">
