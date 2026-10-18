@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -184,6 +184,9 @@ Places designed to be replaced, worth knowing before you change them:
   and returns null on failure.
 - **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`): the Library's list logic for both tabs, so
   a browse dimension such as tag chips (RL-009) changes one module.
+- **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
+  computed client-side from ingredients and steps, for the change tags and "What changed" screens
+  (no stored data).
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 

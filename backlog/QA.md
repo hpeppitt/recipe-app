@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-066 recipeDiff
+
+- Covered by tests and has no UI yet; nothing to check in a browser.
+
 ### RL-065 Light only
 
 - Update the PWA first (tap Reload on the update bar) before checking: the old shell keeps serving until then, and a returning user with a stored `dark` preference may briefly see dark.
