@@ -58,7 +58,9 @@ are applied. Each one makes Dexie mirror it: own rows are overwritten (the cloud
 field but `chatHistory`) and own rows the snapshot lacks are removed. The tidy rule: rows
 whose `createdBy.uid` is another uid that signed in on this device (`getPreviousUids`) are
 removed. Saved copies of other users' recipes, `'local'` rows and rows with no `createdBy`
-are never touched. The listener never writes to Firestore. A verified sign-out deletes the
+are never touched. The listener never writes to Firestore. An import stamps rows owned by the
+importer or a `getPreviousUids` entry as `'local'` (display name kept), so neither rule removes
+them (RL-086). A verified sign-out deletes the
 account's own rows with `clearOwnRecipes(uid)` (RL-085, a `filter` plus delete in one `rw`
 transaction); everything else, `favorites` included, stays.
 
@@ -69,7 +71,7 @@ transaction); everything else, `favorites` included, stays.
 | `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected`, `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
-| `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the three counters. Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
+| `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the maintained counters `followerCount` and `followingCount` (`recipeCount` is stored but no longer bumped, RL-032). Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
 | `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification` or `recipe` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
@@ -282,8 +284,7 @@ silently as before. No path writes two notifications in one request.
 `publishRecipe`'s create branch reads the recipe again inside its transaction, before the
 window. If it exists by then (the outer `getDoc` was stale, or an earlier publish that timed
 out on the client landed meanwhile), the transaction writes the same merge a re-publish
-writes (no counters, no `collaborators`) and no window, and the `recipeCount` bump is
-skipped; a transaction that read the recipe as missing carries that as a precondition, so a
+writes (no counters, no `collaborators`) and no window; a transaction that read the recipe as missing carries that as a precondition, so a
 create landing in between cannot be overwritten. **Read cost of a first publish:** the
 outer `getDoc`, the transaction's recipe and window reads, and the rules' `termsAcceptance`
 and window `getAfter()`: 5 billed reads (a re-publish costs the outer `getDoc` only, or 2
@@ -295,22 +296,13 @@ when the recipe's `createdBy.uid` is not the signed-in uid (the rules would deny
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
 
-### Known rules limitation
+### Uid carry-over is local only
 
-`migrateFirestoreUid` (`services/firestore.ts`) tries to reassign recipes from an anonymous
-uid to an email uid after account upgrade. The rules correctly forbid it: `isOwnerUpdate()`
-requires `createdBy.uid` to be unchanged, and no client-side rule could safely allow the
-reassignment. **Every** step of that migration is denied for the same reason, not just the
-recipes one — deleting the old favourite needs `resource.data.uid == request.auth.uid`,
-re-pointing a notification needs `recipientUid == request.auth.uid`, deleting the old profile
-needs to own it, and un-writing a follow needs to be its follower. All read the *old* uid,
-which the caller no longer is. So the function short-circuits after the recipes step rather
-than generating a burst of permission-denied noise for nothing.
-
-It no longer fails silently: it returns a `UidMigrationOutcome` with a count of recipes left
-behind (reads are open, so the count is reliable even when the writes are not), and
-`AuthContext` records it for the stranded-identity notice. 4.2 is the real fix and needs the
-Admin SDK; the notice is the permanent answer until then.
+An anonymous account owns no cloud data (RL-040), so when it signs into an email account
+that already exists there is nothing in Firestore to move. The cloud migration
+(`migrateFirestoreUid`) and the stranded-identity notice were removed in RL-032. What
+remains is local: `runMigration` in `AuthContext` re-stamps Dexie recipes
+(`migrateRecipesUid`) and bookmarks (`migrateFavoritesUid`) under the new uid.
 
 ## Counter integrity
 

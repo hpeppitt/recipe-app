@@ -71,7 +71,7 @@ Why: every other ticket builds on the tokens.
 - `ui-reviewer` on changed pages. `/preflight`. Update `docs/capabilities.md`, `docs/architecture.md`, `docs/decisions.md` (Organic adoption, three tree views, client-side diff) and `CHANGELOG.md`.
 
 ### 8. Screens without an Organic design yet (follow-up in Claude Design, not code)
-Recipe edit, Settings (theme toggle, depends on the dark-mode decision), Shared recipe (`/shared` and `/shared/:id`), Suggest a change modal, Suggestion thread, Notifications and the Activity tab (new in the 5-slot nav, no screen design), Avatar editor, Tree intro (its diagram must be redrawn to match 3a; decisions.md 2026-08-07), Lineage breadcrumb, Nutrition panel / serving stepper / metadata pills (check against 2a to 2c), Email link status and stranded identity notice, confirm dialog / empty / error / loading states, dark mode, and desktop or wide layout (designs are 390px mobile). These get the theme from ticket 1 automatically.
+Recipe edit, Settings (theme toggle, depends on the dark-mode decision), Shared recipe (`/shared` and `/shared/:id`), Suggest a change modal, Suggestion thread, Notifications and the Activity tab (new in the 5-slot nav, no screen design), Avatar editor, Tree intro (its diagram must be redrawn to match 3a; decisions.md 2026-08-07), Lineage breadcrumb, Nutrition panel / serving stepper / metadata pills (check against 2a to 2c), Email link status (the stranded identity notice was removed, RL-032), confirm dialog / empty / error / loading states, dark mode, and desktop or wide layout (designs are 390px mobile). These get the theme from ticket 1 automatically.
 
 ## Not in the export but in the design project
 

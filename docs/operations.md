@@ -242,7 +242,7 @@ loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
   `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` as build variables and release the client
   again. Before inviting anyone else, revisit the project settings (IP, autocapture,
   recording) the author accepted as the only user.
-- [ ] **RL-032** (loop, after the wipe) removes the uid migration, the stranded-identity notice
+- [ ] **RL-032** (done on its branch) removed the uid migration, the stranded-identity notice
   and unused helpers; release that client.
 - [ ] Optional housekeeping: set the Preview secret and variables (RL-013, "Preview deploys"),
   delete the GA4 property and the `VITE_FIREBASE_MEASUREMENT_ID` repository variable if it
@@ -605,7 +605,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 
 - Data under an earlier anonymous uid. Someone who used the app before signing in with an
   email may have a second uid (an upgrade that forked instead of linking; see the
-  stranded-identity notice in [data-model.md](data-model.md)). Ask the requester whether they
+  uid carry-over in [data-model.md](data-model.md)). Ask the requester whether they
   used the app before signing in, look for that uid (the console's Users list, by creation
   date, or recipes they name), and run export or erase for it too, as a separate run. An
   anonymous uid cannot prove ownership by email, so match it by what the requester can name.

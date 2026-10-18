@@ -90,13 +90,14 @@ export function TermsUpdateDialog({
       >
         Accept the Terms to continue
       </h2>
-      {/* "Kept" is true: sign-out clears no Dexie data (AuthContext handleSignOut). */}
+      {/* Sign-out of a verified account clears that account's own recipes from the device (RL-085); they reload from the account, so the copy says so. */}
       <p id={messageId} className="text-sm text-text-secondary">
         To keep using your account, please accept the current{' '}
         <LegalLink href="/terms">Terms of Service</LegalLink> after reading the{' '}
         <LegalLink href="/privacy">Privacy Policy</LegalLink> and{' '}
         <LegalLink href="/cookies">Cookie Policy</LegalLink>; if you decline you will be signed
-        out, and recipes saved on this device are kept.
+        out. Recipes saved to your account load again when you sign back in, and anything saved
+        only on this device is kept.
       </p>
       <div className="mt-3">
         <TermsCheckbox checked={accepted} onChange={setAccepted} disabled={busy} />

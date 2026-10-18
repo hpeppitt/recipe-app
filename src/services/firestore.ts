@@ -54,8 +54,7 @@ import { reportError } from './telemetry';
  * Distinguishes create from update, which the previous unconditional `setDoc`
  * did not. On a re-publish it must NOT write `favoriteCount`/`viewCount`: those
  * belong to other people's favourites and views, and resetting them to 0 silently
- * destroys that data. The profile `recipeCount` is likewise only bumped on first
- * publish, or a retry would inflate it.
+ * destroys that data.
  *
  * A re-publish also omits `collaborators`. A merge replaces arrays wholesale, and
  * the cloud array is maintained by the approval `arrayUnion`, which reaches Dexie
@@ -88,8 +87,8 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
   // daily cap, having written nothing; the caller keeps the Dexie copy. The
   // transaction re-reads the recipe: if it exists by then (a stale read above,
   // or an earlier publish that landed after its caller timed out), it writes
-  // the re-publish merge instead, with no counters, window or recipeCount bump.
-  const created = await writeLimited(
+  // the re-publish merge instead, with no counters or window.
+  await writeLimited(
     firestore,
     recipe.createdBy.uid,
     'recipe',
@@ -97,16 +96,6 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
     { ...content, collaborators: collaborators ?? [], favoriteCount: 0, viewCount: 0 },
     content
   );
-
-  // Increment the creator's recipeCount on their profile
-  if (created && recipe.createdBy.uid && recipe.createdBy.uid !== 'local') {
-    updateDoc(doc(firestore, 'profiles', recipe.createdBy.uid), {
-      recipeCount: increment(1),
-    }).catch((err) => {
-      console.error('Incrementing profile recipeCount failed', err);
-      reportError(err, 'profile-recipe-count');
-    });
-  }
 }
 
 export async function getPublishedRecipe(
@@ -1054,150 +1043,6 @@ export async function getFollowers(uid: string): Promise<FollowerSummary[]> {
       };
     })
     .sort((a, b) => b.createdAt - a.createdAt);
-}
-
-// --- UID Migration ---
-
-/**
- * What actually happened to the cloud half of a uid migration.
- *
- * Exists because the honest answer is usually "nothing". `firestore.rules`
- * denies every step of this by design — `isOwnerUpdate()` requires
- * `createdBy.uid` to be unchanged, and no client-side rule could safely permit
- * reassigning ownership — so the migration is expected to fail against a
- * rules-enforced project. It used to fail behind `.catch(() => {})`, which is
- * how a user could silently lose their whole published catalog.
- */
-export interface UidMigrationOutcome {
-  /** True only when every cloud record moved. */
-  ok: boolean;
-  /** Published recipes left under the old uid. 0 when they moved successfully. */
-  strandedRecipes: number;
-}
-
-export async function migrateFirestoreUid(
-  oldUid: string,
-  newUid: string,
-  displayName: string | null
-): Promise<UidMigrationOutcome> {
-  if (!firestore) return { ok: true, strandedRecipes: 0 };
-
-  // Migrate recipes (update createdBy.uid)
-  const recipesQ = query(
-    collection(firestore, 'recipes'),
-    where('createdBy.uid', '==', oldUid)
-  );
-  // Reading is allowed to anyone, so this count is reliable even when the
-  // writes below are not — which is what makes an honest notice possible.
-  const recipesSnap = await getDocs(recipesQ);
-  // Firestore batches limited to 500
-  const recipeDocs = recipesSnap.docs;
-  let movedRecipes = 0;
-  try {
-    for (let i = 0; i < recipeDocs.length; i += 500) {
-      const chunk = recipeDocs.slice(i, i + 500);
-      const batch = writeBatch(firestore);
-      for (const d of chunk) {
-        batch.update(d.ref, { 'createdBy.uid': newUid, 'createdBy.displayName': displayName });
-      }
-      await batch.commit();
-      // Tracked per chunk so the count in the user's notice is what is actually
-      // stranded. A batch is atomic, but the loop is not: with more than 500
-      // recipes an early chunk can commit and a later one be denied, and
-      // reporting the full total there would tell the user they lost recipes
-      // that in fact moved.
-      movedRecipes += chunk.length;
-    }
-  } catch {
-    // Return here rather than pressing on. Every remaining step is denied by
-    // the same class of rule — deleting the old favorite needs
-    // `resource.data.uid == request.auth.uid`, re-pointing a notification needs
-    // `recipientUid == request.auth.uid`, deleting the old profile needs to own
-    // it, and un-writing a follow needs to be its follower. All of those read
-    // the *old* uid, which the caller no longer is. Attempting them buys a
-    // burst of permission-denied noise and moves nothing.
-    return { ok: false, strandedRecipes: recipeDocs.length - movedRecipes };
-  }
-
-  // Migrate favorites
-  const favsQ = query(
-    collection(firestore, 'favorites'),
-    where('uid', '==', oldUid)
-  );
-  const favsSnap = await getDocs(favsQ);
-  for (const d of favsSnap.docs) {
-    const data = d.data();
-    const newFavId = `${newUid}_${data.recipeId}`;
-    const batch = writeBatch(firestore);
-    batch.delete(d.ref);
-    batch.set(doc(firestore, 'favorites', newFavId), { ...data, uid: newUid });
-    await batch.commit();
-  }
-
-  // Migrate notifications (recipientUid)
-  const notifsQ = query(
-    collection(firestore, 'notifications'),
-    where('recipientUid', '==', oldUid)
-  );
-  const notifsSnap = await getDocs(notifsQ);
-  const notifDocs = notifsSnap.docs;
-  for (let i = 0; i < notifDocs.length; i += 500) {
-    const batch = writeBatch(firestore);
-    for (const d of notifDocs.slice(i, i + 500)) {
-      batch.update(d.ref, { recipientUid: newUid });
-    }
-    await batch.commit();
-  }
-
-  // Migrate profile: copy old profile data to new UID, delete old
-  const oldProfileSnap = await getDoc(doc(firestore, 'profiles', oldUid));
-  if (oldProfileSnap.exists()) {
-    const newProfileSnap = await getDoc(doc(firestore, 'profiles', newUid));
-    if (!newProfileSnap.exists()) {
-      // Copy the old profile to new UID
-      await setDoc(doc(firestore, 'profiles', newUid), {
-        ...oldProfileSnap.data(),
-        displayName,
-      });
-    }
-    await deleteDoc(doc(firestore, 'profiles', oldUid));
-  }
-
-  // Migrate follows (as follower)
-  const followerQ = query(
-    collection(firestore, 'follows'),
-    where('followerId', '==', oldUid)
-  );
-  const followerSnap = await getDocs(followerQ);
-  for (const d of followerSnap.docs) {
-    const data = d.data();
-    const newFollowId = `${newUid}_${data.followingId}`;
-    const batch = writeBatch(firestore);
-    batch.delete(d.ref);
-    batch.set(doc(firestore, 'follows', newFollowId), { ...data, followerId: newUid });
-    await batch.commit();
-  }
-
-  // Migrate follows (as following target) - update followerDisplayName where they follow oldUid
-  const followingQ = query(
-    collection(firestore, 'follows'),
-    where('followingId', '==', oldUid)
-  );
-  const followingSnap = await getDocs(followingQ);
-  for (const d of followingSnap.docs) {
-    const data = d.data();
-    const newFollowId = `${data.followerId}_${newUid}`;
-    const batch = writeBatch(firestore);
-    batch.delete(d.ref);
-    batch.set(doc(firestore, 'follows', newFollowId), { ...data, followingId: newUid });
-    await batch.commit();
-  }
-
-  // Recipes are what the notice is about, and they moved. Anything that failed
-  // after them is a favourite, notification, follow or profile row — worth
-  // knowing about via the error beacon once it exists, but not worth telling the
-  // user their catalog is stranded when it is not.
-  return { ok: true, strandedRecipes: 0 };
 }
 
 // --- Views ---

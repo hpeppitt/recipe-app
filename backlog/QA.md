@@ -41,6 +41,38 @@ both themes:
   a few milliseconds against a network round trip; closing it fully would mean the hook checking
   the current uid before applying (`src/hooks/useOwnRecipesSync.ts`, not in this ticket).
 
+### RL-081 Delete Recipes on This Device copy for verified users
+
+- As a verified user on the preview, open Settings at 390 px in both themes. Read the helper text under "Delete Recipes on This Device" and the confirm dialog. Confirm the delete, reload, and see the account recipes return. This is the author's read of the wording.
+- Signed out or anonymous, the old text still shows ("cannot be undone").
+- Needs the author: src/content/legal/privacy.ts lines 57 and 217 and cookies.ts:69 describe Delete Recipes on This Device as removing recipes; for a verified account they reload, so the wording overstates the removal (bump lastUpdated if edited).
+- Reviewer noted (low): SettingsPage.tsx:33 drops the sync hook's !isLoading guard; handleClear has no in-flight guard (pre-existing); the promise 'load again' fails while sync status is error.
+
+### RL-032 Remove the cloud uid migration and the stranded-identity notice
+
+- On the emulator or preview: bookmark a recipe as anonymous, then sign in with an email that
+  already has an account. The bookmark and any local recipes carry over, and no banner appears.
+- Publish a recipe as a verified user: it still publishes, and the profile's `recipeCount` no
+  longer rises (nothing read it).
+- Stale wording for the author (not edited, `src/content/legal/` is out of the loop's scope):
+  check the legal drafts for any mention of the stranded notice or of a profile recipe count
+  being maintained. A leftover `recipe-app-stranded-identity` key on an old device is harmless.
+- Reviewer noted (low, pre-existing): `AuthContext` `runMigration(...).then(...)` at the two `onAuthStateChanged` drift paths has no `.catch`, so a Dexie migration rejection is unhandled and skips `setAnonymousUid` / `clearAnonymousUid` / `addPreviousUid`. It is now the only failure source.
+- Not deleted: `SUPPORT_EMAIL` (still used by the legal pages and their test); the unused
+  `STRANDED_IDENTITY` storage key was removed. `docs/tech-stack-review.md` still mentions the
+  notice (a dated review, left as written).
+
+### RL-086 Imports are Saved copies the sync never removes
+
+- As a verified user on the preview: Settings, export, then delete one recipe from its page, then import the file. The deleted recipe comes back and is still there after a reload (before this change the sync removed it). The message reads "Import complete: 1 added. {n} already in your account, left as they are." Check it at 390 px in both themes.
+- No page uses the Created, Branched and Saved split yet (RL-084), so "under Saved" shows today as: the restored recipe is not back on Explore or the public profile, and it is stored with owner `'local'` (DevTools, IndexedDB `RecipeAppDB` > `recipes`, its `createdBy.uid`).
+- Worth a look: `canManageRecipe` treats `'local'` as owner, so the restored copy shows edit and delete. Try editing it; it should not create a cloud copy.
+- Legal wording: `src/content/legal/privacy.ts` says imported recipes are kept on the device, which still holds; no change made. Author to confirm nothing about owner stamping needs saying.
+- Reviewer noted (med, data): a restored import stamped `'local'` passes `canManageRecipe`, so as a verified user the edit page looks for a cloud copy, finds none, and shows "This recipe is no longer in your account." and can never save (`RecipeEditPage.tsx` 93-98 and 206-224); if the id does exist in the cloud the write is denied (`createdBy` is immutable) and shows "Couldn't save". Nothing is corrupted or published. Pre-auth `'local'` rows already behave this way; needs a ticket (hide Edit for non-own rows, or a clearer message).
+- Reviewer noted (med, data): Share on such a row for a verified user throws "Publishing needs the signed-in creator" before any write, and the page silently falls back to a self-contained link with no explanation (`RecipeDetailPage.tsx` 154-170). Safe: imports are never published.
+- Reviewer noted (low): an import done before the listener's first snapshot (or for an own recipe this device never had) cannot see the cloud-backed row, so it stamps `'local'` and counts it as added; the next snapshot overwrites it with the cloud copy and the row becomes Created or Branched, and the message was briefly wrong.
+- Reviewer noted (low, UI): the old "Nothing to import ... no valid recipes found" message in `import.ts:84` has an em dash between those words (pre-existing, breaks the no-em-dash rule); the skipped-as-invalid wording differs between messages; the success message never says where imports land ("Find them under Saved" once the tab exists); the status line is mounted only when it has content so a repeat message may not be re-announced.
+
 ### RL-084 Created, Branched and Saved split in lib/library.ts
 
 - Nothing to check in a browser until the rebrand's tab ticket uses `splitLibrary`. No page calls it and My Recipes is unchanged.

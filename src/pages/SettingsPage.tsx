@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
 import { TopBar } from '../components/layout/TopBar';
 import { useAuth } from '../contexts/AuthContext';
+import { getPreviousUids } from '../services/storage';
 import { Link, useNavigate } from 'react-router-dom';
 
 export function SettingsPage() {
@@ -28,6 +29,8 @@ export function SettingsPage() {
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured } = useAuth();
+  // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
+  const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
 
   const handleExport = async () => {
@@ -110,9 +113,12 @@ export function SettingsPage() {
       if (!file) return;
       setImportStatus(null);
       try {
-        const result = await importRecipes(JSON.parse(await file.text()));
+        const result = await importRecipes(JSON.parse(await file.text()), {
+          uid: user?.uid,
+          previousUids: getPreviousUids(),
+        });
         setImportStatus({
-          ok: result.added + result.replaced > 0,
+          ok: result.added + result.replaced + result.alreadyInAccount > 0,
           message: describeImport(result),
         });
       } catch {
@@ -260,8 +266,9 @@ export function SettingsPage() {
               Delete Recipes on This Device
             </Button>
             <p className="text-xs text-text-tertiary">
-              Recipes you've shared stay in the shared library. Delete those from each
-              recipe's own page.
+              {accountReloads
+                ? 'Recipes saved to your account stay there and load again the next time you open the app. To remove one for good, delete it from its own page.'
+                : "Recipes you've shared stay in the shared library. Delete those from each recipe's own page."}
             </p>
           </div>
         </section>
@@ -309,7 +316,11 @@ export function SettingsPage() {
       <ConfirmDialog
         open={showClearConfirm}
         title="Delete Recipes on This Device"
-        message="This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+        message={
+          accountReloads
+            ? 'This deletes all recipes, variations and favourites stored on this device. Recipes saved to your account stay there and load again the next time you open the app.'
+            : "This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+        }
         confirmLabel="Delete"
         confirmVariant="danger"
         onConfirm={handleClear}

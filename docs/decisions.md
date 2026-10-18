@@ -67,6 +67,10 @@ and the profile on a computer, because both read Dexie only.
   from two devices are last write wins, with no timestamp comparison (RL-076, wired by RL-078).
 - Rows of other accounts that signed in on this device are tidied away, including rows stamped
   with uids from before the 2026-10-18 wipe. Saved copies and `'local'` rows are never touched.
+- Imports are Saved copies (author, 2026-10-18): never published, and never stamped with an
+  account uid of this device. A row owned by the importer or an earlier account here becomes
+  `'local'` with its display name kept, so neither sync rule removes it. A file row whose id is
+  already one of the user's own recipes is left as it is and counted (RL-086).
 - My Recipes is to be split into Created (own, no parent) and Branched (own variations,
   including of other people's recipes), with other people's recipes only under Saved. The split
   is available in `lib/library.ts` (RL-084); the rebrand's tabs will use it, and no page does yet.
@@ -77,7 +81,7 @@ and the profile on a computer, because both read Dexie only.
 - Signing out of a verified account removes that account's own recipes from the device. They
   reload on the next sign-in (RL-085). Saved copies, `'local'` rows, other uids' rows and
   bookmarks stay. The AI conversation (`chatHistory`) is never in the cloud, so a signed-out
-  account's conversations are gone from that device for good. Accepted trade: after a sign-out made offline, the account's recipes are not
+  account's conversations are gone from that device for good (accepted by the author, 2026-10-18). Accepted trade: after a sign-out made offline, the account's recipes are not
   on the device until it is online and signed in again.
 - Imports are Saved copies, never published, and never carry the importer's or another of this
   device's account uids (RL-086).
@@ -91,6 +95,9 @@ Consequence: `RISK-1`'s ceiling (App Check plus a model-level `responseSchema`) 
 assume it never runs. The load-bearing part: because the server-side uid migration in Phase
 4 will probably never happen, roadmap 1.3's honest notice is the **permanent** answer to the
 identity-orphaning path, so its copy needs a real contact route rather than a placeholder.
+
+*2026-10-18 (RL-032):* the notice was removed. After RL-040 an anonymous account owns no cloud
+data, so nothing can be stranded; only the local carry-over of recipes and bookmarks remains.
 
 ### 3. Photos: no, text-first, permanently
 
