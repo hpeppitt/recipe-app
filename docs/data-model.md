@@ -44,6 +44,11 @@ locally when the publish fails or times out, so a verified user never has a loca
 recipe; the retry reuses the record's id, which `publishRecipe`'s in-transaction re-read turns
 into a merge if the earlier attempt landed. Local-only mode still adds to Dexie alone.
 
+**Write order of an edit** (RL-083): a verified owner's edit checks that the cloud copy exists,
+re-publishes the edited record with a fresh `updatedAt` within 5 seconds, and only then
+`cacheRecipe`s the same record. On a failure, a timeout or a missing cloud copy nothing is
+written to Dexie. Anonymous, signed-out and local-only edits still write Dexie alone.
+
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
 | `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |

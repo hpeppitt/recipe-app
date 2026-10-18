@@ -4,11 +4,13 @@ import type { Recipe } from '../types/recipe';
 import { useRecipe } from '../hooks/useRecipe';
 import { useAuth } from '../contexts/AuthContext';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
-import { updateRecipe } from '../db/recipes';
+import { cacheRecipe, updateRecipe } from '../db/recipes';
 import { getPublishedRecipe, publishRecipe } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { canManageRecipe } from '../lib/ownership';
 import { trackRecipeUpdated } from '../services/analytics';
+import { reportError } from '../services/telemetry';
+import { withTimeout } from '../lib/utils';
 import {
   recipeToDraft,
   validateDraft,
@@ -25,6 +27,12 @@ import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
+
+/** How long a verified owner's save waits for the cloud check and publish. */
+const CLOUD_SAVE_TIMEOUT_MS = 5000;
+
+/** Shown when the cloud copy is gone; there is nothing to retry against. */
+const GONE_MESSAGE = 'This recipe is no longer in your account.';
 
 const DIFFICULTIES = [
   { value: 'easy' as const, label: 'Easy' },
@@ -186,9 +194,54 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
     setSaveError(null);
     const patch = draftToPatch(draft, recipe);
 
+    // Verified owner: cloud first (decision 1b). The sync replaces own rows with
+    // the server's copy, so a Dexie-only edit would vanish on the next snapshot.
+    if (isFirebaseConfigured && user?.emailVerified) {
+      const now = Date.now();
+      const edited: Recipe = { ...recipe, ...patch, updatedAt: now };
+      // Never creates a cloud copy: editing is not a decision to publish. A missing
+      // copy means the recipe was deleted on another device. publishRecipe's update
+      // path is a merge, so the last write to land wins and counters survive.
+      // Bounded because an unreachable Firestore retries instead of rejecting.
+      const outcome = await withTimeout<'ok' | 'missing' | 'failed'>(
+        getPublishedRecipe(recipe.id)
+          .then(async (existing) => {
+            if (!existing) return 'missing' as const;
+            await publishRecipe(edited);
+            return 'ok' as const;
+          })
+          .catch((err: unknown) => {
+            console.error('Saving the recipe edit to the cloud failed; nothing was saved', err);
+            return 'failed' as const;
+          }),
+        CLOUD_SAVE_TIMEOUT_MS,
+        'failed'
+      );
+      if (outcome !== 'ok') {
+        setSaveError(
+          outcome === 'missing'
+            ? GONE_MESSAGE
+            : "Couldn't save your changes. Check your connection and try again."
+        );
+        setIsSaving(false);
+        return;
+      }
+
+      try {
+        await cacheRecipe(edited);
+      } catch (err) {
+        // The edit is in the cloud, so the save is done; the own-recipe sync
+        // (RL-078) fills the row.
+        console.error('Caching the edited recipe locally failed', err);
+        reportError(err, 'edit-recipe-cache');
+      }
+      trackRecipeUpdated(recipe.id);
+      navigate(`/recipe/${recipe.id}`, { replace: true, state: { saved: 'cloud' } });
+      return;
+    }
+
+    // Anonymous, signed-out and local-only: Dexie is the only copy.
     try {
-      // Local first, and it is authoritative: the user's own device should hold
-      // the edit even if the network is gone.
       await updateRecipe(recipe.id, patch);
     } catch (err) {
       console.error('Saving the recipe edit locally failed', err);
@@ -197,30 +250,10 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
       return;
     }
 
-    // Re-publish only if a published copy already exists. publishRecipe would
-    // otherwise take its create path and publish a recipe the user never chose to
-    // share — editing is not a decision to publish. The update path uses
-    // `{ merge: true }`, so favoriteCount and viewCount survive.
-    let cloudOk = true;
-    // Unverified accounts cannot publish (decision 1a), so they have no copy to update.
-    if (isFirebaseConfigured && user?.emailVerified) {
-      try {
-        if (await getPublishedRecipe(recipe.id)) {
-          await publishRecipe({ ...recipe, ...patch });
-        }
-      } catch (err) {
-        console.error('Re-publishing the edited recipe failed', err);
-        cloudOk = false;
-      }
-    }
-
     trackRecipeUpdated(recipe.id);
-    // Reuses the detail page's existing save toast, including its honest
-    // local-only variant, rather than inventing a second confirmation pattern.
-    navigate(`/recipe/${recipe.id}`, {
-      replace: true,
-      state: { saved: cloudOk ? 'cloud' : 'local' },
-    });
+    // Reuses the detail page's existing save toast rather than inventing a second
+    // confirmation pattern.
+    navigate(`/recipe/${recipe.id}`, { replace: true, state: { saved: 'cloud' } });
   };
 
   return (
@@ -486,7 +519,11 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
               {saveError}
             </p>
           )}
-          <Button fullWidth onClick={handleSave} disabled={isSaving || !isDirty}>
+          <Button
+            fullWidth
+            onClick={handleSave}
+            disabled={isSaving || !isDirty || saveError === GONE_MESSAGE}
+          >
             {isSaving ? 'Saving…' : isDirty ? 'Save Changes' : 'No Changes'}
           </Button>
           <Button variant="ghost" fullWidth onClick={handleBack} disabled={isSaving}>

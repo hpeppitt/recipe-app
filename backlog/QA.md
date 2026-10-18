@@ -19,6 +19,21 @@ both themes:
 
 ## Since the last release
 
+### RL-083 Editing a recipe is cloud first for a verified owner
+
+- On the preview as a verified user, edit a recipe and tap Save. The recipe page opens with the save toast, and the edit shows on its `/shared/<id>` link.
+- Edit again, set DevTools to offline, and tap Save. Within about 5 seconds the form shows "Couldn't save your changes. Check your connection and try again." above Save, the draft is still there, and Save works again.
+- Go back online and tap Save. The recipe page opens and the edit is on the `/shared/<id>` link.
+- Check the error at 390 px in both themes: readable, red, directly above the Save button.
+- Reviewer noted (med, UI): the save error uses `text-danger-600`, about 3.7:1 on the dark surface; use `danger-500` or `dark:text-danger-300` (`RecipeEditPage.tsx:518`).
+- Reviewer noted (med, UI): the TopBar back arrow is not guarded while a save is in flight, so a user can leave mid-save and never see a failure, or be pulled back by a late success (`RecipeEditPage.tsx` about 168-181 and 261). Try it during the offline save.
+- Reviewer noted (med, UI): a save that times out at 5 s may still land, so "Couldn't save" can be wrong; the edit then appears once the sync arrives.
+- Reviewer noted (med, data): the page pre-checks the cloud copy and then `publishRecipe` does its own `getDoc`, so a delete on another device between the two reads would let an edit take the create path (daily window used, `recipeCount` bumped, recipe resurrected); an update-only publish would close it (`RecipeEditPage.tsx` 208-211, `firestore.ts` 73-99).
+- Reviewer noted (med, data): a timed-out publish keeps running; if the user retries and succeeds, the stale first write can land later and revert the cloud to the older edit while Dexie holds the newer until the sync arrives.
+- Reviewer noted (med, data): the edit is built from the render-time recipe and `put` over the whole Dexie row, so changes that arrived after the form opened are overwritten in both stores (last write wins; the fetched cloud copy is unused).
+- Reviewer noted (low, data): Dexie keeps the user's tag casing until the next sync lowercases it; Dexie-only edits for an unverified owner of a cloud copy can diverge from it; tests lack a late-landing publish case and the Dexie-write-failure-after-publish branch.
+- Reviewer noted (low): anonymous and local-only edits also navigate with `saved: 'cloud'`; "Saving…" is not announced; after "no longer in your account" the only exit is Cancel.
+
 ### RL-082 Saving a generated recipe is cloud first
 
 - On the preview as a verified user, generate a recipe and save it. The recipe page opens with "Recipe saved", and the recipe is on Explore.
