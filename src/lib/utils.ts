@@ -9,14 +9,6 @@ export function formatTime(minutes: number): string {
   return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 }
 
-export function formatDate(timestamp: number): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(timestamp));
-}
-
 export function formatTimestamp(timestamp: number): string {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',

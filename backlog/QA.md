@@ -19,6 +19,20 @@ both themes:
 
 ## Since the last release
 
+### RL-032 Remove the cloud uid migration and the stranded-identity notice
+
+- On the emulator or preview: bookmark a recipe as anonymous, then sign in with an email that
+  already has an account. The bookmark and any local recipes carry over, and no banner appears.
+- Publish a recipe as a verified user: it still publishes, and the profile's `recipeCount` no
+  longer rises (nothing read it).
+- Stale wording for the author (not edited, `src/content/legal/` is out of the loop's scope):
+  check the legal drafts for any mention of the stranded notice or of a profile recipe count
+  being maintained. A leftover `recipe-app-stranded-identity` key on an old device is harmless.
+- Reviewer noted (low, pre-existing): `AuthContext` `runMigration(...).then(...)` at the two `onAuthStateChanged` drift paths has no `.catch`, so a Dexie migration rejection is unhandled and skips `setAnonymousUid` / `clearAnonymousUid` / `addPreviousUid`. It is now the only failure source.
+- Not deleted: `SUPPORT_EMAIL` (still used by the legal pages and their test); the unused
+  `STRANDED_IDENTITY` storage key was removed. `docs/tech-stack-review.md` still mentions the
+  notice (a dated review, left as written).
+
 ### RL-086 Imports are Saved copies the sync never removes
 
 - As a verified user on the preview: Settings, export, then delete one recipe from its page, then import the file. The deleted recipe comes back and is still there after a reload (before this change the sync removed it). The message reads "Import complete: 1 added. {n} already in your account, left as they are." Check it at 390 px in both themes.

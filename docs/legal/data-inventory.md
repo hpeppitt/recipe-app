@@ -46,7 +46,6 @@ through `src/services/storage.ts`. None is cleared by "Delete Recipes on This De
 | `recipe-app-previous-uids` | JSON list of every uid that has signed in on this device, anonymous and email | **Never cleared by the app**; only by clearing browser data. Never sent anywhere | `addPreviousUid`, from `AuthContext` |
 | `recipe-app-email-for-linking` | The email address an anonymous user asked to add | Removed when the link completes successfully. Stays if the link is never opened or fails | `sendEmailLinkForLinking` in `services/firebase.ts` via `setEmailForLinking` |
 | `emailForSignIn` | The email address a signed-out visitor asked to sign in with | Same as above | `sendEmailSignInLink` in `services/firebase.ts`, writing `localStorage` directly |
-| `recipe-app-stranded-identity` | `{ oldUid, oldDisplayName, recipeCount, at }` for the stranded-recipe notice | Removed when the notice is dismissed | `setStrandedIdentity`, from `AuthContext` |
 | `recipe-app-terms-acceptance` | **RL-047, in the repo, not yet released.** `{ version, acceptedAt, email }`: the Terms version ticked on an email form, the client time it was sent, and **the email address it was ticked for** (trimmed, lower-cased), so it is only recorded for that account | Removed once written to `termsAcceptance/{uid}`, when the send fails, on sign-out and on declining the Terms. Stays if the link is never opened | `setTermsAcceptance`, from `AuthModal`, `EmailLinkingForm` and `EmailLinkStatus` |
 
 ### On the device: other

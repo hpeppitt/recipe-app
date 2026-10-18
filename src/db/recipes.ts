@@ -77,24 +77,8 @@ export async function getAllRecipes(): Promise<Recipe[]> {
   return db.recipes.orderBy('createdAt').reverse().toArray();
 }
 
-export async function getRecipeChildren(parentId: string): Promise<Recipe[]> {
-  return db.recipes.where('parentId').equals(parentId).toArray();
-}
-
 export async function getRecipeTree(rootId: string): Promise<Recipe[]> {
   return db.recipes.where('rootId').equals(rootId).toArray();
-}
-
-export async function getRecipeAncestors(recipe: Recipe): Promise<Recipe[]> {
-  const ancestors: Recipe[] = [];
-  let current = recipe;
-  while (current.parentId) {
-    const parent = await db.recipes.get(current.parentId);
-    if (!parent) break;
-    ancestors.unshift(parent);
-    current = parent;
-  }
-  return ancestors;
 }
 
 /** The ids `deleteRecipeTree(id)` would remove, without removing anything. */

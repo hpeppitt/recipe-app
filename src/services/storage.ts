@@ -1,6 +1,5 @@
 import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
-import type { StrandedIdentity } from '../lib/migration';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
 import { parseConsent, serialiseConsent, type ConsentChoice } from '../lib/consent';
 import { parseLibraryTab, type LibraryTab } from '../lib/library';
@@ -146,38 +145,6 @@ export function getIntroState(): IntroState {
 
 export function setIntroState(state: IntroState): void {
   safeSet(STORAGE_KEYS.INTRO_STATE, JSON.stringify(state));
-}
-
-// --- Stranded identity notice ---
-//
-// Persisted rather than held in memory because the migration is attempted during
-// page load, on the same load that consumes the email link. A notice kept only in
-// React state would be lost to the `history.replaceState` and re-render that
-// follow, i.e. exactly the silent loss this is meant to end.
-
-export function getStrandedIdentity(): StrandedIdentity | null {
-  const raw = safeGet(STORAGE_KEYS.STRANDED_IDENTITY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as StrandedIdentity;
-    // Guard against a hand-edited or half-written value rendering "undefined
-    // recipes stayed under null".
-    if (typeof parsed?.oldUid !== 'string' || typeof parsed?.recipeCount !== 'number') {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-export function setStrandedIdentity(stranded: StrandedIdentity): void {
-  safeSet(STORAGE_KEYS.STRANDED_IDENTITY, JSON.stringify(stranded));
-}
-
-/** Called when the user dismisses the notice; it is shown once. */
-export function clearStrandedIdentity(): void {
-  safeRemove(STORAGE_KEYS.STRANDED_IDENTITY);
 }
 
 export function getEmailForLinking(): string | null {

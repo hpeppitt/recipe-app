@@ -55,7 +55,6 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
     expect(storage.getAnonymousUid()).toBeNull();
     expect(storage.getPreviousUids()).toEqual([]);
     expect(storage.getIntroState()).toEqual(parseIntroState(null));
-    expect(storage.getStrandedIdentity()).toBeNull();
     expect(storage.getEmailForLinking()).toBeNull();
   });
 
@@ -68,8 +67,6 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
       storage.clearAnonymousUid();
       storage.addPreviousUid('u2');
       storage.setIntroState(storage.getIntroState());
-      storage.setStrandedIdentity({ oldUid: 'a', recipeCount: 1 } as never);
-      storage.clearStrandedIdentity();
       storage.setEmailForLinking('a@b.c');
       storage.clearEmailForLinking();
     }).not.toThrow();
@@ -159,13 +156,11 @@ describe('corrupt values', () => {
       memoryStore({
         [STORAGE_KEYS.PREVIOUS_UIDS]: '{not json',
         [STORAGE_KEYS.INTRO_STATE]: '{not json',
-        [STORAGE_KEYS.STRANDED_IDENTITY]: '{not json',
       }),
     );
     expect(storage.getPreviousUids()).toEqual([]);
     expect(() => storage.addPreviousUid('x')).not.toThrow();
     expect(storage.getIntroState()).toEqual(parseIntroState(null));
-    expect(storage.getStrandedIdentity()).toBeNull();
   });
 
   it.each([
@@ -214,11 +209,6 @@ describe('round trip on a working store', () => {
     expect(storage.getEmailForLinking()).toBe('a@b.c');
     storage.clearEmailForLinking();
     expect(storage.getEmailForLinking()).toBeNull();
-    const stranded = { oldUid: 'o', recipeCount: 3 } as never;
-    storage.setStrandedIdentity(stranded);
-    expect(storage.getStrandedIdentity()).toEqual(stranded);
-    storage.clearStrandedIdentity();
-    expect(storage.getStrandedIdentity()).toBeNull();
     const intro = storage.getIntroState();
     storage.setIntroState(intro);
     expect(storage.getIntroState()).toEqual(intro);
