@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-070 Timeline view of the version tree
+
+- On families of 1, about 8 and about 30 versions, open `?view=timeline` (or the Timeline switch) from a deep version. It should start scrolled to the filled terracotta stop with its ring; a family of 1 shows one stop labelled "Original" and does not scroll.
+- Swipe scroll is smooth on iOS Safari. Tapping a stop opens the bottom sheet with sensible change tags; Open and Branch here go to the right pages. Escape and a tap outside close it and focus returns to the stop.
+- A keyboard user can Tab through the stops (left to right) and press Enter or Space to open the sheet; the focus ring is visible.
+- Reviewer noted (med, design call for the author): line colours accent-400 and accent-2-400 are about 1.7:1 against the cream surface, so those lines and hollow stops are faint on a bright screen. A darker palette or thicker lines would fix it.
+- Reviewer noted (low): index.html has no viewport-fit=cover, so the env(safe-area-inset-bottom) padding is dead code until it is added. showModal does not lock body scroll on iOS. Accessible names collide when two lines share a label and stop number. The 6.5px per char label estimate can run a label 20 to 40px past the width for wide capitals.
+- Check at 390 and 320 px: line labels do not run into stops, long titles and prompts wrap in the sheet, both sheet buttons stay 44px tall.
+
 ### RL-068 Tree view connectors and path
 
 - On families of depth 0, 2 and 6, open the tree from different versions. Check the terracotta path runs from the original to the "Here" node and stops there, rails stop at the last sibling, and tapping a node opens it.

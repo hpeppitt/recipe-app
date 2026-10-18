@@ -69,9 +69,11 @@ describe('VersionTreePage', () => {
     expect(screen.getByText(/^3 versions, 2 cooks, started by Ada in /)).toBeTruthy();
   });
 
-  it('has no view switch while only one view exists', () => {
-    renderPage();
-    expect(screen.queryByRole('radiogroup', { name: 'Tree view' })).toBeNull();
+  it('shows the Tree and Timeline switch, and ?view=timeline draws the timeline', () => {
+    renderPage('/recipe/v1/tree?view=timeline');
+    expect(screen.getByRole('radiogroup', { name: 'Tree view' })).toBeTruthy();
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Tree', 'Timeline']);
+    expect(screen.getByRole('region', { name: /timeline/i })).toBeTruthy();
   });
 
   it('renders the Tree view for an unknown ?view=', () => {
