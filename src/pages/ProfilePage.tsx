@@ -10,6 +10,7 @@ import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { AuthModal } from '../components/auth/AuthModal';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
+import { useOwnRecipesWaiting } from '../hooks/useOwnRecipesWaiting';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -84,7 +85,9 @@ function PersonRow({
 function OwnProfile() {
   const { user, signOut, updateDisplayName } = useAuth();
   const { profile, updateAvatar, updateName } = useOwnProfile();
-  const { recipes, stats, isLoading: recipesLoading } = useOwnRecipes(user?.uid);
+  const { recipes, stats, isLoading: ownLoading } = useOwnRecipes(user?.uid);
+  const waitingForSync = useOwnRecipesWaiting();
+  const recipesLoading = ownLoading || (waitingForSync && recipes.length === 0);
   const navigate = useNavigate();
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [editingName, setEditingName] = useState(false);

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -6,6 +6,8 @@ import { useFollowingList } from '../hooks/useFollow';
 import { useFollowingRecipes } from '../hooks/useUserRecipes';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile } from '../hooks/useProfile';
+import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
+import { useOwnRecipesWaiting } from '../hooks/useOwnRecipesWaiting';
 import { RecipeCard, type RecipeCardRecipe } from '../components/recipe/RecipeCard';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,6 +22,15 @@ import { pluralize } from '../lib/utils';
 import type { ScorableRecipe } from '../lib/search';
 import { buildFeed, filterFeed, type LibraryTab } from '../lib/library';
 import { getLibraryTab, setLibraryTab } from '../services/storage';
+
+function subscribeOnline(cb: () => void) {
+  window.addEventListener('online', cb);
+  window.addEventListener('offline', cb);
+  return () => {
+    window.removeEventListener('online', cb);
+    window.removeEventListener('offline', cb);
+  };
+}
 
 type Filter = 'all' | 'favorites' | 'following';
 
@@ -88,8 +99,14 @@ export function LibraryPage() {
       : showFollowing
         ? followingRecipes
         : exploreFeed;
+  const syncStatus = useOwnRecipesSyncStatus();
+  const waitingForSync = useOwnRecipesWaiting();
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine !== false);
+  const showOfflineLine = tab === 'mine' && !online && syncStatus !== 'synced' && syncStatus !== 'off';
+  // The skeleton replaces only an empty list, never recipes already in Dexie.
+  const mineEmpty = !!localRecords && (source?.length ?? 0) === 0;
   const isLoading =
-    tab === 'mine' ? localRecords === undefined : showFollowing ? followingLoading : cloud.isLoading;
+    tab === 'mine' ? localRecords === undefined || (waitingForSync && mineEmpty) : showFollowing ? followingLoading : cloud.isLoading;
   const displayRecipes =
     source &&
     filterFeed(source, {
@@ -253,6 +270,12 @@ export function LibraryPage() {
         {pagedExplore && filter === 'all' && !search && !isLoading && loadedCount > 0 && (
           <p className="text-xs text-text-tertiary">
             Recipes shared by everyone using {APP_NAME}
+          </p>
+        )}
+
+        {showOfflineLine && (
+          <p role="status" className="text-xs text-text-tertiary">
+            You're offline. Showing the recipes saved on this device.
           </p>
         )}
 

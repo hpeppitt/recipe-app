@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { screen, fireEvent, act } from '@testing-library/react';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import { db } from '../db/database';
@@ -14,6 +14,8 @@ vi.mock('../services/firestore', () => ({
   getCloudFavorites: vi.fn(async () => []),
 }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
+let syncStatus = 'off';
+vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null }) }));
 vi.mock('../hooks/useFollow', () => ({
@@ -37,6 +39,7 @@ beforeEach(async () => {
     getItem: (k: string) => store.get(k) ?? null,
     setItem: (k: string, v: string) => void store.set(k, v),
   });
+  syncStatus = 'off';
   await db.recipes.clear();
   getPage.mockReset();
   getPage.mockResolvedValue({ recipes: [], cursor: null, hasMore: false });
@@ -312,5 +315,69 @@ describe('Explore tag chips', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByText('Stale Page')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more recipes' })).not.toBeInTheDocument();
+  });
+});
+
+describe('LibraryPage own-recipe sync states (RL-079)', () => {
+  const skeletons = (c: HTMLElement) => c.querySelectorAll('.animate-pulse').length;
+  const EMPTY = "You haven't created a recipe yet";
+  const OFFLINE = "You're offline. Showing the recipes saved on this device.";
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('shows skeletons, not the empty state, while waiting with nothing local', async () => {
+    syncStatus = 'waiting';
+    const { container } = renderWithProviders(<LibraryPage />);
+    await act(async () => {});
+    expect(skeletons(container)).toBe(3);
+    expect(screen.queryByText(EMPTY)).not.toBeInTheDocument();
+  });
+
+  it('falls back to the empty state after 6 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    syncStatus = 'waiting';
+    const { container } = renderWithProviders(<LibraryPage />);
+    await act(async () => {});
+    expect(skeletons(container)).toBe(3);
+    await act(async () => {
+      vi.advanceTimersByTime(6001);
+    });
+    expect(await screen.findByText(EMPTY)).toBeInTheDocument();
+    expect(skeletons(container)).toBe(0);
+  });
+
+  it('never hides local recipes behind the skeleton', async () => {
+    syncStatus = 'waiting';
+    await db.recipes.add(makeRecipe({ title: 'Local Lasagne' }));
+    renderWithProviders(<LibraryPage />);
+    expect(await screen.findByText('Local Lasagne')).toBeInTheDocument();
+  });
+
+  it('shows today\'s empty state when synced and empty', async () => {
+    syncStatus = 'synced';
+    renderWithProviders(<LibraryPage />);
+    expect(await screen.findByText(EMPTY)).toBeInTheDocument();
+  });
+
+  it('shows the offline line, politely, until synced, and updates on events', async () => {
+    syncStatus = 'error';
+    vi.stubGlobal('navigator', { onLine: false });
+    renderWithProviders(<LibraryPage />);
+    expect(await screen.findByRole('status')).toHaveTextContent(OFFLINE);
+    vi.stubGlobal('navigator', { onLine: true });
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(screen.queryByText(OFFLINE)).not.toBeInTheDocument();
+  });
+
+  it('shows neither the skeleton nor the offline line for status off', async () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    const { container } = renderWithProviders(<LibraryPage />);
+    expect(await screen.findByText(EMPTY)).toBeInTheDocument();
+    expect(screen.queryByText(OFFLINE)).not.toBeInTheDocument();
+    expect(skeletons(container)).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { screen, fireEvent, act } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import type { AppUser } from '../types/recipe';
@@ -27,8 +27,11 @@ vi.mock('../hooks/useProfile', () => ({
     retry: () => {},
   }),
 }));
+let syncStatus = 'off';
+let ownRecipes: { id: string; title: string; emoji: string }[] = [];
+vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
 vi.mock('../hooks/useUserRecipes', () => ({
-  useOwnRecipes: () => ({ recipes: [], stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
+  useOwnRecipes: () => ({ recipes: ownRecipes, stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
   useUserRecipes: () => ({ recipes: [], stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
 }));
 
@@ -51,7 +54,11 @@ beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
-beforeEach(() => followUser.mockClear());
+beforeEach(() => {
+  followUser.mockClear();
+  syncStatus = 'off';
+  ownRecipes = [];
+});
 
 describe('ProfilePage sign-up gates', () => {
   it.each([
@@ -87,5 +94,51 @@ describe('ProfilePage sign-up gates', () => {
     fireEvent.click(screen.getByRole('button', { name: /Edit display name/ }));
     expect(screen.queryByPlaceholderText('Display name')).not.toBeInTheDocument();
     expect(updateAvatar).not.toHaveBeenCalled();
+  });
+});
+
+describe('OwnProfile sync states (RL-079)', () => {
+  const skeletons = (c: HTMLElement) => c.querySelectorAll('.animate-pulse').length;
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('shows skeletons instead of the empty state while waiting, and gives up after 6 seconds', () => {
+    vi.useFakeTimers();
+    syncStatus = 'waiting';
+    const { container } = renderAt('/profile', fakeUser);
+    expect(skeletons(container)).toBe(2);
+    expect(screen.queryByText('No published recipes yet')).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(6001);
+    });
+    expect(skeletons(container)).toBe(0);
+    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+  });
+
+  it('shows recipes while waiting', () => {
+    syncStatus = 'waiting';
+    ownRecipes = [{ id: 'r1', title: 'Local Lasagne', emoji: '🍝' }];
+    renderAt('/profile', fakeUser);
+    expect(screen.getByText('Local Lasagne')).toBeInTheDocument();
+  });
+
+  it('shows the empty state when synced', () => {
+    syncStatus = 'synced';
+    renderAt('/profile', fakeUser);
+    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+  });
+
+  it('shows the empty state when waiting offline', () => {
+    syncStatus = 'waiting';
+    vi.stubGlobal('navigator', { onLine: false });
+    renderAt('/profile', fakeUser);
+    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+  });
+
+  it('shows the empty state for status off', () => {
+    renderAt('/profile', fakeUser);
+    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
   });
 });
