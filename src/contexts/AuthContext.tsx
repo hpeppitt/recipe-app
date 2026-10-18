@@ -24,7 +24,7 @@ import {
   type UidMigrationOutcome,
 } from '../services/firestore';
 import { shouldNotify } from '../lib/migration';
-import { migrateRecipesUid } from '../db/recipes';
+import { migrateRecipesUid, clearOwnRecipes } from '../db/recipes';
 import { migrateFavoritesUid } from '../db/favorites';
 import {
   getAnonymousUid,
@@ -456,7 +456,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAnonymousUid();
     // A ticked box belongs to whoever ticked it; the next person on this device ticks their own.
     clearTermsAcceptance();
+    const current = auth?.currentUser;
+    const verifiedUid = current && !current.isAnonymous && current.emailVerified ? current.uid : null;
     await signOut();
+    // A verified user's recipes are a cache of Firestore (decision 1b); the next sign-in refills them.
+    if (verifiedUid) {
+      try {
+        await clearOwnRecipes(verifiedUid);
+      } catch (err) {
+        console.error('Clearing own recipes on sign-out failed', err);
+        reportError(err, 'sign-out-clear');
+      }
+    }
   };
 
   const handleUpdateDisplayName = async (name: string) => {

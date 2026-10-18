@@ -58,7 +58,9 @@ are applied. Each one makes Dexie mirror it: own rows are overwritten (the cloud
 field but `chatHistory`) and own rows the snapshot lacks are removed. The tidy rule: rows
 whose `createdBy.uid` is another uid that signed in on this device (`getPreviousUids`) are
 removed. Saved copies of other users' recipes, `'local'` rows and rows with no `createdBy`
-are never touched. The listener never writes to Firestore.
+are never touched. The listener never writes to Firestore. A verified sign-out deletes the
+account's own rows with `clearOwnRecipes(uid)` (RL-085, a `filter` plus delete in one `rw`
+transaction); everything else, `favorites` included, stays.
 
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|

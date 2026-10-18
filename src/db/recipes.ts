@@ -69,6 +69,16 @@ export async function applyOwnRecipeSync(
   });
 }
 
+/**
+ * Removes `uid`'s own recipes from this device on a verified sign-out (RL-085). The cloud copy
+ * is the truth (decision 1b), so the listener refills them on the next sign-in. Returns the count.
+ */
+export async function clearOwnRecipes(uid: string): Promise<number> {
+  return db.transaction('rw', db.recipes, () =>
+    db.recipes.filter((r) => r.createdBy?.uid === uid).delete()
+  );
+}
+
 export async function getRecipe(id: string): Promise<Recipe | undefined> {
   return db.recipes.get(id);
 }
