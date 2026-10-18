@@ -936,8 +936,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - Open `/recipe/<a variation id>/changes` and `/recipe/<id>/changes?vs=<cousin id>`. Check the rows read correctly against the two recipes: `~` changed rows with the old amount struck through, `+` added, `-` removed, method words inserted (highlighted) and deleted (struck).
 - Check the Changes only / Side by side toggle, the time and servings line, the prompt bubble, and that both pills open their recipes.
-- A root recipe (no `?vs=`) shows "This is the original". There is no link to this screen yet (RL-074), so type the URL.
+- A root recipe (no `?vs=`) shows "This is the original". The links now exist (recipe page and Timeline sheet, RL-074).
 - Check Side by side at 320 px: two columns about 140 px wide, long words wrap, no sideways page scroll, and the sticky footer buttons (44 px) never hide the last row.
 - With VoiceOver, rows announce Changed, Added or Removed, and old values are read as "was ...".
 - Reviewer noted (moot while the app is light only, RL-065): the tinted cells use light-only tints with themed text, so they would be unreadable if dark mode returns. Pin the text to fixed tokens then.
 - Reviewer noted (low): SegmentedControl has no arrow-key roving (shared, pre-existing). The BackButton is duplicated from VersionTreePage.
+
+
+### RL-074 What changed entry points
+
+- Open a variation's recipe page. "See what changed" sits directly under the Prompt box; tap it, check the screen, then Back returns to the recipe.
+- Open a root recipe and confirm there is no such link.
+- In the Timeline, open a child stop's sheet. The ghost "See what changed" button sits between the change tags and Open / Branch here; it opens the changes screen. The root stop's sheet has no such button. Check the sheet at 320 px.
+- Reviewer noted (moot while the app is light only): in dark mode primary-600 text and the forced primary-600 focus ring are about 2.6:1 on the dark surface, a token-level issue shared with the ghost Button.
+- Reviewer noted (low): the forced ring on the ghost button differs slightly from the neighbouring buttons' primary-500 ring.
