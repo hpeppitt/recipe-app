@@ -10,13 +10,21 @@ into `CHANGELOG.md` and clears this file.
 Things no agent can verify here, so every QA pass covers them at a 390x844 viewport:
 
 - Library loads, cards render, search and the favourites filter work.
-- A recipe detail page: action row, breadcrumb, variation chips, the version tree.
+- A recipe detail page: action row, breadcrumb, branch carousel, the version tree.
 - `/create` shows the composer for a verified account and the sign-up call to action otherwise.
 - A `/shared/:id` link opened signed out, in a fresh browser profile.
 - The browser console shows no errors or unhandled rejections on that walk.
 - `TreeIntro` renders legibly on the second root recipe opened (AUDIT UI-16, never yet seen in a browser).
 
 ## Since the last release
+
+### RL-075 Branch carousel on the recipe page
+
+- On a recipe with 3 or more children, swipe the carousel on iOS Safari and Android Chrome: cards snap and the dots follow. Tab through with a keyboard (focus rings visible, every Open reachable). With VoiceOver, cards announce "1 of 3". Open opens the branch; the network button opens the tree; "The original" row shows on a variation and not on a root.
+- A leaf and a lone root with no children show no section. Check long prompts (three lines, clipped) and long titles at 320 px.
+- Reviewer noted (moot while light only, RL-065): two of the three card tints are light-only with themed text, unreadable if dark mode returns; pin the text then. The active dot is also about 2.6:1 on a dark surface (moot).
+- Reviewer noted (low): a failed cloud tree fetch for someone else's recipe looks the same as a leaf because useRecipeTree swallows errors. At 320px the next card peeks only 2px. If the root is not yet loaded, "The original" row is missing and the family name falls back to the viewed title.
+- Dots are 24x44 hit areas around 8px marks, with a border so inactive ones are visible. Lowest text contrast on the tinted cards is 7.45:1 (text-secondary on surface-secondary).
 
 ### RL-070 Timeline view of the version tree
 
