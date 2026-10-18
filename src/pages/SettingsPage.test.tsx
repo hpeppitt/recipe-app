@@ -38,6 +38,14 @@ beforeEach(() => {
   });
 });
 
+describe('Settings: theme', () => {
+  it('has no Theme control (light only since RL-065)', () => {
+    render();
+    expect(screen.queryByText('Theme')).toBeNull();
+    expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
+  });
+});
+
 describe('Settings: Download my data', () => {
   it('is labelled local-only for an anonymous user and reads no cloud data', async () => {
     user = anon;

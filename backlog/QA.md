@@ -7,8 +7,7 @@ into `CHANGELOG.md` and clears this file.
 
 ## Standing checks
 
-Things no agent can verify here, so every QA pass covers them at a 390x844 viewport in
-both themes:
+Things no agent can verify here, so every QA pass covers them at a 390x844 viewport:
 
 - Library loads, cards render, search and the favourites filter work.
 - A recipe detail page: action row, breadcrumb, variation chips, the version tree.
@@ -19,6 +18,13 @@ both themes:
 
 ## Since the last release
 
+### RL-065 Light only
+
+- Update the PWA first (tap Reload on the update bar) before checking: the old shell keeps serving until then, and a returning user with a stored `dark` preference may briefly see dark.
+- In Settings, the Theme row (and the Appearance heading) is absent; Units is still there.
+- With the OS set to dark mode, hard reload: Library, a recipe and the version tree still show the light Organic look, and the browser chrome (theme-color) is cream, not dark grey.
+- If your browser has `recipe-app-theme` set to `dark` from before, the app is still light.
+
 ### RL-062 Organic colours and self-hosted type
 
 - On the preview build at 390x844, walk the standing checks and confirm the cream ground, terracotta buttons and links, Caprasimo headings and Figtree body on Library, a recipe, the version tree, Settings and `/shared/:id`.
@@ -28,11 +34,11 @@ both themes:
 - Include a fraction such as one third in an ingredient quantity: the Figtree latin subset may not cover U+2153 and U+2154, which would fall back to the system font.
 - Reviewer noted (med): the 10px chat timestamp is `text-primary-200` on primary-600 at exactly 4.50:1 (`ChatMessage.tsx:15`); use `primary-100` or `on-accent`.
 - Reviewer noted (med): only Figtree is preloaded, so on a cold first visit headings flash in the system font and reflow; preloading Caprasimo is a one-line fix in `index.html`.
-- Reviewer noted (low): small all-caps 14px Settings and edit-page section headings now render in Caprasimo and may look heavy (RL-063 or QA call); heart icons and bullet glyphs are about 3:1 (non-text); `public/icon.svg` and the PWA icons are still indigo and now clash with the cream manifest colours (needs its own ticket); dark-mode borders `dark:border-primary-800` nearly vanish until RL-065 hides dark.
+- Reviewer noted (low): small all-caps 14px Settings and edit-page section headings now render in Caprasimo and may look heavy (RL-063 or QA call); heart icons and bullet glyphs are about 3:1 (non-text); `public/icon.svg` and the PWA icons are still indigo and now clash with the cream manifest colours (needs its own ticket); dark-mode borders `dark:border-primary-800` nearly vanish until RL-065 hides dark (moot after RL-065: light only).
 
 ### RL-063 Shared UI primitives restyled to Organic
 
-- At 390x844 check buttons (primary, secondary, ghost, danger, disabled), chips and the filter chips on Library, the theme `SegmentedControl` in Settings, inputs on the edit page, the delete confirm dialog, skeletons while a recipe loads, and an empty state.
+- At 390x844 check buttons (primary, secondary, ghost, danger, disabled), chips and the filter chips on Library, the unit `SegmentedControl` in Settings, inputs on the edit page, the delete confirm dialog, skeletons while a recipe loads, and an empty state.
 - Tab through each with the keyboard and confirm the accent focus ring is visible.
 - Disabled buttons are at 45% opacity: check they are still readable.
 - EmptyState stays centred (left-alignment not attempted, so no caller was at risk).
@@ -431,7 +437,7 @@ both themes:
 
 ### RL-031 Blocked or corrupt localStorage never throws out of services/storage.ts
 
-- Open the preview build in Safari with Block all cookies on, and in Chrome with cookies and site data blocked for the site. The library should load, and the theme and unit toggles should not crash (they just will not be remembered after a reload).
+- Open the preview build in Safari with Block all cookies on, and in Chrome with cookies and site data blocked for the site. The library should load, and the unit toggle should not crash (they just will not be remembered after a reload).
 - Not covered: code outside `storage.ts` that touches localStorage directly. `src/services/firebase.ts` lines 109, 225 and 230 (`emailForSignIn` for the email-link flow) can still throw when storage is blocked.
 - Reviewer note (med, for the author): the email-link sign-in flow in `services/firebase.ts` still touches localStorage directly at those three places, so with storage blocked starting or completing email-link sign-in may throw. That is the sign-up path RL-041 routes users to, so it is the more important place to fix next. The `'emailForSignIn'` key is a literal and is not in `STORAGE_KEYS`.
 - Reviewer note (low): Safari "Block all cookies" can also block IndexedDB, which is outside this ticket and not audited (Dexie start-up). With storage blocked every write warns; callers are not hot paths, though `RecipeDetailPage` persists inside a setState updater, so StrictMode in dev warns twice.
@@ -549,7 +555,7 @@ both themes:
 - The old first-run welcome card is gone; its explanation now lives in the My Recipes empty state. Check it reads well as a first screen.
 - Failed Load more: on Explore with more than 30 recipes, go Offline in devtools and press Load more. "Could not load more recipes. Try again." appears in red above the button, the loaded list stays, and pressing Load more again once online loads the page and clears the message.
 - Favorites on Explore with more pages to fetch: the empty state reads "No favorites in the N recipes loaded so far. Load more to look further.", not "No favorites yet".
-- Reviewer notes (medium, not fixed): `SegmentedControl` is a radiogroup, not tabs, so there is no tablist/tabpanel association or arrow-key handling; changing it would also change the Settings theme picker. Back from a recipe remounts LibraryPage, so search text, filters, scroll position and loaded Explore pages reset (only the tab is remembered). The sticky header is now about 220px tall (56px bar, 44px tabs, 44px search, 44px chips), a third of a 320x568 viewport. No scroll reset on tab switch, and search and the favourites filter carry across tabs without a signal.
+- Reviewer notes (medium, not fixed): `SegmentedControl` is a radiogroup, not tabs, so there is no tablist/tabpanel association or arrow-key handling; (moot after RL-065: the theme picker is gone.) Back from a recipe remounts LibraryPage, so search text, filters, scroll position and loaded Explore pages reset (only the tab is remembered). The sticky header is now about 220px tall (56px bar, 44px tabs, 44px search, 44px chips), a third of a 320x568 viewport. No scroll reset on tab switch, and search and the favourites filter carry across tabs without a signal.
 - Reviewer noted (med, data): `useFollowingList()` runs on every Library mount whichever tab is active, so any signed-in user, anonymous included, makes two `getFollowingIds` reads plus one `getProfile` per followed user. Its `Promise.all` has no `.catch` and no cancellation guard, so a rejected read is an unhandled rejection (and a stuck `isLoading`) on every visit, and a slow response after a uid change can overwrite fresh state. The reads are allowed by the rules, so no `permission-denied`. Gate it on `tab === 'explore' && emailVerified` and add a catch and a cancelled flag (RL-026 territory; `ProfilePage` has the same issue). The component test mocks `useFollowingList`, so it never catches this.
 - Reviewer noted (med, data): variation counts on My Recipes depend on whether Explore has been opened. `cloud.recipes` is null until Explore starts, so a local root with cloud-only variations shows a lower count until the user visits Explore, then a higher one. On Explore a root whose variations sit on unfetched pages undercounts until Load more. Dedup itself is correct. Accept as the price of lazy loading, or document it.
 - Reviewer noted (low, data): the Following list bypasses `buildFeed`, so it has no roots-only filter, no dedup and no variation chip, and `getRecipesByUsers` uses `limit(50)` per 30-uid chunk with no `orderBy`, so those 50 are arbitrary, not the newest (predates this ticket). `useFollowingRecipes` has no cancellation, and there is a one-frame flash of "No recipes from followed users" on entering Following. The favourites filter reads Dexie only, so a verified user on a new device sees only locally held favourites until something syncs cloud favourites down. `loadMore` guards with state, not a ref, so two clicks in one tick could fetch the same cursor twice (a wasted read, no visible corruption). Two page-1 fetches under StrictMode in dev only. No test for pages kept across tab switches, Load more appending, the favourites filter per tab, or Following results.
@@ -559,13 +565,13 @@ both themes:
 
 ### RL-007 PWA manifest and precached app shell
 
-- Install on a phone (Add to Home Screen): the "RL" icon shows, the app opens standalone with the right status bar colour in light and dark.
+- Install on a phone (Add to Home Screen): the "RL" icon shows, the app opens standalone with the right status bar colour (cream, one theme-color meta, no media query).
 - Offline: load the app online once, go Offline in devtools (or airplane mode), reload `/` and a local recipe. Both should render from cache. Cloud-only recipes and Create will not work offline, which is expected.
 - Update prompt: deploy or preview two builds (bump any text, rebuild), revisit with the old one open. An "Update available" bar appears above the bottom nav; Dismiss hides it without reloading, Reload applies the new build.
 - Email-link sign-in with the service worker active: request a link, open it in the same browser, confirm you are signed in.
 - Deep link: on a first visit open `/recipe/:id` directly. The service worker should register (devtools Application tab), and the update bar can appear on any route, including pages without the bottom nav.
 - Reviewer notes (medium): the update bar (z-40, roughly 56 to 116px from the bottom) overlaps the FAB (bottom-20, z-30) and covers about 60px of the last page content, because `main` has `pb-16` and does not grow, until Dismiss. On routes without the bottom nav it floats 56px above the screen edge.
-- Reviewer notes (low): Reload discards unsaved edits with no confirmation. At 320px the label may wrap to two lines. No `env(safe-area-inset-bottom)` on the bar or BottomNav (`viewport-fit=cover` is not set, so fine today, relevant once installed standalone). The theme-color meta tags follow the OS setting, not the in-app theme toggle. A component test for the bar would need a mock for `virtual:pwa-register`.
+- Reviewer notes (low): Reload discards unsaved edits with no confirmation. At 320px the label may wrap to two lines. No `env(safe-area-inset-bottom)` on the bar or BottomNav (`viewport-fit=cover` is not set, so fine today, relevant once installed standalone). The theme-color meta is a single `#f5ead8` tag with no media query (RL-065). A component test for the bar would need a mock for `virtual:pwa-register`.
 - After the hosting deploy: `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` shows `no-cache`, and `/assets/*.js` still shows `immutable`.
 
 ### RL-006 Split the bundle at route boundaries
