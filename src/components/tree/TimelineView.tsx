@@ -213,7 +213,7 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
               </ul>
             )}
             <div className="flex gap-3 mt-5">
-              <Button variant="secondary" fullWidth className="border-border-strong" onClick={() => go(`/recipe/${selected.id}`)}>
+              <Button variant="secondary" fullWidth className="border-border-strong!" onClick={() => go(`/recipe/${selected.id}`)}>
                 Open
               </Button>
               <Button fullWidth onClick={() => go(`/recipe/${selected.id}/vary`)}>
