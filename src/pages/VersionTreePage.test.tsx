@@ -76,7 +76,7 @@ describe('VersionTreePage', () => {
 
   it('renders the Tree view for an unknown ?view=', () => {
     renderPage('/recipe/v1/tree?view=bogus');
-    expect(screen.getByRole('button', { name: /^.*Spicy Soup.*Current/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^.*Spicy Soup.*current version/ })).toBeTruthy();
   });
 
   it('Branch from navigates to the variation composer', () => {

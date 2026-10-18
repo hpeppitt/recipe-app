@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-068 Tree view connectors and path
+
+- On families of depth 0, 2 and 6, open the tree from different versions. Check the terracotta path runs from the original to the "Here" node and stops there, rails stop at the last sibling, and tapping a node opens it.
+- At 320 px, a deep chain scrolls sideways inside the tree area while the page header and the Branch bar stay put. Tab to the tree area to scroll it with the arrow keys; node focus rings should be visible on both card colours.
+- TreeIntro (the first-variation explainer) now looks different from the tree. Expected until it is redesigned.
+- Reviewer noted (med, design call for the author): the terracotta path differs from the neutral lines by hue only (about 1.8:1 by luminance), so colour-blind users cannot trace it. A thicker path line or a darker accent would fix it.
+- Reviewer noted (low): the `"prompt" · author` line truncates the author when the prompt is long. `setView` uses replace, so the Timeline and Map tickets must keep that in mind.
+
 ### RL-067 Version tree page shell
 
 - On a family with at least three versions from two accounts, open the tree. Check the subtitle numbers and month, that the "Branch from" button label shows the current recipe's title and opens the variation composer, and that Back from the tree returns to the recipe in one press.

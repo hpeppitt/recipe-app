@@ -233,6 +233,8 @@ The diagram reuses the real version tree's own borders (`border-l-2 border-borde
 so that recognising it later on `/recipe/:id/tree` is the point rather than a coincidence. It shows
 a grandchild, because depth is exactly the part prose fails to convey.
 
+Since RL-068 the TreeIntro diagram no longer matches the tree (the tree now draws 3px rounded-elbow connectors, not `border-l-2`); the redraw is pending design (brief ticket 8).
+
 Rejected an interactive tour and a modal: a modal on arrival is the thing everyone dismisses
 unread, and a tour is a lot of machinery for one idea.
 

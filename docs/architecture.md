@@ -34,7 +34,7 @@ flowchart TD
 
 **`pages/`** own routing-level state and compose components. **`components/`** are
 presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
-`notifications/`, `layout/`) plus a shared `ui/` primitive set (Button, Input, Chip,
+`notifications/`, `layout/`, `tree/`) plus a shared `ui/` primitive set (Button, Input, Chip,
 Skeleton, EmptyState, ConfirmDialog, FAB, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary). **`hooks/`**
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
 the tests live. **`services/`** wrap the outside world: Firebase init, Firestore CRUD,
