@@ -19,6 +19,14 @@ both themes:
 
 ## Since the last release
 
+### RL-084 Created, Branched and Saved split in lib/library.ts
+
+- Nothing to check in a browser until the rebrand's tab ticket uses `splitLibrary`. No page calls it and My Recipes is unchanged.
+- Decision needed from the author: should pre-auth `'local'` rows on a device with Firebase configured count as Created (they predate accounts and are probably yours) or Saved (they are in no account)? The code keeps them in Saved because that claims nothing. Changing it is a one-line edit to the ownership test in `splitLibrary`.
+- Reviewer noted (low): `splitLibrary` reads `r.createdBy.uid` and would throw on a row with no `createdBy` (`library.ts:119`); use `r.createdBy?.uid` if the rebrand feeds it cloud docs.
+- Reviewer noted (low): `childCount` is keyed by root id, so every Branched card shows 0 children and sub-variations of an own branch are not counted; the rebrand's Branched tab ticket should decide whether to count them.
+- Note for the author: once `'local'` rows are decided, `docs/architecture.md` "single decision point" paragraph for `canManageRecipe` (about 151-153) and a short `docs/decisions.md` entry need updating, since `splitLibrary` is a second ownership test that does not treat `'local'` as own.
+
 ### RL-080 Deleting a recipe is cloud first for a verified owner
 
 - On the preview as a verified user, delete a recipe that has a variation. The app goes home, and both the recipe and the variation are gone from My Recipes and from Explore (reload Explore to be sure).

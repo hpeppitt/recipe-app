@@ -62,31 +62,66 @@ export type FeedSource = Omit<FeedRecipe, 'childCount' | 'parentId' | 'rootId' |
  * showing zero.
  */
 export function buildFeed(source: readonly FeedSource[], countFrom: readonly FeedSource[]): FeedRecipe[] {
-  const childCounts = countDescendantsByRoot(
-    countFrom.map((r) => ({ id: r.id, rootId: r.rootId ?? r.id }))
-  );
+  const toFeed = feedMapper(countFrom);
   const byId = new Map<string, FeedRecipe>();
   for (const r of source) {
     if (r.parentId) continue;
     if (byId.has(r.id)) continue;
-    byId.set(r.id, {
-      id: r.id,
-      parentId: r.parentId ?? null,
-      rootId: r.rootId ?? r.id,
-      depth: r.depth ?? 0,
-      emoji: r.emoji,
-      title: r.title,
-      description: r.description,
-      totalTime: r.totalTime,
-      difficulty: r.difficulty,
-      tags: r.tags,
-      ingredients: r.ingredients ?? [],
-      createdBy: r.createdBy,
-      childCount: childCounts.get(r.id) ?? 0,
-      createdAt: r.createdAt ?? 0,
-    });
+    byId.set(r.id, toFeed(r));
   }
   return Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function feedMapper(countFrom: readonly FeedSource[]): (r: FeedSource) => FeedRecipe {
+  const childCounts = countDescendantsByRoot(
+    countFrom.map((r) => ({ id: r.id, rootId: r.rootId ?? r.id }))
+  );
+  return (r) => ({
+    id: r.id,
+    parentId: r.parentId ?? null,
+    rootId: r.rootId ?? r.id,
+    depth: r.depth ?? 0,
+    emoji: r.emoji,
+    title: r.title,
+    description: r.description,
+    totalTime: r.totalTime,
+    difficulty: r.difficulty,
+    tags: r.tags,
+    ingredients: r.ingredients ?? [],
+    createdBy: r.createdBy,
+    childCount: childCounts.get(r.id) ?? 0,
+    createdAt: r.createdAt ?? 0,
+  });
+}
+
+/**
+ * A device's recipes sorted for the Created, Branched and Saved tabs (RL-084).
+ * Own rows with no parent are Created, own rows with a parent are Branched
+ * (whoever owns the parent), everything else is Saved, roots only. Each list is
+ * deduplicated by id, newest first.
+ *
+ * Own means `createdBy.uid === uid` when Firebase is configured; with no uid
+ * nothing is own. Pre-auth 'local' rows therefore land in Saved (open author
+ * question, RL-084). Unconfigured, every row is the user's own, as in
+ * `canManageRecipe`.
+ */
+export function splitLibrary(
+  rows: readonly FeedSource[],
+  countFrom: readonly FeedSource[],
+  { uid, isConfigured }: { uid: string | undefined; isConfigured: boolean }
+): { created: FeedRecipe[]; branched: FeedRecipe[]; saved: FeedRecipe[] } {
+  const toFeed = feedMapper(countFrom);
+  const seen = new Set<string>();
+  const out = { created: [] as FeedRecipe[], branched: [] as FeedRecipe[], saved: [] as FeedRecipe[] };
+  for (const r of rows) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    const own = !isConfigured || (!!uid && r.createdBy.uid === uid);
+    if (own) (r.parentId ? out.branched : out.created).push(toFeed(r));
+    else if (!r.parentId) out.saved.push(toFeed(r));
+  }
+  const newest = (a: FeedRecipe, b: FeedRecipe) => b.createdAt - a.createdAt;
+  return { created: out.created.sort(newest), branched: out.branched.sort(newest), saved: out.saved.sort(newest) };
 }
 
 export interface FeedFilter {
