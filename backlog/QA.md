@@ -931,3 +931,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low, design call for the author): path outline on node discs is 2.69:1, edges and rings 1.68:1, node outline 1.50:1, all under 3:1; a selected non-current node's ring is close in geometry to the current ring.
 - Reviewer noted (low): Android back does not close the full-screen map, and body scroll is not locked behind it.
 
+
+### RL-073 What changed screen
+
+- Open `/recipe/<a variation id>/changes` and `/recipe/<id>/changes?vs=<cousin id>`. Check the rows read correctly against the two recipes: `~` changed rows with the old amount struck through, `+` added, `-` removed, method words inserted (highlighted) and deleted (struck).
+- Check the Changes only / Side by side toggle, the time and servings line, the prompt bubble, and that both pills open their recipes.
+- A root recipe (no `?vs=`) shows "This is the original". There is no link to this screen yet (RL-074), so type the URL.
+- Check Side by side at 320 px: two columns about 140 px wide, long words wrap, no sideways page scroll, and the sticky footer buttons (44 px) never hide the last row.
+- With VoiceOver, rows announce Changed, Added or Removed, and old values are read as "was ...".
+- Reviewer noted (moot while the app is light only, RL-065): the tinted cells use light-only tints with themed text, so they would be unreadable if dark mode returns. Pin the text to fixed tokens then.
+- Reviewer noted (low): SegmentedControl has no arrow-key roving (shared, pre-existing). The BackButton is duplicated from VersionTreePage.

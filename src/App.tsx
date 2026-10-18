@@ -15,6 +15,7 @@ const RecipeChatPage = lazy(() => import('./pages/RecipeChatPage').then(m => ({ 
 const RecipeDetailPage = lazy(() => import('./pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })));
 const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ default: m.RecipeEditPage })));
 const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
+const RecipeChangesPage = lazy(() => import('./pages/RecipeChangesPage').then(m => ({ default: m.RecipeChangesPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/recipe/:id" element={<RecipeDetailPage />} />
           <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+          <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
           <Route path="/terms" element={<LegalPage doc="terms" />} />
           <Route path="/privacy" element={<LegalPage doc="privacy" />} />
           <Route path="/cookies" element={<LegalPage doc="cookies" />} />
