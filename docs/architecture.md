@@ -224,7 +224,9 @@ The three legal routes (`/terms`, `/privacy`, `/cookies`) are lazy `LegalPage` r
 `npm run build` is `tsc -b && vite build` — the type-check is part of the build, so a type
 error fails it. Output lands in `dist/`, which Firebase Hosting serves with a catch-all
 rewrite to `index.html` (required for client-side routing). Tailwind v4 runs through the
-`@tailwindcss/vite` plugin with no separate config step. `vite-plugin-pwa` (dev dependency) emits
+`@tailwindcss/vite` plugin with no separate config step. The theme is Organic: tokens live in the
+`@theme` block of `src/index.css`, with values from `docs/design/organic/tokens.css`, and the fonts
+(Caprasimo, Figtree) are self-hosted woff2 files in `public/fonts/`. `vite-plugin-pwa` (dev dependency) emits
 `sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` in `AppShell` registers
 the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. Two workflows: `ci.yml` runs the
 gates, and `preview.yml` deploys `dist/` to the `qa` Hosting preview channel (not live).

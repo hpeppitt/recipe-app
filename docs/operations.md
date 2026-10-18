@@ -476,7 +476,7 @@ on the live site after a hosting deploy):
 npm run build && npm run preview          # note the port
 curl -sSD - -o /dev/null localhost:4173/sw.js                # 200, text/javascript
 curl -sSD - -o /dev/null localhost:4173/manifest.webmanifest # 200, application/manifest+json
-grep -o 'url:"[^"]*"' dist/sw.js          # precache list: entry, route chunks, firebase chunk
+grep -o 'url:"[^"]*"' dist/sw.js          # precache list: entry, route chunks, firebase chunk, fonts/*.woff2
 ```
 
 After deploy, `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` must show
