@@ -27,6 +27,7 @@ import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { X } from '../components/ui/icons';
 
 /** How long a verified owner's save waits for the cloud check and publish. */
 const CLOUD_SAVE_TIMEOUT_MS = 5000;
@@ -64,9 +65,7 @@ function RemoveRowButton({ onClick, label }: { onClick: () => void; label: strin
       aria-label={label}
       className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-text-tertiary hover:bg-surface-tertiary hover:text-danger-600 transition-colors"
     >
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-      </svg>
+      <X className="w-5 h-5" />
     </button>
   );
 }

@@ -5,6 +5,7 @@ import { collectSubtreeIds } from '../../lib/tree';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
 import type { Recipe } from '../../types/recipe';
+import { Network } from '../ui/icons';
 
 interface BranchCarouselProps {
   /** The recipe being viewed. */
@@ -94,23 +95,7 @@ export function BranchCarousel({ recipe, recipes, isLoading = false }: BranchCar
           aria-label="Version tree"
           className={`shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-full border border-border-strong text-text-primary hover:bg-surface-secondary ${focusRing}`}
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="16" y="16" width="6" height="6" rx="1" />
-            <rect x="2" y="16" width="6" height="6" rx="1" />
-            <rect x="9" y="2" width="6" height="6" rx="1" />
-            <path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" />
-            <path d="M12 12V8" />
-          </svg>
+          <Network className="w-5 h-5" />
         </Link>
       </div>
 

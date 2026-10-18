@@ -958,3 +958,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - In the Timeline, open a child stop's sheet. The ghost "See what changed" button sits between the change tags and Open / Branch here; it opens the changes screen. The root stop's sheet has no such button. Check the sheet at 320 px.
 - Reviewer noted (moot while the app is light only): in dark mode primary-600 text and the forced primary-600 focus ring are about 2.6:1 on the dark surface, a token-level issue shared with the ghost Button.
 - Reviewer noted (low): the forced ring on the ghost button differs slightly from the neighbouring buttons' primary-500 ring.
+
+### RL-064 Lucide icons at stroke 2.75
+
+- At 390x844 walk Library, Recipe, Edit, Chat, Profile, Settings, Shared recipe, Version tree and What changed. Every icon should be the heavier Lucide style, none missing, none mis-sized.
+- Look closely at the 14 to 16 px icons (serving stepper plus and minus, profile pencils, search clear X, chat parent chevron, card heart). At stroke 2.75 these may look blobby. If so, drop the stroke width for small sizes.
+- Filled hearts (favourited) should still read as a filled heart with a slightly heavier outline.
+- Icon-only buttons keep their 44 px target and focus ring (Tab through the Library header and recipe page header).
+- Reviewer noted (med, needs your eyes): stroke 2.75 is about 40% heavier than a normal Lucide icon at 14 to 16 px (stepper plus and minus, search clear X, profile pencils, chat chevron, card heart); the 14 px profile badge pencil is most at risk of blobbing. If it looks heavy, the fix is a strokeWidth prop on Icon (about 2.25 for small ones); do not change it before this check.
+- Reviewer noted (low): the filled heart gains about 10 percent of size from the 2.75 outline; BottomNav active state is colour only and slightly weaker against the heavier inactive icons; the chat Send button is 40 px (w-10 h-10) rather than 44 px, probably pre-existing and worth a follow-up ticket.

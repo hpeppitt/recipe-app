@@ -1,4 +1,5 @@
 import { pluralize } from '../../lib/utils';
+import { Minus, Plus } from '../ui/icons';
 
 interface ServingStepperProps {
   servings: number;
@@ -33,9 +34,7 @@ export function ServingStepper({ servings, original, onChange }: ServingStepperP
           aria-label="One fewer serving"
           className="w-11 h-11 flex items-center justify-center text-text-primary hover:bg-surface-tertiary disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-          </svg>
+          <Minus className="w-4 h-4" />
         </button>
         {/* aria-live so a screen reader hears the new count, which is the only
             thing that changed on the page from its point of view. */}
@@ -52,9 +51,7 @@ export function ServingStepper({ servings, original, onChange }: ServingStepperP
           aria-label="One more serving"
           className="w-11 h-11 flex items-center justify-center text-text-primary hover:bg-surface-tertiary disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
-          </svg>
+          <Plus className="w-4 h-4" />
         </button>
       </div>
       {servings !== original && (

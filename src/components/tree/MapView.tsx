@@ -4,6 +4,7 @@ import type { Recipe } from '../../types/recipe';
 import { ancestorChain, buildTree } from '../../lib/tree';
 import { layoutRadial, type RadialLayout } from '../../lib/radialLayout';
 import { Button } from '../ui/Button';
+import { Maximize } from '../ui/icons';
 
 interface MapViewProps {
   recipes: Recipe[];
@@ -192,9 +193,7 @@ export function MapView({ recipes, currentId, onShowTimeline }: MapViewProps) {
           onClick={() => setFull(true)}
           className="absolute right-0 top-0 z-20 w-11 h-11 flex items-center justify-center rounded-full bg-surface border border-border-strong text-text-primary hover:bg-surface-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
-          </svg>
+          <Maximize className="w-5 h-5" />
         </button>
         <MapCanvas {...canvas} />
       </div>

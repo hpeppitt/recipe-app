@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { ChevronLeft } from '../ui/icons';
 
 interface TopBarProps {
   title: string;
@@ -20,9 +21,7 @@ export function TopBar({ title, showBack = false, onBack, right }: TopBarProps) 
             className="mr-1 -ml-3 w-11 h-11 flex items-center justify-center flex-shrink-0 rounded-full hover:bg-surface-tertiary transition-colors"
             aria-label="Go back"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
+            <ChevronLeft className="w-5 h-5" />
           </button>
         )}
         <h1 className="flex-1 font-heading text-h4 truncate">{title}</h1>

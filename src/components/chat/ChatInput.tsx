@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { SendHorizontal } from '../ui/icons';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -82,9 +83,7 @@ export function ChatInput({
           className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-600 text-white flex items-center justify-center hover:bg-primary-700 disabled:opacity-50 disabled:pointer-events-none transition-colors active:scale-95"
           aria-label="Send message"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
-          </svg>
+          <SendHorizontal className="w-5 h-5" />
         </button>
       </div>
     </div>
