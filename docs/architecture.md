@@ -65,11 +65,22 @@ and Cookie policies (RL-044), imported by `lib/legal.ts`. It imports only from `
 
 ## Dual storage
 
-Every recipe the user saves is written twice: to IndexedDB via Dexie (authoritative for
-the local library, instant, works offline for reads) and to Firestore (authoritative for
-the shared library, favourites, and social features). The write order is local first so the
-UI never waits on the network, and a failed cloud publish surfaces as a message rather than
-being swallowed.
+For a verified user, Firestore is the source of truth for their own recipes and Dexie is the
+cache and offline copy ([decision 1b](decisions.md)). Saves and edits are cloud first: the
+recipe is published, and only on success cached in Dexie (RL-082, RL-083), so a failure shows
+an error with a retry and leaves nothing local. `hooks/useOwnRecipesSync.ts`, mounted once in
+`App.tsx`, keeps Dexie in step on every device (RL-078): one `onSnapshot` on the user's own
+recipes (`subscribeOwnRecipes` in `services/firestore.ts`), and each server snapshot applied
+with `applyOwnRecipeSync` (`db/recipes.ts`), which runs the pure `planOwnRecipeSync`
+(`lib/recipeSync.ts`) in one transaction. Snapshots from the cache or with pending writes are
+skipped, because the plan treats a snapshot as the complete list. Edits from two devices are
+last write wins. The sync only reads Firestore. `useOwnRecipesSyncStatus` exposes `off`,
+`waiting`, `synced` or `error` for the UI. Every Dexie reader (My Recipes, the own profile,
+the detail and edit pages, the tree) then shows the cloud state with no change of its own,
+and the last copy when offline.
+
+Anonymous, signed-out and local-only users are Dexie only: their saved copies of other
+people's recipes never reach the cloud.
 
 The Library reads each store separately. `hooks/useRecipeLibrary.ts` exports `useLocalLibrary`
 (a Dexie live query, behind My Recipes) and `useCloudLibrary` (the cursor-paged
@@ -87,10 +98,11 @@ adds what is missing in one transaction using the pure `selectFavoritesToHydrate
 favourite removed on this device this session is skipped. There is no live listener and no
 deletion sync.
 
-The consequence to keep in mind: **the two stores can disagree.** A recipe published by
-another user exists only in the cloud, so local-only features (the version tree, local
-search) cannot see all of it. A recipe deleted locally may still have a cloud copy. Most of
-the roadmap's data items are about narrowing that gap.
+What can still disagree: **other users' recipes and saved copies.** A recipe published by
+someone else lives only in the cloud unless it was saved to this device, so local-only
+features (the version tree, local search) cannot see all of it, and a saved copy is not
+refreshed when its owner edits it. Offline, a verified user's own recipes are the last copy
+the listener applied.
 
 ## The AI path
 

@@ -19,6 +19,23 @@ both themes:
 
 ## Since the last release
 
+### RL-078 A verified user's own recipes stay in step on every device
+
+- Against the emulators (`npm run emulators` plus `npm run dev:emulated`) or the preview, sign the same verified account into two browser profiles, A and B.
+- Save a recipe on A: it appears in B's My Recipes and profile without a reload.
+- Edit it on A: B's open detail page shows the edit.
+- Delete it on A: it leaves B's My Recipes.
+- Set B offline in DevTools and reload: B's My Recipes still lists the remaining recipes.
+- Sign B out: no console errors.
+- On your own phone and computer, confirm any pre-wipe recipe from the old uid is gone after the first sync. Note any that remain (their uid was not in that device's list of previous uids).
+
+- Also check: save a copy from a share link of a recipe authored by an account that has signed in on this device, then sign in as the verified user and see whether the copy survives the first sync (reviewer expects it to be removed).
+- Reviewer noted (med, data): the tidy rule removes any row whose `createdBy.uid` is in the device's previous-uids list, but a saved copy keeps its original author's uid and is never published. A copy of a recipe by another account (or an earlier anonymous uid) that signed in on this device is deleted by the first sync (`recipeSync.ts` 99-105). The ticket text assumed that case was rare; it needs a saved-copy marker on the row or an accepted limit. Needs the author's call and probably a ticket.
+- Reviewer noted (low): after a listener error (permission-denied and similar) the sync stays in `error` until the uid changes or the app reloads, and `recipe-sync` is reported once per session across uids; RL-079 must surface `error`.
+- Reviewer noted (low): a failed first Dexie apply leaves the status at `waiting` with no retry until a later snapshot with a change, so RL-079 should not show an indefinite spinner on `waiting`.
+- Reviewer noted (low): an apply already in flight finishes for the old uid after a uid change (RL-085 sign-out clearing could see rows re-added); every metadata-only event reads the whole recipes table.
+- Needs the author: `src/content/legal/privacy.ts:57` retention wording ("until you delete a recipe, use 'Delete Recipes on This Device', or clear your browser data") no longer covers the sync removing own rows the cloud lacks and tidying other accounts' rows; legal text was left unchanged, bump `lastUpdated` if edited.
+
 ### RL-083 Editing a recipe is cloud first for a verified owner
 
 - On the preview as a verified user, edit a recipe and tap Save. The recipe page opens with the save toast, and the edit shows on its `/shared/<id>` link.

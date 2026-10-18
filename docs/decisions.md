@@ -745,6 +745,8 @@ per session for a rarely changing list), a deletion sync (needs tombstones, so a
 change), and running it next to the RL-034 push in `AuthContext`. An assistant's call, cheap
 to overrule.
 
+*2026-10-18: own recipes use a live listener, see 1b.*
+
 
 ### Policy sign-off for solo testing (RL-046, 2026-10-18)
 

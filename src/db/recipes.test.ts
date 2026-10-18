@@ -10,8 +10,10 @@ import {
   clearAllRecipes,
   buildRecipe,
   createRecipe,
+  applyOwnRecipeSync,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
+import type { Recipe } from '../types/recipe';
 
 beforeEach(async () => {
   await db.recipes.clear();
@@ -309,5 +311,45 @@ describe('clearAllRecipes', () => {
     // left rows pointing at recipes the user had just deleted.
     expect(await db.recipes.count()).toBe(0);
     expect(await db.favorites.count()).toBe(0);
+  });
+});
+
+describe('applyOwnRecipeSync', () => {
+  const me = { uid: 'me', displayName: 'Me' };
+
+  it('overwrites an own row with the cloud copy and keeps its chat history', async () => {
+    const chatHistory = [{ role: 'user' as const, content: 'soup', timestamp: 1 }];
+    const row = makeRecipe({ id: 'r1', createdBy: me, title: 'Old', chatHistory });
+    await db.recipes.add(row);
+    const cloud = { ...row, title: 'New', tags: ['soup'], chatHistory: [] };
+
+    await applyOwnRecipeSync('me', [cloud], []);
+
+    expect(await db.recipes.get('r1')).toEqual({ ...row, title: 'New', tags: ['soup'] });
+  });
+
+  it('removes own rows an empty snapshot lacks', async () => {
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'r1', createdBy: me }),
+      makeRecipe({ id: 'r2', createdBy: me }),
+    ]);
+
+    await applyOwnRecipeSync('me', [], []);
+
+    expect(await db.recipes.count()).toBe(0);
+  });
+
+  it("removes a previous account's rows and leaves saved copies, 'local' rows and ownerless rows", async () => {
+    const ownerless = { ...makeRecipe({ id: 'legacy' }), createdBy: undefined } as unknown as Recipe;
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'old', createdBy: { uid: 'old-uid', displayName: null } }),
+      makeRecipe({ id: 'saved', createdBy: { uid: 'someone-else', displayName: 'Ann' } }),
+      makeRecipe({ id: 'loc' }),
+      ownerless,
+    ]);
+
+    await applyOwnRecipeSync('me', [], ['old-uid']);
+
+    expect((await db.recipes.toArray()).map((r) => r.id).sort()).toEqual(['legacy', 'loc', 'saved']);
   });
 });
