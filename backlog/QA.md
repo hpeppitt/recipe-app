@@ -919,3 +919,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-071 Pure radial layout for the Map view
 
 - Nothing to check in a browser: `layoutRadial` is covered by tests and has no UI until RL-072.
+
+### RL-072 Map view of the version tree
+
+- On families of 1, about 8 and over 20 versions, open `?view=map` (or the Map switch). Check the dashed rings, the thicker terracotta path from the centre to the ringed current node, and that selecting a node updates the card (eyebrow, title) and Open goes to that recipe.
+- Over 20 versions the notice "This family is big for the map. The timeline reads better." appears above the map and Show timeline switches to Timeline without adding a history entry.
+- Full screen map (top right of the map) pans by scrolling at twice the scale, selecting still updates the card, and it closes with Escape and with Close map, returning focus to the expand button.
+- Check at 390 and 320 px: nodes on outer rings are small (about 22px at 320 with 3 generations) but each keeps a 44px tap target; confirm taps on crowded rings hit the node you meant.
+- Reviewer-relevant contrast: terracotta path on the node discs is 2.69:1 (3.03:1 on the page); neutral-400 edges and rings are 1.68:1 and the node outline 1.50:1 on its disc. All are from the Organic spec, so a darker palette is a design call.
+- Reviewer noted (med): hit buttons are a fixed 44px while ring gaps shrink with scale, so on 4 or more generations at 320px parent and child targets overlap and the deeper node wins (documented; the notice, which now also fires from 5 generations, is the answer). At low scale outer-ring buttons can extend past the column edge.
+- Reviewer noted (low, design call for the author): path outline on node discs is 2.69:1, edges and rings 1.68:1, node outline 1.50:1, all under 3:1; a selected non-current node's ring is close in geometry to the current ring.
+- Reviewer noted (low): Android back does not close the full-screen map, and body scroll is not locked behind it.
+

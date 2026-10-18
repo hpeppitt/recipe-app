@@ -72,7 +72,7 @@ describe('VersionTreePage', () => {
   it('shows the Tree and Timeline switch, and ?view=timeline draws the timeline', () => {
     renderPage('/recipe/v1/tree?view=timeline');
     expect(screen.getByRole('radiogroup', { name: 'Tree view' })).toBeTruthy();
-    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Tree', 'Timeline']);
+    expect(screen.getAllByRole('radio').map((r) => r.textContent)).toEqual(['Tree', 'Timeline', 'Map']);
     expect(screen.getByRole('region', { name: /timeline/i })).toBeTruthy();
   });
 

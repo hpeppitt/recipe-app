@@ -7,13 +7,14 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { TreeView } from '../components/tree/TreeView';
 import { TimelineView } from '../components/tree/TimelineView';
+import { MapView } from '../components/tree/MapView';
 import { familySubtitle } from '../lib/tree';
 
-// Later view tickets (Map RL-072) append here. The switch only renders once there is
-// more than one.
+// The switch only renders once there is more than one view.
 const VIEWS = [
   { value: 'tree', label: 'Tree' },
   { value: 'timeline', label: 'Timeline' },
+  { value: 'map', label: 'Map' },
 ] as const;
 type ViewId = (typeof VIEWS)[number]['value'];
 
@@ -113,6 +114,8 @@ export function VersionTreePage() {
             <div className="space-y-4">
               {view === 'timeline' ? (
                 <TimelineView recipes={recipes} currentId={id} />
+              ) : view === 'map' ? (
+                <MapView recipes={recipes} currentId={id} onShowTimeline={() => setView('timeline')} />
               ) : (
                 <TreeView tree={tree} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
               )}

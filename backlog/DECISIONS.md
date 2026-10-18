@@ -9,6 +9,8 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-18 | RL-072 | Above 20 versions the Map shows a notice pointing to the Timeline and the map still renders, with full-screen mode (twice the scale, pan by scrolling) for room; no pinch zoom. Grooming decision. | Pinch-zoom and gesture handling on the map itself. | pending |
+| 2026-10-18 | RL-072 | Node tap targets are 44px transparent HTML buttons over the SVG, in generation order so a deeper node wins where targets overlap on a crowded ring. Nodes are not spread further apart; the over-20 notice is the answer to crowding. | Enlarge rings with family size, or hit-test the nearest node centre on tap. | pending |
 | 2026-10-18 | RL-062 | Tailwind's own `--radius-sm/md/lg` and `--spacing` are not overridden; only `--radius-card: 32px` is added. Overriding would silently resize 18 existing `rounded-sm/md/lg` uses and every spacing utility. | Adopt the Organic 4.4px spacing base and 8/16/28px radii globally. | pending |
 | 2026-10-18 | RL-062 | Figtree is one variable latin woff2 (400 to 700) named `figtree-latin-variable.woff2`; `OFL.txt` is the Figtree licence with the Caprasimo copyright line added above it. | Separate static files per weight; two licence files. | pending |
 | 2026-10-17 | RL-060 | A kept suggestion on an erased owner's recipe keeps `recipeTitle` and `recipeEmoji` (author confirmed at approval). | Null them. | pending |
