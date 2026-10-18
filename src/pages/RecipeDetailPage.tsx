@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -611,6 +611,12 @@ export function RecipeDetailPage() {
               <div className="bg-surface-secondary rounded-xl px-3 py-2 text-sm text-text-secondary">
                 <span className="text-text-tertiary">Prompt: </span>"{recipe.prompt}"
               </div>
+              <Link
+                to={`/recipe/${recipe.id}/changes`}
+                className="inline-flex items-center min-h-11 text-sm text-primary-600 hover:text-primary-700 underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
+              >
+                See what changed
+              </Link>
             </div>
           )}
 

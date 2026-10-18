@@ -6,7 +6,7 @@ import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import type { AppUser } from '../types/recipe';
 
-const recipe = makeRecipe({ id: 'r1', title: 'Soup' });
+let recipe = makeRecipe({ id: 'r1', title: 'Soup' });
 const getPublishedRecipe = vi.fn();
 const publishRecipe = vi.fn();
 const trackRecipeShared = vi.fn();
@@ -125,6 +125,28 @@ describe('RecipeDetailPage Share', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/shared#r=')));
     expect(dialog()).not.toBeInTheDocument();
     expect(getPublishedRecipe).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipeDetailPage What changed link', () => {
+  const show = () =>
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user: fakeUser }
+    );
+
+  it('links a variation to its changes screen', () => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup', parentId: 'p', depth: 1, prompt: 'less salt' });
+    show();
+    expect(screen.getByRole('link', { name: 'See what changed' }).getAttribute('href')).toBe('/recipe/r1/changes');
+  });
+
+  it('shows no link on a root recipe', () => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup' });
+    show();
+    expect(screen.queryByRole('link', { name: 'See what changed' })).toBeNull();
   });
 });
 

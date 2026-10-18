@@ -93,6 +93,17 @@ describe('TimelineView', () => {
     expect(screen.getByTestId('where').textContent).toBe('/recipe/k/vary');
   });
 
+  it('See what changed shows for a child, not the root, and navigates', () => {
+    draw([root, kid], 'r');
+    fireEvent.click(screen.getByRole('button', { name: /^T-r,/ }));
+    expect(screen.queryByRole('button', { name: 'See what changed' })).toBeNull();
+    cleanup();
+    draw([root, kid], 'r');
+    fireEvent.click(screen.getByRole('button', { name: /^T-k,/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'See what changed' }));
+    expect(screen.getByTestId('where').textContent).toBe('/recipe/k/changes');
+  });
+
   it('at 30 versions no label box overlaps a stop box', () => {
     const all: Recipe[] = [rec('n0', null, { createdAt: 1000 })];
     for (let i = 1; i < 30; i++) {
