@@ -93,6 +93,9 @@ assume it never runs. The load-bearing part: because the server-side uid migrati
 4 will probably never happen, roadmap 1.3's honest notice is the **permanent** answer to the
 identity-orphaning path, so its copy needs a real contact route rather than a placeholder.
 
+*2026-10-18 (RL-032):* the notice was removed. After RL-040 an anonymous account owns no cloud
+data, so nothing can be stranded; only the local carry-over of recipes and bookmarks remains.
+
 ### 3. Photos: no, text-first, permanently
 
 Requires Firebase Storage, upload UX, and a moderation story. The base64-in-Firestore trick

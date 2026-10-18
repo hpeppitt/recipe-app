@@ -201,11 +201,12 @@ groomed as option-independent and blocked only on this decision.
 - The UI design pass lands on the same React codebase regardless.
 - Accounts for friends: the verified-email magic-link flow already works, and the
   stranded-identity notice remains the honest answer to the one orphaning path
-  (`decisions.md`, 2026-07-31 decision 2).
+  (`decisions.md`, 2026-07-31 decision 2). *(2026-10-18: superseded by RL-032, the notice was removed.)*
 - The roadmap's standing decisions (text-first, private-ish circle, no Blaze unless
   abuse appears). Option A reopens the Blaze decision; option B does not. The trigger
   recorded for reopening it was abuse or the stranded-identity notice firing; this
-  review adds a third: the free tier no longer covering the audience.
+  review adds a third: the free tier no longer covering the audience. *(2026-10-18: the notice
+  trigger is superseded by RL-032, the notice was removed.)*
 
 ## Verify before deciding
 

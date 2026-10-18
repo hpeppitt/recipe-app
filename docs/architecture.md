@@ -184,8 +184,6 @@ Places designed to be replaced, worth knowing before you change them:
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
-- **`migrateFirestoreUid`** (`services/firestore.ts`) — the known-broken seam. Client-side
-  cross-uid migration is correctly denied by rules; a real fix needs the Admin SDK.
 
 ## The unsaved-work guard
 

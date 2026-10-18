@@ -283,8 +283,7 @@ export async function completeEmailSignIn(
 
     // The email already has an account. Firebase cannot merge two accounts, so
     // signing into the existing one is the only option and the anonymous identity
-    // is left behind. previousUid drives the migration attempt and the
-    // stranded-recipe notice.
+    // is left behind. previousUid drives the local carry-over.
     try {
       const previousUid = current.uid;
       const result = await signInWithEmailLink(auth, email, window.location.href);
@@ -298,10 +297,9 @@ export async function completeEmailSignIn(
 
   // Plain sign-in: no anonymous session to upgrade.
   try {
-    const previousUid = current?.isAnonymous ? current.uid : null;
     const result = await signInWithEmailLink(auth, email, window.location.href);
     finish();
-    return { user: result.user, previousUid, linked: false };
+    return { user: result.user, previousUid: null, linked: false };
   } catch (err) {
     clearLinkFromUrl();
     throw new EmailLinkError(classifyLinkError(err));

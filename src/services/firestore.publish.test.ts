@@ -88,13 +88,10 @@ describe('publishRecipe — first publish', () => {
     expect(options).toBeUndefined();
   });
 
-  it('bumps the creator profile recipeCount', async () => {
+  it('a first publish by a real uid writes no profile update', async () => {
     await publishRecipe(makeRecipe({ id: 'r1', createdBy: { uid: 'u1', displayName: 'U' } }));
 
-    expect(updateDoc).toHaveBeenCalledWith(
-      { path: 'profiles/u1' },
-      { recipeCount: { __increment: 1 } }
-    );
+    expect(updateDoc).not.toHaveBeenCalled();
   });
 
   it('does not bump a profile for the local placeholder uid', async () => {

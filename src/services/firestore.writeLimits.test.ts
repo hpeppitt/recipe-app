@@ -166,7 +166,7 @@ describe('publishRecipe create limit (RL-049)', () => {
       path: 'writeWindows/u1_recipe',
       data: { windowStart: 'SERVER_TS', count: 1, at: 'SERVER_TS', last: 'recipes/r1' },
     });
-    expect(updateDoc).toHaveBeenCalledWith({ path: 'profiles/u1' }, { recipeCount: { __increment: 1 } });
+    expect(updateDoc).not.toHaveBeenCalled();
   });
 
   it('reads the recipe and the window in the transaction', async () => {

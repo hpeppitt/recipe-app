@@ -43,7 +43,6 @@ vi.mock('../services/firestore', () => ({
   recordTermsAcceptance: (uid: string, at: number) => recordTermsAcceptance(uid, at),
   createOrUpdateProfile: (...a: unknown[]) => createOrUpdateProfile(...a),
   pushLocalFavoritesToCloud: (uid: string) => pushLocalFavoritesToCloud(uid),
-  migrateFirestoreUid: vi.fn(async () => ({ ok: true, strandedRecipes: 0 })),
 }));
 vi.mock('../services/storage', () => ({
   getAnonymousUid: () => null,
@@ -51,7 +50,6 @@ vi.mock('../services/storage', () => ({
   clearAnonymousUid: vi.fn(),
   addPreviousUid: vi.fn(),
   getDeviceId: vi.fn(),
-  setStrandedIdentity: vi.fn(),
   getTermsAcceptance: () => storedTerms,
   normaliseEmail: (e: string) => e.trim().toLowerCase(),
   clearTermsAcceptance: () => {

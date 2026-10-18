@@ -17,13 +17,10 @@ import {
 import { generateDisplayName } from '../lib/identity';
 import {
   createOrUpdateProfile,
-  migrateFirestoreUid,
   pushLocalFavoritesToCloud,
   getAcceptedTermsVersion,
   recordTermsAcceptance,
-  type UidMigrationOutcome,
 } from '../services/firestore';
-import { shouldNotify } from '../lib/migration';
 import { migrateRecipesUid } from '../db/recipes';
 import { migrateFavoritesUid } from '../db/favorites';
 import {
@@ -32,7 +29,6 @@ import {
   clearAnonymousUid,
   addPreviousUid,
   getDeviceId,
-  setStrandedIdentity,
   getTermsAcceptance,
   clearTermsAcceptance,
   normaliseEmail,
@@ -124,31 +120,14 @@ function ensureProfile(user: User): void {
 async function runMigration(
   oldUid: string,
   newUid: string,
-  displayName: string | null,
-  /** The name the stranded recipes were published under, for the notice copy. */
-  oldDisplayName: string | null
+  displayName: string | null
 ): Promise<void> {
   if (oldUid === newUid) return;
-  const [, , cloud] = await Promise.all([
+  // Local carry-over only: an anonymous account owns no cloud data (RL-040).
+  await Promise.all([
     migrateRecipesUid(oldUid, newUid, displayName),
     migrateFavoritesUid(oldUid, newUid),
-    // A throw here means a step after recipes failed, which strands no recipes.
-    migrateFirestoreUid(oldUid, newUid, displayName).catch(
-      (): UidMigrationOutcome => ({ ok: false, strandedRecipes: 0 })
-    ),
   ]);
-
-  // The cloud half of this is expected to fail: rules forbid reassigning
-  // `createdBy.uid`, deliberately. It used to fail behind `.catch(() => {})`,
-  // so a user could lose their whole published catalog and never be told.
-  if (shouldNotify(cloud)) {
-    setStrandedIdentity({
-      oldUid,
-      oldDisplayName,
-      recipeCount: cloud.strandedRecipes,
-      at: Date.now(),
-    });
-  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -294,16 +273,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (result.previousUid) {
         await checkTermsOnce(result.user);
         // The email already had an account, so the anonymous identity was left
-        // behind. Migrate what can be migrated and let the notice report the rest.
-        await runMigration(
-          result.previousUid,
-          result.user.uid,
-          result.user.displayName,
-          // Anonymous display names are a pure function of the uid
-          // (lib/identity.ts), so this reproduces exactly the name the stranded
-          // recipes were published under without having kept the old user object.
-          generateDisplayName(result.previousUid)
-        );
+        // behind. Carry the local recipes and bookmarks over to the account.
+        await runMigration(result.previousUid, result.user.uid, result.user.displayName);
         clearAnonymousUid();
         addPreviousUid(result.user.uid);
         // After runMigration, so the Dexie rows are already under the new uid.
@@ -374,12 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (savedUid && savedUid !== fbUser.uid && !migrationRunRef.current) {
             // UID drift detected — auto-migrate from saved UID
             migrationRunRef.current = true;
-            runMigration(
-              savedUid,
-              fbUser.uid,
-              fbUser.displayName,
-              generateDisplayName(savedUid)
-            ).then(() => {
+            runMigration(savedUid, fbUser.uid, fbUser.displayName).then(() => {
               setAnonymousUid(fbUser.uid);
             });
           } else {
@@ -390,12 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const savedAnonUid = getAnonymousUid();
           if (savedAnonUid && savedAnonUid !== fbUser.uid && !migrationRunRef.current) {
             migrationRunRef.current = true;
-            runMigration(
-              savedAnonUid,
-              fbUser.uid,
-              fbUser.displayName,
-              generateDisplayName(savedAnonUid)
-            ).then(() => {
+            runMigration(savedAnonUid, fbUser.uid, fbUser.displayName).then(() => {
               clearAnonymousUid();
               addPreviousUid(fbUser.uid);
             });
