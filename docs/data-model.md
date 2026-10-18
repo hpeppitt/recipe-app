@@ -58,7 +58,9 @@ are applied. Each one makes Dexie mirror it: own rows are overwritten (the cloud
 field but `chatHistory`) and own rows the snapshot lacks are removed. The tidy rule: rows
 whose `createdBy.uid` is another uid that signed in on this device (`getPreviousUids`) are
 removed. Saved copies of other users' recipes, `'local'` rows and rows with no `createdBy`
-are never touched. The listener never writes to Firestore.
+are never touched. The listener never writes to Firestore. An import stamps rows owned by the
+importer or a `getPreviousUids` entry as `'local'` (display name kept), so neither rule removes
+them (RL-086).
 
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|

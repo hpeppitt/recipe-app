@@ -67,6 +67,10 @@ and the profile on a computer, because both read Dexie only.
   from two devices are last write wins, with no timestamp comparison (RL-076, wired by RL-078).
 - Rows of other accounts that signed in on this device are tidied away, including rows stamped
   with uids from before the 2026-10-18 wipe. Saved copies and `'local'` rows are never touched.
+- Imports are Saved copies (author, 2026-10-18): never published, and never stamped with an
+  account uid of this device. A row owned by the importer or an earlier account here becomes
+  `'local'` with its display name kept, so neither sync rule removes it. A file row whose id is
+  already one of the user's own recipes is left as it is and counted (RL-086).
 - My Recipes is to be split into Created (own, no parent) and Branched (own variations,
   including of other people's recipes), with other people's recipes only under Saved. The split
   is available in `lib/library.ts` (RL-084); the rebrand's tabs will use it, and no page does yet.
