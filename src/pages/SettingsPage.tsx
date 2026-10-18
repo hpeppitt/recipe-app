@@ -5,7 +5,6 @@ import { fetchCloudDataForExport } from '../services/firestore';
 import { assembleDataExport, VERIFY_NOTE } from '../lib/dataExport';
 import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
-import { useTheme } from '../hooks/useTheme';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useConsent } from '../hooks/useConsent';
 import { Button } from '../components/ui/Button';
@@ -25,7 +24,6 @@ export function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<{ busy?: boolean; failed?: boolean; message: string } | null>(null);
   const downloading = useRef(false);
-  const { theme, setTheme } = useTheme();
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured } = useAuth();
@@ -178,22 +176,7 @@ export function SettingsPage() {
           </section>
         )}
 
-        {/* Appearance */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Appearance</h2>
-          <SegmentedControl
-            label="Theme"
-            value={theme}
-            onChange={setTheme}
-            options={[
-              { value: 'system', label: 'System' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' },
-            ]}
-          />
-        </section>
-
-        {/* Units. Sits under Appearance because it is a display preference: it
+        {/* Units. A display preference: it
             changes how recipes are rendered, never what is stored. */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Units</h2>

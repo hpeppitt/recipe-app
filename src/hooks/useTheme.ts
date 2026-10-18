@@ -3,31 +3,14 @@ import { getTheme, setTheme as persistTheme } from '../services/storage';
 
 type Theme = 'system' | 'light' | 'dark';
 
+// Light only since RL-065 (Organic has no dark palette). The preference is still stored so a
+// later dark Organic needs no migration, but nothing applies it: the dark class is always removed.
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(getTheme);
 
-  const applyTheme = useCallback((t: Theme) => {
-    const root = document.documentElement;
-    if (t === 'dark') {
-      root.classList.add('dark');
-    } else if (t === 'light') {
-      root.classList.remove('dark');
-    } else {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.classList.toggle('dark', prefersDark);
-    }
-  }, []);
-
   useEffect(() => {
-    applyTheme(theme);
-
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = () => applyTheme('system');
-      mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
-    }
-  }, [theme, applyTheme]);
+    document.documentElement.classList.remove('dark');
+  }, [theme]);
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);

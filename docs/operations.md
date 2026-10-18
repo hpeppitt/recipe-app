@@ -677,7 +677,7 @@ surfaces at edit time rather than at commit time.
 **Subagents** (models and roles in [agent-workflow.md](agent-workflow.md)):
 
 - `ui-reviewer` (read-only) — after any page or component change. Catches mobile,
-  dark-mode, a11y, and state-coverage regressions.
+  a11y, and state-coverage regressions.
 - `data-integrity-reviewer` (read-only) — after changes to `services/firestore.ts`,
   `src/db/`, the favourites or recipe-chat hooks, or `firestore.rules`.
 - `implementer`, `scout`, `groomer` — the loop's worker, lookup and grooming agents.
