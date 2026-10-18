@@ -5,7 +5,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // Bracketed notes are for the author; see docs/legal/claims-to-verify.md.
 export const COOKIES: LegalDocument = {
   title: 'Cookie Policy',
-  lastUpdated: '2026-10-17',
+  lastUpdated: '2026-10-18',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -26,7 +26,7 @@ export const COOKIES: LegalDocument = {
     {
       heading: 'Cookies',
       paragraphs: [
-        'Google reCAPTCHA (strictly necessary). Used with Firebase App Check to check that requests to the AI come from the real app and not a script. Set by Google. [AUTHOR TO CONFIRM: cookie names, domains and lifetimes, from Google\'s documentation.]',
+        'Google reCAPTCHA (strictly necessary). Used with Firebase App Check to check that requests to the AI come from the real app and not a script. Set by Google. It sets a cookie called _GRECAPTCHA on google.com. Google does not publish its lifetime; third-party cookie listings report about six months.',
         'PostHog (optional, analytics). A cookie and a matching local storage entry, both named ph_ followed by the project key and _posthog, holding a random id for your browser, your account id once known, and the current visit. Used to count which features are used. Set only after you choose "Allow analytics". The cookie lasts 365 days.',
       ],
     },

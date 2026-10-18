@@ -6,7 +6,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  lastUpdated: '2026-10-17',
+  lastUpdated: '2026-10-18',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -123,18 +123,18 @@ export const PRIVACY: LegalDocument = {
         'What: everything you type into the recipe chat, the conversation so far, and for a variation the content of the recipe you are varying. The app does not add your email, name or account id to what it sends.',
         'Why: to generate the recipe you asked for.',
         'Where: Google, through Firebase AI Logic and the Gemini Developer API.',
-        'Who sees it: Google processes it to produce the answer. We use the free tier of the Gemini API. Under Google\'s terms for the free tier, Google may use what you type and the answers to improve its products and machine learning, and human reviewers may read it after it is disconnected from your Google account, API key and project. Do not put sensitive or personal information into the recipe chat. [AUTHOR TO CONFIRM: re-check Google\'s Gemini API Additional Terms (last updated 2026-04-28) if the plan changes. Google\'s terms allow only the paid tier for users in the EEA, Switzerland and the UK.]',
+        'Who sees it: Google processes it to produce the answer. We use the free tier of the Gemini API. Under Google\'s terms for the free tier, Google may use what you type and the answers to improve its products and machine learning, and human reviewers may read it after it is disconnected from your Google account, API key and project. Do not put sensitive or personal information into the recipe chat. Google\'s terms for the free tier allow it only for people outside the European Economic Area, Switzerland and the United Kingdom, so we invite testers from other places only.',
         'How long: we keep the prompt that started a recipe with the recipe (see above), and the full conversation only on your device.',
       ],
     },
     {
       heading: 'Bot protection',
       paragraphs: [
-        'What: Google reCAPTCHA v3 and Firebase App Check check that requests come from the real app and not a script. reCAPTCHA collects information from your browser and device to do this. [AUTHOR TO CONFIRM: a short description of what reCAPTCHA v3 collects, from Google\'s documentation.]',
+        'What: Google reCAPTCHA v3 and Firebase App Check check that requests come from the real app and not a script. reCAPTCHA collects information from your browser and device to do this. Google describes this as hardware and software information, such as device and application data, which is sent to Google for analysis.',
         'Why: to protect AI generation from automated abuse.',
         'Where: Google.',
         'Who sees it: Google. Google\'s Privacy Policy and Terms of Service apply to reCAPTCHA.',
-        'How long: set by Google. [AUTHOR TO CONFIRM]',
+        'How long: set by Google. reCAPTCHA sets a cookie called _GRECAPTCHA on google.com. Google does not publish its lifetime; third-party cookie listings report about six months.',
       ],
     },
     {
@@ -155,7 +155,7 @@ export const PRIVACY: LegalDocument = {
         'Why: to understand which features are used and to find and fix problems.',
         'Where: PostHog US Cloud, in the United States.',
         'Who sees it: us and PostHog.',
-        'How long: one year on PostHog\'s free plan, which is the default. [AUTHOR TO CONFIRM: that the project is on the free plan, and the period shown in its settings.]',
+        'How long: one year on PostHog\'s free plan, which is the default.',
         'Only if you allow it. Nothing is sent until you choose "Allow analytics". You can change your choice at any time in Settings.',
       ],
     },
@@ -178,16 +178,15 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Hosting',
       paragraphs: [
-        'The app is served by Google Firebase Hosting. Like any web server it receives your IP address and browser details with each request. [AUTHOR TO CONFIRM: what Firebase Hosting logs and for how long.]',
+        'The app is served by Google Firebase Hosting. Like any web server it receives your IP address and browser details with each request. Google may keep standard request logs for the hosting service, for up to 30 days by default. We do not use them for analytics.',
       ],
     },
     {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
         'Contract: running your account, signing you in, storing and publishing your recipes and profile, favourites, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
-        'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), and limits on how often you can suggest, reply, notify and publish. You can object to these; see your rights below.',
+        'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), limits on how often you can suggest, reply, notify and publish, and a record that we handled a privacy request, so we can show we complied. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
-        'Legal obligation: keeping a record of a privacy request we handled. [AUTHOR TO CONFIRM: that this is the right basis for the request log described in RL-055.]',
       ],
     },
     {
@@ -205,7 +204,7 @@ export const PRIVACY: LegalDocument = {
         'Your information may be stored or processed outside your country, including in the United States.',
         'Google (Firebase, Gemini, reCAPTCHA): Google says it participates in the EU-US, Swiss-US and UK Data Privacy Frameworks, and Firebase offers Standard Contractual Clauses. Your recipes and profile are stored in Sydney, Australia. Recipe generation, sign-in and bot protection run on Google\'s systems, which can be in other countries, including the United States.',
         'PostHog: data is stored in the United States. PostHog\'s data processing agreement relies on Standard Contractual Clauses for transfers from the EU, the UK and Switzerland.',
-        'Us: [AUTHOR TO CONFIRM: the safeguard for information we access from Australia, which has no EU or UK adequacy decision.]',
+        'Us: we run the app from Australia, which has no EU or UK adequacy decision. Access is limited to the operator and relies on the security controls of the services above. No further legal transfer mechanism is claimed.',
       ],
     },
     {
