@@ -203,6 +203,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (med, UI): the auto-scroll effect in `RecipeChatPage.tsx` (about 106-108) does not depend on `error`, so a save error from an older card can land off-screen.
 - Reviewer noted (low): the error box has no `role="alert"`; tests lack a late-landing-publish retry case and a concurrent double-tap case; the timeout test spends a real 4 s.
 
+### RL-069 Pure timeline layout
+
+- Nothing to check in a browser: `layoutTimeline` is covered by tests and has no UI until RL-070.
+
 ### RL-076 Pure sync plan for a verified user's own cloud recipes
 
 - Nothing to check in a browser yet. `planOwnRecipeSync` is pure and unused until RL-078 wires the listener, which is the ticket that makes it visible.
