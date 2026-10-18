@@ -18,7 +18,7 @@ import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../ser
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
-import { VariationChips } from '../components/recipe/VariationChips';
+import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -48,7 +48,7 @@ export function RecipeDetailPage() {
   const location = useLocation();
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
-  const { children, ancestors, descendantCount } = useRecipeLineage(recipe);
+  const { children, ancestors, descendantCount, recipes: family, isLoading: treeLoading } = useRecipeLineage(recipe);
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
@@ -770,7 +770,7 @@ export function RecipeDetailPage() {
             </div>
           )}
 
-          <VariationChips children={children} />
+          {recipe && <BranchCarousel recipe={recipe} recipes={family} isLoading={treeLoading} />}
 
         </div>
       </main>

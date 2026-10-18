@@ -162,5 +162,5 @@ export function useRecipeLineage(recipe: Recipe | undefined) {
     return Math.max(0, collectSubtreeIds(nodes, recipe.id).length - 1);
   }, [recipes, recipe]);
 
-  return { children, ancestors, descendantCount, isLoading };
+  return { children, ancestors, descendantCount, isLoading, recipes };
 }

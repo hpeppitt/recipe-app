@@ -44,7 +44,7 @@ vi.mock('../services/analytics', () => ({
 }));
 vi.mock('../hooks/useRecipe', () => ({
   useRecipe: () => ({ recipe, source: 'local', isLoading: false, cloudError: false, retry: () => {} }),
-  useRecipeLineage: () => ({ children: [], ancestors: [], descendantCount: 0 }),
+  useRecipeLineage: () => ({ children: [], ancestors: [], descendantCount: 0, recipes: [], isLoading: false }),
 }));
 vi.mock('../hooks/useFavorites', () => ({
   useFavorite: () => ({ isFavorite: false, toggleFavorite: vi.fn(), canFavorite: true }),

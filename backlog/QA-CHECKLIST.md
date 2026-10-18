@@ -17,7 +17,7 @@ Nothing below has been seen in a browser by an agent. Every "check" is a human c
 ## 2. Standing checks (390x844, light and dark)
 
 - [ ] Library loads, cards render, search and the favourites filter work.
-- [ ] A recipe detail page: action row, breadcrumb, variation chips, the version tree.
+- [ ] A recipe detail page: action row, breadcrumb, branch carousel, the version tree.
 - [ ] `/create` shows the composer for a verified account and the sign-up call to action otherwise.
 - [ ] A `/shared/:id` link opened signed out, in a fresh browser profile.
 - [ ] The browser console shows no errors or unhandled rejections on that walk.
