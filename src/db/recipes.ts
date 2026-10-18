@@ -149,6 +149,8 @@ export interface ImportResult {
   replaced: number;
   skipped: number;
   duplicatesInFile: number;
+  /** File rows whose id is already one of the signed-in user's own recipes; left untouched. */
+  alreadyInAccount: number;
 }
 
 /**
@@ -157,15 +159,27 @@ export interface ImportResult {
  * Takes the raw parsed JSON rather than `Recipe[]`: validation is part of the
  * job, not the caller's responsibility. Existing ids are overwritten (bulkPut
  * is keyed on the inbound id), so re-importing the same file is idempotent.
+ *
+ * Imports are Saved copies and never published. Rows owned by `uid` or a
+ * `previousUids` entry are stamped `'local'` so the sync never removes them.
+ * A row whose id is already the user's own recipe here is the cloud-backed
+ * copy, so it is left as it is and counted in `alreadyInAccount`.
  */
-export async function importRecipes(raw: unknown): Promise<ImportResult> {
-  const { recipes, skipped, duplicatesInFile } = parseImportedRecipes(raw);
-  if (recipes.length === 0) {
-    return { added: 0, replaced: 0, skipped, duplicatesInFile };
+export async function importRecipes(
+  raw: unknown,
+  { uid, previousUids = [] }: { uid?: string | null; previousUids?: string[] } = {}
+): Promise<ImportResult> {
+  const protectedUids = uid ? [uid, ...previousUids] : previousUids;
+  const parsed = parseImportedRecipes(raw, Date.now(), protectedUids);
+  const { skipped, duplicatesInFile } = parsed;
+  if (parsed.recipes.length === 0) {
+    return { added: 0, replaced: 0, skipped, duplicatesInFile, alreadyInAccount: 0 };
   }
 
-  const existing = await db.recipes.bulkGet(recipes.map((r: Recipe) => r.id));
-  const replaced = existing.filter(Boolean).length;
+  const existing = await db.recipes.bulkGet(parsed.recipes.map((r: Recipe) => r.id));
+  const recipes = parsed.recipes.filter((_, i) => !uid || existing[i]?.createdBy?.uid !== uid);
+  const alreadyInAccount = parsed.recipes.length - recipes.length;
+  const replaced = existing.filter(Boolean).length - alreadyInAccount;
 
   await db.recipes.bulkPut(recipes);
 
@@ -174,6 +188,7 @@ export async function importRecipes(raw: unknown): Promise<ImportResult> {
     replaced,
     skipped,
     duplicatesInFile,
+    alreadyInAccount,
   };
 }
 

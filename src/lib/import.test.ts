@@ -103,6 +103,38 @@ describe('parseImportedRecipes', () => {
     expect(result.recipes[0].title).toBe('Second');
     expect(result.duplicatesInFile).toBe(1);
   });
+
+  describe('owner stamping', () => {
+    const owners = (protectedUids: string[]) =>
+      parseImportedRecipes(
+        [
+          makeRecipe({ id: 'mine', createdBy: { uid: 'me', displayName: 'Me' } }),
+          makeRecipe({ id: 'old', createdBy: { uid: 'old-me', displayName: 'Old Me' } }),
+          makeRecipe({ id: 'theirs', createdBy: { uid: 'alice', displayName: 'Alice' } }),
+          { ...makeRecipe({ id: 'none' }), createdBy: undefined },
+        ],
+        NOW,
+        protectedUids
+      ).recipes.map((r) => [r.id, r.createdBy]);
+
+    it("re-stamps the importer's uid and a previous uid as 'local', keeping the name", () => {
+      expect(owners(['me', 'old-me'])).toEqual([
+        ['mine', { uid: 'local', displayName: 'Me' }],
+        ['old', { uid: 'local', displayName: 'Old Me' }],
+        ['theirs', { uid: 'alice', displayName: 'Alice' }],
+        ['none', { uid: 'local', displayName: null }],
+      ]);
+    });
+
+    it('changes no owner when no uids are protected', () => {
+      expect(owners([]).map(([, by]) => by)).toEqual([
+        { uid: 'me', displayName: 'Me' },
+        { uid: 'old-me', displayName: 'Old Me' },
+        { uid: 'alice', displayName: 'Alice' },
+        { uid: 'local', displayName: null },
+      ]);
+    });
+  });
 });
 
 describe('describeImport', () => {
@@ -125,5 +157,14 @@ describe('describeImport', () => {
     const msg = describeImport({ added: 0, replaced: 0, skipped: 4, duplicatesInFile: 0 });
 
     expect(msg).toMatch(/nothing to import/i);
+  });
+
+  it('counts rows already in the account', () => {
+    expect(
+      describeImport({ added: 1, replaced: 0, skipped: 0, duplicatesInFile: 0, alreadyInAccount: 4 })
+    ).toBe('Import complete: 1 added. 4 already in your account, left as they are.');
+    expect(
+      describeImport({ added: 0, replaced: 0, skipped: 0, duplicatesInFile: 0, alreadyInAccount: 2 })
+    ).toBe('Nothing new to import. 2 already in your account, left as they are.');
   });
 });

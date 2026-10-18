@@ -19,6 +19,17 @@ both themes:
 
 ## Since the last release
 
+### RL-086 Imports are Saved copies the sync never removes
+
+- As a verified user on the preview: Settings, export, then delete one recipe from its page, then import the file. The deleted recipe comes back and is still there after a reload (before this change the sync removed it). The message reads "Import complete: 1 added. {n} already in your account, left as they are." Check it at 390 px in both themes.
+- No page uses the Created, Branched and Saved split yet (RL-084), so "under Saved" shows today as: the restored recipe is not back on Explore or the public profile, and it is stored with owner `'local'` (DevTools, IndexedDB `RecipeAppDB` > `recipes`, its `createdBy.uid`).
+- Worth a look: `canManageRecipe` treats `'local'` as owner, so the restored copy shows edit and delete. Try editing it; it should not create a cloud copy.
+- Legal wording: `src/content/legal/privacy.ts` says imported recipes are kept on the device, which still holds; no change made. Author to confirm nothing about owner stamping needs saying.
+- Reviewer noted (med, data): a restored import stamped `'local'` passes `canManageRecipe`, so as a verified user the edit page looks for a cloud copy, finds none, and shows "This recipe is no longer in your account." and can never save (`RecipeEditPage.tsx` 93-98 and 206-224); if the id does exist in the cloud the write is denied (`createdBy` is immutable) and shows "Couldn't save". Nothing is corrupted or published. Pre-auth `'local'` rows already behave this way; needs a ticket (hide Edit for non-own rows, or a clearer message).
+- Reviewer noted (med, data): Share on such a row for a verified user throws "Publishing needs the signed-in creator" before any write, and the page silently falls back to a self-contained link with no explanation (`RecipeDetailPage.tsx` 154-170). Safe: imports are never published.
+- Reviewer noted (low): an import done before the listener's first snapshot (or for an own recipe this device never had) cannot see the cloud-backed row, so it stamps `'local'` and counts it as added; the next snapshot overwrites it with the cloud copy and the row becomes Created or Branched, and the message was briefly wrong.
+- Reviewer noted (low, UI): the old "Nothing to import ... no valid recipes found" message in `import.ts:84` has an em dash between those words (pre-existing, breaks the no-em-dash rule); the skipped-as-invalid wording differs between messages; the success message never says where imports land ("Find them under Saved" once the tab exists); the status line is mounted only when it has content so a repeat message may not be re-announced.
+
 ### RL-084 Created, Branched and Saved split in lib/library.ts
 
 - Nothing to check in a browser until the rebrand's tab ticket uses `splitLibrary`. No page calls it and My Recipes is unchanged.

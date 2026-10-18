@@ -270,6 +270,34 @@ describe('importRecipes', () => {
   it('tolerates a non-array file without throwing', async () => {
     await expect(importRecipes({ recipes: [] })).resolves.toMatchObject({ added: 0, skipped: 0 });
   });
+
+  it("leaves the user's own rows alone, counts them, and stamps the rest 'local'", async () => {
+    const me = { uid: 'me', displayName: 'Me' };
+    await db.recipes.add(makeRecipe({ id: 'kept', title: 'Cloud copy', createdBy: me }));
+
+    const result = await importRecipes(
+      [
+        makeRecipe({ id: 'kept', title: 'Old export', createdBy: me }),
+        makeRecipe({ id: 'deleted', createdBy: me }),
+        makeRecipe({ id: 'pre-wipe', createdBy: { uid: 'old-me', displayName: 'Me' } }),
+      ],
+      { uid: 'me', previousUids: ['old-me'] }
+    );
+
+    expect(result).toMatchObject({ added: 2, replaced: 0, alreadyInAccount: 1 });
+    expect(await db.recipes.get('kept')).toMatchObject({ title: 'Cloud copy', createdBy: me });
+    expect((await db.recipes.get('deleted'))?.createdBy).toEqual({ uid: 'local', displayName: 'Me' });
+    expect((await db.recipes.get('pre-wipe'))?.createdBy.uid).toBe('local');
+  });
+
+  it('overwrites a Saved row with the same id when signed out', async () => {
+    await db.recipes.add(makeRecipe({ id: 's', title: 'Before' }));
+
+    const result = await importRecipes([makeRecipe({ id: 's', title: 'After' })]);
+
+    expect(result).toMatchObject({ added: 0, replaced: 1, alreadyInAccount: 0 });
+    expect((await db.recipes.get('s'))?.title).toBe('After');
+  });
 });
 
 describe('addLocalCollaborator', () => {

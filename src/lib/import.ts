@@ -15,8 +15,17 @@ export interface ParsedImport {
  * Previously the parsed JSON went straight to `bulkPut`, so anything shaped
  * wrongly was persisted and only blew up later inside a query. Bad records are
  * now dropped and counted so the UI can report them.
+ *
+ * A row owned by one of `protectedUids` (the importer and earlier accounts on
+ * this device) is re-stamped as `'local'`, keeping its display name. Otherwise
+ * the sync would treat it as an own row the cloud lacks, or a stale account's
+ * row, and delete it. Imports are Saved copies, never the importer's own.
  */
-export function parseImportedRecipes(raw: unknown, now = Date.now()): ParsedImport {
+export function parseImportedRecipes(
+  raw: unknown,
+  now = Date.now(),
+  protectedUids: readonly string[] = []
+): ParsedImport {
   if (!Array.isArray(raw)) {
     return { recipes: [], skipped: 0, duplicatesInFile: 0 };
   }
@@ -41,6 +50,9 @@ export function parseImportedRecipes(raw: unknown, now = Date.now()): ParsedImpo
       createdAt,
       updatedAt: parsed.updatedAt ?? createdAt,
       chatHistory: parsed.chatHistory as Recipe['chatHistory'],
+      createdBy: protectedUids.includes(parsed.createdBy.uid)
+        ? { uid: 'local', displayName: parsed.createdBy.displayName }
+        : parsed.createdBy,
     };
 
     if (byId.has(recipe.id)) duplicatesInFile++;
@@ -56,9 +68,16 @@ export function describeImport(counts: {
   replaced: number;
   skipped: number;
   duplicatesInFile: number;
+  alreadyInAccount?: number;
 }): string {
   const skippedNote =
     counts.skipped > 0 ? ` ${counts.skipped} record(s) were skipped as invalid.` : '';
+  const inAccount = counts.alreadyInAccount ?? 0;
+  const accountNote = inAccount > 0 ? ` ${inAccount} already in your account, left as they are.` : '';
+
+  if (counts.added + counts.replaced === 0 && inAccount > 0) {
+    return `Nothing new to import.${accountNote}${skippedNote}`;
+  }
 
   // Nothing actually landed, so don't lead with "Import complete".
   if (counts.added + counts.replaced === 0) {
@@ -75,5 +94,5 @@ export function describeImport(counts: {
   }
   if (counts.skipped > 0) parts.push(`${counts.skipped} skipped as invalid`);
 
-  return `Import complete: ${parts.join(', ')}.`;
+  return `Import complete: ${parts.join(', ')}.${accountNote}`;
 }

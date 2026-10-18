@@ -14,6 +14,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
 import { TopBar } from '../components/layout/TopBar';
 import { useAuth } from '../contexts/AuthContext';
+import { getPreviousUids } from '../services/storage';
 import { Link, useNavigate } from 'react-router-dom';
 
 export function SettingsPage() {
@@ -110,9 +111,12 @@ export function SettingsPage() {
       if (!file) return;
       setImportStatus(null);
       try {
-        const result = await importRecipes(JSON.parse(await file.text()));
+        const result = await importRecipes(JSON.parse(await file.text()), {
+          uid: user?.uid,
+          previousUids: getPreviousUids(),
+        });
         setImportStatus({
-          ok: result.added + result.replaced > 0,
+          ok: result.added + result.replaced + result.alreadyInAccount > 0,
           message: describeImport(result),
         });
       } catch {
