@@ -67,8 +67,9 @@ and the profile on a computer, because both read Dexie only.
   from two devices are last write wins, with no timestamp comparison (RL-076, wired by RL-078).
 - Rows of other accounts that signed in on this device are tidied away, including rows stamped
   with uids from before the 2026-10-18 wipe. Saved copies and `'local'` rows are never touched.
-- My Recipes is split into Created (own, no parent) and Branched (own variations, including of
-  other people's recipes). Other people's recipes appear only under Saved (RL-084).
+- My Recipes is to be split into Created (own, no parent) and Branched (own variations,
+  including of other people's recipes), with other people's recipes only under Saved. The split
+  is available in `lib/library.ts` (RL-084); the rebrand's tabs will use it, and no page does yet.
 - A live listener is used although RL-043 rejected one for favourites, because "always the
   same" is the requirement and own recipes are one query.
 - Synced rows take the cloud's lower-case tags, reversing the RL-059 note that Dexie keeps its

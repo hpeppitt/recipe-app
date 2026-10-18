@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, normalizeTags, parseLibraryTab } from './library';
+import { buildFeed, filterFeed, splitLibrary, normalizeTags, parseLibraryTab } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -121,5 +121,56 @@ describe('filterFeed', () => {
 
   it('returns an empty list for an empty feed', () => {
     expect(filterFeed([], { search: 'x', favoriteIds: new Set(['a']) })).toEqual([]);
+  });
+});
+
+describe('splitLibrary', () => {
+  const me = { uid: 'me', displayName: null };
+  const them = { uid: 'them', displayName: null };
+  const cfg = { uid: 'me', isConfigured: true };
+  const ids = (l: { id: string }[]) => l.map((r) => r.id);
+
+  const myRoot = makeRecipe({ id: 'my-root', createdBy: me, createdAt: 10 });
+  const myChild = makeRecipe({ id: 'my-child', parentId: 'my-root', rootId: 'my-root', depth: 1, createdBy: me, createdAt: 20 });
+  const theirRoot = makeRecipe({ id: 'their-root', createdBy: them, createdAt: 30 });
+  const myBranchOfTheirs = makeRecipe({ id: 'my-branch', parentId: 'their-root', rootId: 'their-root', depth: 1, createdBy: me, createdAt: 40 });
+  const theirChild = makeRecipe({ id: 'their-child', parentId: 'their-root', rootId: 'their-root', depth: 1, createdBy: them, createdAt: 50 });
+  const localRow = makeRecipe({ id: 'pre-auth', createdAt: 5 });
+  const all = [myRoot, myChild, theirRoot, myBranchOfTheirs, theirChild, localRow];
+
+  it('sorts own roots, own variations and saved copies, newest first', () => {
+    const r = splitLibrary(all, all, cfg);
+    expect(ids(r.created)).toEqual(['my-root']);
+    expect(ids(r.branched)).toEqual(['my-branch', 'my-child']);
+    expect(ids(r.saved)).toEqual(['their-root', 'pre-auth']);
+  });
+
+  it('never puts another user row in created or branched', () => {
+    const r = splitLibrary(all, all, cfg);
+    for (const row of [...r.created, ...r.branched]) expect(row.createdBy.uid).toBe('me');
+  });
+
+  it('puts local rows in saved when configured', () => {
+    expect(ids(splitLibrary([localRow], [localRow], cfg).saved)).toEqual(['pre-auth']);
+  });
+
+  it('puts every root in created and every variation in branched when unconfigured', () => {
+    const r = splitLibrary(all, all, { uid: undefined, isConfigured: false });
+    expect(ids(r.created)).toEqual(['their-root', 'my-root', 'pre-auth']);
+    expect(ids(r.branched)).toEqual(['their-child', 'my-branch', 'my-child']);
+    expect(r.saved).toEqual([]);
+  });
+
+  it('claims nothing when signed out', () => {
+    const r = splitLibrary(all, all, { uid: undefined, isConfigured: true });
+    expect(r.created).toEqual([]);
+    expect(r.branched).toEqual([]);
+    expect(ids(r.saved)).toEqual(['their-root', 'my-root', 'pre-auth']);
+  });
+
+  it('deduplicates by id and counts children from countFrom', () => {
+    const r = splitLibrary([myRoot, myRoot], all, cfg);
+    expect(r.created).toHaveLength(1);
+    expect(r.created[0].childCount).toBe(1);
   });
 });

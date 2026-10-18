@@ -180,7 +180,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
   fallback shape can change without touching the share UI. The decode path validates with Zod
   and returns null on failure.
-- **`lib/library.ts`** (`buildFeed`, `filterFeed`): the Library's list logic for both tabs, so
+- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`): the Library's list logic for both tabs, so
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
