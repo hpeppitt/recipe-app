@@ -31,7 +31,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="flex rounded-xl border border-border overflow-hidden"
+      className="flex rounded-full bg-surface-secondary p-1"
     >
       {options.map((option) => {
         const selected = option.value === value;
@@ -45,11 +45,11 @@ export function SegmentedControl<T extends string>({
               // 44px floor on both variants. `compact` shrinks the type and
               // horizontal padding, not the target — the first version of this
               // component reproduced the 40px/32px heights it was meant to fix.
-              'flex-1 font-medium transition-colors min-h-11',
+              'flex-1 rounded-full font-medium transition-colors min-h-11',
               compact ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm',
               selected
-                ? 'bg-primary-600 text-white'
-                : 'bg-surface text-text-secondary hover:bg-surface-tertiary'
+                ? 'bg-primary-600 text-on-accent'
+                : 'text-text-secondary hover:bg-surface-tertiary'
             )}
           >
             {option.label}

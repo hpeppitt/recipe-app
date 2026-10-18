@@ -23,15 +23,15 @@ export function Chip({ label, onClick, active, className, pressed }: ChipProps) 
       onClick={onClick}
       aria-pressed={pressed}
       className={cn(
-        'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap',
+        'inline-flex items-center px-3 py-1.5 rounded-full text-sm transition-colors whitespace-nowrap',
         // Interactive chips are real 44px targets. An overlaid hit area was tried
         // first and does not survive here: the filter row is `overflow-x-auto`,
         // which clips any expansion beyond the pill, so the extra area was
         // measurable but unclickable.
         onClick && 'min-h-11 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500',
         active
-          ? 'bg-primary-600 text-white'
-          : 'bg-surface-tertiary text-text-secondary hover:bg-border',
+          ? 'bg-primary-600 text-on-accent'
+          : 'bg-neutral-100 text-neutral-800 border border-border hover:bg-neutral-200',
         onClick && 'cursor-pointer',
         className
       )}
