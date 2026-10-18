@@ -60,7 +60,9 @@ whose `createdBy.uid` is another uid that signed in on this device (`getPrevious
 removed. Saved copies of other users' recipes, `'local'` rows and rows with no `createdBy`
 are never touched. The listener never writes to Firestore. An import stamps rows owned by the
 importer or a `getPreviousUids` entry as `'local'` (display name kept), so neither rule removes
-them (RL-086).
+them (RL-086). A verified sign-out deletes the
+account's own rows with `clearOwnRecipes(uid)` (RL-085, a `filter` plus delete in one `rw`
+transaction); everything else, `favorites` included, stays.
 
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|

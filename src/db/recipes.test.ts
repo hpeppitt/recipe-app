@@ -12,6 +12,7 @@ import {
   buildRecipe,
   createRecipe,
   applyOwnRecipeSync,
+  clearOwnRecipes,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { Recipe } from '../types/recipe';
@@ -399,5 +400,25 @@ describe('applyOwnRecipeSync', () => {
     await applyOwnRecipeSync('me', [], ['old-uid']);
 
     expect((await db.recipes.toArray()).map((r) => r.id).sort()).toEqual(['legacy', 'loc', 'saved']);
+  });
+});
+
+describe('clearOwnRecipes', () => {
+  it("removes only the uid's own rows and leaves saved copies, 'local' rows, other uids and favourites", async () => {
+    const ownerless = { ...makeRecipe({ id: 'legacy' }), createdBy: undefined } as unknown as Recipe;
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'mine1', createdBy: { uid: 'me', displayName: 'Me' } }),
+      makeRecipe({ id: 'mine2', createdBy: { uid: 'me', displayName: 'Me' } }),
+      makeRecipe({ id: 'saved', createdBy: { uid: 'someone-else', displayName: 'Ann' } }),
+      makeRecipe({ id: 'other', createdBy: { uid: 'old-uid', displayName: null } }),
+      makeRecipe({ id: 'loc' }),
+      ownerless,
+    ]);
+    await db.favorites.add({ uid: 'me', recipeId: 'mine1', createdAt: 1 });
+
+    expect(await clearOwnRecipes('me')).toBe(2);
+
+    expect((await db.recipes.toArray()).map((r) => r.id).sort()).toEqual(['legacy', 'loc', 'other', 'saved']);
+    expect(await db.favorites.count()).toBe(1);
   });
 });

@@ -79,7 +79,10 @@ and the profile on a computer, because both read Dexie only.
 - Synced rows take the cloud's lower-case tags, reversing the RL-059 note that Dexie keeps its
   case.
 - Signing out of a verified account removes that account's own recipes from the device. They
-  reload on the next sign-in (RL-085).
+  reload on the next sign-in (RL-085). Saved copies, `'local'` rows, other uids' rows and
+  bookmarks stay. The AI conversation (`chatHistory`) is never in the cloud, so a signed-out
+  account's conversations are gone from that device for good (accepted by the author, 2026-10-18). Accepted trade: after a sign-out made offline, the account's recipes are not
+  on the device until it is online and signed in again.
 - Imports are Saved copies, never published, and never carry the importer's or another of this
   device's account uids (RL-086).
 

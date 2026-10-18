@@ -187,7 +187,7 @@ describe('TermsUpdateDialog', () => {
     expect(screen.getAllByRole('link', { name: 'Terms of Service' })[0]).toHaveAttribute('href', '/terms');
     expect(screen.getAllByRole('link', { name: 'Privacy Policy' })[0]).toHaveAttribute('href', '/privacy');
     expect(screen.getByRole('link', { name: 'Cookie Policy' })).toHaveAttribute('href', '/cookies');
-    expect(dialog).toHaveTextContent('if you decline you will be signed out, and recipes saved on this device are kept');
+    expect(dialog).toHaveTextContent('if you decline you will be signed out. Recipes saved to your account load again when you sign back in, and anything saved only on this device is kept');
     expect(screen.getByRole('checkbox', { name: BOX })).not.toBeChecked();
     expect(screen.getByRole('button', { name: 'Accept' })).toBeDisabled();
   });

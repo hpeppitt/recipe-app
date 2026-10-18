@@ -19,6 +19,28 @@ both themes:
 
 ## Since the last release
 
+### RL-085 Verified sign-out removes the account's own recipes from the device
+
+- On the preview, as a verified user with some own recipes and one saved copy of someone else's
+  recipe, sign out. My Recipes keeps only the saved copy. Sign back in: the account's recipes
+  return once the sync lands.
+- Repeat as an anonymous user with a bookmark: sign out (through the confirmation) and confirm
+  the bookmark and the recipe it points at are still on the device.
+- Data loss to accept or reject: the AI conversation (`chatHistory`) is never in the cloud, so a
+  verified sign-out deletes those conversations from the device for good. They are not shown
+  anywhere in the UI today, but they were in "Download my data".
+- Legal copy not edited (author reviews wording): `src/content/legal/privacy.ts` "Recipes and
+  bookmarks on your device", "How long:" line still lists only delete, "Delete Recipes on This
+  Device" and clearing browser data. It should add that signing out of an email account removes
+  that account's recipes from the device.
+- Known gap (RL-078 reviewer note): an apply already running when sign-out happens is fine,
+  because Dexie runs the two `rw` transactions on `recipes` one after the other and the clear
+  comes second. A server snapshot that arrives after `signOut()` resolves but before React
+  re-renders and stops the listener can still start an apply after the clear and re-add the
+  rows. `recipes` reads are public, so the listener is not denied after sign-out. The window is
+  a few milliseconds against a network round trip; closing it fully would mean the hook checking
+  the current uid before applying (`src/hooks/useOwnRecipesSync.ts`, not in this ticket).
+
 ### RL-081 Delete Recipes on This Device copy for verified users
 
 - As a verified user on the preview, open Settings at 390 px in both themes. Read the helper text under "Delete Recipes on This Device" and the confirm dialog. Confirm the delete, reload, and see the account recipes return. This is the author's read of the wording.

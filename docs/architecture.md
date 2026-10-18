@@ -77,7 +77,9 @@ skipped, because the plan treats a snapshot as the complete list. Edits from two
 last write wins. The sync only reads Firestore. `useOwnRecipesSyncStatus` exposes `off`,
 `waiting`, `synced` or `error` for the UI. Every Dexie reader (My Recipes, the own profile,
 the detail and edit pages, the tree) then shows the cloud state with no change of its own,
-and the last copy when offline.
+and the last copy when offline. Signing out of a verified account runs `clearOwnRecipes`
+(`db/recipes.ts`) after `signOut()` resolves, so the account's own rows leave the device and the
+listener reloads them on the next sign-in (RL-085).
 
 Anonymous, signed-out and local-only users are Dexie only: their saved copies of other
 people's recipes never reach the cloud.
