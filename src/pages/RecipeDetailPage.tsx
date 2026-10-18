@@ -4,7 +4,7 @@ import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteRecipeTree } from '../db/recipes';
+import { deleteRecipeTree, getSubtreeIds } from '../db/recipes';
 import {
   deletePublishedRecipeTree,
   getPublishedRecipe,
@@ -52,12 +52,13 @@ export function RecipeDetailPage() {
   const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
-  // The confirm message, captured on open: the local delete removes the recipe
-  // while the cloud delete is still in flight, so it cannot be read live.
+  // The confirm message, captured on open: the RL-078 sync can remove the recipe
+  // once the cloud delete lands, while the dialog is still open, so it cannot be
+  // read live.
   const [showDelete, setShowDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  // Set when the local copy is gone but published copies were not removed. Holds
-  // the same ids so "Try again" repeats exactly that cloud delete.
+  // Set when the cloud delete failed or timed out, so nothing was removed from
+  // this device. Holds the same ids so "Try again" repeats exactly that delete.
   const [cloudDeleteFailure, setCloudDeleteFailure] = useState<{
     uid: string;
     rootId: string;
@@ -65,6 +66,14 @@ export function RecipeDetailPage() {
     /** null after a timeout, when how many copies remain is unknown. */
     failed: number | null;
   } | null>(null);
+  // A delete can outlive the page (back gesture mid-wait); late results check this.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
   const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
@@ -189,9 +198,26 @@ export function RecipeDetailPage() {
 
   const leaveAfterDelete = () => navigate('/', { replace: true });
 
-  /** Returns false when published copies may remain; a timeout counts as that. */
+  const deleteLocally = async () => {
+    if (!id) return;
+    try {
+      await deleteRecipeTree(id);
+    } catch (err) {
+      // Nothing was removed locally, so the page stays for another attempt.
+      // After a cloud delete the RL-078 sync removes the rows anyway.
+      console.error('Deleting the local recipe tree failed', err);
+      if (mountedRef.current) setIsDeleting(false);
+      return;
+    }
+    if (mountedRef.current) leaveAfterDelete();
+  };
+
+  // Cloud first, device second: a recipe left in the cloud would be synced
+  // straight back into Dexie by the RL-078 listener, so the device copy only
+  // goes once the cloud confirms. Descendants owned by other users are skipped
+  // (the rules deny them); removing those needs a Cloud Function.
   const runCloudDelete = async (target: Omit<NonNullable<typeof cloudDeleteFailure>, 'failed'>) => {
-    if (!id) return true;
+    if (!id) return;
     const unknown = { deleted: 0, failed: null };
     const { failed } = await withTimeout(
       deletePublishedRecipeTree(target.uid, id, target.rootId, target.extraIds).catch(
@@ -200,48 +226,45 @@ export function RecipeDetailPage() {
       CLOUD_DELETE_TIMEOUT_MS,
       unknown
     );
+    // Left the page mid-delete: no late navigation or local write. If the cloud
+    // delete landed, the RL-078 sync removes the device copy.
+    if (!mountedRef.current) return;
     if (failed === 0) {
-      leaveAfterDelete();
-      return true;
+      setCloudDeleteFailure(null);
+      await deleteLocally();
+      return;
     }
+    setShowDelete(null);
     setCloudDeleteFailure({ ...target, failed });
-    return false;
+    setIsDeleting(false);
   };
 
   const handleDelete = async () => {
     if (!id || isDeleting) return;
     setIsDeleting(true);
     trackRecipeDeleted(id);
-    const rootId = recipe?.rootId ?? id;
-    let deletedLocally: string[];
-    try {
-      deletedLocally = await deleteRecipeTree(id);
-    } catch (err) {
-      // Nothing was removed, so the confirm stays open for another attempt.
-      console.error('Deleting the local recipe tree failed', err);
-      setIsDeleting(false);
-      return;
-    }
     // Only verified accounts can publish (RL-040), so anyone else has no cloud
     // copy to remove and the delete is local only.
     if (!isFirebaseConfigured || !user?.emailVerified) {
-      leaveAfterDelete();
+      await deleteLocally();
       return;
     }
-    // Cascade to the cloud so published variations aren't left orphaned and
-    // still reachable via /shared/:id. Descendants owned by other users are
-    // skipped (the rules deny them); removing those needs a Cloud Function.
-    const ok = await runCloudDelete({ uid: user.uid, rootId, extraIds: deletedLocally });
-    if (!ok) {
-      setShowDelete(null);
+    let extraIds: string[];
+    try {
+      // Passed on so variations the cloud tree query misses are still attempted.
+      extraIds = await getSubtreeIds(id);
+    } catch (err) {
+      console.error('Reading the local recipe tree failed', err);
       setIsDeleting(false);
+      return;
     }
+    await runCloudDelete({ uid: user.uid, rootId: recipe?.rootId ?? id, extraIds });
   };
 
   const handleRetryCloudDelete = async () => {
     if (!cloudDeleteFailure || isDeleting) return;
     setIsDeleting(true);
-    if (!(await runCloudDelete(cloudDeleteFailure))) setIsDeleting(false);
+    await runCloudDelete(cloudDeleteFailure);
   };
 
   // Only cloud recipes belonging to someone else can be suggested against:
@@ -403,17 +426,17 @@ export function RecipeDetailPage() {
       />
       <ConfirmDialog
         open={cloudDeleteFailure !== null}
-        title="Still in the shared library"
+        title="Couldn't delete this recipe"
         message={
-          failedCopies == null
-            ? 'Removed from this device, but the shared library did not confirm its published copies were removed.'
-            : `Removed from this device, but ${failedCopies} published ${pluralize(failedCopies, 'copy', 'copies')} could not be removed from the shared library.`
+          "It's still saved in your account and on this device. Check your connection and try again." +
+          (failedCopies == null
+            ? ''
+            : ` ${failedCopies} ${pluralize(failedCopies, 'copy', 'copies')} couldn't be removed.`)
         }
         confirmLabel={isDeleting ? 'Trying again...' : 'Try again'}
-        cancelLabel="Leave anyway"
         busy={isDeleting}
         onConfirm={handleRetryCloudDelete}
-        onCancel={leaveAfterDelete}
+        onCancel={() => setCloudDeleteFailure(null)}
       />
     </>
   );

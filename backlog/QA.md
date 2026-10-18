@@ -19,6 +19,21 @@ both themes:
 
 ## Since the last release
 
+### RL-080 Deleting a recipe is cloud first for a verified owner
+
+- On the preview as a verified user, delete a recipe that has a variation. The app goes home, and both the recipe and the variation are gone from My Recipes and from Explore (reload Explore to be sure).
+- Set DevTools to offline and delete another recipe. "Deleting..." shows for up to 10 seconds, then a dialog titled "Couldn't delete this recipe" reads "It's still saved in your account and on this device. Check your connection and try again." (a count line follows only when the cloud reported one, so offline it should have none). There is no "Leave anyway".
+- Press Cancel: the dialog closes, you stay on the recipe, and it is still listed in My Recipes.
+- Delete it again while offline, go back online, and press "Try again": the app goes home and the recipe leaves My Recipes and Explore.
+- Check the dialog at 390 px in both themes: readable, buttons not squashed.
+- As an anonymous user, deleting a recipe still goes straight home with no dialog.
+- Worth a look: pressing Escape during "Trying again..." closes the dialog while the retry keeps running; if it succeeds the app still goes home.
+- Reviewer noted (med, data): the unmount guard drops the local delete after a late `failed === 0` for a saved copy of someone else's recipe (the sync only removes own rows), so a user who swipes back during the up-to-10 s wait keeps the recipe on the device; fix is to always run `deleteRecipeTree` on `failed === 0` and guard only navigation and state (`RecipeDetailPage.tsx:231`). Try it with a saved copy.
+- Reviewer noted (med, data): a timed-out cloud delete is not cancelled, so "It's still saved in your account" can stop being true when connectivity returns; the sync then removes the local row after Cancel, and a Try again during the first attempt runs two deletes (safe, but surprising). A delete queue is out of scope.
+- Reviewer noted (med, UI): Escape is not blocked while a delete or retry is busy (`ConfirmDialog.tsx:44`), so the dialog closes with no feedback while the work continues; the first Delete dialog has the same gap.
+- Reviewer noted (med, UI): a failed local delete or a failed `getSubtreeIds` is only logged and leaves the Delete dialog open with no message (`RecipeDetailPage.tsx` 201-211 and 256-259).
+- Reviewer noted (low): the stale dialog after a late success, `trackRecipeDeleted` firing before the delete is confirmed, the `rootId` fallback to `id`, no live region for a repeat failure, and focus dropping while the buttons are disabled.
+
 ### RL-079 My Recipes and the own profile wait for the first cloud sync
 
 - At 390x844 in both themes, sign a verified account that has recipes into a fresh browser profile. My Recipes should go from three skeleton rows to the list with no empty-state flash. The own profile shows two skeleton rows, then the list.

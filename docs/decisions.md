@@ -591,21 +591,30 @@ suggestion nobody can review and, with delete forbidden, nobody can remove.
 
 ### Recipe delete waits for the cloud and reports what remains (RL-023, 2026-10-14)
 
-Deleting a recipe still removes the local subtree first, then waits for the cloud delete
-instead of firing it and forgetting it. Descendants owned by other users are skipped
+Since RL-080 a verified owner's delete runs the cloud delete first and removes the local
+subtree only once the cloud reports no failures. The original RL-023 order (local first,
+then the cloud) stopped being safe with 1b: a recipe left in the cloud is synced straight
+back into Dexie by the RL-078 listener, so a recipe the user thought was gone would come
+back. The local subtree ids are read first (`getSubtreeIds`) and passed to the cloud delete
+so variations the cloud tree query misses are still attempted. The delete waits for the
+cloud instead of firing it and forgetting it. Descendants owned by other users are skipped
 rather than counted as failed: the rules deny them by design, and removing them needs a
 Cloud Function. Ids the tree query did not return are read first, and a missing doc
 (never published, or removed by an earlier attempt) is skipped: the rules deny deleting a
 nonexistent doc, which would otherwise be a failure "Try again" could never clear. The
 wait is bounded at 10 seconds; a timeout counts as a failure, and because the real count
 is unknown the dialog then states no number.
-On failure the page shows a dialog with "Try again" and "Leave anyway", replacing the old
-silent `.catch(() => {})` that left recipes public at `/shared/:id` with no local handle.
+On failure nothing is removed from the device, and the page shows "Couldn't delete this
+recipe" with "Try again" (same ids) and "Cancel" (stay on the recipe). RL-023's "Leave
+anyway" is gone: under the old order it left published copies behind, and under the new one
+it would have left a recipe that syncs back. Both replace the old silent `.catch(() => {})`
+that left recipes public at `/shared/:id` with no local handle. If the local delete fails
+after a successful cloud delete, the error is logged and the RL-078 sync removes the rows.
 There is no background retry queue; that was out of scope. The cloud delete is attempted
 only for a user with `emailVerified`, per the ticket and RL-040, since nobody else can
 publish under the current rules.
 
-*2026-10-18: see 1b. The order is reversed, cloud first, by RL-080.*
+*2026-10-18: see 1b. The order is reversed, cloud first, by RL-080 (described above).*
 
 ### Recipe writes are bounded in time and size (RL-016, 2026-10-14)
 

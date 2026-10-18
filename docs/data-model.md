@@ -140,6 +140,7 @@ verified user, or a verified owner update that changes anything *except* `create
 Delete needs a verified owner. Recipes published anonymously before the 2026-08-10 gate can
 no longer be edited or deleted by their anonymous owner; RL-042 wipes them. Since RL-023 the
 client attempts the cloud delete only for users with `emailVerified`, which matches the rule.
+Since RL-080 that delete runs before the local one, and the local subtree is kept when it fails.
 Since RL-016 a create also needs `createdAt` to be an integer (milliseconds) no more than 60
 seconds ahead of server time, an owner update may not change `createdAt`, and both require
 `title` to be a string of at most 200 characters and `ingredients` and `instructions` to be
