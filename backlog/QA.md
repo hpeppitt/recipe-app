@@ -915,3 +915,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - No visible change. Check only that `npm test` is green on the preview branch and that the
   app still loads (`AuthContext` gained two exports, nothing else in `src/` changed).
+
+### RL-071 Pure radial layout for the Map view
+
+- Nothing to check in a browser: `layoutRadial` is covered by tests and has no UI until RL-072.
