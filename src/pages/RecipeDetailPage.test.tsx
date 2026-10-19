@@ -324,3 +324,53 @@ describe('RecipeDetailPage header and More sheet', () => {
     expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Chunky');
   });
 });
+
+describe('RecipeDetailPage footer', () => {
+  const show = (user: AppUser | null = fakeUser) =>
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user }
+    );
+  const footerNames = () =>
+    screen
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+      .filter((t) => t === 'Edit' || t === 'Suggest' || t === 'Branch this recipe');
+
+  it('owner: Edit and Branch this recipe, no Suggest', () => {
+    show();
+    expect(footerNames()).toEqual(['Edit', 'Branch this recipe']);
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/edit');
+    fireEvent.click(screen.getByRole('button', { name: 'Branch this recipe' }));
+    expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/vary');
+  });
+
+  it('non-owner on a cloud recipe: Suggest and Branch this recipe, no Edit', () => {
+    source = 'cloud';
+    show();
+    expect(footerNames()).toEqual(['Suggest', 'Branch this recipe']);
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
+    expect(screen.getByRole('dialog', { name: 'Suggest a Change' })).toBeInTheDocument();
+  });
+
+  it('a recipe on this device is yours: Edit and Branch, never Suggest', () => {
+    source = 'local';
+    show(anon);
+    expect(footerNames()).toEqual(['Edit', 'Branch this recipe']);
+  });
+
+  it('the old labels are gone, for the owner and for a non-owner on a cloud recipe', () => {
+    const { unmount } = show();
+    expect(screen.queryByRole('button', { name: 'Create Variation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Suggest a Change' })).toBeNull();
+    unmount();
+    source = 'cloud';
+    show(anon);
+    expect(screen.queryByRole('button', { name: 'Create Variation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Suggest a Change' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Suggest' })).toBeInTheDocument();
+  });
+});

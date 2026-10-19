@@ -3,7 +3,7 @@
  *
  * The branching tree is the product's whole identity and nothing in the app
  * taught it. The library welcome panel described it in prose, which the people
- * who most need it skip, and `Create Variation` sat on every recipe with no hint
+ * who most need it skip, and `Branch this recipe` sat on every recipe with no hint
  * that it produces a *new* version rather than editing this one. So a new user
  * could use the app without ever discovering the feature it is built around.
  *

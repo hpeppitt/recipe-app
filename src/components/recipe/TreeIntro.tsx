@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
  * version rather than overwriting it.
  *
  * Nothing taught this before. The library welcome panel described it in prose,
- * which the people who most need it skip, and `Create Variation` sat on every
+ * which the people who most need it skip, and `Branch this recipe` sat on every
  * recipe with no hint that it produces a child rather than editing this one. A
  * user could get all the way through the app without discovering the feature it
  * exists for.
