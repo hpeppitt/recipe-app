@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="./l-icon.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}button{font-family:inherit}[data-screen-label],[data-screen-label] *{scrollbar-width:none}[data-screen-label]::-webkit-scrollbar,[data-screen-label] *::-webkit-scrollbar{display:none}input,textarea{font-family:inherit}</style>
+</helmet>
+<div style="display:flex;justify-content:center;padding:24px">
+<div ref="{{ phoneRef }}" style="width:390px;height:844px;flex:none;border-radius:36px;overflow:hidden;position:relative;background:var(--color-bg);color:var(--color-text);box-shadow:var(--shadow-lg);font-family:var(--font-body);font-size:15px;line-height:1.5">
+
+<sc-if value="{{ is.explore }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Explore" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:52px 20px 0;display:flex;align-items:flex-end;gap:10px">
+      <div style="flex:1"><div style="font-size:13px;color:var(--color-neutral-700)">Tuesday evening</div><div style="font-family:var(--font-heading);font-size:30px;line-height:1.05">What's growing</div></div>
+      <button onClick="{{ goSearch }}" aria-label="Search" style="width:44px;height:44px;border:0;cursor:pointer;color:inherit;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow-sm)"><l-icon name="search"></l-icon></button>
+    </div>
+    <div style="padding:20px 0 0 20px">
+      <div style="display:flex;align-items:baseline;padding-right:20px;margin-bottom:10px"><span style="font-family:var(--font-heading);font-size:18px;flex:1">Branching fast this week</span><button onClick="{{ goSearch }}" style="border:0;background:none;cursor:pointer;font-size:13px;color:var(--color-accent-700);font-weight:600;white-space:nowrap">See all</button></div>
+      <div style="display:flex;gap:12px;overflow-x:auto;padding-right:20px;padding-bottom:6px;scroll-snap-type:x mandatory">
+        <sc-for list="{{ trending }}" as="r" hint-placeholder-count="3">
+          <button onClick="{{ r.open }}" style="flex:none;width:200px;display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;text-align:left;cursor:pointer;color:inherit;scroll-snap-align:start">
+            <div style="position:relative;width:200px;height:200px;border-radius:30px;background:{{ r.tint }};display:grid;place-items:center;font-size:76px">{{ r.emoji }}<span class="tag" style="position:absolute;top:12px;left:12px;white-space:nowrap;gap:4px;background:var(--color-accent-2-700);color:var(--color-accent-2-100);font-weight:600"><l-icon name="git-branch"></l-icon>+{{ r.week }} this week</span></div>
+            <div style="font-family:var(--font-heading);font-size:17px;line-height:1.15;padding:0 4px">{{ r.title }}</div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-neutral-700);padding:0 4px"><dc-import name="User Pill" user="{{ r.by }}" initial="{{ r.byIni }}" color="{{ r.byAv }}" hint-size="72px,24px"></dc-import><span style="white-space:nowrap">{{ r.branches }} branches</span></div>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+    <div style="padding:22px 20px 0">
+      <div style="position:relative;display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-family:var(--font-heading);font-size:18px">Most branched,</span><button onClick="{{ rk.toggle }}" style="height:32px;padding:0 10px 0 12px;border:0;border-radius:999px;background:var(--color-accent-200);color:var(--color-accent-900);font-family:var(--font-heading);font-size:16px;display:flex;align-items:center;gap:4px;cursor:pointer">{{ rk.label }}<l-icon name="chevron-down"></l-icon></button>
+        <sc-if value="{{ rk.open }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:38px;left:120px;z-index:4;min-width:170px;padding:6px;border-radius:22px;background:var(--color-bg);box-shadow:var(--shadow-lg);display:flex;flex-direction:column">
+            <sc-for list="{{ rk.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.on }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:0;border-radius:16px;background:{{ o.bg }};color:inherit;font-size:14px;font-weight:{{ o.weight }};text-align:left;cursor:pointer"><span style="flex:1">{{ o.label }}</span><sc-if value="{{ o.on2 }}" hint-placeholder-val="{{ false }}"><l-icon name="check"></l-icon></sc-if></button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <sc-for list="{{ ranked }}" as="r" hint-placeholder-count="3">
+        <button onClick="{{ r.open }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:8px 0;border:0;background:none;cursor:pointer;color:inherit;text-align:left;font-size:15px">
+          <span style="width:36px;height:36px;flex:none;border-radius:999px;background:{{ r.circle }};color:{{ r.circleFg }};display:grid;place-items:center;font-family:var(--font-heading);font-size:16px">{{ r.rank }}</span>
+          <span style="width:48px;height:48px;flex:none;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-size:24px">{{ r.emoji }}</span>
+          <span style="flex:1;min-width:0"><span style="display:block;font-weight:700">{{ r.title }}</span><span style="display:flex;align-items:center;gap:8px;margin-top:2px;font-size:12px;color:var(--color-neutral-700)"><dc-import name="User Pill" user="{{ r.by }}" initial="{{ r.byIni }}" color="{{ r.byAv }}" hint-size="72px,24px"></dc-import>{{ r.time }}</span></span>
+          <span class="tag tag-accent-2" style="gap:4px;font-weight:600"><l-icon name="git-branch"></l-icon>{{ r.branches }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="padding:18px 20px 0">
+      <button onClick="{{ openPantry }}" style="width:100%;display:flex;align-items:center;gap:14px;padding:18px;border:0;border-radius:30px;background:var(--color-accent-2-200);color:var(--color-accent-2-900);cursor:pointer;text-align:left">
+        <span style="width:48px;height:48px;flex:none;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:22px;color:var(--color-accent-2-700)"><l-icon name="refrigerator"></l-icon></span>
+        <span style="flex:1"><span style="display:block;font-family:var(--font-heading);font-size:18px">What have you got?</span><span style="display:block;font-size:13px">Find or write a recipe from your fridge.</span></span>
+        <l-icon name="chevron-right"></l-icon>
+      </button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.search }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Search" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 16px 0;display:flex;align-items:center;gap:6px">
+      <button onClick="{{ back }}" aria-label="Back" style="width:40px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button>
+      <div style="flex:1;display:flex;align-items:center;gap:8px;height:52px;padding:0 6px 0 16px;border-radius:999px;background:var(--color-neutral-100);box-shadow:var(--shadow-sm)">
+        <span style="color:var(--color-neutral-700)"><l-icon name="search"></l-icon></span>
+        <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="Search, or describe a dish…" style="flex:1;min-width:0;border:0;background:none;font-size:15px;color:var(--color-text);outline:none">
+        <button onClick="{{ writeIt }}" style="height:40px;padding:0 14px;border:0;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:flex;align-items:center;gap:6px;font-family:var(--font-heading);font-size:13px;cursor:pointer"><l-icon name="sparkles"></l-icon>Write it</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:14px 20px 4px;overflow-x:auto">
+      <button onClick="{{ openPantry }}" aria-label="Filters" style="height:34px;padding:0 12px;border:0;border-radius:999px;background:var(--color-neutral-100);color:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;font-size:13px;flex:none;box-shadow:inset 0 0 0 1px var(--color-divider)"><l-icon name="sliders-horizontal"></l-icon>Pantry</button>
+      <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.on }}" style="height:34px;padding:0 14px;border:0;border-radius:999px;background:{{ c.bg }};color:{{ c.fg }};font-size:13px;cursor:pointer;flex:none;white-space:nowrap">{{ c.label }}</button></sc-for>
+    </div>
+    <div style="flex:1;overflow:auto;padding:12px 20px 100px;display:flex;flex-direction:column;gap:12px">
+      <sc-if value="{{ pantryActive }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:var(--color-neutral-700)">Using {{ pantryLabel }}</div></sc-if>
+      <sc-for list="{{ results }}" as="r" hint-placeholder-count="4">
+        <button onClick="{{ r.open }}" style="display:flex;gap:14px;padding:16px;border:0;border-radius:30px;background:var(--color-surface);text-align:left;cursor:pointer;color:inherit">
+          <span style="width:56px;height:56px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:28px">{{ r.emoji }}</span>
+          <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <span style="font-family:var(--font-heading);font-size:18px;line-height:1.15">{{ r.title }}</span>
+            <sc-if value="{{ r.isBranch }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;font-weight:700;color:var(--color-accent-2-700)">{{ r.family }}</span></sc-if>
+            <span style="font-size:13px;line-height:1.4;color:var(--color-neutral-800)">{{ r.line }}</span>
+            <span style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;color:var(--color-neutral-700)"><span class="tag tag-accent-2" style="gap:4px;font-weight:600"><l-icon name="git-branch"></l-icon>{{ r.branches }}</span>{{ r.time }} · {{ r.diff }}<span style="margin-left:auto;display:flex"><dc-import name="User Pill" user="{{ r.by }}" initial="{{ r.byIni }}" color="{{ r.byAv }}" hint-size="72px,24px"></dc-import></span></span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:22px;border-radius:30px;background:var(--color-accent-100);display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:var(--font-heading);font-size:20px">Nothing called "{{ query }}" yet</div>
+          <div style="font-size:14px;color:var(--color-accent-900)">Write it now and it becomes the first of its family.</div>
+          <button onClick="{{ writeIt }}" class="btn btn-primary" style="align-self:flex-start;height:46px;padding:0 20px;gap:6px"><l-icon name="sparkles"></l-icon>Write "{{ query }}"</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.recipe }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Recipe" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="flex:1;overflow:auto">
+      <sc-if value="{{ rc.suggest }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:50px 16px 0"><div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-accent-2-100);font-size:13px;font-weight:600"><l-icon name="message-circle"></l-icon><span style="flex:1">Tap any line to suggest a change</span><button onClick="{{ rc.cancelSuggest }}" style="height:32px;padding:0 14px;border:0;border-radius:999px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-weight:600;cursor:pointer">Cancel</button></div></div>
+      </sc-if>
+      <sc-if value="{{ rc.sharedBanner }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:50px 16px 0"><div style="display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:999px;background:var(--color-surface);font-size:13px"><span>Shared by</span><dc-import name="User Pill" user="{{ rc.by }}" initial="{{ rc.byIni }}" color="{{ rc.byAv }}" hint-size="72px,24px"></dc-import><span style="flex:1"></span><button onClick="{{ rc.closeShared }}" style="height:32px;padding:0 12px;border:0;border-radius:999px;background:var(--color-bg);color:var(--color-text);font-weight:600;font-size:13px;cursor:pointer">Get the app</button></div></div>
+      </sc-if>
+      <sc-if value="{{ rc.headerRoot }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:50px 12px 0;display:flex;align-items:center;gap:2px">
+          <button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button>
+          <span style="flex:1"></span>
+          <button onClick="{{ rc.openTree }}" aria-label="Family tree" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:20px"><l-icon name="network"></l-icon></button>
+          <button onClick="{{ rc.toggleSave }}" aria-label="Save" style="width:44px;height:44px;border:0;background:none;cursor:pointer;display:grid;place-items:center;font-size:20px;color:{{ rc.saveColor }}"><l-icon name="{{ rc.saveIcon }}"></l-icon></button>
+          <button onClick="{{ rc.openMenu }}" aria-label="More" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:20px"><l-icon name="ellipsis"></l-icon></button>
+        </div>
+      </sc-if>
+      <sc-if value="{{ rc.headerBranch }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative;height:230px;background:{{ rc.heroTint }};display:grid;place-items:center">
+          <span style="width:150px;height:150px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-bg);display:grid;place-items:center;font-size:78px;margin-top:20px">{{ rc.emoji }}</span>
+          <div style="position:absolute;top:50px;left:14px;right:14px;display:flex;gap:8px">
+            <button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;border-radius:999px;background:var(--color-bg);color:inherit;display:grid;place-items:center;font-size:20px;box-shadow:var(--shadow-md);cursor:pointer"><l-icon name="chevron-left"></l-icon></button>
+            <span style="flex:1"></span>
+            <button onClick="{{ rc.openTree }}" aria-label="Family tree" style="width:44px;height:44px;border:0;border-radius:999px;background:var(--color-bg);color:inherit;display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow-md);cursor:pointer"><l-icon name="network"></l-icon></button>
+            <button onClick="{{ rc.toggleSave }}" aria-label="Save" style="width:44px;height:44px;border:0;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow-md);cursor:pointer;color:{{ rc.saveColor }}"><l-icon name="{{ rc.saveIcon }}"></l-icon></button>
+            <button onClick="{{ rc.openMenu }}" aria-label="More" style="width:44px;height:44px;border:0;border-radius:999px;background:var(--color-bg);color:inherit;display:grid;place-items:center;font-size:19px;box-shadow:var(--shadow-md);cursor:pointer"><l-icon name="ellipsis"></l-icon></button>
+          </div>
+        </div>
+      </sc-if>
+      <div style="padding:8px 22px 24px">
+        <sc-if value="{{ rc.isRoot }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-top:4px">
+            <h1 style="flex:1;font-size:34px;line-height:1.04;margin:0">{{ rc.title }}</h1>
+            <span style="width:76px;height:76px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:38px">{{ rc.emoji }}</span>
+          </div>
+          <p style="margin:10px 0 0;font-size:15px;color:var(--color-neutral-800);text-wrap:pretty">{{ rc.desc }}</p>
+        </sc-if>
+        <sc-if value="{{ rc.isBranch }}" hint-placeholder-val="{{ false }}">
+          <h1 style="font-size:32px;line-height:1.04;margin:14px 0 0">{{ rc.title }}</h1>
+          <div style="margin-top:6px;font-size:16px;font-weight:700;color:var(--color-accent-2-700)">{{ rc.family }}</div>
+          <div style="margin-top:14px;padding:12px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:14px;display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;font-weight:600">
+              <sc-for list="{{ rc.crumbs }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.on }}" style="border:0;background:none;padding:0;cursor:pointer;color:inherit;font-weight:600;font-size:14px">{{ c.label }}</button><l-icon name="chevron-right"></l-icon></sc-for>
+              <span style="font-weight:400;min-width:0;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rc.crumbHere }}</span>
+            </div>
+            <div><button onClick="{{ rc.openAuthor }}" style="border:0;background:none;padding:0;cursor:pointer;color:inherit;font-weight:700;font-size:14px">{{ rc.by }}</button> asked for <i>"{{ rc.prompt }}"</i> on {{ rc.parentBy }}'s <b>{{ rc.parentTitle }}</b>.</div>
+            <button onClick="{{ rc.openChanges }}" style="align-self:flex-start;height:34px;padding:0 14px;border:0;border-radius:999px;background:var(--color-bg);color:var(--color-text);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer"><l-icon name="diff"></l-icon>See what changed</button>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:14px">
+          <button onClick="{{ rc.openAuthor }}" aria-label="Open author" style="border:0;background:none;padding:0;cursor:pointer;display:flex;align-items:center"><dc-import name="User Pill" user="{{ rc.by }}" initial="{{ rc.byIni }}" color="{{ rc.byAv }}" hint-size="72px,24px"></dc-import></button>
+          <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><l-icon name="clock"></l-icon>{{ rc.time }}</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><l-icon name="gauge"></l-icon>{{ rc.diff }}</span>
+          <span class="tag tag-accent" style="font-size:13px;padding:5px 12px;gap:5px;font-weight:600"><l-icon name="flame"></l-icon>{{ rc.kcal }} kcal</span>
+          <sc-for list="{{ rc.macroPills }}" as="m" hint-placeholder-count="3"><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px;gap:5px"><l-icon name="{{ m.icon }}"></l-icon>{{ m.label }}</span></sc-for>
+        </div>
+        <div style="display:flex;align-items:center;margin-top:24px">
+          <h4 style="margin:0;flex:1">Ingredients</h4>
+          <div style="display:flex;align-items:center;gap:4px;border-radius:999px;background:var(--color-surface);padding:3px">
+            <button onClick="{{ rc.less }}" aria-label="Fewer" style="width:34px;height:34px;border:0;border-radius:999px;display:grid;place-items:center;background:var(--color-bg);color:inherit;cursor:pointer"><l-icon name="minus"></l-icon></button>
+            <span style="font-size:13px;font-weight:600;padding:0 6px;min-width:64px;text-align:center">{{ rc.servings }}</span>
+            <button onClick="{{ rc.more }}" aria-label="More" style="width:34px;height:34px;border:0;border-radius:999px;display:grid;place-items:center;background:var(--color-bg);color:inherit;cursor:pointer"><l-icon name="plus"></l-icon></button>
+          </div>
+        </div>
+        <sc-if value="{{ rc.scaled }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 14px;border-radius:18px;background:var(--color-accent-100);font-size:13px;color:var(--color-accent-900)"><l-icon name="scale"></l-icon><span style="flex:1">{{ rc.scaleNote }}</span><button onClick="{{ rc.resetScale }}" style="border:0;background:none;cursor:pointer;text-decoration:underline;color:inherit;font-size:13px">Reset</button></div></sc-if>
+        <div style="display:flex;flex-direction:column;margin-top:6px">
+          <sc-for list="{{ rc.rows }}" as="g" hint-placeholder-count="6">
+            <sc-if value="{{ g.unsel }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ g.on }}" style="display:flex;align-items:center;gap:12px;padding:9px 0;border:0;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent);background:none;color:inherit;font-size:15px;text-align:left;cursor:pointer">
+                <span style="width:22px;height:22px;flex:none;border-radius:999px;border:2px solid {{ g.checkBorder }};background:{{ g.checkBg }};color:var(--color-bg);display:grid;place-items:center;font-size:12px">{{ g.tick }}</span>
+                <span style="font-weight:700;min-width:62px;color:{{ g.amtColor }}">{{ g.amt }}</span><span style="flex:1;text-decoration:{{ g.deco }}">{{ g.name }}</span>
+              </button>
+            </sc-if>
+            <sc-if value="{{ g.sel }}" hint-placeholder-val="{{ false }}">
+              <div style="margin:6px -10px;padding:12px;border-radius:24px;background:var(--color-accent-100);box-shadow:inset 0 0 0 2px var(--color-accent);display:flex;align-items:center;gap:8px;font-size:15px">
+                <s style="color:var(--color-neutral-700)">{{ g.amt }}</s><l-icon name="arrow-right"></l-icon>
+                <input value="{{ g.val }}" onChange="{{ g.onVal }}" aria-label="New amount" style="width:84px;height:38px;padding:0 12px;border:0;border-radius:999px;background:var(--color-bg);font-weight:700;font-size:15px;color:var(--color-text);box-shadow:inset 0 0 0 1.5px var(--color-accent);outline:none">
+                <span style="flex:1">{{ g.name }}</span>
+                <button onClick="{{ g.unpick }}" aria-label="Undo this change" style="width:32px;height:32px;flex:none;border:0;border-radius:999px;background:var(--color-bg);color:var(--color-neutral-800);display:grid;place-items:center;cursor:pointer"><l-icon name="x"></l-icon></button>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+        <h4 style="margin:26px 0 8px">Method</h4>
+        <sc-for list="{{ rc.steps }}" as="m" hint-placeholder-count="4"><div style="display:flex;gap:12px;padding:8px 0;font-size:15px;line-height:1.5"><span style="width:30px;height:30px;flex:none;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-family:var(--font-heading);font-size:14px">{{ m.n }}</span><span style="flex:1">{{ m.t }}</span></div></sc-for>
+        <div style="margin-top:18px;border-radius:28px;background:var(--color-surface);padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+          <button onClick="{{ rc.toggleNutri }}" style="display:flex;align-items:center;border:0;background:none;padding:0;color:inherit;cursor:pointer;text-align:left"><span style="flex:1;font-family:var(--font-heading);font-size:17px">Nutrition {{ rc.nutriHead }}</span><l-icon name="{{ rc.nutriIcon }}"></l-icon></button>
+          <sc-if value="{{ rc.nutriOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden;background:var(--color-bg)"><sc-for list="{{ rc.nutriModes }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:8px 12px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+            <div style="display:flex;flex-direction:column;gap:12px"><sc-for list="{{ rc.macros }}" as="m" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;font-size:13px"><span style="flex:1">{{ m.k }}</span><b>{{ m.v }}</b></div><div style="height:10px;border-radius:999px;background:var(--color-bg)"><div style="height:10px;width:{{ m.w }};border-radius:999px;background:{{ m.c }}"></div></div></div></sc-for></div>
+            <div style="font-size:11px;color:var(--color-neutral-700)">{{ rc.nutriNote }}</div>
+          </sc-if>
+        </div>
+        <sc-if value="{{ rc.hasSugs }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:baseline;margin:26px 0 10px"><h4 style="margin:0;flex:1">Suggestions</h4><span style="font-size:13px;color:var(--color-neutral-700)">{{ rc.sugMeta }}</span></div>
+          <sc-if value="{{ rc.sugOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px;border-radius:28px;background:var(--color-bg);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px"><dc-import name="User Pill" user="Sami" initial="{{ rc.samiIni }}" color="{{ rc.samiAv }}" hint-size="72px,24px"></dc-import><span style="flex:1;color:var(--color-neutral-700)">2h</span><span class="tag tag-accent" style="font-weight:600">Open</span></div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:16px;background:var(--color-accent-2-100);font-size:14px"><span style="font-weight:700;color:var(--color-accent-2-700)">+</span><b>¼ tsp</b><span style="flex:1">ground cardamom</span></div>
+              <div style="font-size:14px">A little cardamom makes the brown butter taste even nuttier.</div>
+              <sc-if value="{{ rc.sugMine }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:8px"><button onClick="{{ rc.sugDecline }}" class="btn btn-secondary" style="height:44px;flex:1;font-size:14px">Decline</button><button onClick="{{ rc.sugChat }}" class="btn btn-secondary" style="height:44px;flex:1;font-size:14px;gap:6px"><l-icon name="message-circle"></l-icon>Chat</button><button onClick="{{ rc.sugApply }}" class="btn btn-primary" style="height:44px;flex:1;font-size:14px">Apply</button></div>
+              </sc-if>
+              <sc-if value="{{ rc.sugNotMine }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ rc.sugChat }}" class="btn btn-secondary" style="height:44px;font-size:14px;gap:6px"><l-icon name="message-circle"></l-icon>{{ rc.sugReplies }}</button>
+              </sc-if>
+            </div>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:8px">
+            <sc-for list="{{ rc.closedSugs }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.on }}" style="display:flex;align-items:center;gap:10px;padding:10px 4px;border:0;background:none;color:inherit;font-size:14px;text-align:left;cursor:pointer"><dc-import name="User Pill" user="{{ c.by }}" initial="{{ c.ini }}" color="{{ c.av }}" hint-size="72px,24px"></dc-import><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.text }}</span><span class="tag {{ c.tag }}">{{ c.status }}</span></button></sc-for>
+          </div>
+        </sc-if>
+      </div>
+      <div style="padding:6px 0 24px">
+        <div style="padding:0 22px"><div style="font-family:var(--font-heading);font-size:22px;line-height:1.1">{{ rc.carTitle }}</div><div style="font-size:13px;color:var(--color-neutral-700)">{{ rc.carSub }}</div></div>
+        <sc-if value="{{ rc.hasCards }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:12px;overflow-x:auto;padding:14px 22px 8px;scroll-snap-type:x mandatory;scroll-padding:0 22px">
+            <sc-for list="{{ rc.cards }}" as="c" hint-placeholder-count="2">
+              <div style="flex:none;width:290px;scroll-snap-align:start;border-radius:32px;background:{{ c.tint }};padding:18px;display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;align-items:center;gap:8px"><span style="width:44px;height:44px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:22px">{{ c.emoji }}</span><span style="flex:1"></span><span class="tag" style="background:var(--color-bg);gap:4px;font-weight:600"><l-icon name="git-branch"></l-icon>{{ c.kids }}</span></div>
+                <div style="font-family:var(--font-heading);font-size:22px;line-height:1.1">"{{ c.prompt }}"</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:13px"><dc-import name="User Pill" user="{{ c.by }}" initial="{{ c.byIni }}" color="{{ c.byAv }}" hint-size="72px,24px"></dc-import><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ c.title }}</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ c.tags }}" as="t" hint-placeholder-count="2"><span class="tag" style="background:var(--color-bg);font-size:12px">{{ t }}</span></sc-for></div>
+                <div style="display:flex;gap:8px;margin-top:4px"><button onClick="{{ c.compare }}" class="btn btn-secondary" style="flex:1;height:42px;background:var(--color-bg)">Compare</button><button onClick="{{ c.open }}" class="btn btn-primary" style="flex:1;height:42px">Open</button></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ rc.noCards }}" hint-placeholder-val="{{ false }}"><div style="margin:12px 22px 0;padding:16px 18px;border-radius:26px;background:var(--color-surface);font-size:14px;color:var(--color-neutral-800)">No one has branched this yet. Yours would be the first.</div></sc-if>
+        <sc-if value="{{ rc.showOriginal }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ rc.openOriginal }}" style="margin:12px 22px 0;width:calc(100% - 44px);display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-radius:26px;background:var(--color-surface);color:inherit;cursor:pointer;text-align:left"><span style="width:40px;height:40px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:20px">{{ rc.rootEmoji }}</span><span style="flex:1"><span style="display:block;font-size:12px;color:var(--color-neutral-700)">The original</span><span style="display:block;font-weight:700">{{ rc.rootTitle }} · {{ rc.rootBy }}</span></span><l-icon name="chevron-right"></l-icon></button>
+        </sc-if>
+      </div>
+    </div>
+    <sc-if value="{{ rc.suggest }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:12px 20px 28px;display:flex;gap:10px;align-items:center;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+        <span style="flex:1;font-size:13px;color:var(--color-neutral-700)">{{ rc.sugCount }}</span>
+        <button onClick="{{ rc.sendSuggest }}" disabled="{{ rc.sugDisabled }}" class="btn btn-primary" style="height:52px;padding:0 22px;font-size:15px;gap:6px"><l-icon name="send"></l-icon>Send to {{ rc.by }}</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ rc.notSuggest }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:12px 20px 28px;display:flex;gap:10px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+        <button onClick="{{ rc.secondary }}" class="btn btn-secondary" style="height:52px;flex:1;font-size:15px;gap:6px"><l-icon name="{{ rc.secondaryIcon }}"></l-icon>{{ rc.secondaryLabel }}</button>
+        <button onClick="{{ rc.branch }}" class="btn btn-primary" style="height:52px;flex:2;font-size:15px;gap:6px"><l-icon name="git-branch-plus"></l-icon>{{ rc.branchLabel }}</button>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.changes }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="What changed" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button><span style="font-family:var(--font-heading);font-size:20px">What changed</span></div>
+    <div style="flex:1;overflow:auto;padding:10px 22px 20px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;flex-wrap:wrap"><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">{{ ch.baseTitle }}</span><l-icon name="arrow-right"></l-icon><span class="tag" style="font-size:13px;padding:5px 12px;background:var(--color-accent);color:var(--color-bg);font-weight:600">{{ ch.title }}</span></div>
+      <sc-if value="{{ ch.hasPrompt }}" hint-placeholder-val="{{ true }}"><div style="margin-top:14px;padding:12px 16px;border-radius:22px 22px 22px 6px;background:var(--color-accent-2-200);color:var(--color-accent-2-900);font-size:14px"><b>{{ ch.by }}</b> asked: "{{ ch.prompt }}"</div></sc-if>
+      <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+        <span class="tag tag-accent" style="font-size:13px;padding:5px 12px;font-weight:600">{{ ch.nChanged }} changed</span>
+        <span class="tag tag-accent-2" style="font-size:13px;padding:5px 12px;font-weight:600">{{ ch.nAdded }} added</span>
+        <span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">{{ ch.nRemoved }} removed</span>
+      </div>
+      <div style="display:flex;margin-top:16px;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden"><sc-for list="{{ ch.modes }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:9px 12px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+      <h4 style="margin:22px 0 8px">Ingredients</h4>
+      <sc-if value="{{ ch.changesOnly }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <sc-for list="{{ ch.rows }}" as="g" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:16px;background:{{ g.bg }};font-size:15px;opacity:{{ g.op }}">
+              <span style="width:16px;font-weight:700;color:{{ g.markColor }}">{{ g.mark }}</span>
+              <span style="font-weight:700;min-width:58px;text-decoration:{{ g.deco }}">{{ g.amt }}</span><span style="flex:1;text-decoration:{{ g.deco }}">{{ g.name }}</span><s style="font-size:12px;color:var(--color-neutral-700)">{{ g.was }}</s>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ ch.side }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;font-size:13px">
+          <div style="padding:12px;border-radius:22px;background:var(--color-surface)"><div style="font-weight:700;margin-bottom:6px">{{ ch.baseTitle }}</div><sc-for list="{{ ch.left }}" as="g" hint-placeholder-count="5"><div style="padding:4px 0;color:{{ g.color }};text-decoration:{{ g.deco }}"><b>{{ g.amt }}</b> {{ g.name }}</div></sc-for></div>
+          <div style="padding:12px;border-radius:22px;background:var(--color-accent-100)"><div style="font-weight:700;margin-bottom:6px">{{ ch.title }}</div><sc-for list="{{ ch.right }}" as="g" hint-placeholder-count="5"><div style="padding:4px 6px;margin:0 -6px;border-radius:10px;background:{{ g.bg }}"><b>{{ g.amt }}</b> {{ g.name }}</div></sc-for></div>
+        </div>
+      </sc-if>
+      <h4 style="margin:22px 0 8px">Method</h4>
+      <sc-for list="{{ ch.steps }}" as="m" hint-placeholder-count="3">
+        <div style="display:flex;gap:12px;padding:10px 12px;margin:0 -12px;border-radius:18px;background:{{ m.bg }};font-size:14px;line-height:1.5"><span style="width:28px;height:28px;flex:none;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-family:var(--font-heading);font-size:13px">{{ m.n }}</span><span style="flex:1"><sc-if value="{{ m.hasOld }}" hint-placeholder-val="{{ false }}"><s style="display:block;color:var(--color-neutral-700)">{{ m.old }}</s></sc-if>{{ m.t }}</span></div>
+      </sc-for>
+    </div>
+    <div style="padding:12px 20px 28px;display:flex;gap:10px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)"><button onClick="{{ ch.cookBase }}" class="btn btn-secondary" style="height:52px;flex:1">Cook {{ ch.baseShort }}</button><button onClick="{{ ch.cookThis }}" class="btn btn-primary" style="height:52px;flex:1">Cook this one</button></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.tree }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Family" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center">
+      <button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button>
+      <span style="flex:1"></span>
+      <div style="display:flex;margin-right:8px;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden"><sc-for list="{{ tr.views }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.on }}" style="border:0;padding:8px 14px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+    </div>
+    <div style="padding:6px 22px 0"><h2 style="margin:0;font-size:30px">{{ tr.title }}</h2><div style="font-size:13px;color:var(--color-neutral-700);margin-top:2px">{{ tr.sub }}</div></div>
+    <div style="flex:1;overflow:auto;padding:18px 18px 20px">
+      <sc-if value="{{ tr.isTree }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ tr.root.on }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-radius:26px;background:var(--color-surface);color:inherit;cursor:pointer;text-align:left;box-shadow:{{ tr.root.ring }}">
+          <span style="width:44px;height:44px;flex:none;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:22px">{{ tr.root.emoji }}</span>
+          <span style="flex:1"><span style="display:block;font-weight:700;font-size:15px">{{ tr.root.title }}</span><span style="display:block;font-size:12px;color:var(--color-neutral-700)">Original</span></span><dc-import name="User Pill" user="{{ tr.root.by }}" initial="{{ tr.root.byIni }}" color="{{ tr.root.byAv }}" hint-size="72px,24px"></dc-import>
+          <sc-if value="{{ tr.root.here }}" hint-placeholder-val="{{ false }}"><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-weight:600">Here</span></sc-if>
+        </button>
+        <div style="margin-left:34px;display:flex;flex-direction:column">
+          <sc-for list="{{ tr.rows }}" as="n" hint-placeholder-count="5">
+            <div style="position:relative;padding:10px 0 0 {{ n.indent }}">
+              <sc-for list="{{ n.rails }}" as="l" hint-placeholder-count="0"><span style="position:absolute;left:{{ l }};top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span></sc-for>
+              <span style="position:absolute;left:{{ n.indent }};top:0;width:18px;height:38px;border-left:3px solid {{ n.line }};border-bottom:3px solid {{ n.line }};border-bottom-left-radius:16px"></span>
+              <button onClick="{{ n.on }}" style="margin-left:22px;width:calc(100% - 22px);display:flex;align-items:center;gap:10px;padding:10px 12px;border:0;border-radius:24px;background:{{ n.bg }};box-shadow:{{ n.ring }};color:inherit;cursor:pointer;text-align:left">
+                <span style="width:36px;height:36px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:18px">{{ n.emoji }}</span>
+                <span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.title }}</span><span style="display:block;font-size:12px;color:var(--color-neutral-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">"{{ n.prompt }}"</span></span><dc-import name="User Pill" user="{{ n.by }}" initial="{{ n.byIni }}" color="{{ n.byAv }}" hint-size="72px,24px"></dc-import>
+                <sc-if value="{{ n.here }}" hint-placeholder-val="{{ false }}"><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-weight:600">Here</span></sc-if>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ tr.isGraph }}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius:30px;background:var(--color-surface);padding:10px 0;overflow-x:auto">{{ tr.graph }}</div>
+        <div style="margin-top:14px;padding:16px;border-radius:28px;background:var(--color-bg);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;color:var(--color-neutral-700)">{{ tr.stop.kicker }}</div>
+          <div style="font-family:var(--font-heading);font-size:20px;line-height:1.1">{{ tr.stop.title }}</div>
+          <div style="font-size:13px;color:var(--color-neutral-800)">{{ tr.stop.sub }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ tr.stop.tags }}" as="t" hint-placeholder-count="2"><span class="tag tag-accent" style="font-size:12px">{{ t }}</span></sc-for></div>
+          <div style="display:flex;gap:8px;margin-top:4px"><button onClick="{{ tr.stop.open }}" class="btn btn-secondary" style="flex:1;height:44px">Open</button><button onClick="{{ tr.stop.branch }}" class="btn btn-primary" style="flex:1;height:44px;gap:6px"><l-icon name="git-branch-plus"></l-icon>Branch here</button></div>
+        </div>
+      </sc-if>
+    </div>
+    <sc-if value="{{ tr.isTree }}" hint-placeholder-val="{{ true }}"><div style="padding:12px 20px 28px"><button onClick="{{ tr.branch }}" class="btn btn-primary" style="height:52px;width:100%;font-size:15px;gap:6px"><l-icon name="git-branch-plus"></l-icon>Branch from "{{ tr.curTitle }}"</button></div></sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.branch }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Branch composer" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" aria-label="Close" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="x"></l-icon></button></div>
+    <div style="flex:1;overflow:auto;padding:6px 22px 0;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 14px 8px 8px;border-radius:999px;background:var(--color-surface);align-self:flex-start;font-size:13px"><span style="width:32px;height:32px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:16px">{{ br.emoji }}</span>Branching <b>{{ br.title }}</b></div>
+      <h2 style="margin:0;font-size:30px;line-height:1.05">What would you change?</h2>
+      <textarea value="{{ branchPrompt }}" onChange="{{ onBranchPrompt }}" placeholder="e.g. less sugar, and add walnuts" style="min-height:110px;padding:14px 18px;border:1.5px solid var(--color-accent);border-radius:26px;background:var(--color-surface);font-size:16px;color:var(--color-text);resize:none;outline:none"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ br.quick }}" as="q" hint-placeholder-count="5"><button onClick="{{ q.on }}" style="height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--color-accent-200);color:var(--color-accent-900);font-size:14px;cursor:pointer">{{ q.label }}</button></sc-for></div>
+      <div style="display:flex;gap:10px;font-size:13px;color:var(--color-neutral-700)"><l-icon name="shield-check"></l-icon><span>{{ br.title }} stays exactly as it is. Yours becomes a new version in its family, credited to you.</span></div>
+      <sc-if value="{{ generating }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px;border-radius:28px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px"><div style="font-size:13px;font-weight:600;color:var(--color-accent-700);display:flex;gap:8px;align-items:center"><l-icon name="sparkles"></l-icon>Growing your branch…</div><span style="height:14px;width:60%;border-radius:999px;background:var(--color-neutral-300)"></span><span style="height:10px;width:85%;border-radius:999px;background:var(--color-neutral-200)"></span><span style="height:10px;width:70%;border-radius:999px;background:var(--color-neutral-200)"></span></div>
+      </sc-if>
+    </div>
+    <div style="padding:12px 20px 28px"><button onClick="{{ grow }}" disabled="{{ growDisabled }}" class="btn btn-primary" style="height:54px;width:100%;font-size:16px;gap:8px"><l-icon name="git-branch-plus"></l-icon>Grow this branch</button></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.create }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Create" style="position:absolute;inset:0;display:flex;flex-direction:column;padding:0 24px 100px;overflow:hidden">
+    <div style="position:absolute;right:-90px;top:-60px;width:260px;height:260px;border-radius:999px;background:var(--color-accent-2-200)"></div>
+    <div style="position:relative;padding-top:60px;font-size:13px;color:var(--color-neutral-700)">Tap the underlined words</div>
+    <div style="position:relative;margin-top:30px;font-family:var(--font-heading);font-size:36px;line-height:1.25">
+      I want something <button onClick="{{ cr.a.on }}" style="border:0;background:none;padding:0;font:inherit;color:var(--color-accent-700);text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px;cursor:pointer">{{ cr.a.v }}</button> with <button onClick="{{ cr.b.on }}" style="border:0;background:none;padding:0;font:inherit;color:var(--color-accent-700);text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px;cursor:pointer">{{ cr.b.v }}</button> for <button onClick="{{ cr.c.on }}" style="border:0;background:none;padding:0;font:inherit;color:var(--color-accent-700);text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px;cursor:pointer">{{ cr.c.v }}</button>.
+    </div>
+    <div style="flex:1"></div>
+    <div style="position:relative;display:flex;flex-direction:column;gap:8px">
+      <button onClick="{{ cr.write }}" class="btn btn-primary" style="height:56px;font-size:16px;gap:8px"><l-icon name="sparkles"></l-icon>Write it</button>
+      <button onClick="{{ cr.free }}" class="btn btn-ghost" style="height:44px;font-size:14px">Describe it my own way</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.chat }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Chat" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 8px;display:flex;align-items:center"><button onClick="{{ back }}" aria-label="Close" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="x"></l-icon></button><span style="flex:1;font-family:var(--font-heading);font-size:18px">New recipe</span></div>
+    <div style="flex:1;overflow:auto;padding:4px 18px 12px;display:flex;flex-direction:column;gap:12px">
+      <sc-if value="{{ ct.hasPrompt }}" hint-placeholder-val="{{ true }}"><div style="align-self:flex-end;max-width:280px;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent);color:var(--color-bg);font-size:15px">{{ ct.prompt }}</div></sc-if>
+      <sc-if value="{{ ct.hasRecipe }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:16px;border-radius:30px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px"><span style="width:52px;height:52px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-bg);display:grid;place-items:center;font-size:28px">{{ ct.emoji }}</span><div style="flex:1"><div style="font-family:var(--font-heading);font-size:20px;line-height:1.1">{{ ct.title }}</div><div style="font-size:12px;color:var(--color-neutral-700)">{{ ct.meta }}</div></div><button onClick="{{ ct.toggle }}" aria-label="Toggle" style="width:36px;height:36px;border:0;border-radius:999px;background:var(--color-bg);color:inherit;cursor:pointer;display:grid;place-items:center"><l-icon name="{{ ct.toggleIcon }}"></l-icon></button></div>
+          <sc-if value="{{ ct.open }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column"><sc-for list="{{ ct.ing }}" as="g" hint-placeholder-count="5"><div style="display:flex;gap:12px;padding:6px 0;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:56px">{{ g.amt }}</b>{{ g.name }}</div></sc-for></div></sc-if>
+          <button onClick="{{ ct.save }}" class="btn btn-primary" style="height:46px;gap:6px"><l-icon name="bookmark"></l-icon>Save recipe</button>
+        </div>
+      </sc-if>
+      <sc-for list="{{ ct.msgs }}" as="m" hint-placeholder-count="0">
+        <div style="align-self:flex-end;max-width:280px;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent);color:var(--color-bg);font-size:15px">{{ m.u }}</div>
+        <div style="align-self:flex-start;max-width:280px;padding:12px 16px;border-radius:24px 24px 24px 6px;background:var(--color-neutral-100);font-size:15px">{{ m.a }}</div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ ct.match }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:0 16px 10px;padding:12px 14px;border-radius:24px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);display:flex;align-items:center;gap:10px;font-size:13px"><l-icon name="git-branch"></l-icon><span style="flex:1"><b>Banana bread</b> already has {{ ct.matchCount }} versions. Branch one instead?</span><button onClick="{{ ct.seeFamily }}" style="height:34px;padding:0 12px;border:0;border-radius:999px;background:var(--color-bg);color:var(--color-text);font-weight:600;cursor:pointer">See them</button></div>
+    </sc-if>
+    <div style="display:flex;gap:8px;padding:0 16px 10px;overflow-x:auto"><sc-for list="{{ ct.chips }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.on }}" style="flex:none;height:36px;padding:0 14px;border:0;border-radius:999px;background:var(--color-accent-200);color:var(--color-accent-900);font-size:13px;cursor:pointer">{{ c.label }}</button></sc-for></div>
+    <div style="padding:0 16px 28px"><div style="display:flex;align-items:center;gap:8px;height:52px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100);box-shadow:var(--shadow-sm)"><input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}" placeholder="Ask for a change…" style="flex:1;min-width:0;border:0;background:none;font-size:15px;color:var(--color-text);outline:none"><button onClick="{{ ct.send }}" aria-label="Send" style="width:40px;height:40px;border:0;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;cursor:pointer"><l-icon name="arrow-up"></l-icon></button></div></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.email }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Email sign-in" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0"><button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button></div>
+    <div style="padding:8px 22px 0;display:flex;flex-direction:column;gap:16px">
+      <h2 style="margin:0;font-size:30px">Sign in with email</h2>
+      <div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden"><sc-for list="{{ em.modes }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:10px 12px;font-size:14px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+      <div class="field"><label>Email</label><input value="{{ email }}" onChange="{{ onEmail }}" type="email" style="width:100%;height:52px;padding:0 18px;border:1.5px solid var(--color-accent);border-radius:999px;background:var(--color-surface);font-size:15px;color:var(--color-text);outline:none"></div>
+      <sc-if value="{{ em.isPassword }}" hint-placeholder-val="{{ false }}"><div class="field"><label>Password</label><input type="password" value="kitchen" readOnly="{{ true }}" style="width:100%;height:52px;padding:0 18px;border:1px solid var(--color-divider);border-radius:999px;background:var(--color-surface);font-size:15px;color:var(--color-text);outline:none"></div></sc-if>
+      <sc-if value="{{ em.isLink }}" hint-placeholder-val="{{ true }}"><div style="font-size:13px;color:var(--color-neutral-700)">We'll email you a link. No password to remember.</div></sc-if>
+      <button onClick="{{ em.submit }}" class="btn btn-primary" style="height:54px;font-size:16px">{{ em.cta }}</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.inbox }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Check inbox" style="position:absolute;inset:0;display:flex;flex-direction:column;padding:0 24px">
+    <div style="position:absolute;top:-70px;right:-80px;width:280px;height:280px;border-radius:999px;background:var(--color-accent-200)"></div>
+    <div style="flex:1"></div>
+    <span style="position:relative;width:76px;height:76px;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-size:32px;color:var(--color-accent-700)"><l-icon name="mail"></l-icon></span>
+    <h2 style="position:relative;margin:20px 0 0;font-size:32px;line-height:1.05">Check your inbox</h2>
+    <p style="margin:10px 0 0;font-size:15px;color:var(--color-neutral-800);text-wrap:pretty">We sent a link to <b>{{ email }}</b>. It brings you back here to {{ authCtx }}.</p>
+    <div style="flex:1.3"></div>
+    <div style="padding-bottom:30px;display:flex;flex-direction:column;gap:8px"><button onClick="{{ openLink }}" class="btn btn-primary" style="height:54px;font-size:16px">Open the link (demo)</button><button onClick="{{ back }}" class="btn btn-ghost" style="height:44px;font-size:14px">Use a different email</button></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.activity }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Activity" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:52px 20px 0;display:flex;align-items:baseline"><div style="font-family:var(--font-heading);font-size:30px;flex:1">Activity</div><sc-if value="{{ act.showMark }}" hint-placeholder-val="{{ false }}"><button onClick="{{ act.markAll }}" style="border:0;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--color-accent-700)">Mark all read</button></sc-if></div>
+    <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ false }}">
+      <div style="position:relative;margin:80px 24px 0;display:flex;flex-direction:column;gap:10px">
+        <span style="width:84px;height:84px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-2-300);display:grid;place-items:center;font-size:36px;color:var(--color-accent-2-900)"><l-icon name="bell"></l-icon></span>
+        <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Nothing to see yet</div>
+        <div style="font-size:14px;color:var(--color-neutral-800)">Sign in and this is where branches of your recipes, suggestions and new followers show up.</div>
+        <button onClick="{{ signInHere }}" class="btn btn-primary" style="align-self:flex-start;height:46px;padding:0 20px;margin-top:6px">Sign in</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ signedInAny }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:8px;padding:14px 20px 4px;overflow-x:auto">
+        <sc-for list="{{ act.filters }}" as="f" hint-placeholder-count="4"><button onClick="{{ f.on }}" style="flex:none;height:34px;padding:0 12px 0 14px;border:0;border-radius:999px;background:{{ f.bg }};color:{{ f.fg }};font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px">{{ f.label }}<sc-if value="{{ f.hasN }}" hint-placeholder-val="{{ false }}"><span style="min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:var(--color-accent);color:var(--color-bg);font-size:10px;font-weight:700;display:grid;place-items:center">{{ f.n }}</span></sc-if></button></sc-for>
+      </div>
+      <div style="padding:4px 20px 0;display:flex;flex-direction:column">
+        <sc-if value="{{ act.hasToday }}" hint-placeholder-val="{{ true }}"><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:10px 0 4px">Today</div>
+        <sc-for list="{{ act.today }}" as="a" hint-placeholder-count="3">
+          <button onClick="{{ a.open }}" style="width:100%;display:flex;gap:12px;padding:10px 0;align-items:flex-start;border:0;background:none;color:inherit;text-align:left;cursor:pointer">
+            <span style="position:relative;width:40px;height:40px;flex:none;border-radius:999px;background:{{ a.av }};display:grid;place-items:center;font-weight:700;font-size:15px">{{ a.ini }}<span style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:999px;background:{{ a.badgeBg }};color:var(--color-bg);display:grid;place-items:center;font-size:10px;box-shadow:0 0 0 2px var(--color-bg)"><l-icon name="{{ a.icon }}"></l-icon></span></span>
+            <span style="flex:1;min-width:0;font-size:14px;line-height:1.4"><b>{{ a.who }}</b> {{ a.verb }} <b>{{ a.what }}</b><span style="display:block;font-size:12px;color:var(--color-neutral-700);margin-top:2px">{{ a.sub }}</span></span>
+            <sc-if value="{{ a.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;flex:none;border-radius:999px;background:var(--color-accent);margin-top:8px"></span></sc-if>
+          </button>
+        </sc-for></sc-if>
+        <sc-if value="{{ act.hasEarlier }}" hint-placeholder-val="{{ true }}"><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:14px 0 4px">Earlier</div>
+        <sc-for list="{{ act.earlier }}" as="a" hint-placeholder-count="3">
+          <button onClick="{{ a.open }}" style="width:100%;display:flex;gap:12px;padding:10px 0;align-items:flex-start;border:0;background:none;color:inherit;text-align:left;cursor:pointer">
+            <span style="position:relative;width:40px;height:40px;flex:none;border-radius:999px;background:{{ a.av }};display:grid;place-items:center;font-weight:700;font-size:15px">{{ a.ini }}<span style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:999px;background:{{ a.badgeBg }};color:var(--color-bg);display:grid;place-items:center;font-size:10px;box-shadow:0 0 0 2px var(--color-bg)"><l-icon name="{{ a.icon }}"></l-icon></span></span>
+            <span style="flex:1;min-width:0;font-size:14px;line-height:1.4"><b>{{ a.who }}</b> {{ a.verb }} <b>{{ a.what }}</b><span style="display:block;font-size:12px;color:var(--color-neutral-700);margin-top:2px">{{ a.sub }}</span></span>
+            <sc-if value="{{ a.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;flex:none;border-radius:999px;background:var(--color-accent);margin-top:8px"></span></sc-if>
+          </button>
+        </sc-for></sc-if>
+        <sc-if value="{{ act.none }}" hint-placeholder-val="{{ false }}"><div style="padding:20px 0;font-size:14px;color:var(--color-neutral-700)">Nothing here yet.</div></sc-if>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.thread }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Suggestion" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button><span style="flex:1;font-family:var(--font-heading);font-size:18px">Suggestion</span><span class="tag {{ th.tagClass }}" style="font-weight:600;margin-right:10px">{{ th.status }}</span></div>
+    <div style="flex:1;overflow:auto;padding:12px 20px 0;display:flex;flex-direction:column;gap:12px">
+      <div style="padding:16px;border-radius:30px;background:var(--color-surface);display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:32px;height:32px;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;font-weight:700">S</span><span style="flex:1"><b>Sami</b> on <b>Banana bread</b></span><span style="color:var(--color-neutral-700)">2h</span></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:18px;background:var(--color-accent-2-100);font-size:15px"><span style="font-weight:700;color:var(--color-accent-2-800)">+</span><b>¼ tsp</b><span style="flex:1">ground cardamom</span></div>
+        <div style="font-size:14px;line-height:1.5">A little cardamom makes the brown butter taste even nuttier.</div>
+      </div>
+      <sc-for list="{{ th.replies }}" as="m" hint-placeholder-count="1"><div style="align-self:{{ m.align }};max-width:270px;padding:12px 16px;border-radius:{{ m.radius }};background:{{ m.bg }};color:{{ m.fg }};font-size:14px">{{ m.t }}</div></sc-for>
+    </div>
+    <div style="padding:10px 16px 28px;display:flex;flex-direction:column;gap:10px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+      <div style="display:flex;align-items:center;gap:8px;height:48px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100)"><input value="{{ replyInput }}" onChange="{{ onReplyInput }}" placeholder="Reply to Sami…" style="flex:1;min-width:0;border:0;background:none;font-size:14px;color:var(--color-text);outline:none"><button onClick="{{ th.reply }}" aria-label="Send" style="width:36px;height:36px;border:0;border-radius:999px;background:var(--color-neutral-300);color:var(--color-neutral-800);display:grid;place-items:center;cursor:pointer"><l-icon name="arrow-up"></l-icon></button></div>
+      <sc-if value="{{ th.open }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px"><button onClick="{{ th.decline }}" class="btn btn-secondary" style="height:48px;flex:1;font-size:14px">Decline</button><button onClick="{{ th.keep }}" class="btn btn-secondary" style="height:48px;flex:1.4;font-size:14px;gap:6px"><l-icon name="git-branch"></l-icon>Keep as branch</button><button onClick="{{ th.apply }}" class="btn btn-primary" style="height:48px;flex:1.1;font-size:14px">Apply</button></div></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.profile }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Profile" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:50px 12px 0;display:flex;align-items:center;min-height:44px">
+      <sc-if value="{{ pf.other }}" hint-placeholder-val="{{ false }}"><button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button></sc-if>
+      <span style="flex:1"></span>
+      <sc-if value="{{ pf.show }}" hint-placeholder-val="{{ true }}"><button onClick="{{ pf.openForest }}" aria-label="Recipe forest" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:20px"><l-icon name="trees"></l-icon></button></sc-if>
+      <sc-if value="{{ pf.me }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goSettings }}" aria-label="Settings" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:20px"><l-icon name="settings"></l-icon></button></sc-if>
+    </div>
+    <sc-if value="{{ pf.browsing }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:60px 24px 0;display:flex;flex-direction:column;gap:10px">
+        <span style="width:84px;height:84px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-300);display:grid;place-items:center;font-size:36px;color:var(--color-accent-900)"><l-icon name="user-round"></l-icon></span>
+        <div style="font-family:var(--font-heading);font-size:28px;line-height:1.1">You're browsing</div>
+        <div style="font-size:14px;color:var(--color-neutral-800)">Reading is free. Sign in to save recipes, branch them and follow cooks.</div>
+        <button onClick="{{ signInHere }}" class="btn btn-primary" style="align-self:flex-start;height:46px;padding:0 20px;margin-top:6px">Sign in</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ pf.show }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:0 22px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:center;gap:16px"><span style="width:84px;height:84px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:{{ pf.av }};display:grid;place-items:center;font-family:var(--font-heading);font-size:36px">{{ pf.ini }}</span><div style="flex:1"><div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">{{ pf.name }}</div><div style="font-size:13px;color:var(--color-neutral-700)">{{ pf.bio }}</div></div></div>
+        <sc-if value="{{ pf.guest }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px;border-radius:28px;background:var(--color-accent-100);display:flex;flex-direction:column;gap:10px"><div style="font-weight:700;font-size:15px">Your recipes only live on this phone</div><div style="font-size:13px;color:var(--color-accent-900)">Add an email to keep them if you switch or lose this device.</div><button onClick="{{ keepRecipes }}" class="btn btn-primary" style="align-self:flex-start;height:42px;padding:0 18px">Keep my recipes</button></div>
+        </sc-if>
+        <sc-if value="{{ pf.other }}" hint-placeholder-val="{{ false }}"><button onClick="{{ pf.follow }}" class="btn {{ pf.followClass }}" style="height:46px;font-size:15px">{{ pf.followLabel }}</button></sc-if>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><sc-for list="{{ pf.stats }}" as="s" hint-placeholder-count="4"><button onClick="{{ s.on }}" style="padding:12px 4px;border:0;border-radius:20px;background:var(--color-surface);color:inherit;text-align:center;cursor:pointer"><div style="font-family:var(--font-heading);font-size:20px">{{ s.v }}</div><div style="font-size:11px;color:var(--color-neutral-700)">{{ s.k }}</div></button></sc-for></div>
+        <div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden"><sc-for list="{{ pf.tabs }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:9px 12px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ pf.grid }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.open }}" style="display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;color:inherit;cursor:pointer;text-align:left"><span style="width:100%;aspect-ratio:1;border-radius:28px;background:{{ t.tint }};display:grid;place-items:center;font-size:52px">{{ t.emoji }}</span><span style="font-weight:700;font-size:14px;line-height:1.2;padding:0 4px">{{ t.title }}</span><span style="font-size:12px;color:var(--color-neutral-700);padding:0 4px;margin-top:-6px">{{ t.meta }}</span></button></sc-for>
+        </div>
+        <sc-if value="{{ pf.empty }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:var(--color-neutral-700)">Nothing here yet.</div></sc-if>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.settings }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Settings" style="position:absolute;inset:0;overflow:auto">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button><span style="font-family:var(--font-heading);font-size:22px">Settings</span></div>
+    <div style="padding:12px 18px 30px;display:flex;flex-direction:column;gap:18px">
+      <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Account</div>
+        <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+          <button onClick="{{ st.openAvatar }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 0;border:0;border-bottom:1px solid var(--color-divider);background:none;color:inherit;text-align:left;cursor:pointer;font-size:15px"><span style="width:40px;height:40px;flex:none;border-radius:999px;background:{{ st.av }};display:grid;place-items:center;font-weight:700;color:var(--color-accent-900)">{{ st.ini }}</span><span style="flex:1"><span style="display:block;font-weight:700;font-size:15px">{{ st.name }}</span><span style="display:block;font-size:12px;color:var(--color-neutral-700)">{{ st.sub }}</span></span><l-icon name="chevron-right"></l-icon></button>
+          <div style="display:flex;align-items:center;padding:14px 0;font-size:15px"><span style="flex:1">Sign-in methods</span><l-icon name="chevron-right"></l-icon></div>
+        </div></div>
+      <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Appearance</div>
+        <div style="border-radius:28px;background:var(--color-surface);padding:14px 16px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden;background:var(--color-bg)"><sc-for list="{{ st.themes }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:9px 12px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+          <div style="display:flex;align-items:center;font-size:15px"><span style="flex:1">Units</span><div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden;background:var(--color-bg)"><sc-for list="{{ st.units }}" as="o" hint-placeholder-count="2"><button onClick="{{ o.on }}" style="border:0;padding:8px 14px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div></div>
+          <button onClick="{{ st.weighToggle }}" style="display:flex;align-items:center;gap:12px;padding:0;border:0;background:none;color:inherit;text-align:left;cursor:pointer"><span style="flex:1"><span style="display:block;font-size:15px">Weigh spoons and liquids</span><span style="display:block;font-size:12px;color:var(--color-neutral-700)">Show tbsp, tsp and ml as estimated grams</span></span><span style="width:44px;height:26px;border-radius:999px;background:{{ st.weighTrack }};position:relative;flex:none"><span style="position:absolute;left:{{ st.weighKnob }};top:3px;width:20px;height:20px;border-radius:999px;background:var(--color-bg)"></span></span></button>
+        </div></div>
+      <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Notify me when</div>
+        <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+          <sc-for list="{{ st.notif }}" as="n" hint-placeholder-count="3"><button onClick="{{ n.on }}" style="width:100%;display:flex;align-items:center;padding:13px 0;border:0;border-bottom:{{ n.rule }};background:none;color:inherit;font-size:15px;cursor:pointer;text-align:left"><span style="flex:1">{{ n.label }}</span><span style="width:44px;height:26px;border-radius:999px;background:{{ n.track }};position:relative;flex:none"><span style="position:absolute;left:{{ n.knob }};top:3px;width:20px;height:20px;border-radius:999px;background:var(--color-bg)"></span></span></button></sc-for>
+        </div></div>
+      <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+        <div style="display:flex;align-items:center;padding:14px 0;font-size:15px;border-bottom:1px solid var(--color-divider)"><span style="flex:1">Export my recipes</span><l-icon name="download"></l-icon></div>
+        <button onClick="{{ signOut }}" style="width:100%;padding:14px 0;border:0;background:none;text-align:left;font-size:15px;font-weight:600;color:var(--color-accent-700);cursor:pointer">Sign out</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.saved }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Saved" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:52px 20px 0"><div style="font-family:var(--font-heading);font-size:30px">Saved</div></div>
+    <sc-if value="{{ sv.empty }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;top:-60px;right:-70px;width:240px;height:240px;border-radius:999px;background:var(--color-accent-2-200);z-index:-0;opacity:.6"></div>
+      <div style="position:absolute;left:24px;right:24px;bottom:120px;display:flex;flex-direction:column;gap:10px">
+        <span style="width:84px;height:84px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-2-300);display:grid;place-items:center;font-size:36px;color:var(--color-accent-2-900)"><l-icon name="bookmark"></l-icon></span>
+        <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Nothing saved yet</div>
+        <div style="font-size:14px;color:var(--color-neutral-800)">Tap the bookmark on any recipe and it'll wait for you here.</div>
+        <button onClick="{{ goExplore }}" class="btn btn-primary" style="align-self:flex-start;height:46px;padding:0 20px;margin-top:6px">Explore recipes</button>
+      </div>
+    </sc-if>
+    <div style="padding:14px 20px 0;display:flex;flex-direction:column;gap:12px">
+      <sc-for list="{{ sv.items }}" as="r" hint-placeholder-count="0">
+        <button onClick="{{ r.open }}" style="display:flex;align-items:center;gap:14px;padding:14px;border:0;border-radius:28px;background:var(--color-surface);color:inherit;cursor:pointer;text-align:left"><span style="width:52px;height:52px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:26px">{{ r.emoji }}</span><span style="flex:1"><span style="display:block;font-family:var(--font-heading);font-size:17px">{{ r.title }}</span><span style="display:flex;align-items:center;gap:8px;margin-top:2px;font-size:12px;color:var(--color-neutral-700)"><dc-import name="User Pill" user="{{ r.by }}" initial="{{ r.byIni }}" color="{{ r.byAv }}" hint-size="72px,24px"></dc-import>{{ r.meta }}</span></span><l-icon name="chevron-right"></l-icon></button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.edit }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Edit recipe" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" class="btn btn-ghost" style="height:44px;font-size:15px;padding:0 10px;color:var(--color-text)">Cancel</button><span style="flex:1;text-align:center;font-weight:700;font-size:14px;color:var(--color-neutral-700)">Editing</span><span style="width:76px"></span></div>
+    <div style="flex:1;overflow:auto;padding:10px 22px 20px;display:flex;flex-direction:column;gap:14px">
+      <input value="{{ ed.title }}" onChange="{{ ed.onTitle }}" aria-label="Title" style="font-family:var(--font-heading);font-size:30px;line-height:1.1;padding:0 0 6px;border:0;border-bottom:2px dashed var(--color-accent-400);background:none;color:var(--color-text);outline:none;width:100%">
+      <h4 style="margin:6px 0 0">Ingredients</h4>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ ed.rows }}" as="g" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="color:var(--color-neutral-500);font-size:16px"><l-icon name="grip-vertical"></l-icon></span>
+            <input value="{{ g.amt }}" onChange="{{ g.onAmt }}" aria-label="Amount" style="width:76px;flex:none;height:42px;border:0;border-radius:999px;background:var(--color-neutral-100);padding:0 12px;font-weight:700;font-size:14px;color:var(--color-text);outline-color:var(--color-accent)">
+            <input value="{{ g.name }}" onChange="{{ g.onName }}" aria-label="Ingredient" style="flex:1;min-width:0;height:42px;border:0;border-radius:999px;background:var(--color-neutral-100);padding:0 14px;font-size:14px;color:var(--color-text);outline-color:var(--color-accent)">
+            <button onClick="{{ g.remove }}" aria-label="Remove" style="width:32px;height:32px;border:0;background:none;color:var(--color-neutral-700);display:grid;place-items:center;cursor:pointer"><l-icon name="x"></l-icon></button>
+          </div>
+        </sc-for>
+        <button onClick="{{ ed.add }}" class="tag" style="align-self:flex-start;margin-left:24px;border:1.5px dashed var(--color-neutral-500);background:none;color:var(--color-neutral-800);font-size:14px;padding:7px 14px;gap:6px;cursor:pointer"><l-icon name="plus"></l-icon>Add ingredient</button>
+      </div>
+    </div>
+    <div style="padding:12px 20px 28px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider);display:flex;flex-direction:column;gap:8px">
+      <sc-if value="{{ ed.hasKids }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:var(--color-neutral-700);display:flex;gap:6px;align-items:center"><l-icon name="git-branch"></l-icon>{{ ed.kidsNote }}</div></sc-if>
+      <button onClick="{{ ed.save }}" class="btn btn-primary" style="height:52px;font-size:15px">Save changes</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.plist }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Profile list" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:50px 12px 0;display:flex;align-items:center;gap:8px">
+      <button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button>
+      <span style="width:32px;height:32px;flex:none;border-radius:999px;background:{{ pf.av }};display:grid;place-items:center;font-weight:700;font-size:14px">{{ pf.ini }}</span>
+      <span style="flex:1;font-weight:700">{{ pf.name }}</span>
+    </div>
+    <div style="padding:10px 22px 0"><h2 style="margin:0;font-size:30px">{{ pl.heading }}</h2><div style="font-size:13px;color:var(--color-neutral-700);margin-top:2px">{{ pl.sub }}</div></div>
+    <div style="display:flex;gap:8px;padding:14px 20px 4px;overflow-x:auto">
+      <sc-for list="{{ pl.tabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.on }}" style="flex:none;height:34px;padding:0 14px;border:0;border-radius:999px;background:{{ t.bg }};color:{{ t.fg }};font-size:13px;cursor:pointer;white-space:nowrap">{{ t.label }} · {{ t.n }}</button></sc-for>
+    </div>
+    <div style="padding:10px 20px 0;display:flex;flex-direction:column;gap:10px">
+      <sc-if value="{{ pl.isRecipes }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ pl.items }}" as="r" hint-placeholder-count="3">
+          <button onClick="{{ r.open }}" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-radius:26px;background:var(--color-surface);color:inherit;cursor:pointer;text-align:left">
+            <span style="width:48px;height:48px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:24px">{{ r.emoji }}</span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:15px">{{ r.title }}</span><span style="display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;color:var(--color-neutral-700)"><sc-if value="{{ r.showBy }}" hint-placeholder-val="{{ false }}"><dc-import name="User Pill" user="{{ r.by }}" initial="{{ r.byIni }}" color="{{ r.byAv }}" hint-size="72px,24px"></dc-import></sc-if><span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.meta }}</span></span></span>
+            <span class="tag tag-accent-2" style="gap:4px;font-weight:600"><l-icon name="git-branch"></l-icon>{{ r.branches }}</span>
+          </button>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{ pl.isPeople }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ pl.people }}" as="p" hint-placeholder-count="4">
+          <button onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;padding:10px 4px;border:0;background:none;color:inherit;cursor:pointer;text-align:left">
+            <span style="width:44px;height:44px;flex:none;border-radius:999px;background:{{ p.av }};display:grid;place-items:center;font-weight:700;font-size:16px">{{ p.ini }}</span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:15px">{{ p.name }}</span><span style="display:block;font-size:12px;color:var(--color-neutral-700)">{{ p.bio }}</span></span>
+            <l-icon name="chevron-right"></l-icon>
+          </button>
+        </sc-for>
+        <sc-if value="{{ pl.hasMore }}" hint-placeholder-val="{{ false }}"><div style="padding:6px 4px;font-size:13px;color:var(--color-neutral-700)">{{ pl.more }}</div></sc-if>
+      </sc-if>
+      <sc-if value="{{ pl.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:20px 4px;font-size:14px;color:var(--color-neutral-700)">{{ pl.emptyText }}</div></sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.forest }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Forest" style="position:absolute;inset:0;overflow:auto;padding-bottom:100px">
+    <div style="padding:50px 12px 0;display:flex;align-items:center;gap:8px">
+      <button onClick="{{ back }}" aria-label="Back" style="width:44px;height:44px;border:0;background:none;color:inherit;cursor:pointer;display:grid;place-items:center;font-size:22px"><l-icon name="chevron-left"></l-icon></button>
+      <span style="width:36px;height:36px;flex:none;border-radius:999px;background:{{ pf.av }};display:grid;place-items:center;font-weight:700">{{ pf.ini }}</span>
+      <span style="flex:1;font-weight:700">{{ pf.name }}</span>
+      <sc-if value="{{ pf.other }}" hint-placeholder-val="{{ false }}"><button onClick="{{ pf.follow }}" class="btn {{ pf.followClass }}" style="height:38px;margin-right:8px;font-size:14px">{{ pf.followShort }}</button></sc-if>
+    </div>
+    <div style="padding:16px 22px 0"><div style="font-family:var(--font-heading);font-size:28px;line-height:1.12;text-wrap:pretty">Planted <span style="color:var(--color-accent)">{{ fo.planted }}</span> {{ fo.recipeWord }}. <span style="color:var(--color-accent-2-600)">{{ fo.grown }}</span> {{ fo.branchWord }} grown from {{ fo.them }}.</div></div>
+    <div style="padding:16px 22px 0;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--color-neutral-700)"><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:999px;background:var(--color-accent)"></span>{{ fo.mineLabel }}</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:999px;background:var(--color-neutral-400)"></span>Other cooks'</span></div>
+    <div style="padding:14px 18px 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+      <sc-for list="{{ fo.tiles }}" as="f" hint-placeholder-count="2">
+        <button onClick="{{ f.open }}" style="padding:14px;border:0;border-radius:28px;background:{{ f.bg }};display:flex;flex-direction:column;gap:8px;color:inherit;text-align:left;cursor:pointer">
+          <svg width="100%" height="74" viewBox="0 0 140 74" style="display:block"><path d="{{ f.path }}" stroke="var(--color-neutral-400)" stroke-width="3" fill="none" stroke-linecap="round"></path><sc-for list="{{ f.dots }}" as="d" hint-placeholder-count="3"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="{{ d.r }}" fill="{{ d.c }}"></circle></sc-for></svg>
+          <span style="font-weight:700;font-size:14px;line-height:1.2">{{ f.emoji }} {{ f.title }}</span>
+          <span style="font-size:11px;color:var(--color-neutral-700)">{{ f.meta }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ is.avatar }}" hint-placeholder-val="{{ false }}">
+  <div data-screen-label="Avatar" style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:50px 12px 0;display:flex;align-items:center"><button onClick="{{ back }}" class="btn btn-ghost" style="height:44px;font-size:15px;color:var(--color-text);padding:0 10px">Cancel</button><span style="flex:1"></span><button onClick="{{ av.save }}" class="btn btn-primary" style="height:40px;padding:0 18px;font-size:14px;margin-right:8px">Save</button></div>
+    <div style="padding:20px 0 0;display:flex;justify-content:center"><span style="width:170px;height:170px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:{{ av.color }};display:grid;place-items:center;font-size:84px">{{ av.emoji }}</span></div>
+    <div style="padding:22px 22px 0;display:flex;justify-content:center;gap:10px"><sc-for list="{{ av.sw }}" as="s" hint-placeholder-count="6"><button onClick="{{ s.on }}" aria-label="Colour" style="width:36px;height:36px;border:0;border-radius:999px;background:{{ s.c }};box-shadow:{{ s.ring }};cursor:pointer"></button></sc-for></div>
+    <div style="padding:24px 20px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px"><sc-for list="{{ av.emojis }}" as="e" hint-placeholder-count="15"><button onClick="{{ e.on }}" style="aspect-ratio:1;border:0;border-radius:999px;background:{{ e.bg }};box-shadow:{{ e.ring }};display:grid;place-items:center;font-size:28px;cursor:pointer">{{ e.e }}</button></sc-for></div>
+    <div style="flex:1"></div>
+    <div style="padding:0 20px 30px;display:flex;gap:10px"><button onClick="{{ av.photo }}" class="btn btn-secondary" style="flex:1;height:48px;gap:6px;font-size:14px"><l-icon name="image"></l-icon>Use a photo</button><button onClick="{{ av.initials }}" class="btn btn-secondary" style="flex:1;height:48px;gap:6px;font-size:14px"><l-icon name="type"></l-icon>Initials</button></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+  <nav style="position:absolute;left:0;right:0;bottom:0;height:78px;padding:8px 14px 22px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider);display:flex;align-items:center;z-index:5">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+      <button onClick="{{ t.on }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;cursor:pointer;font-size:11px;font-weight:600;color:{{ t.color }}">
+        <span style="position:relative;width:{{ t.size }};height:{{ t.size }};border-radius:999px;display:grid;place-items:center;font-size:21px;background:{{ t.bg }};color:{{ t.fg }}"><l-icon name="{{ t.icon }}"></l-icon><sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-3px;right:-8px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:999px;background:var(--color-accent);color:var(--color-bg);font-size:10px;font-weight:700;display:grid;place-items:center;box-shadow:0 0 0 2px var(--color-bg)">{{ t.badgeN }}</span></sc-if></span>
+        <span>{{ t.label }}</span>
+      </button>
+    </sc-for>
+  </nav>
+</sc-if>
+
+<sc-if value="{{ hasSheet }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;z-index:10;background:color-mix(in srgb,var(--color-neutral-900) 45%,transparent)"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 28px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow-lg);max-height:90%;overflow:auto">
+    <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center;flex:none"></div>
+
+    <sc-if value="{{ sh.auth }}" hint-placeholder-val="{{ false }}">
+      <span style="width:56px;height:56px;border-radius:999px;background:var(--color-accent-200);color:var(--color-accent-800);display:grid;place-items:center;font-size:24px"><l-icon name="git-branch-plus"></l-icon></span>
+      <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Sign in to {{ authCtx }}</div>
+      <div style="font-size:14px;color:var(--color-neutral-800)">Your versions are credited to you, and anyone who branches them shows up in Activity.</div>
+      <button onClick="{{ signGoogle }}" class="btn btn-primary" style="height:52px;font-size:15px">Continue with Google</button>
+      <button onClick="{{ signEmail }}" class="btn btn-secondary" style="height:50px;font-size:15px;gap:6px"><l-icon name="mail"></l-icon>Continue with email</button>
+      <button onClick="{{ signGuest }}" style="border:0;background:none;cursor:pointer;font-size:13px;color:var(--color-neutral-700);text-decoration:underline">Continue without an account (recipes stay on this device)</button>
+    </sc-if>
+
+    <sc-if value="{{ sh.pantry }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:baseline"><div style="font-family:var(--font-heading);font-size:24px;flex:1">What have you got?</div><button onClick="{{ pt.reset }}" style="border:0;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--color-accent-700)">Reset</button></div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:8px">Ingredients</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <sc-for list="{{ pt.items }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.remove }}" class="tag" style="border:0;cursor:pointer;background:var(--color-accent-200);color:var(--color-accent-900);font-size:14px;padding:7px 10px 7px 14px;gap:6px">{{ p.label }}<l-icon name="x"></l-icon></button></sc-for>
+          <sc-for list="{{ pt.suggest }}" as="p" hint-placeholder-count="2"><button onClick="{{ p.add }}" class="tag" style="border:1.5px dashed var(--color-neutral-500);background:none;color:var(--color-neutral-800);font-size:14px;padding:6px 14px;gap:6px;cursor:pointer"><l-icon name="plus"></l-icon>{{ p.label }}</button></sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:8px">Time</div>
+        <div style="display:flex;border:1px solid var(--color-divider);border-radius:999px;overflow:hidden"><sc-for list="{{ pt.times }}" as="o" hint-placeholder-count="4"><button onClick="{{ o.on }}" style="flex:1;border:0;padding:9px 6px;font-size:13px;cursor:pointer;background:{{ o.bg }};color:{{ o.fg }}">{{ o.label }}</button></sc-for></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+        <button onClick="{{ pt.show }}" class="btn btn-primary" style="height:52px;font-size:16px">{{ pt.cta }}</button>
+        <button onClick="{{ pt.write }}" class="btn btn-ghost" style="height:44px;font-size:14px;gap:6px"><l-icon name="sparkles"></l-icon>Or write a new one with these</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ sh.menu }}" hint-placeholder-val="{{ false }}">
+      <sc-for list="{{ menu }}" as="m" hint-placeholder-count="3"><button onClick="{{ m.on }}" style="display:flex;align-items:center;gap:14px;padding:12px 4px;border:0;background:none;color:inherit;font-size:16px;cursor:pointer;text-align:left"><span style="width:40px;height:40px;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-size:18px"><l-icon name="{{ m.icon }}"></l-icon></span>{{ m.label }}</button></sc-for>
+    </sc-if>
+
+    <sc-if value="{{ sh.intro }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 14px;border-radius:28px;background:var(--color-surface)">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:20px;background:var(--color-bg)"><span style="font-size:18px">🍞</span><b style="font-size:13px;flex:1">Banana bread</b><span style="font-size:11px;color:var(--color-neutral-700)">Original</span></div>
+        <div style="margin-left:26px">
+          <div style="position:relative;padding:8px 0 0 0"><span style="position:absolute;left:0;top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span><span style="position:absolute;left:0;top:0;width:14px;height:28px;border-left:3px solid var(--color-accent);border-bottom:3px solid var(--color-accent);border-bottom-left-radius:12px"></span><div style="margin-left:18px;padding:7px 12px;border-radius:18px;background:var(--color-bg);font-size:12px;font-weight:700">"less sugar"</div></div>
+          <div style="position:relative;padding:8px 0 0 36px"><span style="position:absolute;left:0;top:0;bottom:0;border-left:3px solid var(--color-neutral-400)"></span><span style="position:absolute;left:36px;top:0;width:14px;height:28px;border-left:3px solid var(--color-accent);border-bottom:3px solid var(--color-accent);border-bottom-left-radius:12px"></span><div style="margin-left:18px;display:flex;align-items:center;padding:7px 12px;border-radius:18px;background:var(--color-bg);box-shadow:0 0 0 2px var(--color-accent);font-size:12px;font-weight:700"><span style="flex:1">"extra banana"</span><span class="tag" style="background:var(--color-accent);color:var(--color-bg);font-size:10px;padding:2px 8px">Here</span></div></div>
+          <div style="position:relative;padding:8px 0 0 0"><span style="position:absolute;left:0;top:0;width:14px;height:28px;border-left:3px solid var(--color-neutral-400);border-bottom:3px solid var(--color-neutral-400);border-bottom-left-radius:12px"></span><div style="margin-left:18px;padding:7px 12px;border-radius:18px;background:var(--color-bg);font-size:12px;font-weight:700">"add chocolate"</div></div>
+        </div>
+      </div>
+      <div style="font-family:var(--font-heading);font-size:24px;line-height:1.1">Every recipe can grow branches</div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:14px">
+        <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">1</span>Someone asks for a change, like "less sugar".</div>
+        <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">2</span>A new version grows off it. The original never changes.</div>
+        <div style="display:flex;gap:10px"><span style="width:24px;height:24px;flex:none;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-weight:700;font-size:12px">3</span>The terracotta line shows how you got here.</div>
+      </div>
+      <button onClick="{{ closeSheet }}" class="btn btn-primary" style="height:52px;font-size:15px">Got it</button>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:absolute;left:20px;right:20px;bottom:{{ toastBottom }};z-index:20;padding:14px 18px;border-radius:999px;background:var(--color-text);color:var(--color-bg);font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-lg)"><l-icon name="check"></l-icon>{{ toast }}</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;start&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;explore&quot;,&quot;search&quot;,&quot;recipe&quot;,&quot;changes&quot;,&quot;tree&quot;,&quot;branch&quot;,&quot;create&quot;,&quot;chat&quot;,&quot;activity&quot;,&quot;thread&quot;,&quot;profile&quot;,&quot;settings&quot;,&quot;saved&quot;,&quot;edit&quot;,&quot;email&quot;,&quot;inbox&quot;,&quot;forest&quot;,&quot;avatar&quot;,&quot;plist&quot;],&quot;default&quot;:&quot;explore&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;rid&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;bb&quot;,&quot;ls&quot;,&quot;lseb&quot;,&quot;wal&quot;,&quot;choc&quot;,&quot;vg&quot;,&quot;gf&quot;,&quot;sh&quot;],&quot;default&quot;:&quot;lseb&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;,&quot;system&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tree&quot;,&quot;timeline&quot;,&quot;map&quot;],&quot;default&quot;:&quot;tree&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;&quot;,&quot;auth&quot;,&quot;pantry&quot;,&quot;menu&quot;,&quot;intro&quot;],&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;suggest&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;shared&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const P = {
+  Hana: { ini: 'H', av: 'var(--color-accent-300)', bio: 'Bakes on Sundays. Mostly loaves.', followers: 128 },
+  Ola: { ini: 'O', av: 'var(--color-accent-2-300)', bio: 'Less sugar, more flavour.', followers: 86 },
+  Sami: { ini: 'S', av: 'var(--color-neutral-300)', bio: 'Eggs for dinner, often.', followers: 214 },
+  Lin: { ini: 'L', av: 'var(--color-accent-2-400)', bio: 'Plant-based, dumpling-obsessed.', followers: 59 },
+  Ana: { ini: 'A', av: 'var(--color-accent-400)', bio: 'Cakes that travel well.', followers: 41 }
+};
+const BBI = [['3','very ripe bananas'],['115 g','butter, browned'],['200 g','light brown sugar'],['2','eggs'],['190 g','plain flour'],['1 tsp','bicarbonate of soda'],['½ tsp','flaky salt']];
+const BBS = ['Brown the butter until it smells nutty. Cool for 10 minutes.','Mash 3 bananas with the sugar, then beat in the eggs and butter.','Fold in flour, soda and salt until just combined.','Scrape into a lined loaf tin. Bake at 175°C for 55 minutes.','Cool in the tin for 15 minutes before slicing.'];
+const set = (ing, name, amt) => ing.map(([a, n]) => n.includes(name) ? [amt, n] : [a, n]);
+const fam = (o) => Object.assign({ time: '1 hr 10', diff: 'Easy', serves: 8, unit: 'slices', desc: '' }, o);
+function seed() {
+  const ls = set(BBI, 'sugar', '150 g');
+  let lseb = set(set(ls, 'bananas', '4'), 'sugar', '100 g'); lseb.splice(4, 0, ['1 tbsp', 'banana purée, swirled on top']);
+  const choc = [...BBI, ['120 g', 'dark chocolate, chopped']];
+  const vg = BBI.filter(([, n]) => n !== 'eggs' && !n.startsWith('butter')).concat([['100 ml', 'olive oil'], ['3 tbsp', 'ground flaxseed + 6 tbsp water']]);
+  const gf = choc.map(([a, n]) => n === 'plain flour' ? [a, 'gluten-free flour blend'] : [a, n]);
+  const st = (i, t) => BBS.map((s, j) => j === i ? t : s);
+  return {
+    bb: fam({ id: 'bb', parent: null, title: 'Banana bread', emoji: '🍞', by: 'Hana', created: 1, kcal: 280, desc: 'Moist, deeply caramelised loaf with brown butter and a crackly top.', ing: BBI, steps: BBS, week: 4 }),
+    choc: fam({ id: 'choc', parent: 'bb', title: 'Chocolate chunk', emoji: '🍫', by: 'Sami', prompt: 'add chocolate', created: 2, kcal: 330, ing: choc, steps: st(2, 'Fold in flour, soda, salt and chocolate until just combined.') }),
+    ls: fam({ id: 'ls', parent: 'bb', title: 'Less sugar', emoji: '🍞', by: 'Ola', prompt: 'less sugar', created: 3, kcal: 250, ing: ls, steps: BBS }),
+    vg: fam({ id: 'vg', parent: 'bb', title: 'Vegan banana bread', emoji: '🌱', by: 'Lin', prompt: 'vegan, no eggs', created: 4, kcal: 260, ing: vg, steps: st(0, 'Mix the flaxseed and water. Leave for 10 minutes to thicken.') }),
+    wal: fam({ id: 'wal', parent: 'ls', title: 'Walnut loaf', emoji: '🌰', by: 'Sami', prompt: 'add walnuts', created: 5, kcal: 300, time: '1 hr 15', ing: [...ls, ['80 g', 'walnuts, toasted']], steps: st(3, 'Scrape into a lined loaf tin, scatter walnuts on top. Bake at 175°C for 60 minutes.') }),
+    lseb: fam({ id: 'lseb', parent: 'ls', title: 'Less sugar, extra banana', emoji: '🍌', by: 'Hana', prompt: 'extra banana', created: 6, kcal: 240, ing: lseb, steps: st(1, 'Mash 4 bananas with the sugar, then beat in the eggs and butter.').map((s, j) => j === 3 ? 'Scrape into a lined loaf tin and swirl the purée over the top. Bake at 175°C for 55 minutes.' : s) }),
+    gf: fam({ id: 'gf', parent: 'choc', title: 'Gluten-free chocolate', emoji: '🌾', by: 'Ana', prompt: 'gluten-free', created: 7, kcal: 320, ing: gf, steps: st(2, 'Fold in the flour blend, soda, salt and chocolate until just combined.') }),
+    sh: { id: 'sh', parent: null, title: 'Shakshuka', emoji: '🍳', by: 'Sami', created: 0, time: '35 min', diff: 'Easy', serves: 2, unit: 'people', kcal: 320, fake: 9, week: 3, desc: 'Eggs poached in a smoky tomato and red pepper sauce. One pan.', ing: [['4','eggs'],['400 g','tomatoes, chopped'],['1','red pepper, sliced'],['60 g','feta'],['1 tsp','smoked paprika']], steps: ['Soften the pepper with paprika in olive oil, then add tomatoes and simmer 15 minutes.', 'Make four wells, crack in the eggs, cover and cook until just set. Crumble over feta.'] },
+    mn: { id: 'mn', parent: null, title: 'Miso butter noodles', emoji: '🍜', by: 'Ola', created: 0, time: '15 min', diff: 'Easy', serves: 2, unit: 'people', kcal: 450, fake: 3, desc: 'Fifteen-minute weeknight noodles, glossy and savoury.', ing: [['200 g','udon noodles'],['2 tbsp','white miso'],['30 g','butter'],['2','spring onions, sliced']], steps: ['Cook the noodles. Keep a mug of the water.', 'Whisk miso and butter with a splash of water, toss through the noodles, top with spring onions.'] },
+    lc: { id: 'lc', parent: null, title: 'Lemon olive oil cake', emoji: '🍋', by: 'Ana', created: 0, time: '55 min', diff: 'Medium', serves: 10, unit: 'slices', kcal: 290, fake: 4, desc: 'Tender crumb, bright with zest, finished with a thin glaze.', ing: [['3','eggs'],['200 g','caster sugar'],['120 ml','olive oil'],['2','lemons, zested']], steps: ['Whisk eggs, sugar and zest until pale, then stream in the oil.', 'Fold in flour and bake at 170°C for 40 minutes.'] },
+    dp: { id: 'dp', parent: null, title: 'Pork and chive dumplings', emoji: '🥟', by: 'Lin', created: 0, time: '1 hr 30', diff: 'Medium', serves: 4, unit: 'people', kcal: 380, fake: 2, desc: 'Pleated by hand, pan-fried until the bottoms crisp.', ing: [['300 g','pork mince'],['1 bunch','chives, chopped'],['30','dumpling wrappers']], steps: ['Mix the pork and chives with soy and sesame oil.', 'Fill, pleat and pan-fry, then steam with a splash of water.'] }
+  };
+}
+const FR = { '½': .5, '¼': .25, '¾': .75 };
+function parseAmt(s) { const m = String(s).match(/^(\d+(?:\.\d+)?)?\s*([½¼¾])?\s*(.*)$/); if (!m || (!m[1] && !m[2])) return null; return { n: (m[1] ? parseFloat(m[1]) : 0) + (m[2] ? FR[m[2]] : 0), u: m[3] }; }
+function fmt(n) { const w = Math.floor(n), f = n - w; if (f < .08) return String(w); if (f > .92) return String(w + 1); const c = f < .375 ? '¼' : f < .625 ? '½' : '¾'; return (w ? w : '') + c; }
+const scaleAmt = (a, f) => { if (f === 1) return a; const p = parseAmt(a); if (!p) return a; return fmt(p.n * f) + (p.u ? ' ' + p.u : ''); };
+const key = n => n.split(',')[0].trim().toLowerCase();
+function diff(base, child) {
+  const bm = new Map(base.ing.map(r => [key(r[1]), r])); const rows = [];
+  child.ing.forEach(([a, n]) => { const b = bm.get(key(n)); if (!b) rows.push({ t: 'add', amt: a, name: n }); else if (b[0] !== a) rows.push({ t: 'chg', amt: a, name: n, was: b[0] }); else rows.push({ t: 'same', amt: a, name: n }); bm.delete(key(n)); });
+  [...bm.values()].forEach(([a, n]) => rows.push({ t: 'rem', amt: a, name: n }));
+  const L = Math.max(base.steps.length, child.steps.length), steps = [];
+  for (let i = 0; i < L; i++) { const o = base.steps[i], t = child.steps[i]; steps.push({ n: i + 1, t: t || '', old: o !== t ? (o || '') : '', changed: o !== t }); }
+  return { rows, steps };
+}
+function tags(base, child, max = 3) {
+  const out = []; diff(base, child).rows.forEach(r => {
+    const short = key(r.name).split(' ').pop();
+    if (r.t === 'add') out.push('+ ' + key(r.name));
+    if (r.t === 'rem') out.push('− ' + key(r.name));
+    if (r.t === 'chg') { const p = parseAmt(r.was), c = parseAmt(r.amt); if (p && c && p.u === c.u) { const d = c.n - p.n; out.push((d > 0 ? '+' : '−') + fmt(Math.abs(d)) + (c.u ? ' ' + c.u : '') + ' ' + short); } else out.push('~ ' + short); }
+  });
+  return out.slice(0, max);
+}
+const DARK = { '--color-bg': '#181b14', '--color-surface': '#242a1e', '--color-text': '#eef0e1', '--color-accent': '#e38a50', '--color-accent-2': '#b9c99c', '--color-divider': 'rgba(238,240,225,.13)', '--shadow-sm': '0 1px 2px rgba(0,0,0,.4)', '--shadow-md': '0 3px 10px rgba(0,0,0,.45)', '--shadow-lg': '0 12px 32px rgba(0,0,0,.55)' };
+const RAMPS = { neutral: ['#f3f5ea','#e4e8d8','#cfd5c0','#b2b9a1','#949b83','#767d66','#5a604d','#3f4436','#292d22'], accent: ['#fff2eb','#ffe1d0','#ffc6a5','#f6a06b','#d67f48','#b2622d','#8c491a','#643312','#402310'], 'accent-2': ['#f0fae1','#e1eecc','#ccdbb2','#aebf92','#8fa073','#728157','#56633f','#3d472b','#272e1b'] };
+Object.entries(RAMPS).forEach(([k, r]) => r.forEach((_, i) => { DARK[`--color-${k}-${(i + 1) * 100}`] = r[8 - i]; }));
+DARK['--color-neutral-100'] = '#20241a'; DARK['--color-neutral-200'] = '#2a3022';
+const TINTS = ['var(--color-accent-200)', 'var(--color-accent-2-200)', 'var(--color-surface)'];
+const OPTS = { a: ['quick', 'one-pan', 'slow-cooked'], b: ['chickpeas', 'salmon', 'mushrooms'], c: ['two', 'a crowd', 'lunchboxes'] };
+const TPL = {
+  chickpeas: { title: 'Crispy chickpea traybake', emoji: '🥘', time: '35 min', ing: [['2 tins','chickpeas, drained'],['1','red onion, in wedges'],['200 g','cherry tomatoes'],['2 tbsp','olive oil'],['1 tsp','cumin seeds'],['100 g','feta']], steps: ['Toss everything but the feta with oil and cumin on a tray.', 'Roast at 220°C for 25 minutes, crumble over feta.'] },
+  salmon: { title: 'Miso-glazed salmon', emoji: '🐟', time: '20 min', ing: [['2','salmon fillets'],['1 tbsp','white miso'],['1 tbsp','honey'],['1','pak choi, halved']], steps: ['Brush salmon with miso and honey.', 'Grill 8 minutes with the pak choi alongside.'] },
+  mushrooms: { title: 'Mushroom and barley stew', emoji: '🍄', time: '1 hr', ing: [['400 g','mixed mushrooms'],['150 g','pearl barley'],['1','onion, diced'],['1 l','vegetable stock'],['2 sprigs','thyme']], steps: ['Brown the mushrooms hard, then soften the onion.', 'Add barley, stock and thyme; simmer 45 minutes.'] }
+};
+
+class Component extends DCLogic {
+  phoneRef = React.createRef();
+  state = this.initState();
+  initState() {
+    const p = this.props || {};
+    return { screen: p.shared ? 'recipe' : (p.start ?? 'explore'), sharedId: p.shared ? (p.rid ?? 'lseb') : null, weigh: false, nutriMode: 'serving', read: ['v1', 'b2'], afilter: 'All', avDraft: null, ptype: 'originals', rankRange: 'all', rankOpen: false, stack: [], rid: p.rid ?? 'lseb', vsId: null, view: p.view ?? 'tree', stop: null, person: 'Hana',
+      sheet: p.sheet ?? null, pending: null, authCtx: 'branch this recipe', signedIn: p.signedIn ?? false, guest: false, emailMode: 'link', email: 'hana@example.com',
+      nodes: seed(), saved: [], scale: 1, query: '', chip: 'All', pantry: ['eggs', 'tomatoes', 'feta'], pantryOn: false, ptime: 'Any',
+      branchPrompt: '', generating: false, sent: { a: 0, b: 0, c: 0 }, chat: p.start === 'chat' ? { prompt: 'Something quick with chickpeas for two', main: 'chickpeas', extra: [], msgs: [] } : null,
+      draft: p.start === 'edit' ? (() => { const n = seed()[p.rid ?? 'bb']; return { title: n.title, ing: n.ing.map(r => [...r]) }; })() : null, chatInput: '', chatOpen: true,
+      suggest: p.suggest ?? false, sugEdits: {}, diffMode: 'changes', nutriOpen: false, theme: p.theme ?? 'light',
+      notif: [true, true, false], units: 'Metric', ptab: 'originals', following: false, introSeen: false, toast: null,
+      sug: 'open', replies: [{ me: false, t: 'Tried it twice, the cardamom really works.' }], replyInput: '', checked: [] };
+  }
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate() { this.applyTheme(); }
+  applyTheme() {
+    const el = this.phoneRef.current; if (!el) return;
+    const dark = this.state.theme === 'dark' || (this.state.theme === 'system' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+    if (el.__dark === dark) return; el.__dark = dark;
+    Object.entries(DARK).forEach(([k, v]) => dark ? el.style.setProperty(k, v) : el.style.removeProperty(k));
+  }
+  applySug() { const N = this.state.nodes, bb = N.bb; this.setState({ sug: 'applied', nodes: { ...N, bb: { ...bb, ing: [...bb.ing, ['¼ tsp', 'ground cardamom']] } } }); this.toastMsg('Applied to Banana bread'); }
+  declineSug() { this.setState({ sug: 'declined' }); this.toastMsg('Declined. Sami was told.'); }
+  keepSug() { const N = this.state.nodes; const n = { ...this.growNode(N.bb, 'cardamom'), title: 'Cardamom banana bread', prompt: 'add cardamom', by: 'Sami', ing: [...N.bb.ing, ['¼ tsp', 'ground cardamom']] }; this.setState({ sug: 'branched', nodes: { ...N, [n.id]: n } }, () => this.openRecipe(n.id)); this.toastMsg('Kept as Sami\'s branch'); }
+  toastMsg(t) { clearTimeout(this._tt); this.setState({ toast: t }); this._tt = setTimeout(() => this.setState({ toast: null }), 2200); }
+  nav(screen, extra = {}) { const s = this.state; this.setState({ stack: [...s.stack, { screen: s.screen, rid: s.rid, vsId: s.vsId, person: s.person }], screen, sheet: null, ...extra }); }
+  back() {
+    const s = this.state, N = s.nodes, cur = N[s.rid];
+    const reset = { sheet: null, suggest: false, sugEdits: {}, scale: 1, checked: [], nutriOpen: false };
+    const top0 = s.stack[s.stack.length - 1]; if (s.screen === 'tree' && top0 && top0.screen === 'forest') return this.popBack();
+    if (s.screen === 'changes' || s.screen === 'tree') return this.setState({ screen: 'recipe', ...reset });
+    if (s.screen === 'recipe' && cur && cur.parent) return this.setState({ rid: cur.parent, ...reset });
+    if (s.screen === 'recipe') { const DETAIL = ['recipe', 'changes', 'tree']; const stack = [...s.stack]; let top; while (stack.length) { top = stack.pop(); if (!DETAIL.includes(top.screen)) break; top = null; } if (!top) return this.setState({ screen: 'explore', stack: [], ...reset }); return this.setState({ ...top, stack, ...reset }); }
+    return this.popBack();
+  }
+  popBack() { const s = this.state; const top = s.stack[s.stack.length - 1]; if (!top) return this.setState({ screen: 'explore' }); this.setState({ ...top, stack: s.stack.slice(0, -1), sheet: null, suggest: false, sugEdits: {} }); }
+  tab(t) { const map = { explore: 'explore', saved: 'saved', create: 'create', activity: 'activity', you: 'profile' }; this.setState({ screen: map[t], stack: [], sheet: null, person: 'Hana' }); }
+  openRecipe(id) { this.nav('recipe', { rid: id, scale: 1, suggest: false, sugEdits: {}, nutriOpen: false, checked: [] }); }
+  need(ctx, fn) { if (this.state.signedIn) return fn(); this.setState({ sheet: 'auth', authCtx: ctx, pending: fn }); }
+  finishAuth(extra = {}) { const fn = this.state.pending; this.setState({ signedIn: true, sheet: null, pending: null, ...extra }, () => { if (fn) fn(); }); }
+  kids(id) { const N = this.state.nodes; return Object.values(N).filter(n => n.parent === id).sort((a, b) => a.created - b.created); }
+  desc(id) { return this.kids(id).reduce((c, k) => c + 1 + this.desc(k.id), 0); }
+  rootOf(id) { const N = this.state.nodes; let n = N[id]; while (n.parent) n = N[n.parent]; return n; }
+  path(id) { const N = this.state.nodes, out = []; let n = N[id]; while (n) { out.unshift(n); n = n.parent ? N[n.parent] : null; } return out; }
+  branchCount(n) { const d = this.desc(n.id); return d || n.fake || 0; }
+  growNode(parent, prompt) {
+    const p = prompt.toLowerCase(); let ing = parent.ing.map(r => [...r]); let hit = false;
+    if (/sugar/.test(p)) { hit = true; ing = ing.map(([a, n]) => { if (!/sugar/.test(n)) return [a, n]; const q = parseAmt(a); return q ? [fmt(Math.max(q.n - 50, 30)) + ' ' + q.u, n] : [a, n]; }); }
+    if (/choc/.test(p)) { hit = true; ing.push(['100 g', 'dark chocolate, chopped']); }
+    if (/vegan|egg/.test(p)) { hit = true; ing = ing.filter(([, n]) => n !== 'eggs'); ing.push(['3 tbsp', 'ground flaxseed + 6 tbsp water']); }
+    if (/nut|pecan|walnut/.test(p)) { hit = true; ing.push(['80 g', 'pecans, toasted']); }
+    if (/gluten/.test(p)) { hit = true; ing = ing.map(([a, n]) => /flour/.test(n) ? [a, 'gluten-free flour blend'] : [a, n]); }
+    if (/spic|cinnamon|chai/.test(p)) { hit = true; ing.push(['1 tsp', 'ground cinnamon']); }
+    if (!hit) ing.push(['1 tsp', 'vanilla extract']);
+    const N = this.state.nodes, id = 'n' + Date.now(), created = Math.max(...Object.values(N).map(n => n.created)) + 1;
+    const title = prompt.charAt(0).toUpperCase() + prompt.slice(1);
+    return { ...parent, id, parent: parent.id, title, prompt, by: 'Hana', created, ing, steps: [...parent.steps], fake: 0, week: 0 };
+  }
+  chatRecipe(c) { const t = TPL[c.main] || TPL.chickpeas; return { ...t, ing: [...t.ing, ...c.extra] }; }
+
+  renderVals() {
+    const s = this.state, N = s.nodes, cur = N[s.rid] || N.bb;
+    const SCREENS = ['explore','search','recipe','changes','tree','branch','create','chat','email','inbox','activity','thread','profile','settings','saved','edit','forest','avatar','plist'];
+    const is = {}; SCREENS.forEach(k => is[k] = s.screen === k);
+    const me = s.signedIn && !s.guest;
+    const segs = (opts, val, fn) => opts.map(o => { const [v, l] = Array.isArray(o) ? o : [o, o]; const on = v === val; return { label: l, bg: on ? 'var(--color-accent)' : 'transparent', fg: on ? 'var(--color-bg)' : 'var(--color-text)', on: () => fn(v) }; });
+    const roots = Object.values(N).filter(n => !n.parent);
+    const au = n => ({ byIni: P[n.by].ini, byAv: P[n.by].av });
+    const mins = t => { const h = /(\d+) hr/.exec(t), m = /(\d+) min/.exec(t), mm = /hr (\d+)$/.exec(t); return (h ? +h[1] * 60 : 0) + (m ? +m[1] : 0) + (mm ? +mm[1] : 0); };
+
+    const trending = ['bb', 'sh'].map(id => N[id]).concat([N.mn]).map((n, i) => ({ ...n, ...au(n), tint: TINTS[i % 3], branches: this.branchCount(n), week: n.week || 1, open: () => this.openRecipe(n.id) }));
+    const RC = { '30': { bb: 3, sh: 4, mn: 2, lc: 3, dp: 1 }, '90': { bb: 5, sh: 6, mn: 3, lc: 4, dp: 2 } };
+    const inRange = n => s.rankRange === 'all' ? this.branchCount(n) : Math.min(this.branchCount(n), (RC[s.rankRange][n.id] ?? 0));
+    const RL = { all: 'all time', '30': 'last 30 days', '90': 'last 90 days' };
+    const rk = { label: RL[s.rankRange], open: s.rankOpen, toggle: () => this.setState({ rankOpen: !s.rankOpen }),
+      opts: ['all', '30', '90'].map(k => ({ label: RL[k].charAt(0).toUpperCase() + RL[k].slice(1), on2: k === s.rankRange, bg: k === s.rankRange ? 'var(--color-accent-100)' : 'transparent', weight: k === s.rankRange ? 700 : 400, on: () => this.setState({ rankRange: k, rankOpen: false }) })) };
+    const ranked = [...roots].sort((a, b) => inRange(b) - inRange(a)).slice(0, 3).map((n, i) => ({ ...n, ...au(n), rank: i + 1, branches: s.rankRange === 'all' ? inRange(n) : '+' + inRange(n), circle: i === 0 ? 'var(--color-accent)' : 'var(--color-surface)', circleFg: i === 0 ? 'var(--color-bg)' : 'var(--color-text)', open: () => this.openRecipe(n.id) }));
+
+    const q = s.query.trim().toLowerCase();
+    let res = Object.values(N).filter(n => !q || n.title.toLowerCase().includes(q) || n.ing.some(([, x]) => x.toLowerCase().includes(q)));
+    if (!q) res = res.filter(n => !n.parent || s.pantryOn);
+    if (s.chip === 'Under 30 min') res = res.filter(n => mins(n.time) <= 30);
+    if (s.chip === 'Easy') res = res.filter(n => n.diff === 'Easy');
+    if (s.chip === 'Branches') res = res.filter(n => n.parent);
+    if (s.pantryOn && s.pantry.length) res = res.filter(n => s.pantry.every(p => n.ing.some(([, x]) => x.toLowerCase().includes(p))));
+    const pmax = { '15 min': 15, '30 min': 30, '1 hr': 60 }[s.ptime]; if (s.pantryOn && pmax) res = res.filter(n => mins(n.time) <= pmax);
+    const results = res.slice(0, 12).map(n => ({ ...n, branches: this.branchCount(n), line: n.parent ? `"${n.prompt}"` : n.desc, byIni: P[n.by].ini, byAv: P[n.by].av, isBranch: !!n.parent, family: n.parent ? `${this.rootOf(n.id).title} variation` : '', open: () => this.openRecipe(n.id) }));
+    const chips = ['All', 'Under 30 min', 'Easy', 'Branches'].map(c => ({ label: c, bg: s.chip === c ? 'var(--color-text)' : 'var(--color-neutral-100)', fg: s.chip === c ? 'var(--color-bg)' : 'var(--color-neutral-800)', on: () => this.setState({ chip: c }) }));
+    const writeIt = () => { const prompt = s.query.trim() || 'something quick with chickpeas'; const main = Object.keys(TPL).find(k => prompt.toLowerCase().includes(k.slice(0, 5))) || 'chickpeas'; this.nav('chat', { chat: { prompt, main, extra: [], msgs: [] }, chatOpen: true }); };
+
+    // recipe
+    const isRoot = !cur.parent, mine = me && cur.by === 'Hana';
+    const par = cur.parent ? N[cur.parent] : null;
+    const servings = Math.max(1, Math.round(cur.serves * s.scale));
+    const f = servings / cur.serves;
+    const toG = a => { if (!s.weigh) return a; const p = parseAmt(a); if (!p) return a; const k = { tbsp: 15, tsp: 5, ml: 1, l: 1000 }[p.u.split(' ')[0]]; if (!k) return a; const g = p.n * k; return '≈' + (g < 10 ? fmt(g) : Math.round(g)) + ' g'; };
+    const rows = cur.ing.map(([a, n], i) => { const sel = s.suggest && (i in s.sugEdits), chk = s.checked.includes(i); return { amt: toG(scaleAmt(a, f)), name: n, sel, unsel: !sel, val: sel ? s.sugEdits[i] : '', amtColor: f !== 1 ? 'var(--color-accent-700)' : 'inherit', checkBorder: chk ? 'var(--color-accent-2-600)' : 'var(--color-neutral-400)', checkBg: chk ? 'var(--color-accent-2-600)' : 'transparent', tick: chk ? '✓' : '', deco: chk ? 'line-through' : 'none',
+      onVal: e => { const v = e.target.value; this.setState(q0 => ({ sugEdits: { ...q0.sugEdits, [i]: v } })); },
+      unpick: () => this.setState(q0 => { const x = { ...q0.sugEdits }; delete x[i]; return { sugEdits: x }; }),
+      on: () => s.suggest ? this.setState(q0 => ({ sugEdits: { ...q0.sugEdits, [i]: a } })) : this.setState({ checked: chk ? s.checked.filter(x => x !== i) : [...s.checked, i] }) }; });
+    let cardsSrc = this.kids(cur.id), carTitle, carSub;
+    if (cardsSrc.length) { carTitle = `${cardsSrc.length} way${cardsSrc.length > 1 ? 's' : ''} people took it`; carSub = `Branches of ${cur.title}`; }
+    else if (par) { cardsSrc = this.kids(par.id).filter(k => k.id !== cur.id); carTitle = 'Other ways from here'; carSub = `Also branched from ${par.title}`; }
+    else { carTitle = 'Branches'; carSub = `${this.branchCount(cur)} in the wider library`; }
+    const cards = cardsSrc.map((k, i) => ({ emoji: k.emoji, prompt: k.prompt, title: k.title, by: k.by, ...au(k), kids: `${this.desc(k.id)} branches`, tint: TINTS[i % 3], tags: tags(N[k.parent], k), compare: () => this.nav('changes', { rid: k.id, vsId: cur.id }), open: () => this.openRecipe(k.id) }));
+    const root = this.rootOf(cur.id);
+    const shared = s.sharedId === cur.id;
+    const cut = (t, n) => t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t;
+    const doSave = () => this.need('save this recipe', () => { const sv = this.state.saved; const has = sv.includes(cur.id); this.setState({ saved: has ? sv.filter(x => x !== cur.id) : [...sv, cur.id] }); if (!has) this.toastMsg('Saved'); });
+    const per = { kcal: cur.kcal, carbs: Math.round(cur.kcal * .12), fat: Math.round(cur.kcal * .045), protein: Math.round(cur.kcal * .02) };
+    const mult = s.nutriMode === 'total' ? servings : 1, REF = { kcal: 2000, carbs: 260, fat: 70, protein: 50 };
+    const unitOne = cur.unit.replace(/s$/, '').replace('people', 'person');
+    const sugN = Object.keys(s.sugEdits).length;
+    const closed = [['Ola', 'Bake 5 minutes longer', 'Applied', 'tag-accent-2'], ['Lin', 'Swap the butter for olive oil', 'Declined', 'tag-neutral']];
+    if (s.sug !== 'open') closed.unshift(['Sami', 'Add ¼ tsp ground cardamom', { applied: 'Applied', declined: 'Declined', branched: 'Branched' }[s.sug], s.sug === 'declined' ? 'tag-neutral' : 'tag-accent-2']);
+    const rc = { ...cur, isRoot, isBranch: !isRoot, headerRoot: isRoot && !s.suggest && !shared, headerBranch: !isRoot && !s.suggest && !shared, sharedBanner: shared && !s.suggest, closeShared: () => this.setState({ sharedId: null }), suggest: s.suggest, notSuggest: !s.suggest,
+      byIni: P[cur.by].ini, byAv: P[cur.by].av, parentTitle: par?.title, parentBy: par?.by,
+      crumbs: this.path(cur.id).slice(0, -1).map(n => ({ label: (n.parent ? '' : n.emoji + ' ') + cut(n.title, 18), on: () => this.openRecipe(n.id) })), crumbHere: cut(cur.title, 24),
+      heroTint: 'var(--color-accent-200)', family: `${root.emoji} ${root.title} variation`, saveIcon: s.saved.includes(cur.id) ? 'bookmark-check' : 'bookmark', saveColor: s.saved.includes(cur.id) ? 'var(--color-accent)' : 'var(--color-text)',
+      servings: `${servings} ${servings === 1 ? cur.unit.replace(/s$/, '') : cur.unit}`, unitOne, scaled: f !== 1, scaleNote: `Scaled ×${fmt(f)} from ${cur.serves}.`,
+      rows, steps: cur.steps.map((t, i) => ({ n: i + 1, t })), nutriOpen: s.nutriOpen, nutriIcon: s.nutriOpen ? 'chevron-up' : 'chevron-down',
+      nutriHead: s.nutriMode === 'total' ? `total · ${servings} ${cur.unit}` : `per ${unitOne}`,
+      nutriModes: segs([['serving', 'Per serving'], ['total', 'Total']], s.nutriMode, v => this.setState({ nutriMode: v })),
+      nutriNote: s.nutriMode === 'total' ? 'Whole recipe at the current servings. Bars show share of a 2,000 kcal day, capped at 100%.' : 'Estimated from ingredients. Bars show share of a 2,000 kcal day.',
+      macros: [['Calories', 'kcal', '', 'var(--color-accent)'], ['Carbs', 'carbs', ' g', 'var(--color-accent-400)'], ['Fat', 'fat', ' g', 'var(--color-accent-2-500)'], ['Protein', 'protein', ' g', 'var(--color-accent-2-700)']].map(([k, id, u, c]) => { const v = per[id] * mult; return { k, c, v: v.toLocaleString() + u, w: Math.min(100, Math.max(2, Math.round(v / REF[id] * 100))) + '%' }; }),
+      macroPills: [['wheat', `${per.carbs} g carbs`], ['droplet', `${per.fat} g fat`], ['drumstick', `${per.protein} g protein`]].map(([icon, label]) => ({ icon, label })),
+      carTitle, carSub, cards, hasCards: cards.length > 0, noCards: cards.length === 0, showOriginal: !isRoot, rootEmoji: root.emoji, rootTitle: root.title, rootBy: root.by,
+      hasSugs: cur.id === 'bb', sugOpen: s.sug === 'open', sugMeta: `${s.sug === 'open' ? 1 : 0} open · ${closed.length} closed`, sugMine: mine, sugNotMine: !mine, samiIni: P.Sami.ini, samiAv: P.Sami.av,
+      sugReplies: `${s.replies.length} repl${s.replies.length === 1 ? 'y' : 'ies'} · join the chat`,
+      closedSugs: closed.map(([by, text, status, tag]) => ({ by, text, status, tag, ini: P[by].ini, av: P[by].av, on: () => by === 'Sami' ? this.nav('thread') : null })),
+      sugApply: () => this.applySug(), sugDecline: () => this.declineSug(), sugChat: () => this.nav('thread'),
+      sugCount: sugN ? `${sugN} change${sugN > 1 ? 's' : ''} to suggest` : 'Tap any line to change it', sugDisabled: sugN === 0,
+      secondaryLabel: shared ? 'Save' : mine ? 'Edit' : 'Suggest', secondaryIcon: shared ? 'bookmark' : mine ? 'pencil' : 'message-circle', branchLabel: shared ? 'Make it yours' : 'Branch this recipe',
+      secondary: () => shared ? doSave() : mine ? this.nav('edit', { draft: { title: cur.title, ing: cur.ing.map(r => [...r]) } }) : this.need('suggest a change', () => this.setState({ suggest: true, sugEdits: {} })),
+      branch: () => this.need('branch this recipe', () => this.nav('branch', { branchPrompt: '' })),
+      openTree: () => this.nav('tree', { sheet: s.introSeen ? null : 'intro', introSeen: true }),
+      openChanges: () => this.nav('changes', { vsId: null }), openOriginal: () => this.openRecipe(root.id), openAuthor: () => this.nav('profile', { person: cur.by }),
+      toggleSave: doSave,
+      openMenu: () => this.setState({ sheet: 'menu' }), less: () => this.setState({ scale: Math.max(1 / cur.serves, (servings - 1) / cur.serves) }), more: () => this.setState({ scale: (servings + 1) / cur.serves }), resetScale: () => this.setState({ scale: 1 }),
+      toggleNutri: () => this.setState({ nutriOpen: !s.nutriOpen }), cancelSuggest: () => this.setState({ suggest: false, sugEdits: {} }),
+      sendSuggest: () => { this.setState({ suggest: false, sugEdits: {} }); this.toastMsg(`Sent ${sugN} change${sugN > 1 ? 's' : ''} to ${cur.by}`); } };
+    const menu = [
+      mine ? { icon: 'pencil', label: 'Edit recipe', on: rc.secondary } : { icon: 'message-circle', label: 'Suggest a change', on: () => { this.setState({ sheet: null }); rc.secondary(); } },
+      { icon: 'network', label: 'See the family', on: rc.openTree },
+      { icon: 'link', label: 'Copy share link', on: () => { this.setState({ sheet: null }); this.toastMsg('Link copied'); } }
+    ];
+
+    // changes
+    const base = s.vsId ? N[s.vsId] : par;
+    let ch = {};
+    if (base) {
+      const d = diff(base, cur);
+      const CB = { chg: 'var(--color-accent-100)', add: 'var(--color-accent-2-100)', rem: 'var(--color-neutral-100)', same: 'transparent' };
+      const MK = { chg: ['~', 'var(--color-accent-700)'], add: ['+', 'var(--color-accent-2-700)'], rem: ['−', 'var(--color-neutral-700)'], same: ['', 'inherit'] };
+      ch = { baseTitle: base.title, baseShort: base.title.length > 14 ? 'parent' : base.title, title: cur.title, by: cur.by, prompt: cur.prompt, hasPrompt: !!cur.prompt && base.id === cur.parent,
+        nChanged: d.rows.filter(r => r.t === 'chg').length, nAdded: d.rows.filter(r => r.t === 'add').length, nRemoved: d.rows.filter(r => r.t === 'rem').length,
+        rows: d.rows.map(r => ({ ...r, was: r.was || '', bg: CB[r.t], mark: MK[r.t][0], markColor: MK[r.t][1], deco: r.t === 'rem' ? 'line-through' : 'none', op: r.t === 'rem' ? .75 : 1 })),
+        left: base.ing.map(([a, n]) => { const gone = !cur.ing.some(r => key(r[1]) === key(n)); return { amt: a, name: n, deco: gone ? 'line-through' : 'none', color: gone ? 'var(--color-neutral-700)' : 'inherit' }; }),
+        right: d.rows.filter(r => r.t !== 'rem').map(r => ({ amt: r.amt, name: r.name, bg: CB[r.t] })),
+        steps: d.steps.filter(x => x.changed).map(x => ({ ...x, hasOld: !!x.old, bg: 'var(--color-accent-100)' })),
+        side: s.diffMode === 'side', changesOnly: s.diffMode !== 'side', modes: segs([['changes', 'Changes only'], ['side', 'Side by side']], s.diffMode, v => this.setState({ diffMode: v })),
+        cookBase: () => this.openRecipe(base.id), cookThis: () => this.openRecipe(cur.id) };
+      if (!ch.steps.length) ch.steps = [{ n: '–', t: 'Method unchanged.', hasOld: false, bg: 'transparent' }];
+    }
+
+    // tree
+    const famNodes = Object.values(N).filter(n => this.rootOf(n.id).id === root.id).sort((a, b) => a.created - b.created);
+    const onPath = new Set(this.path(cur.id).map(n => n.id));
+    const trRows = [];
+    const walk = (id, depth, flags) => { const ks = this.kids(id); ks.forEach((k, i) => { const next = i < ks.length - 1; const rails = flags.map((fl, j) => fl ? (j * 40) + 'px' : null).filter(Boolean); if (next) rails.push(((depth - 1) * 40) + 'px'); const here = k.id === cur.id;
+      trRows.push({ ...au(k), indent: ((depth - 1) * 40) + 'px', rails, line: onPath.has(k.id) ? 'var(--color-accent)' : 'var(--color-neutral-400)', emoji: k.emoji, title: k.title, prompt: k.prompt, by: k.by, here, bg: here ? 'var(--color-accent-100)' : 'var(--color-surface)', ring: here ? '0 0 0 2px var(--color-accent)' : 'none', on: () => this.openRecipe(k.id) });
+      walk(k.id, depth + 1, [...flags, next]); }); };
+    walk(root.id, 1, []);
+    const stopNode = N[s.stop] || cur, stopPar = stopNode.parent ? N[stopNode.parent] : null;
+    const tr = { title: root.title, sub: `${famNodes.length} versions · ${new Set(famNodes.map(n => n.by)).size} cooks · started by ${root.by} in March`,
+      views: segs([['tree', 'Tree'], ['timeline', 'Timeline'], ['map', 'Map']], s.view, v => this.setState({ view: v, stop: null })),
+      isTree: s.view === 'tree', isGraph: s.view !== 'tree', rows: trRows, curTitle: cur.title,
+      root: { ...au(root), emoji: root.emoji, title: root.title, by: root.by, here: root.id === cur.id, ring: root.id === cur.id ? '0 0 0 2px var(--color-accent)' : 'none', on: () => this.openRecipe(root.id) },
+      branch: () => this.need('branch this recipe', () => this.nav('branch', { branchPrompt: '' })),
+      graph: s.view === 'timeline' ? this.timeline(famNodes, cur.id, onPath) : s.view === 'map' ? this.radial(root, cur.id, onPath) : null,
+      stop: { kicker: stopPar ? `Generation ${this.path(stopNode.id).length - 1} · by ${stopNode.by}` : `The original · by ${stopNode.by}`, title: stopNode.title, sub: stopNode.prompt ? `"${stopNode.prompt}"` : stopNode.desc, tags: stopPar ? tags(stopPar, stopNode) : [],
+        open: () => this.openRecipe(stopNode.id), branch: () => this.need('branch this recipe', () => this.nav('branch', { rid: stopNode.id, branchPrompt: '' })) } };
+
+    // branch composer
+    const br = { title: cur.title, emoji: cur.emoji, quick: ['Less sugar', 'Vegan', 'Gluten-free', 'Add chocolate', 'Warmer spices'].map(l => ({ label: l, on: () => this.setState({ branchPrompt: (s.branchPrompt ? s.branchPrompt + ', ' : '') + l.toLowerCase() }) })) };
+    const grow = () => { if (!s.branchPrompt.trim()) return; this.setState({ generating: true }); setTimeout(() => { const n = this.growNode(cur, this.state.branchPrompt.trim()); this.setState({ generating: false, nodes: { ...this.state.nodes, [n.id]: n } }, () => { this.nav('changes', { rid: n.id, vsId: null }); this.toastMsg('Branch grown'); }); }, 1300); };
+
+    // create + chat
+    const cyc = k => () => this.setState({ sent: { ...s.sent, [k]: (s.sent[k] + 1) % 3 } });
+    const cr = { a: { v: OPTS.a[s.sent.a], on: cyc('a') }, b: { v: OPTS.b[s.sent.b], on: cyc('b') }, c: { v: OPTS.c[s.sent.c], on: cyc('c') },
+      write: () => this.nav('chat', { chat: { prompt: `Something ${OPTS.a[s.sent.a]} with ${OPTS.b[s.sent.b]} for ${OPTS.c[s.sent.c]}`, main: OPTS.b[s.sent.b], extra: [], msgs: [] }, chatOpen: true }),
+      free: () => this.nav('search', { query: '' }) };
+    const c = s.chat; let ct = { hasPrompt: false, hasRecipe: false, msgs: [], chips: [], match: false };
+    if (c) {
+      const r = this.chatRecipe(c);
+      const refine = (u, add, a) => this.setState({ chat: { ...this.state.chat, extra: add ? [...this.state.chat.extra, add] : this.state.chat.extra, msgs: [...this.state.chat.msgs, { u, a }] }, chatInput: '' });
+      ct = { hasPrompt: true, prompt: c.prompt, hasRecipe: true, ...r, meta: `${r.time} · Easy · serves 2`, ing: r.ing.map(([amt, name]) => ({ amt, name })), msgs: c.msgs, open: s.chatOpen, toggleIcon: s.chatOpen ? 'chevron-up' : 'chevron-down', toggle: () => this.setState({ chatOpen: !s.chatOpen }),
+        match: /banana/.test(c.prompt.toLowerCase()), matchCount: famNodes.length && Object.values(N).filter(n => this.rootOf(n.id).id === 'bb').length, seeFamily: () => this.nav('tree', { rid: 'bb' }),
+        chips: [['Make it spicier', ['1 tsp', 'chilli flakes'], 'Added chilli flakes to the tray.'], ['Fewer dishes', null, 'Everything now cooks on one tray.'], ['No dairy', null, 'Swapped the feta for toasted seeds.']].map(([label, add, a]) => ({ label, on: () => refine(label, add, a) })),
+        send: () => { const t = this.state.chatInput.trim(); if (t) refine(t, null, 'Done. I adjusted the recipe card above.'); },
+        save: () => this.need('save this recipe', () => { const id = 'c' + Date.now(); const node = { id, parent: null, title: r.title, emoji: r.emoji, by: 'Hana', created: 0, time: r.time, diff: 'Easy', serves: 2, unit: 'people', kcal: 410, desc: c.prompt + '.', ing: r.ing, steps: r.steps, fake: 0 }; this.setState({ nodes: { ...this.state.nodes, [id]: node }, stack: [] }, () => { this.setState({ screen: 'recipe', rid: id, scale: 1 }); this.toastMsg('Saved to your recipes'); }); }) };
+    }
+
+    const em = { modes: segs([['link', 'Magic link'], ['password', 'Password']], s.emailMode, v => this.setState({ emailMode: v })), isPassword: s.emailMode === 'password', isLink: s.emailMode === 'link', cta: s.emailMode === 'link' ? 'Send me a link' : 'Sign in',
+      submit: () => s.emailMode === 'link' ? this.nav('inbox') : this.signInBack() };
+
+    const SL = { open: '+ ¼ tsp ground cardamom', applied: 'You applied it', declined: 'You declined it', branched: 'Kept as a branch' }[s.sug];
+    const FEED = [
+      { id: 's1', type: 'sug', who: 'Sami', verb: 'suggested a change to', what: 'Banana bread', sub: `${SL} · 2h`, day: 0, go: () => this.openRecipe('bb') },
+      { id: 'b1', type: 'branch', who: 'Lin', verb: 'branched', what: 'Banana bread', sub: '"vegan, no eggs" · 5h', day: 0, go: () => this.openRecipe('vg') },
+      { id: 'f1', type: 'follow', who: 'Ana', verb: 'started following you', what: '', sub: 'Yesterday', day: 1, go: () => this.nav('profile', { person: 'Ana' }) },
+      { id: 'v1', type: 'save', who: 'Ola', verb: 'saved', what: 'Less sugar, extra banana', sub: 'Mon', day: 1, go: () => this.openRecipe('lseb') },
+      { id: 'b2', type: 'branch', who: 'Sami', verb: 'branched', what: 'Banana bread', sub: '"add chocolate" · Last week', day: 1, go: () => this.openRecipe('choc') }
+    ];
+    const AI = { sug: ['message-circle', 'var(--color-accent)'], branch: ['git-branch', 'var(--color-accent-2-600)'], follow: ['user-plus', 'var(--color-neutral-700)'], save: ['bookmark', 'var(--color-neutral-700)'] };
+    const FT = { All: null, Branches: 'branch', Suggestions: 'sug', Follows: 'follow' };
+    const unreadN = FEED.filter(x => !s.read.includes(x.id)).length;
+    const shown = FEED.filter(x => !FT[s.afilter] || x.type === FT[s.afilter]).map(x => ({ ...x, ini: P[x.who].ini, av: P[x.who].av, icon: AI[x.type][0], badgeBg: AI[x.type][1], unread: !s.read.includes(x.id), open: () => { this.setState({ read: [...new Set([...this.state.read, x.id])] }); x.go(); } }));
+    const act = { filters: Object.keys(FT).map(k => { const n = FEED.filter(x => !s.read.includes(x.id) && (!FT[k] || x.type === FT[k])).length, on = s.afilter === k; return { label: k, n, hasN: n > 0, bg: on ? 'var(--color-text)' : 'var(--color-neutral-100)', fg: on ? 'var(--color-bg)' : 'var(--color-neutral-800)', on: () => this.setState({ afilter: k }) }; }),
+      today: shown.filter(x => x.day === 0), earlier: shown.filter(x => x.day === 1), showMark: s.signedIn && unreadN > 0, markAll: () => this.setState({ read: FEED.map(x => x.id) }) };
+    act.hasToday = act.today.length > 0; act.hasEarlier = act.earlier.length > 0; act.none = shown.length === 0;
+
+    const th = { status: { open: 'Open', applied: 'Applied', declined: 'Declined', branched: 'Branched' }[s.sug], tagClass: s.sug === 'open' ? 'tag-accent' : s.sug === 'declined' ? 'tag-neutral' : 'tag-accent-2', open: s.sug === 'open',
+      replies: s.replies.map(m => ({ t: m.t, align: m.me ? 'flex-end' : 'flex-start', radius: m.me ? '24px 24px 6px 24px' : '24px 24px 24px 6px', bg: m.me ? 'var(--color-accent-2-200)' : 'var(--color-neutral-100)', fg: m.me ? 'var(--color-accent-2-900)' : 'var(--color-text)' })),
+      reply: () => { const t = s.replyInput.trim(); if (t) this.setState({ replies: [...s.replies, { me: true, t }], replyInput: '' }); },
+      apply: () => this.applySug(), decline: () => this.declineSug(), keep: () => this.keepSug() };
+
+    const person = ['profile', 'forest', 'plist'].includes(s.screen) ? s.person : 'Hana', pp = P[person], isMe = person === 'Hana';
+    const theirs = Object.values(N).filter(n => n.by === person);
+    const creditedOf = Object.values(N).filter(n => n.by !== person && this.path(n.id).slice(0, -1).some(a => a.by === person));
+    const followerN = pp.followers + (s.following && !isMe ? 1 : 0);
+    const list = s.ptab === 'originals' ? theirs.filter(n => !n.parent) : theirs.filter(n => n.parent);
+    const pf = { me: isMe, other: !isMe, browsing: isMe && !s.signedIn, show: !isMe || s.signedIn, guest: isMe && s.guest, name: isMe && s.guest ? 'Guest cook' : person, ini: isMe && s.guest ? 'G' : pp.ini, av: pp.av, bio: isMe && s.guest ? 'Signed in on this device only' : pp.bio,
+      stats: [['Originals', theirs.filter(n => !n.parent).length, 'originals'], ['Branches', theirs.filter(n => n.parent).length, 'branches'], ['Credited', creditedOf.length, 'credited'], ['Followers', followerN, 'followers']].map(([k, v, t]) => ({ k, v, on: () => this.nav('plist', { person, ptype: t }) })),
+      tabs: segs([['originals', 'Started'], ['branches', 'Grew']], s.ptab, v => this.setState({ ptab: v })),
+      grid: list.map((n, i) => ({ emoji: n.emoji, title: n.title, tint: TINTS[i % 3], meta: n.parent ? `on ${this.rootOf(n.id).by}'s ${this.rootOf(n.id).title}` : `${this.branchCount(n)} branches`, open: () => this.openRecipe(n.id) })), empty: list.length === 0,
+      followShort: s.following ? 'Following' : 'Follow', openForest: () => this.nav('forest', { person }),
+      follow: () => this.need(`follow ${person}`, () => this.setState({ following: !this.state.following })), followLabel: s.following ? 'Following' : `Follow ${person}`, followClass: s.following ? 'btn-secondary' : 'btn-primary' };
+
+    const st = { ini: s.guest ? 'G' : P.Hana.ini, av: P.Hana.av, openAvatar: () => s.guest ? this.nav('email') : this.nav('avatar', { avDraft: null }),
+      weighTrack: s.weigh ? 'var(--color-accent-2-600)' : 'var(--color-neutral-400)', weighKnob: s.weigh ? '21px' : '3px', weighToggle: () => this.setState({ weigh: !s.weigh }),
+      name: s.guest ? 'Guest cook' : 'Hana Mori', sub: s.guest ? 'This device only' : 'hana@example.com · Google',
+      themes: segs([['light', 'Light'], ['dark', 'Dark'], ['system', 'System']], s.theme, v => this.setState({ theme: v })), units: segs(['Metric', 'US'], s.units, v => this.setState({ units: v })),
+      notif: ['Someone branches my recipe', 'I get a suggestion', 'Someone follows me'].map((label, i) => ({ label, track: s.notif[i] ? 'var(--color-accent-2-600)' : 'var(--color-neutral-400)', knob: s.notif[i] ? '21px' : '3px', rule: i < 2 ? '1px solid var(--color-divider)' : '0', on: () => this.setState({ notif: s.notif.map((x, j) => j === i ? !x : x) }) })) };
+
+    const sv = { items: s.saved.map(id => N[id]).filter(Boolean).map(n => ({ ...n, ...au(n), meta: n.time, open: () => this.openRecipe(n.id) })) }; sv.empty = sv.items.length === 0;
+
+    const PT = { originals: 'Originals', branches: 'Branches', credited: 'Credited', followers: 'Followers' };
+    const toRow = n => { const rt = this.rootOf(n.id), anc = [...this.path(n.id).slice(0, -1)].reverse().find(a => a.by === person); return { emoji: n.emoji, title: n.title, by: n.by, ...au(n), branches: this.branchCount(n),
+      showBy: s.ptype === 'credited', meta: s.ptype === 'originals' ? `${n.time} · ${n.diff}` : s.ptype === 'branches' ? `"${n.prompt}" on ${rt.by}'s ${rt.title}` : `grew from ${anc ? anc.title : rt.title}`, open: () => this.openRecipe(n.id) }; };
+    const plSrc = { originals: theirs.filter(n => !n.parent), branches: theirs.filter(n => n.parent), credited: creditedOf }[s.ptype] || [];
+    const people = Object.keys(P).filter(k => k !== person).map(k => ({ name: k, ini: P[k].ini, av: P[k].av, bio: P[k].bio, open: () => this.nav('profile', { person: k }) }));
+    const counts = { originals: theirs.filter(n => !n.parent).length, branches: theirs.filter(n => n.parent).length, credited: creditedOf.length, followers: followerN };
+    const pl = { heading: PT[s.ptype], isRecipes: s.ptype !== 'followers', isPeople: s.ptype === 'followers',
+      sub: { originals: `Recipes ${person} started`, branches: `Versions ${person} grew on other people's recipes`, credited: `Other cooks' versions that grew from ${person}'s recipes`, followers: `People following ${person}` }[s.ptype],
+      tabs: Object.keys(PT).map(k => ({ label: PT[k], n: counts[k], bg: k === s.ptype ? 'var(--color-text)' : 'var(--color-neutral-100)', fg: k === s.ptype ? 'var(--color-bg)' : 'var(--color-neutral-800)', on: () => this.setState({ ptype: k }) })),
+      items: plSrc.sort((a, b) => b.created - a.created).map(toRow), people, hasMore: followerN > people.length, more: `and ${(followerN - people.length).toLocaleString()} others`,
+      empty: s.ptype !== 'followers' && plSrc.length === 0, emptyText: { originals: 'No originals yet.', branches: 'No branches yet.', credited: 'Nobody has branched these yet.' }[s.ptype] || '' };
+
+    const famsOf = roots.filter(r => Object.values(N).some(n => n.by === person && this.rootOf(n.id).id === r.id)).sort((a, b) => (b.by === person) - (a.by === person));
+    const tiles = famsOf.map(r => {
+      const nodes = Object.values(N).filter(n => this.rootOf(n.id).id === r.id).map(n => ({ id: n.id, parent: n.parent, depth: this.path(n.id).length - 1, by: n.by }));
+      if (nodes.length === 1 && r.fake) { const k = Math.min(r.fake, 5), d1 = Math.ceil(k / 2); for (let j = 0; j < k; j++) nodes.push({ id: 'f' + j, parent: j < d1 ? r.id : 'f' + ((j - d1) % d1), depth: j < d1 ? 1 : 2, by: '' }); }
+      const byD = {}; nodes.forEach(n => (byD[n.depth] = byD[n.depth] || []).push(n));
+      const maxD = Math.max(...nodes.map(n => n.depth)), pos = {};
+      Object.keys(byD).forEach(d => byD[d].forEach((n, j) => { pos[n.id] = { x: maxD ? Math.round(14 + d * 112 / maxD) : 70, y: Math.round((j + 1) * 74 / (byD[d].length + 1)) }; }));
+      const path = nodes.filter(n => n.parent).map(n => { const a = pos[n.parent], b = pos[n.id]; return `M${a.x} ${a.y} C${a.x + 18} ${a.y} ${b.x - 18} ${b.y} ${b.x} ${b.y}`; }).join(' ');
+      const planted = r.by === person, grewN = nodes.filter(n => n.by === person && n.parent).length, target = planted ? r.id : nodes.find(n => n.by === person).id;
+      return { emoji: r.emoji, title: r.title, path: path || 'M0 0', dots: nodes.map(n => ({ x: pos[n.id].x, y: pos[n.id].y, r: n.parent ? 5 : 7, c: n.by === person ? 'var(--color-accent)' : 'var(--color-neutral-400)' })),
+        bg: planted ? 'var(--color-accent-100)' : 'var(--color-surface)', meta: planted ? `Planted · ${this.branchCount(r)} branches` : `Grew ${grewN} on ${r.by}'s`, open: () => this.nav('tree', { rid: target, view: 'tree' }) };
+    });
+    const plantedN = roots.filter(r => r.by === person).length, grownN = roots.filter(r => r.by === person).reduce((t, r) => t + this.branchCount(r), 0);
+    const fo = { tiles, planted: plantedN, grown: grownN, recipeWord: plantedN === 1 ? 'recipe' : 'recipes', branchWord: grownN === 1 ? 'branch has' : 'branches have', them: plantedN === 1 ? 'it' : 'them', mineLabel: `${person}'s` };
+    const EMO = ['🥐', '🍞', '🍌', '🍋', '🥟', '🍜', '🍳', '🥘', '🍄', '🌰', '🍫', '🌱', '🧄', '🫐', '🥕'];
+    const SW = ['var(--color-accent-200)', 'var(--color-accent-300)', 'var(--color-accent-2-200)', 'var(--color-accent-2-300)', 'var(--color-neutral-300)', 'var(--color-accent-400)'];
+    const ad = s.avDraft || { e: P.Hana.emoji || '🥐', c: P.Hana.av };
+    const av = { emoji: ad.e, color: ad.c,
+      sw: SW.map(c => ({ c, ring: c === ad.c ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : 'none', on: () => this.setState({ avDraft: { ...ad, c } }) })),
+      emojis: EMO.map(e => ({ e, bg: e === ad.e ? 'var(--color-accent-200)' : 'var(--color-surface)', ring: e === ad.e ? '0 0 0 2px var(--color-accent)' : 'none', on: () => this.setState({ avDraft: { ...ad, e } }) })),
+      save: () => { Object.assign(P.Hana, { ini: ad.e, emoji: ad.e, av: ad.c }); this.setState({ avDraft: null }); this.popBack(); this.toastMsg('Avatar updated'); },
+      initials: () => { Object.assign(P.Hana, { ini: 'H', emoji: null, av: ad.c }); this.setState({ avDraft: null }); this.popBack(); this.toastMsg('Using your initials'); },
+      photo: () => this.toastMsg('Photo upload isn\'t in this prototype') };
+
+    const dr = s.draft; const kidsN = this.kids(cur.id).length;
+    const upd = fn => this.setState({ draft: fn(this.state.draft) });
+    const ed = dr ? { title: dr.title, onTitle: e => { const v = e.target.value; upd(d => ({ ...d, title: v })); }, hasKids: kidsN > 0, kidsNote: `${kidsN} branch${kidsN > 1 ? 'es' : ''} below this keep their own copy.`,
+      rows: dr.ing.map(([a, n], i) => ({ amt: a, name: n, onAmt: e => { const v = e.target.value; upd(d => ({ ...d, ing: d.ing.map((r, j) => j === i ? [v, r[1]] : r) })); }, onName: e => { const v = e.target.value; upd(d => ({ ...d, ing: d.ing.map((r, j) => j === i ? [r[0], v] : r) })); }, remove: () => upd(d => ({ ...d, ing: d.ing.filter((_, j) => j !== i) })) })),
+      add: () => upd(d => ({ ...d, ing: [...d.ing, ['', '']] })),
+      save: () => { this.setState({ nodes: { ...N, [cur.id]: { ...cur, title: dr.title, ing: dr.ing.filter(r => r[1].trim()) } } }, () => this.back()); this.toastMsg('Saved'); } } : {};
+
+    const pantrySuggest = ['spinach', 'peppers', 'bananas', 'chickpeas'].filter(x => !s.pantry.includes(x)).slice(0, 2);
+    const countFor = Object.values(N).filter(n => s.pantry.length && s.pantry.every(p => n.ing.some(([, x]) => x.toLowerCase().includes(p)))).length;
+    const pt = { items: s.pantry.map(p => ({ label: p, remove: () => this.setState({ pantry: s.pantry.filter(x => x !== p) }) })), suggest: pantrySuggest.map(p => ({ label: p, add: () => this.setState({ pantry: [...s.pantry, p] }) })),
+      times: segs(['15 min', '30 min', '1 hr', 'Any'], s.ptime, v => this.setState({ ptime: v })), cta: countFor ? `Show ${countFor} recipe${countFor > 1 ? 's' : ''}` : 'Show recipes',
+      reset: () => this.setState({ pantry: [], ptime: 'Any' }), show: () => { if (s.screen === 'search') this.setState({ sheet: null, pantryOn: true, query: '' }); else this.nav('search', { pantryOn: true, query: '' }); },
+      write: () => { const prompt = `Something with ${s.pantry.join(', ') || 'what I have'}`; this.nav('chat', { chat: { prompt, main: s.pantry.includes('chickpeas') ? 'chickpeas' : 'chickpeas', extra: [], msgs: [] } }); } };
+
+    const tabFor = { explore: 'explore', search: 'explore', saved: 'saved', create: 'create', activity: 'activity', profile: 'you', forest: 'you', plist: 'you' }[s.screen];
+    const tabs = [['explore', 'Explore', 'compass'], ['saved', 'Saved', 'bookmark'], ['create', 'Create', 'plus'], ['activity', 'Activity', 'bell'], ['you', 'You', 'user-round']].map(([k, l, i]) => { const on = k === tabFor, cr2 = k === 'create'; return { label: l, icon: i, size: cr2 ? '44px' : '30px', bg: cr2 ? 'var(--color-accent)' : 'transparent', fg: cr2 ? 'var(--color-bg)' : 'inherit', color: on ? 'var(--color-accent-700)' : 'var(--color-neutral-700)', on: () => this.tab(k), badge: k === 'activity' && s.signedIn && unreadN > 0, badgeN: unreadN }; });
+    const showTabs = !!tabFor;
+
+    return { phoneRef: this.phoneRef, is, trending, ranked, chips, results, noResults: results.length === 0 && !!q, query: s.query, pantryActive: s.pantryOn, pantryLabel: `${s.pantry.join(', ')}${s.ptime !== 'Any' ? ' · under ' + s.ptime : ''}`,
+      onQuery: e => this.setState({ query: e.target.value, pantryOn: false }), writeIt, goSearch: () => this.nav('search', { pantryOn: false }), openPantry: () => this.setState({ sheet: 'pantry' }), goExplore: () => this.tab('explore'), goSettings: () => this.nav('settings'),
+      back: () => this.back(), rc, ch, tr, br, cr, ct, em, act, th, pf, st, sv, ed, pt, menu, fo, av, pl, rk,
+      sugVal: s.sugVal, onSugVal: e => this.setState({ sugVal: e.target.value }),
+      branchPrompt: s.branchPrompt, onBranchPrompt: e => this.setState({ branchPrompt: e.target.value }), grow, growDisabled: !s.branchPrompt.trim() || s.generating, generating: s.generating,
+      chatInput: s.chatInput, onChatInput: e => this.setState({ chatInput: e.target.value }), onChatKey: e => { if (e.key === 'Enter') ct.send && ct.send(); },
+      email: s.email, onEmail: e => this.setState({ email: e.target.value }), authCtx: s.authCtx, openLink: () => this.signInBack(),
+      replyInput: s.replyInput, onReplyInput: e => this.setState({ replyInput: e.target.value }), openThread: () => this.nav('thread'),
+      signedOut: !s.signedIn, signedInAny: s.signedIn, signInHere: () => this.need('keep your recipes', () => {}), keepRecipes: () => this.nav('email'),
+      signOut: () => { this.setState({ signedIn: false, guest: false, stack: [], screen: 'profile' }); this.toastMsg('Signed out'); },
+      tabs, showTabs, hasSheet: !!s.sheet, sh: { auth: s.sheet === 'auth', pantry: s.sheet === 'pantry', menu: s.sheet === 'menu', intro: s.sheet === 'intro' }, closeSheet: () => this.setState({ sheet: null, pending: null }),
+      signGoogle: () => { this.finishAuth({ guest: false }); this.toastMsg('Signed in as Hana'); }, signGuest: () => { this.finishAuth({ guest: true }); this.toastMsg('Browsing as a guest cook'); },
+      signEmail: () => this.setState({ sheet: null }, () => this.nav('email')),
+      hasToast: !!s.toast, toast: s.toast, toastBottom: showTabs ? '92px' : '100px' };
+  }
+  signInBack() {
+    const s = this.state, fn = s.pending;
+    let stack = [...s.stack]; while (stack.length && ['email', 'inbox'].includes(s.screen)) { const top = stack.pop(); if (!['email', 'inbox'].includes(top.screen)) { this.setState({ ...top, stack, signedIn: true, guest: false, pending: null }, () => { if (fn) fn(); }); this.toastMsg('Signed in as Hana'); return; } }
+    this.setState({ signedIn: true, guest: false, pending: null, screen: 'explore', stack: [] }); this.toastMsg('Signed in as Hana');
+  }
+  timeline(fam, curId, onPath) {
+    const h = React.createElement, N = this.state.nodes, lane = {}, laneName = [], used = new Set();
+    const COLORS = ['var(--color-neutral-700)', 'var(--color-accent)', 'var(--color-accent-2-600)', 'var(--color-accent-400)', 'var(--color-accent-2-400)', 'var(--color-accent-700)'];
+    let lanes = 0;
+    fam.forEach(n => { if (!n.parent) { lane[n.id] = lanes++; laneName.push('Original'); return; } if (!used.has(n.parent)) { used.add(n.parent); lane[n.id] = lane[n.parent]; } else { lane[n.id] = lanes++; laneName.push(n.prompt); } });
+    const X = i => 40 + i * 66, Y = l => 46 + l * 60; const idx = {}; fam.forEach((n, i) => idx[n.id] = i);
+    const W = X(fam.length - 1) + 50, H = Y(lanes - 1) + 40, els = [];
+    fam.forEach(n => { if (!n.parent) return; const px = X(idx[n.parent]), py = Y(lane[n.parent]), cx = X(idx[n.id]), cy = Y(lane[n.id]); const d = py === cy ? `M${px} ${py} H${cx}` : `M${px} ${py} C${px + 34} ${py} ${cx - 34} ${cy} ${cx} ${cy}`; els.push(h('path', { key: 'p' + n.id, d, stroke: COLORS[lane[n.id] % COLORS.length], strokeWidth: onPath.has(n.id) ? 7 : 5, fill: 'none', strokeLinecap: 'round' })); });
+    laneName.forEach((name, l) => { const first = fam.find(n => lane[n.id] === l); els.push(h('text', { key: 't' + l, x: X(idx[first.id]) - 10, y: Y(l) - 16, fontSize: 11, fontWeight: 700, fill: 'var(--color-neutral-800)', fontFamily: 'var(--font-body)' }, name)); });
+    fam.forEach(n => { const cx = X(idx[n.id]), cy = Y(lane[n.id]), here = n.id === curId, sel = n.id === this.state.stop; const col = COLORS[lane[n.id] % COLORS.length];
+      els.push(h('g', { key: 's' + n.id, style: { cursor: 'pointer' }, onClick: () => this.setState({ stop: n.id }), role: 'button', tabIndex: 0, 'aria-label': n.title },
+        h('circle', { cx, cy, r: 18, fill: 'transparent' }),
+        here ? h('circle', { cx, cy, r: 12, fill: 'var(--color-accent)' }) : h('circle', { cx, cy, r: 9, fill: 'var(--color-bg)', stroke: col, strokeWidth: 4 }),
+        here ? h('circle', { cx, cy, r: 4, fill: 'var(--color-bg)' }) : null,
+        sel ? h('circle', { cx, cy, r: 16, fill: 'none', stroke: 'var(--color-text)', strokeWidth: 2 }) : null)); });
+    return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, style: { display: 'block' } }, els);
+  }
+  radial(root, curId, onPath) {
+    const h = React.createElement, W = 354, H = 380, cx = W / 2, cy = H / 2, pos = {}, els = [];
+    const leaves = id => { const k = this.kids(id); return k.length ? k.reduce((s, c) => s + leaves(c.id), 0) : 1; };
+    const place = (id, depth, a0, a1) => { const a = (a0 + a1) / 2, r = depth * 78; pos[id] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a), depth }; const ks = this.kids(id), tot = ks.reduce((s, c) => s + leaves(c.id), 0); let acc = a0; ks.forEach(k => { const span = (a1 - a0) * leaves(k.id) / tot; place(k.id, depth + 1, acc, acc + span); acc += span; }); };
+    place(root.id, 0, -Math.PI / 2, Math.PI * 1.5);
+    const maxD = Math.max(...Object.values(pos).map(p => p.depth));
+    for (let g = 1; g <= maxD; g++) els.push(h('circle', { key: 'r' + g, cx, cy, r: g * 78, fill: 'none', stroke: 'var(--color-neutral-400)', strokeWidth: 1.5, strokeDasharray: '4 6' }));
+    Object.keys(pos).forEach(id => { const n = this.state.nodes[id]; if (!n.parent) return; const a = pos[n.parent], b = pos[id], on = onPath.has(id); els.push(h('line', { key: 'l' + id, x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: on ? 'var(--color-accent)' : 'var(--color-neutral-400)', strokeWidth: on ? 5 : 3, strokeLinecap: 'round' })); });
+    Object.keys(pos).forEach(id => { const n = this.state.nodes[id], p = pos[id], isRoot = !n.parent, here = id === curId, on = onPath.has(id), sel = id === this.state.stop;
+      els.push(h('g', { key: 'n' + id, style: { cursor: 'pointer' }, onClick: () => this.setState({ stop: id }), role: 'button', tabIndex: 0, 'aria-label': n.title },
+        h('circle', { cx: p.x, cy: p.y, r: isRoot ? 22 : 17, fill: isRoot ? 'var(--color-text)' : on ? 'var(--color-accent-200)' : 'var(--color-bg)', stroke: here ? 'var(--color-accent)' : on ? 'var(--color-accent)' : 'var(--color-neutral-500)', strokeWidth: here ? 4 : 2.5 }),
+        here ? h('circle', { cx: p.x, cy: p.y, r: 23, fill: 'none', stroke: 'var(--color-accent)', strokeWidth: 2, strokeDasharray: '3 3' }) : null,
+        sel ? h('circle', { cx: p.x, cy: p.y, r: 26, fill: 'none', stroke: 'var(--color-text)', strokeWidth: 2 }) : null,
+        h('text', { x: p.x, y: p.y + 6, textAnchor: 'middle', fontSize: isRoot ? 20 : 16 }, n.emoji))); });
+    return h('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, style: { display: 'block', margin: '0 auto' } }, els);
+  }
+}
+</script>
+</body>
+</html>

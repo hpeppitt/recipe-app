@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+<script src="./icons.js"></script>
+</helmet>
+<nav style="position:absolute;left:0;right:0;bottom:0;height:78px;padding:8px 14px 22px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider);display:flex;align-items:center;justify-content:space-between;z-index:5">
+  <sc-for list="{{ items }}" as="it" hint-placeholder-count="5">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:{{ it.color }}">
+      <span style="width:{{ it.size }};height:{{ it.size }};border-radius:999px;display:grid;place-items:center;font-size:21px;background:{{ it.bg }};color:{{ it.fg }}"><i data-lucide="{{ it.icon }}"></i></span>
+      <span>{{ it.label }}</span>
+    </div>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:90},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;explore&quot;,&quot;saved&quot;,&quot;create&quot;,&quot;activity&quot;,&quot;profile&quot;],&quot;default&quot;:&quot;explore&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const a = this.props.active ?? 'explore';
+    const base = [['explore','Explore','compass'],['saved','Saved','bookmark'],['create','Create','plus'],['activity','Activity','bell'],['profile','You','user-round']];
+    return { items: base.map(([k,l,i]) => {
+      const on = k === a, c = k === 'create';
+      return { label: l, icon: i, size: c ? '44px' : '30px', bg: c ? 'var(--color-accent)' : 'transparent', fg: c ? 'var(--color-bg)' : 'inherit', color: on ? 'var(--color-accent-700)' : 'var(--color-neutral-700)' };
+    }) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+<script src="./icons.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}.dv-turn{padding:44px 48px 36px;scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#201e1d;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:400 26px/1.2 var(--font-heading);color:#201e1d}.dv-intro{max-width:760px;font:14px/1.55 var(--font-body);color:var(--color-neutral-800);margin:0 0 28px;text-wrap:pretty}.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;width:390px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:600 13px/1.3 var(--font-body);color:#201e1d}.dv-note{font:13px/1.5 var(--font-body);color:var(--color-neutral-700);margin:0;text-wrap:pretty}.dv-card{background:var(--color-bg);border-radius:36px;box-shadow:var(--shadow-lg);overflow:hidden}.dv-opt:target .dv-oid{background:var(--color-accent);color:#fff}svg.lucide{display:block}</style>
+</helmet>
+
+<section class="dv-turn" id="t8">
+  <div class="dv-thd"><a class="dv-tid" href="#t8">8</a><span class="dv-tname">Recipe edit</span></div>
+  <p class="dv-intro">Editing changes this version only. Branches below it keep their own copy, so the save bar says so. Use branching when you want to keep the original.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="8a">
+      <div class="dv-olabel"><a class="dv-oid" href="#8a">8a</a>Edit in place on the recipe page</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center;gap:6px">
+          <button class="btn btn-ghost" style="height:44px;font-size:15px;padding:0 10px;color:var(--color-text)">Cancel</button>
+          <span style="flex:1;text-align:center;font-weight:700;font-size:14px;color:var(--color-neutral-700)">Editing</span>
+          <span style="width:76px"></span>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:10px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:flex-start;gap:14px">
+            <div style="flex:1;font-family:var(--font-heading);font-size:30px;line-height:1.08;padding-bottom:6px;border-bottom:2px dashed var(--color-accent-400)">Less sugar, extra banana</div>
+            <span style="position:relative;width:72px;height:72px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:34px">🍌<span style="position:absolute;right:-4px;bottom:-4px;width:28px;height:28px;border-radius:999px;background:var(--color-text);color:var(--color-bg);display:grid;place-items:center;font-size:13px"><i data-lucide="pencil"></i></span></span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <span class="tag" style="font-size:13px;padding:6px 12px;gap:5px;background:var(--color-neutral-100);box-shadow:inset 0 0 0 1.5px var(--color-neutral-400)"><i data-lucide="clock"></i>1 hr 10<i data-lucide="chevron-down"></i></span>
+            <span class="tag" style="font-size:13px;padding:6px 12px;gap:5px;background:var(--color-neutral-100);box-shadow:inset 0 0 0 1.5px var(--color-neutral-400)"><i data-lucide="gauge"></i>Easy<i data-lucide="chevron-down"></i></span>
+            <span class="tag" style="font-size:13px;padding:6px 12px;gap:5px;background:var(--color-neutral-100);box-shadow:inset 0 0 0 1.5px var(--color-neutral-400)"><i data-lucide="users"></i>8 slices<i data-lucide="chevron-down"></i></span>
+          </div>
+          <h4 style="margin:6px 0 0">Ingredients</h4>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ editRows }}" as="g" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:var(--color-neutral-500);font-size:16px"><i data-lucide="grip-vertical"></i></span>
+                <span style="width:72px;flex:none;height:42px;border-radius:999px;background:var(--color-neutral-100);display:flex;align-items:center;padding:0 12px;font-weight:700;font-size:14px;box-shadow:{{ g.ring }}">{{ g.amt }}</span>
+                <span style="flex:1;min-width:0;height:42px;border-radius:999px;background:var(--color-neutral-100);display:flex;align-items:center;padding:0 14px;font-size:14px;white-space:nowrap;overflow:hidden">{{ g.name }}</span>
+                <span style="width:32px;height:32px;display:grid;place-items:center;color:var(--color-neutral-700)"><i data-lucide="x"></i></span>
+              </div>
+            </sc-for>
+            <span class="tag" style="align-self:flex-start;margin-left:24px;border:1.5px dashed var(--color-neutral-500);color:var(--color-neutral-800);font-size:14px;padding:7px 14px;gap:6px"><i data-lucide="plus"></i>Add ingredient</span>
+          </div>
+          <div style="display:flex;align-items:center;margin-top:4px"><h4 style="margin:0;flex:1">Method</h4><span style="font-size:13px;color:var(--color-neutral-700)">6 steps</span><i data-lucide="chevron-down"></i></div>
+        </div>
+        <div style="padding:12px 20px 28px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider);display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;color:var(--color-neutral-700);display:flex;gap:6px;align-items:center"><i data-lucide="git-branch"></i>3 branches below this keep their own copy.</div>
+          <button class="btn btn-primary" style="height:52px;font-size:15px">Save changes</button>
+        </div>
+      </div>
+      <p class="dv-note">The recipe page itself becomes editable: fields get a sand fill, the title a dashed underline, pills turn into pickers. No second layout to maintain. The focused amount gets the accent ring.</p>
+    </div>
+
+    <div class="dv-opt" id="8b">
+      <div class="dv-olabel"><a class="dv-oid" href="#8b">8b</a>Sectioned editor with tabs</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center">
+          <span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span>
+          <span style="flex:1;font-family:var(--font-heading);font-size:18px">Edit recipe</span>
+          <button class="btn btn-primary" style="height:40px;padding:0 18px;font-size:14px;margin-right:8px">Save</button>
+        </div>
+        <div style="padding:14px 20px 0"><div class="seg" style="display:flex"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="t8b">Details</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="t8b">Ingredients</label><label class="seg-opt" style="flex:1;justify-content:center;background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="t8b">Method</label></div></div>
+        <div style="flex:1;overflow:hidden;padding:16px 20px 0;display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;gap:12px;padding:14px 14px 14px 12px;border-radius:26px;background:{{ s.bg }};box-shadow:{{ s.ring }}">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><span style="width:30px;height:30px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-family:var(--font-heading);font-size:14px">{{ s.n }}</span><span style="color:var(--color-neutral-500)"><i data-lucide="grip-vertical"></i></span></div>
+              <div style="flex:1;font-size:14px;line-height:1.5">{{ s.text }}</div>
+            </div>
+          </sc-for>
+          <span class="tag" style="align-self:flex-start;border:1.5px dashed var(--color-neutral-500);color:var(--color-neutral-800);font-size:14px;padding:7px 14px;gap:6px"><i data-lucide="plus"></i>Add step</span>
+        </div>
+        <div style="padding:10px 16px 28px">
+          <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100);box-shadow:var(--shadow-md)">
+            <span style="color:var(--color-accent)"><i data-lucide="sparkles"></i></span>
+            <span style="flex:1;font-size:14px;color:var(--color-neutral-700)">Ask to tidy up the method…</span>
+            <span style="width:40px;height:40px;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center"><i data-lucide="arrow-up"></i></span>
+          </div>
+        </div>
+      </div>
+      <p class="dv-note">A dedicated route with three tabs. Steps are cards you drag to reorder; the step being edited gets the ring. An AI helper sits at the bottom for rewording, reusing the chat backend.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t9" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t9">9</a><span class="dv-tname">Suggest a change</span></div>
+  <p class="dv-intro">For someone reading another cook's recipe. A suggestion goes to the author; a branch is their own copy. Both screens state that difference.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="9a">
+      <div class="dv-olabel"><a class="dv-oid" href="#9a">9a</a>Sheet with a target picker</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:100px 22px 0;opacity:.4"><h2 style="margin:0;font-size:32px">Less sugar</h2><div style="margin-top:16px;height:60px;border-radius:22px;background:var(--color-accent-2-100)"></div><div style="margin-top:16px;height:200px;border-radius:22px;background:var(--color-surface)"></div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 28px;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow-lg)">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <div><div style="font-family:var(--font-heading);font-size:24px;line-height:1.1">Suggest a change to Ola's recipe</div><div style="font-size:13px;color:var(--color-neutral-700);margin-top:4px">Ola can apply it, reply, or turn it into a branch.</div></div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:8px">About</div>
+            <div class="seg" style="display:flex"><label class="seg-opt" style="flex:1;justify-content:center;background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="s9a">Ingredient</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="s9a">Step</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="s9a">General</label></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border-radius:999px;background:var(--color-surface);font-size:14px"><b>150 g</b><span style="flex:1">light brown sugar</span><i data-lucide="chevron-down"></i></div>
+          <div class="field"><label>Your suggestion</label><div style="min-height:96px;padding:12px 16px;border-radius:24px;background:var(--color-surface);border:1.5px solid var(--color-accent);font-size:14px">Try 100 g. With very ripe bananas it's plenty sweet.</div></div>
+          <button class="btn btn-primary" style="height:52px;font-size:15px;gap:6px"><i data-lucide="send"></i>Send to Ola</button>
+        </div>
+      </div>
+      <p class="dv-note">Pick what it's about, then pick the exact line. "General" skips the line picker. Closest to today's SuggestChangeModal, restyled.</p>
+    </div>
+
+    <div class="dv-opt" id="9b">
+      <div class="dv-olabel"><a class="dv-oid" href="#9b">9b</a>Tap a line, edit it in place</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 16px 0"><div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:999px;background:var(--color-accent-2-700);color:var(--color-accent-2-100);font-size:13px;font-weight:600"><i data-lucide="message-circle"></i><span style="flex:1">Tap any line to suggest a change</span><span style="height:32px;padding:0 14px;border-radius:999px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);display:flex;align-items:center">Cancel</span></div></div>
+        <div style="flex:1;overflow:hidden;padding:18px 22px 0">
+          <h2 style="margin:0;font-size:28px">Less sugar</h2>
+          <div style="font-size:13px;color:var(--color-neutral-700);margin-top:2px">by Ola · 1 hr 10 · 8 slices</div>
+          <h4 style="margin:20px 0 6px">Ingredients</h4>
+          <div style="display:flex;gap:12px;padding:9px 0;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:62px">3</b>very ripe bananas</div>
+          <div style="display:flex;gap:12px;padding:9px 0;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:62px">115 g</b>butter, browned</div>
+          <div style="margin:6px -10px;padding:12px;border-radius:24px;background:var(--color-accent-100);box-shadow:inset 0 0 0 2px var(--color-accent);display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:15px"><s style="color:var(--color-neutral-700);min-width:50px">150 g</s><i data-lucide="arrow-right"></i><span style="height:38px;padding:0 14px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;font-weight:700;box-shadow:inset 0 0 0 1.5px var(--color-accent)">100 g</span><span>light brown sugar</span></div>
+            <div style="padding:10px 14px;border-radius:18px;background:var(--color-bg);font-size:14px;color:var(--color-neutral-700)">Why? (optional)</div>
+          </div>
+          <div style="display:flex;gap:12px;padding:9px 0;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:62px">2</b>eggs</div>
+          <div style="display:flex;gap:12px;padding:9px 0;font-size:15px"><b style="min-width:62px">190 g</b>plain flour</div>
+        </div>
+        <div style="padding:12px 20px 28px;display:flex;gap:10px;align-items:center;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+          <span style="flex:1;font-size:13px;color:var(--color-neutral-700)"><b style="color:var(--color-text)">1 change</b> to suggest</span>
+          <button class="btn btn-primary" style="height:52px;padding:0 22px;font-size:15px;gap:6px"><i data-lucide="send"></i>Send to Ola</button>
+        </div>
+      </div>
+      <p class="dv-note">Suggest mode turns the recipe into the form. Several lines can be changed before sending, and the result is a structured edit, so the author can apply it with one tap.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t10" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t10">10</a><span class="dv-tname">Suggestion thread</span></div>
+  <p class="dv-intro">Ola's view of Sami's suggestion. Three outcomes: apply to her recipe, decline, or keep it as a branch credited to Sami.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="10a">
+      <div class="dv-olabel"><a class="dv-oid" href="#10a">10a</a>Full thread screen</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1;font-family:var(--font-heading);font-size:18px">Suggestion</span><span class="tag tag-accent" style="font-weight:600;margin-right:10px">Open</span></div>
+        <div style="flex:1;overflow:hidden;padding:12px 20px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="padding:16px;border-radius:30px;background:var(--color-surface);display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:32px;height:32px;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;font-weight:700">S</span><span style="flex:1"><b>Sami</b> on <b>Less sugar</b></span><span style="color:var(--color-neutral-700)">2h</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:18px;background:var(--color-accent-100);font-size:15px"><span style="font-weight:700;color:var(--color-accent-800)">~</span><b>100 g</b><span style="flex:1">light brown sugar</span><s style="font-size:12px;color:var(--color-neutral-700)">150 g</s></div>
+            <div style="font-size:14px;line-height:1.5">Try 100 g. With very ripe bananas it's plenty sweet.</div>
+          </div>
+          <div style="align-self:flex-end;max-width:260px;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent-2-200);color:var(--color-accent-2-900);font-size:14px">Did the crumb stay moist with less sugar?</div>
+          <div style="display:flex;gap:8px;align-items:flex-end"><span style="width:26px;height:26px;flex:none;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;font-size:11px;font-weight:700">S</span><div style="max-width:260px;padding:12px 16px;border-radius:24px 24px 24px 6px;background:var(--color-neutral-100);font-size:14px">Yes, the browned butter carries it. I'd add 5 min to the bake.</div></div>
+        </div>
+        <div style="padding:10px 16px 28px;display:flex;flex-direction:column;gap:10px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+          <div style="display:flex;align-items:center;height:46px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100);font-size:14px;color:var(--color-neutral-700)"><span style="flex:1">Reply to Sami…</span><span style="width:36px;height:36px;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;color:var(--color-neutral-800)"><i data-lucide="arrow-up"></i></span></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-secondary" style="height:48px;flex:1;font-size:14px">Decline</button><button class="btn btn-secondary" style="height:48px;flex:1.3;font-size:14px;gap:6px"><i data-lucide="git-branch"></i>Keep as branch</button><button class="btn btn-primary" style="height:48px;flex:1.2;font-size:14px">Apply</button></div>
+        </div>
+      </div>
+      <p class="dv-note">The proposed edit is pinned at the top as a diff row, so the conversation never buries it. "Keep as branch" creates Sami's version without changing Ola's.</p>
+    </div>
+
+    <div class="dv-opt" id="10b">
+      <div class="dv-olabel"><a class="dv-oid" href="#10b">10b</a>Inline on the recipe page</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1"></span><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px"><i data-lucide="ellipsis"></i></span></div>
+        <div style="flex:1;overflow:hidden;padding:0 20px">
+          <div style="opacity:.45"><div style="height:120px;border-radius:24px;background:var(--color-surface)"></div></div>
+          <div style="display:flex;align-items:baseline;margin:20px 0 10px"><h4 style="margin:0;flex:1">Suggestions</h4><span style="font-size:13px;color:var(--color-neutral-700)">1 open · 2 closed</span></div>
+          <div style="padding:14px;border-radius:28px;background:var(--color-bg);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;font-weight:700;font-size:12px">S</span><b style="flex:1">Sami</b><span class="tag tag-accent" style="font-weight:600">Open</span></div>
+            <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:16px;background:var(--color-accent-100);font-size:14px"><b>100 g</b><span style="flex:1">light brown sugar</span><s style="font-size:12px;color:var(--color-neutral-700)">150 g</s></div>
+            <div style="font-size:14px">Try 100 g. With very ripe bananas it's plenty sweet.</div>
+            <div style="font-size:13px;color:var(--color-accent-700);font-weight:600;display:flex;gap:6px;align-items:center"><i data-lucide="message-circle"></i>2 replies</div>
+            <div style="display:flex;gap:8px"><button class="btn btn-secondary" style="height:44px;flex:1;font-size:14px">Decline</button><button class="btn btn-primary" style="height:44px;flex:1;font-size:14px">Apply</button><button class="btn btn-secondary btn-icon" style="width:44px;height:44px" aria-label="More"><i data-lucide="ellipsis"></i></button></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;margin-top:10px">
+            <sc-for list="{{ closed }}" as="c" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 4px;font-size:14px"><span style="width:28px;height:28px;flex:none;border-radius:999px;background:{{ c.av }};display:grid;place-items:center;font-weight:700;font-size:12px">{{ c.ini }}</span><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.text }}</span><span class="tag {{ c.tag }}">{{ c.status }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      <p class="dv-note">Suggestions live in a section under the method, visible to everyone; only the author sees the actions. Replies expand in place. Closed ones collapse to a line.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t11" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t11">11</a><span class="dv-tname">Activity</span></div>
+  <p class="dv-intro">The fourth tab. Replaces the NotificationBell dropdown with a full screen.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="11a">
+      <div class="dv-olabel"><a class="dv-oid" href="#11a">11a</a>Chronological, filtered by type</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:52px 20px 0;display:flex;align-items:baseline"><div style="font-family:var(--font-heading);font-size:30px;flex:1">Activity</div><span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">Mark all read</span></div>
+        <div style="display:flex;gap:8px;padding:14px 20px 4px">
+          <span class="tag" style="background:var(--color-text);color:var(--color-bg);font-size:13px;padding:7px 14px">All</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:7px 14px">Branches</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:7px 14px">Suggestions</span>
+          <span class="tag tag-neutral" style="font-size:13px;padding:7px 14px">Follows</span>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:8px 20px 90px">
+          <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:10px 0 4px">Today</div>
+          <sc-for list="{{ act }}" as="a" hint-placeholder-count="6">
+            <div style="display:flex;gap:12px;padding:10px 0;align-items:flex-start">
+              <span style="position:relative;width:40px;height:40px;flex:none;border-radius:999px;background:{{ a.av }};display:grid;place-items:center;font-weight:700;font-size:15px">{{ a.ini }}<span style="position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:999px;background:{{ a.badgeBg }};color:var(--color-bg);display:grid;place-items:center;font-size:10px;box-shadow:0 0 0 2px var(--color-bg)"><i data-lucide="{{ a.icon }}"></i></span></span>
+              <div style="flex:1;min-width:0;font-size:14px;line-height:1.4"><b>{{ a.who }}</b> {{ a.verb }} <b>{{ a.what }}</b><div style="font-size:12px;color:var(--color-neutral-700);margin-top:2px">{{ a.sub }}</div></div>
+              <sc-if value="{{ a.unread }}" hint-placeholder-val="{{ false }}"><span style="width:9px;height:9px;border-radius:999px;background:var(--color-accent);margin-top:8px"></span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="activity" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">One feed, newest first. The small badge on each avatar says what kind of event it is: branch (sage), suggestion (terracotta), follow, save.</p>
+    </div>
+
+    <div class="dv-opt" id="11b">
+      <div class="dv-olabel"><a class="dv-oid" href="#11b">11b</a>"Needs you" first, then by family</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:52px 20px 0"><div style="font-family:var(--font-heading);font-size:30px">Activity</div></div>
+        <div style="flex:1;overflow:hidden;padding:14px 20px 90px;display:flex;flex-direction:column;gap:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700)">Needs you · 2</div>
+          <div style="padding:14px;border-radius:28px;background:var(--color-accent-100);display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:14px"><b>Sami</b> suggested a change to <b>Less sugar</b></div>
+            <div style="display:flex;gap:10px;padding:8px 12px;border-radius:16px;background:var(--color-bg);font-size:14px"><b>100 g</b><span style="flex:1">light brown sugar</span><s style="font-size:12px;color:var(--color-neutral-700)">150 g</s></div>
+            <div style="display:flex;gap:8px"><button class="btn btn-secondary" style="height:40px;flex:1;font-size:13px;background:var(--color-bg)">Reply</button><button class="btn btn-primary" style="height:40px;flex:1;font-size:13px">Review</button></div>
+          </div>
+          <div style="padding:14px;border-radius:28px;background:var(--color-accent-100);display:flex;align-items:center;gap:10px;font-size:14px"><span style="flex:1"><b>Lin</b> replied on your suggestion to <b>Shakshuka</b></span><i data-lucide="chevron-right"></i></div>
+          <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-top:8px">Your families this week</div>
+          <sc-for list="{{ fams }}" as="f" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:26px;background:var(--color-surface)">
+              <span style="width:44px;height:44px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:22px">{{ f.emoji }}</span>
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">{{ f.title }}</div><div style="font-size:12px;color:var(--color-neutral-700)">{{ f.sub }}</div></div>
+              <span class="tag tag-accent-2" style="gap:4px;font-weight:600"><i data-lucide="git-branch"></i>+{{ f.n }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="activity" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">Things waiting on you are pulled to the top and actionable from here. Everything else rolls up per family, which keeps a popular recipe from flooding the screen.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t12" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t12">12</a><span class="dv-tname">Shared recipe</span></div>
+  <p class="dv-intro"><code>/shared/:id</code> is what a friend opens from a link, often without an account. <a class="dv-oid" href="#12c">12c</a> is <code>/shared</code>, assumed here to be the share-target/import page; tell me if it does something else.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="12a">
+      <div class="dv-olabel"><a class="dv-oid" href="#12a">12a</a>Invitation card</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column;padding:0 22px">
+        <div style="position:absolute;top:-80px;right:-90px;width:300px;height:300px;border-radius:999px;background:var(--color-accent-200)"></div>
+        <div style="position:relative;padding-top:64px;font-family:var(--font-heading);font-size:20px">Recipe Lab</div>
+        <div style="position:relative;margin-top:60px;display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:999px;background:var(--color-accent-2-300);display:grid;place-items:center;font-weight:700">O</span><span style="font-size:15px"><b>Ola</b> sent you a recipe</span></div>
+        <div style="position:relative;margin-top:16px;padding:22px;border-radius:36px;background:var(--color-surface);display:flex;flex-direction:column;gap:12px">
+          <span style="width:80px;height:80px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-bg);display:grid;place-items:center;font-size:40px">🍞</span>
+          <h2 style="margin:0;font-size:30px;line-height:1.05">Less sugar</h2>
+          <div style="font-size:14px;color:var(--color-neutral-800)">A branch of Hana's <b>Banana bread</b>, one of 7 versions.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">1 hr 10</span><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">Easy</span><span class="tag tag-neutral" style="font-size:13px;padding:5px 12px">8 slices</span></div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="position:relative;padding-bottom:30px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" style="height:54px;font-size:16px">Open recipe</button>
+          <button class="btn btn-secondary" style="height:50px;font-size:15px;gap:6px"><i data-lucide="bookmark"></i>Save to my recipes</button>
+          <div style="text-align:center;font-size:12px;color:var(--color-neutral-700);margin-top:4px">Reading needs no account.</div>
+        </div>
+      </div>
+      <p class="dv-note">A landing page that introduces the app and the family in one line before showing the recipe. Good for people new to the app.</p>
+    </div>
+
+    <div class="dv-opt" id="12b">
+      <div class="dv-olabel"><a class="dv-oid" href="#12b">12b</a>Straight to the recipe, with a banner</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 16px 0"><div style="display:flex;align-items:center;gap:10px;padding:8px 8px 8px 8px;border-radius:999px;background:var(--color-surface);font-size:13px"><span style="width:32px;height:32px;border-radius:999px;background:var(--color-accent-2-300);display:grid;place-items:center;font-weight:700">O</span><span style="flex:1">Shared by <b>Ola</b></span><span style="height:32px;padding:0 12px;border-radius:999px;background:var(--color-bg);display:flex;align-items:center;font-weight:600">Get the app</span></div></div>
+        <div style="flex:1;overflow:hidden;padding:18px 22px 0">
+          <div style="display:flex;align-items:flex-start;gap:16px"><h1 style="flex:1;font-size:34px;line-height:1.04;margin:0">Less sugar</h1><span style="width:72px;height:72px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:36px">🍞</span></div>
+          <div style="margin-top:14px;padding:12px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:14px;display:flex;gap:10px"><i data-lucide="git-branch"></i><span>Ola asked for <i>"less sugar"</i> on Hana's <b>Banana bread</b>. <u>See all 7 versions</u></span></div>
+          <h4 style="margin:22px 0 6px">Ingredients</h4>
+          <sc-for list="{{ ingredients }}" as="g" hint-placeholder-count="5"><div style="display:flex;gap:12px;padding:9px 0;font-size:15px;border-bottom:1px solid color-mix(in srgb,var(--color-text) 8%,transparent)"><b style="min-width:62px">{{ g.amt }}</b>{{ g.name }}</div></sc-for>
+        </div>
+        <div style="padding:12px 20px 28px;display:flex;gap:10px;background:var(--color-bg);box-shadow:0 -1px 0 var(--color-divider)">
+          <button class="btn btn-secondary" style="height:52px;flex:1;font-size:15px;gap:6px"><i data-lucide="bookmark"></i>Save</button>
+          <button class="btn btn-primary" style="height:52px;flex:2;font-size:15px;gap:6px"><i data-lucide="git-branch-plus"></i>Make it yours</button>
+        </div>
+      </div>
+      <p class="dv-note">The same recipe page as everywhere else, with a slim "Shared by" banner. Save and Branch trigger the contextual sign-in sheet (5a) when needed.</p>
+    </div>
+
+    <div class="dv-opt" id="12c">
+      <div class="dv-olabel"><a class="dv-oid" href="#12c">12c</a>/shared · import from a link</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span></div>
+        <div style="padding:8px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <h2 style="margin:0;font-size:30px">Add from a link</h2>
+          <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 18px;border-radius:999px;background:var(--color-surface);font-size:14px;color:var(--color-neutral-800)"><i data-lucide="link"></i><span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">smittenkitchen.com/2023/04/shakshuka</span></div>
+          <div style="padding:18px;border-radius:30px;background:var(--color-bg);box-shadow:var(--shadow-md);display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px"><span style="width:52px;height:52px;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:26px">🍳</span><div style="flex:1"><div style="font-family:var(--font-heading);font-size:19px">Shakshuka</div><div style="font-size:12px;color:var(--color-neutral-700)">9 ingredients · 6 steps · 35 min</div></div></div>
+            <div style="display:flex;gap:10px;padding:12px 14px;border-radius:20px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:13px"><i data-lucide="git-branch"></i><span>There's already a <b>Shakshuka</b> family with 9 versions. Add this as a branch, or as a new original?</span></div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="padding:12px 20px 28px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" style="height:52px;font-size:15px">Add to Shakshuka family</button>
+          <button class="btn btn-ghost" style="height:44px;font-size:14px">Save as a new original</button>
+        </div>
+      </div>
+      <p class="dv-note">Needed with either option above. Reuses the dedup match (7b) so imports join an existing family by default.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t13" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t13">13</a><span class="dv-tname">Settings</span></div>
+  <p class="dv-intro">Reached from the You tab. Appearance keeps Light, Dark and System, with dark designed in the system canvas.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="13a">
+      <div class="dv-olabel"><a class="dv-oid" href="#13a">13a</a>Grouped list</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="font-family:var(--font-heading);font-size:22px">Settings</span></div>
+        <div style="flex:1;overflow:hidden;padding:12px 18px 0;display:flex;flex-direction:column;gap:18px">
+          <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Account</div>
+            <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--color-divider)"><span style="width:40px;height:40px;border-radius:999px;background:var(--color-accent-300);display:grid;place-items:center;font-weight:700">H</span><div style="flex:1"><div style="font-weight:700;font-size:15px">Hana Mori</div><div style="font-size:12px;color:var(--color-neutral-700)">hana@example.com · Google</div></div><i data-lucide="chevron-right"></i></div>
+              <div style="display:flex;align-items:center;padding:14px 0;font-size:15px"><span style="flex:1">Sign-in methods</span><span style="font-size:13px;color:var(--color-neutral-700);margin-right:6px">2</span><i data-lucide="chevron-right"></i></div>
+            </div></div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Appearance</div>
+            <div style="border-radius:28px;background:var(--color-surface);padding:14px 16px;display:flex;flex-direction:column;gap:14px">
+              <div class="seg" style="display:flex;background:var(--color-bg)"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="a13">Light</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="a13">Dark</label><label class="seg-opt" style="flex:1;justify-content:center;background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="a13">System</label></div>
+              <div style="display:flex;align-items:center;font-size:15px"><span style="flex:1">Units</span><div class="seg" style="display:flex;background:var(--color-bg)"><label class="seg-opt" style="background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="u13">Metric</label><label class="seg-opt"><input type="radio" name="u13">US</label></div></div>
+            </div></div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin:0 0 6px 6px">Notify me when</div>
+            <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+              <sc-for list="{{ notif }}" as="n" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;padding:13px 0;font-size:15px;border-bottom:{{ n.rule }}"><span style="flex:1">{{ n.label }}</span><span style="width:44px;height:26px;border-radius:999px;background:{{ n.track }};position:relative;flex:none"><span style="position:absolute;left:{{ n.knob }};top:3px;width:20px;height:20px;border-radius:999px;background:var(--color-bg)"></span></span></div>
+              </sc-for>
+            </div></div>
+          <div style="border-radius:28px;background:var(--color-surface);padding:4px 16px">
+            <div style="display:flex;align-items:center;padding:14px 0;font-size:15px;border-bottom:1px solid var(--color-divider)"><span style="flex:1">Export my recipes</span><i data-lucide="download"></i></div>
+            <div style="padding:14px 0;font-size:15px;font-weight:600;color:var(--color-accent-700)">Sign out</div>
+          </div>
+        </div>
+      </div>
+      <p class="dv-note">A familiar settings list on surface cards. Delete account sits below Sign out, scrolled off here.</p>
+    </div>
+
+    <div class="dv-opt" id="13b">
+      <div class="dv-olabel"><a class="dv-oid" href="#13b">13b</a>Profile card + visual appearance picker</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span></div>
+        <div style="flex:1;overflow:hidden;padding:4px 20px 0;display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;align-items:center;gap:16px"><span style="width:76px;height:76px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-300);display:grid;place-items:center;font-family:var(--font-heading);font-size:32px">H</span><div style="flex:1"><div style="font-family:var(--font-heading);font-size:24px">Hana Mori</div><div style="font-size:13px;color:var(--color-neutral-700)">hana@example.com</div></div><button class="btn btn-secondary" style="height:40px;font-size:13px">Edit</button></div>
+          <div>
+            <div style="font-family:var(--font-heading);font-size:18px;margin-bottom:10px">Appearance</div>
+            <div style="display:flex;gap:10px">
+              <sc-for list="{{ themes }}" as="t" hint-placeholder-count="3">
+                <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px">
+                  <div style="width:100%;height:120px;border-radius:22px;background:{{ t.bg }};box-shadow:{{ t.ring }};padding:12px;display:flex;flex-direction:column;gap:6px;overflow:hidden">
+                    <span style="width:60%;height:10px;border-radius:999px;background:{{ t.ink }}"></span><span style="height:34px;border-radius:12px;background:{{ t.surf }}"></span><span style="height:34px;border-radius:12px;background:{{ t.surf }}"></span>
+                  </div>
+                  <span style="font-size:13px;font-weight:{{ t.weight }}">{{ t.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="4">
+              <div style="padding:16px;border-radius:26px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px"><span style="font-size:20px;color:var(--color-accent-700)"><i data-lucide="{{ t.icon }}"></i></span><div style="font-weight:700;font-size:14px">{{ t.label }}</div><div style="font-size:12px;color:var(--color-neutral-700);margin-top:-8px">{{ t.sub }}</div></div>
+            </sc-for>
+          </div>
+          <div style="font-size:15px;font-weight:600;color:var(--color-accent-700);padding:0 6px">Sign out</div>
+        </div>
+      </div>
+      <p class="dv-note">Leads with identity. Appearance is shown as three mini previews; the rest are tiles that open their own pages. Fewer settings visible at once, more air.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t14" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t14">14</a><span class="dv-tname">Avatar editor</span></div>
+  <p class="dv-intro">Opened from Edit profile. Initials on a ramp colour are the default, so nobody is forced to upload a photo.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="14a">
+      <div class="dv-olabel"><a class="dv-oid" href="#14a">14a</a>Bottom sheet · photo, initials or emoji</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:110px 22px 0;opacity:.35"><div style="width:80px;height:80px;border-radius:999px;background:var(--color-accent-300)"></div><div style="margin-top:16px;height:40px;width:200px;border-radius:999px;background:var(--color-surface)"></div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 28px;display:flex;flex-direction:column;gap:18px;align-items:stretch">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <span style="align-self:center;width:120px;height:120px;border-radius:999px;background:var(--color-accent-2-300);display:grid;place-items:center;font-family:var(--font-heading);font-size:52px;color:var(--color-accent-2-900)">H</span>
+          <div class="seg" style="display:flex"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="a14">Photo</label><label class="seg-opt" style="flex:1;justify-content:center;background:var(--color-accent);color:var(--color-bg)"><input type="radio" name="a14">Initials</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="a14">Emoji</label></div>
+          <div><div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:10px">Colour</div>
+            <div style="display:flex;justify-content:space-between">
+              <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6"><span style="width:44px;height:44px;border-radius:999px;background:{{ s.c }};box-shadow:{{ s.ring }}"></span></sc-for>
+            </div></div>
+          <button class="btn btn-primary" style="height:52px;font-size:15px">Save</button>
+        </div>
+      </div>
+      <p class="dv-note">One compact sheet. Photo mode swaps the swatches for Upload and Take photo plus a circular crop.</p>
+    </div>
+
+    <div class="dv-opt" id="14b">
+      <div class="dv-olabel"><a class="dv-oid" href="#14b">14b</a>Full screen · food emoji on a blob</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><button class="btn btn-ghost" style="height:44px;font-size:15px;color:var(--color-text);padding:0 10px">Cancel</button><span style="flex:1"></span><button class="btn btn-primary" style="height:40px;padding:0 18px;font-size:14px;margin-right:8px">Save</button></div>
+        <div style="padding:20px 0 0;display:flex;justify-content:center"><span style="width:170px;height:170px;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:84px">🥐</span></div>
+        <div style="padding:22px 22px 0;display:flex;justify-content:center;gap:10px">
+          <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="6"><span style="width:36px;height:36px;border-radius:999px;background:{{ s.c }};box-shadow:{{ s.ring2 }}"></span></sc-for>
+        </div>
+        <div style="padding:24px 20px 0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+          <sc-for list="{{ emojis }}" as="e" hint-placeholder-count="15"><span style="aspect-ratio:1;border-radius:999px;background:{{ e.bg }};display:grid;place-items:center;font-size:28px">{{ e.e }}</span></sc-for>
+        </div>
+        <div style="flex:1"></div>
+        <div style="padding:0 20px 30px;display:flex;gap:10px"><button class="btn btn-secondary" style="flex:1;height:48px;gap:6px;font-size:14px"><i data-lucide="image"></i>Use a photo</button><button class="btn btn-secondary" style="flex:1;height:48px;gap:6px;font-size:14px"><i data-lucide="type"></i>Initials</button></div>
+      </div>
+      <p class="dv-note">More playful, and on-theme: a food emoji on an Organic blob reads as a cook's mark. Photos and initials are still one tap away.</p>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t15" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t15">15</a><span class="dv-tname">Auth edge states</span></div>
+  <p class="dv-intro">EmailLinkStatus covers signing in, expired links and links opened on a different device. Pick a pattern: full screen (<a class="dv-oid" href="#15a">15a</a>) or a sheet over wherever the link lands (<a class="dv-oid" href="#15b">15b</a>). <a class="dv-oid" href="#15c">15c</a> is the stranded identity notice and works with either.</p>
+  <div class="dv-opts">
+    <div class="dv-opt" id="15a">
+      <div class="dv-olabel"><a class="dv-oid" href="#15a">15a</a>Full screen · link expired</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column;padding:0 24px">
+        <div style="position:absolute;top:-70px;left:-80px;width:280px;height:280px;border-radius:999px;background:var(--color-neutral-300)"></div>
+        <div style="flex:1"></div>
+        <span style="position:relative;width:76px;height:76px;border-radius:999px;background:var(--color-surface);display:grid;place-items:center;font-size:34px;color:var(--color-accent-700)"><i data-lucide="hourglass"></i></span>
+        <h2 style="position:relative;margin:20px 0 0;font-size:32px;line-height:1.05">That link has expired</h2>
+        <p style="margin:10px 0 0;font-size:15px;color:var(--color-neutral-800);text-wrap:pretty">Sign-in links work once and last an hour. We'll send a fresh one to <b>hana@example.com</b>.</p>
+        <div style="flex:1.3"></div>
+        <div style="padding-bottom:30px;display:flex;flex-direction:column;gap:8px"><button class="btn btn-primary" style="height:54px;font-size:16px">Send a new link</button><button class="btn btn-ghost" style="height:44px;font-size:14px">Use a password instead</button></div>
+      </div>
+      <p class="dv-note">Same layout as 5c "Check your inbox". The "Signing you in…" state uses it too, with a spinner in the circle and no buttons.</p>
+    </div>
+
+    <div class="dv-opt" id="15b">
+      <div class="dv-olabel"><a class="dv-oid" href="#15b">15b</a>Sheet · opened on another device</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:100px 22px 0;opacity:.4"><h2 style="margin:0;font-size:32px">What's growing</h2><div style="margin-top:16px;height:220px;width:200px;border-radius:30px;background:var(--color-surface)"></div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 40%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 28px;display:flex;flex-direction:column;gap:14px">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <span style="width:52px;height:52px;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-size:24px"><i data-lucide="smartphone"></i></span>
+          <div style="font-family:var(--font-heading);font-size:24px;line-height:1.1">Finish signing in here</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">You asked for this link on another device. Confirm your email to sign in on this one.</div>
+          <div class="field"><label>Email</label><div style="height:50px;padding:0 18px;border-radius:999px;background:var(--color-surface);border:1.5px solid var(--color-accent);display:flex;align-items:center;font-size:15px">hana@example.com</div></div>
+          <button class="btn btn-primary" style="height:52px;font-size:15px">Sign in</button>
+        </div>
+      </div>
+      <p class="dv-note">The page underneath stays put, so the person lands where the link pointed. Expired and signing-in become the same sheet with different copy.</p>
+    </div>
+
+    <div class="dv-opt" id="15c">
+      <div class="dv-olabel"><a class="dv-oid" href="#15c">15c</a>Stranded identity notice</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:56px 22px 0;display:flex;align-items:center;gap:14px"><span style="width:64px;height:64px;border-radius:999px;background:var(--color-accent-300);display:grid;place-items:center;font-family:var(--font-heading);font-size:26px">H</span><div><div style="font-family:var(--font-heading);font-size:24px">Hana Mori</div><div style="font-size:13px;color:var(--color-neutral-700)">Signed in with Google</div></div></div>
+        <div style="margin:22px 18px 0;padding:18px;border-radius:30px;background:var(--color-accent-100);display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:10px;align-items:flex-start"><span style="color:var(--color-accent-700);font-size:20px;margin-top:2px"><i data-lucide="package-open"></i></span><div><div style="font-weight:700;font-size:15px">3 recipes from your guest session</div><div style="font-size:13px;color:var(--color-accent-900);margin-top:2px">You made these before signing in. They're still on this device but not on your account.</div></div></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding-left:30px"><span class="tag" style="background:var(--color-bg);font-size:12px">🍜 Miso noodles</span><span class="tag" style="background:var(--color-bg);font-size:12px">🥗 Fattoush</span><span class="tag" style="background:var(--color-bg);font-size:12px">+1</span></div>
+          <div style="display:flex;gap:8px"><button class="btn btn-ghost" style="height:44px;flex:1;font-size:14px;color:var(--color-accent-800)">Not now</button><button class="btn btn-primary" style="height:44px;flex:1.4;font-size:14px">Move to my account</button></div>
+        </div>
+        <div style="padding:22px 22px 0;opacity:.45"><div style="height:44px;border-radius:999px;background:var(--color-surface)"></div><div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="height:120px;border-radius:26px;background:var(--color-surface)"></div><div style="height:120px;border-radius:26px;background:var(--color-surface)"></div></div></div>
+        <dc-import name="Tab Bar" active="profile" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">The follow-on to 5e: if someone signs in to an existing account instead of upgrading the guest one, their guest recipes are named and can be moved in one tap.</p>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const ring = 'inset 0 0 0 2px var(--color-accent)';
+    const editRows = [['4','very ripe bananas'],['115 g','butter, browned'],['100 g','light brown sugar',1],['2','eggs'],['190 g','plain flour']].map(([amt,name,f]) => ({ amt, name, ring: f ? ring : 'none' }));
+    const steps = [
+      { n: 1, text: 'Brown the butter until it smells nutty. Cool for 10 minutes.' },
+      { n: 2, text: 'Mash 4 bananas with the sugar, then beat in the eggs and butter.', f: 1 },
+      { n: 3, text: 'Fold in flour, soda and salt until just combined.' }
+    ].map(s => ({ ...s, bg: s.f ? 'var(--color-neutral-100)' : 'var(--color-surface)', ring: s.f ? ring : 'none' }));
+    const closed = [
+      { ini: 'L', av: 'var(--color-accent-2-400)', text: 'Add a pinch of cardamom', status: 'Applied', tag: 'tag-accent-2' },
+      { ini: 'A', av: 'var(--color-accent-400)', text: 'Bake at 160°C fan instead', status: 'Declined', tag: 'tag-neutral' }
+    ];
+    const B = 'var(--color-accent-2-600)', S = 'var(--color-accent-600)', N = 'var(--color-neutral-700)';
+    const act = [
+      { ini: 'S', av: 'var(--color-neutral-300)', who: 'Sami', verb: 'suggested a change to', what: 'Less sugar', sub: '"Try 100 g sugar" · 2h', icon: 'message-circle', badgeBg: S, unread: true },
+      { ini: 'L', av: 'var(--color-accent-2-400)', who: 'Lin', verb: 'branched your', what: 'Banana bread', sub: '"vegan, no eggs" · 4h', icon: 'git-branch', badgeBg: B, unread: true },
+      { ini: 'A', av: 'var(--color-accent-400)', who: 'Ana', verb: 'started following you', what: '', sub: '6h', icon: 'user-plus', badgeBg: N },
+      { ini: 'O', av: 'var(--color-accent-2-300)', who: 'Ola', verb: 'saved', what: 'Miso butter noodles', sub: 'Yesterday', icon: 'bookmark', badgeBg: N },
+      { ini: 'S', av: 'var(--color-neutral-300)', who: 'Sami', verb: 'branched', what: 'Less sugar', sub: '"add walnuts" · Yesterday', icon: 'git-branch', badgeBg: B },
+      { ini: 'L', av: 'var(--color-accent-2-400)', who: 'Lin', verb: 'applied your suggestion to', what: 'Dumplings', sub: 'Mon', icon: 'check', badgeBg: B }
+    ];
+    const fams = [
+      { emoji: '🍞', title: 'Banana bread', sub: 'Lin, Sami and 1 other branched it', n: 3 },
+      { emoji: '🍜', title: 'Miso butter noodles', sub: 'Ola branched it', n: 1 },
+      { emoji: '🍋', title: 'Lemon olive oil cake', sub: 'Saved 4 times, no new branches', n: 0 }
+    ];
+    const ingredients = [['3','very ripe bananas'],['115 g','butter, browned'],['150 g','light brown sugar'],['2','eggs'],['190 g','plain flour']].map(([amt,name]) => ({ amt, name }));
+    const notif = ['Someone branches my recipe','I get a suggestion','Someone follows me'].map((label, i) => ({ label, track: i < 2 ? 'var(--color-accent-2-600)' : 'var(--color-neutral-400)', knob: i < 2 ? '21px' : '3px', rule: i < 2 ? '1px solid var(--color-divider)' : 'none' }));
+    const themes = [
+      { label: 'Light', bg: '#f5ead8', surf: '#ebddc5', ink: '#201e1d' },
+      { label: 'Dark', bg: '#1f1b17', surf: '#2c2620', ink: '#f1e6d4' },
+      { label: 'System', bg: 'linear-gradient(135deg,#f5ead8 50%,#1f1b17 50%)', surf: 'color-mix(in srgb,#ebddc5 50%,#2c2620)', ink: '#c67139', on: 1 }
+    ].map(t => ({ ...t, ring: t.on ? '0 0 0 3px var(--color-accent)' : 'inset 0 0 0 1px var(--color-divider)', weight: t.on ? 700 : 400 }));
+    const tiles = [
+      { icon: 'bell', label: 'Notifications', sub: '2 of 3 on' }, { icon: 'ruler', label: 'Units', sub: 'Metric' },
+      { icon: 'key-round', label: 'Sign-in', sub: 'Google, email' }, { icon: 'download', label: 'Your data', sub: 'Export, delete' }
+    ];
+    const sw = ['var(--color-accent-300)','var(--color-accent-2-300)','var(--color-neutral-300)','var(--color-accent-200)','var(--color-accent-2-200)','var(--color-accent-400)'];
+    const swatches = sw.map((c, i) => ({ c, ring: i === 1 ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : 'none', ring2: i === 3 ? '0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-text)' : 'none' }));
+    const emojis = ['🥐','🍞','🍳','🍜','🥟','🍋','🧄','🌶️','🥑','🍅','🧀','🍰','🥕','🍄','🫖'].map((e, i) => ({ e, bg: i === 0 ? 'var(--color-accent-200)' : 'var(--color-surface)' }));
+    return { editRows, steps, closed, act, fams, ingredients, notif, themes, tiles, swatches, emojis };
+  }
+}
+</script>
+</body>
+</html>

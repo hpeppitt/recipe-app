@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<style>body{margin:0;background:var(--color-neutral-200)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}</style>
+</helmet>
+
+<section id="picks" style="padding:44px 48px 20px;max-width:1100px">
+  <div style="display:flex;align-items:baseline;gap:10px"><span style="font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#201e1d;color:#fff;border-radius:4px">SPEC</span><span style="font:400 30px/1.2 var(--font-heading)">Recipe Lab: final screens for implementation</span></div>
+  <p style="font-size:14px;color:var(--color-neutral-800);max-width:760px;text-wrap:pretty;margin:10px 0 0">Every phone below is a live instance of <a href="App Prototype.dc.html">App Prototype</a>, so the spec and the prototype can't drift. Click around inside any of them. Tokens come from Organic <code>styles.css</code>; dark values are in the table at the bottom. Screens not in the prototype link to their option canvases.</p>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px;font-size:13px">
+    <div style="padding:16px;border-radius:24px;background:var(--color-bg)"><b>Your calls</b><div style="color:var(--color-neutral-800);margin-top:4px">Explore: 1b landing, 1a search, 1c pantry. Recipe: 2a original, 2a + 2b branch, 2c as "What changed". Author 4a + 4c. Auth 5a to 5e. Generate 6a to 6c. Branching 3a to 3e. Photos optional, emoji fallback.</div></div>
+    <div style="padding:16px;border-radius:24px;background:var(--color-bg)"><b>My picks (you said decide)</b><div style="color:var(--color-neutral-800);margin-top:4px">8a edit in place · 9b tap a line · 10a thread · 11b needs-you first · 12b + 12c shared · 13a settings list · 14a avatar sheet · 15b sheet + 15c · 16a tree intro · 17a breadcrumb · 18a nutrition · 19a soft patterns · 20a warm night · 21a list | recipe.</div></div>
+    <div style="padding:16px;border-radius:24px;background:var(--color-bg)"><b>Option canvases</b><div style="margin-top:4px;display:flex;flex-direction:column;gap:2px"><a href="Explore and Recipe.dc.html">Explore and Recipe (1, 2)</a><a href="Branching.dc.html">Branching (3)</a><a href="Social Auth and Generate.dc.html">Social, auth, generate (4 to 7)</a><a href="Collaboration and Account.dc.html">Collaboration and Account (8 to 15)</a><a href="Recipe Parts and System.dc.html">Recipe Parts and System (16 to 21)</a></div></div>
+  </div>
+</section>
+
+<section id="discover" style="padding:28px 48px">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Discover</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="explore" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Explore · landing (1b)</div>
+        <div><b>Route</b> <code>/</code> · replaces <code>LibraryPage</code></div>
+        <div><b>Sections</b> Branching fast this week (horizontal, scroll-snap, 200px tiles), Most branched (top 3, rank 1 in accent), pantry entry card (accent-2-200).</div>
+        <div><b>Imagery</b> Photo in a <code>.washed</code> 30px-radius tile when present; otherwise the emoji at 76px on a rotating tint (accent-200, accent-2-200, surface).</div>
+        <div><b>States</b> Loading uses the 19a skeleton. Offline: inline banner over cached sections.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="search" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Search (1a)</div>
+        <div><b>Route</b> <code>/search?q=</code></div>
+        <div><b>Behaviour</b> One pill searches titles and ingredients across originals and branches. "Write it" sends the query to Chat as the prompt. Chips filter: All, Under 30 min, Easy, Branches.</div>
+        <div><b>Empty result</b> Accent-100 card that turns the query into a new recipe. Never a dead end.</div>
+        <div>Try: type "walnut", or "pizza" for the empty state.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="explore" sheet="pantry" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Pantry sheet (1c)</div>
+        <div><b>Opened from</b> the Explore card and the Pantry chip in Search.</div>
+        <div><b>Behaviour</b> Recipes must use every listed ingredient. Count in the CTA updates live. Secondary action writes a new recipe with the same constraints.</div>
+        <div><b>Sheet</b> 36px top radius, 44×5 grabber, backdrop neutral-900 at 45%, tap backdrop to close.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="recipe" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Recipe</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="recipe" rid="bb" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Original recipe (2a)</div>
+        <div><b>Route</b> <code>/recipe/:id</code> when <code>parentId</code> is null</div>
+        <div><b>Order</b> Title + emoji blob (76px, organic radius), description, pills (author, time, difficulty, kcal), ingredients with stepper (18a), method, nutrition (collapsed), sibling carousel (3d).</div>
+        <div><b>Ingredients</b> Tap to tick off while cooking (sage). Scaled amounts turn accent-700 with a "Scaled ×n" strip and Reset.</div>
+        <div><b>Footer</b> Suggest (or Edit if yours) + Branch this recipe. Save, Branch, Suggest open the 5a sheet when signed out.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="recipe" rid="lseb" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Branch recipe (2a + 2b)</div>
+        <div><b>Route</b> <code>/recipe/:id</code> when <code>parentId</code> is set</div>
+        <div><b>Back</b> Goes up the family, not through history: branch → parent → … → original → the list you came from. Changes and Tree go back to their recipe.</div>
+        <div><b>Family label</b> Under the title, bold accent-2-700 "Banana bread variation", so a branch name like "Chocolate chunk" always reads in context. Search rows carry the same label.</div>
+        <div><b>Differences from original</b> 230px hero (photo, or emoji on accent-200) with floating 44px controls; sage lineage strip (17a) replaces the description.</div>
+        <div><b>Breadcrumb</b> Root and parent always shown; deeper paths collapse to "+N". Each crumb navigates. "See what changed" opens the diff vs parent.</div>
+        <div><b>Carousel</b> Children of this recipe; on a leaf, its siblings ("Other ways from here"). Cards: 290px, 32px radius, Compare (diff vs this recipe) and Open. "The original" row links to root.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="changes" rid="lseb" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">What changed (2c / 3e)</div>
+        <div><b>Route</b> <code>/recipe/:id/changes?vs=</code> (default: parent)</div>
+        <div><b>Data</b> <code>diffRecipes()</code> from ticket 2: ingredients matched by name before the comma, so amount edits are one "~" row.</div>
+        <div><b>Rows</b> ~ changed accent-100, + added accent-2-100, − removed neutral-100 struck. Old value struck at the right.</div>
+        <div><b>Modes</b> Changes only / Side by side (two minmax(0,1fr) columns, works at 320px). Only changed steps are listed, old text struck above new.</div>
+        <div><b>Entry points</b> Breadcrumb link, carousel Compare, Timeline/Map stop card tags.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="recipe" rid="ls" signed-in="{{ true }}" suggest="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Suggest mode (9b)</div>
+        <div><b>Replaces</b> <code>SuggestChangeModal</code></div>
+        <div><b>Behaviour</b> The page becomes the form: sage banner replaces the header, tapping an ingredient opens an inline amount editor with the accent ring. Sends a structured edit the author can apply in one tap.</div>
+        <div><b>Gap to fill</b> Add a "General note" row at the end of the list for suggestions that aren't one line (9a's General).</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="edit" rid="bb" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Edit (8a)</div>
+        <div><b>Route</b> <code>/recipe/:id/edit</code> · only the author</div>
+        <div><b>Fields</b> Title with dashed accent-400 underline; amount (76px) and name pills on neutral-100; drag handle; remove; dashed "Add ingredient".</div>
+        <div><b>Footer</b> States how many branches keep their own copy. Method editing uses the same row pattern (not shown).</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="family" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Family</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="tree" rid="lseb" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Tree (3a)</div>
+        <div><b>Route</b> <code>/recipe/:id/tree?view=tree|timeline|map</code></div>
+        <div><b>Connectors</b> 3px, 16px elbow radius, 40px per depth. Rails continue for any ancestor with later siblings, so it generalises to any depth.</div>
+        <div><b>Path</b> Elbows on the ancestry path to the current recipe are accent; current node gets accent-100 fill, 2px ring and a "Here" tag.</div>
+        <div><b>First visit</b> Shows the 16a intro sheet once.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="tree" rid="lseb" view="timeline" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Timeline (3b)</div>
+        <div><b>Layout</b> x by <code>createdAt</code> order (66px spacing), lanes 60px apart. A first child continues its parent's lane; other children open a new lane named after their prompt.</div>
+        <div><b>Colours</b> Lane ramp cycles neutral-700, accent, accent-2-600, accent-400, accent-2-400. Ancestry path strokes are 7px, others 5px.</div>
+        <div><b>Stop</b> Tap selects (2px ink ring) and fills the card below: generation, author, change tags, Open, Branch here.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="tree" rid="lseb" view="map" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Map (3c)</div>
+        <div><b>Layout</b> Rings 78px apart per generation, dashed neutral-400. Angles are split by leaf count so big subtrees get more room.</div>
+        <div><b>Nodes</b> Root filled ink; path nodes accent-200 with accent stroke; current node dashed outer ring.</div>
+        <div><b>Over ~20 versions</b> Suggest switching to Timeline in a banner above the map.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="tree" rid="lseb" sheet="intro" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Tree intro (16a)</div>
+        <div><b>Replaces</b> <code>TreeIntro</code>. Its diagram is a scaled 3a (14px elbows, 36px indent), per the decisions.md rule that the intro mirrors the real tree.</div>
+        <div><b>Shown</b> Once per device, on first tree visit. "Got it" or backdrop dismisses.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="create" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Create and branch</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="branch" rid="lseb" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Branch composer (6b)</div>
+        <div><b>Route</b> <code>/recipe/:id/vary</code></div>
+        <div><b>Behaviour</b> One instruction, quick-change chips append to it. Grow shows a skeleton card while generating, then opens What changed for the new branch.</div>
+        <div>Try: tap "Less sugar" then Grow.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="create" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Create tab (6c)</div>
+        <div><b>Behaviour</b> Each underlined word cycles through three options. Write it builds the same prompt text the chat would and hands over to Chat. "My own way" goes to Search, whose Write it also feeds Chat.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="chat" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Chat (6a)</div>
+        <div><b>Replaces</b> <code>RecipeChatPage</code></div>
+        <div><b>Behaviour</b> The recipe is a collapsible card at the top; refinement chips sit above the composer. Save creates an original.</div>
+        <div><b>Dedup (7a)</b> When the prompt matches an existing family, a sage banner offers to branch instead. See <a href="Social Auth and Generate.dc.html#7a">7a to 7d</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="social" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">People and activity</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="activity" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Activity (11b)</div>
+        <div><b>Route</b> <code>/activity</code> · replaces the <code>NotificationBell</code> dropdown</div>
+        <div><b>Order</b> Needs you (suggestions and replies, accent-100, actionable), your families this week (rolled up), then an Earlier feed with type badges.</div>
+        <div><b>Tab badge</b> Count of "Needs you" items on the bell.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="thread" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Suggestion thread (10a)</div>
+        <div><b>Replaces</b> <code>SuggestionThread</code></div>
+        <div><b>Behaviour</b> Proposed edit pinned at top as a diff row. Apply edits the recipe; Decline notifies; Keep as branch creates a branch credited to the suggester.</div>
+        <div><b>Status tag</b> Open accent · Applied / Branched accent-2 · Declined neutral.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="profile" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Profile (4a + 4c)</div>
+        <div><b>Route</b> <code>/profile</code>, <code>/u/:name</code></div>
+        <div><b>Layout</b> Blob avatar, four stat tiles, Started / Grew tabs (4a) over a two-column tile grid (4c). Tiles use the photo when present, else emoji on a tint.</div>
+        <div><b>Variants</b> Others: back + Follow. Guest: the 5e "keep my recipes" card. Signed out: "You're browsing".</div>
+        <div><b>Avatar</b> Edit opens the <a href="Collaboration and Account.dc.html#14a">14a</a> sheet.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="settings" signed-in="{{ true }}" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Settings (13a)</div>
+        <div><b>Route</b> <code>/settings</code></div>
+        <div><b>Appearance</b> Light / Dark / System. Dark is live in the prototype: tap Dark.</div>
+        <div><b>Toggles</b> 44×26 track, accent-2-600 on, neutral-400 off.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="saved" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Saved · empty state (19a)</div>
+        <div><b>Pattern</b> Off-canvas circle, 84px blob icon, Caprasimo 26px headline, one action, bottom-aligned for thumb reach. Same pattern for errors with a "Try again" secondary.</div>
+        <div><b>Dialogs</b> Centered <code>.dialog</code>, destructive action in accent-700. See <a href="Recipe Parts and System.dc.html#19a">19a</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="auth" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Sign-in</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="recipe" rid="lseb" sheet="auth" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Contextual sheet (5a)</div>
+        <div><b>Replaces</b> <code>AuthModal</code></div>
+        <div><b>Trigger</b> First save, branch, suggest or follow. Headline names the action. After sign-in, the pending action runs automatically.</div>
+        <div><b>Guest</b> Text link with the trade-off stated.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="email" hint-size="438px,892px"></dc-import>
+      <div style="width:320px;padding-top:30px;display:flex;flex-direction:column;gap:10px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Email (5b) → inbox (5c)</div>
+        <div><b>Behaviour</b> Magic link / Password segment, remembered per device. The inbox screen says where the link returns you.</div>
+        <div><b>Edge states</b> Link opened elsewhere, expired, signing in: one sheet over the landing page (<a href="Collaboration and Account.dc.html#15b">15b</a>). Stranded guest recipes: <a href="Collaboration and Account.dc.html#15c">15c</a>. Invite gate: <a href="Social Auth and Generate.dc.html#5d">5d</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="elsewhere" style="padding:28px 48px;border-top:1px solid var(--color-divider)">
+  <div style="font:400 24px var(--font-heading);margin-bottom:16px">Dark theme and other screens</div>
+  <div style="display:flex;flex-wrap:wrap;gap:40px">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <dc-import name="App Prototype" start="recipe" rid="lseb" theme="dark" hint-size="438px,892px"></dc-import>
+      <div style="width:420px;padding-top:30px;display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.5">
+        <div style="font:400 20px var(--font-heading)">Dark Organic (20a)</div>
+        <div>Set on <code>[data-theme="dark"]</code>. Base roles change; every 100 to 900 ramp is reversed (100 ↔ 900), so "tint fill + 800 text" pairs keep working unchanged.</div>
+        <div style="border-radius:22px;background:var(--color-bg);padding:6px 14px">
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:8px 0;font-weight:700;border-bottom:1px solid var(--color-divider)"><span>Token</span><span>Light</span><span>Dark</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-bg</code><span>#f5ead8</span><span>#1e1915</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-surface</code><span>#ebddc5</span><span>#2b241e</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-text</code><span>#201e1d</span><span>#f3e8d6</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-accent</code><span>#c67139</span><span>#e8925a</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-accent-2</code><span>#7a8a5e</span><span>#aebf92</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-divider</code><span>ink 16%</span><span>cream 14%</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--color-*-N00</code><span>ramp step N</span><span>step 10−N</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>neutral-100 / 200</code><span>#f9f4ed / #eee7db</span><span>#2a2520 / #332c25</span></div>
+          <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6px;padding:6px 0"><code>--shadow-*</code><span>ink 14–22%</span><span>black 40–55%</span></div>
+        </div>
+        <div>Neutral 100/200 are set by hand rather than flipped, so input fills sit just above the ground instead of matching neutral-900.</div>
+      </div>
+    </div>
+    <div style="width:560px;padding-top:30px;display:flex;flex-direction:column;gap:12px;font-size:13px;line-height:1.5">
+      <div style="font:400 20px var(--font-heading)">Not in the prototype</div>
+      <div style="border-radius:22px;background:var(--color-bg);padding:6px 16px">
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:8px 0;font-weight:700;border-bottom:1px solid var(--color-divider)"><span>Screen</span><span>Design</span><span>File</span></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Shared recipe</span><span><a href="Collaboration and Account.dc.html#12b">12b</a>, <a href="Collaboration and Account.dc.html#12c">12c</a></span><code>SharedRecipePage</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Avatar editor</span><span><a href="Collaboration and Account.dc.html#14a">14a</a></span><code>AvatarEditor</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Email link edge states</span><span><a href="Collaboration and Account.dc.html#15b">15b</a>, <a href="Collaboration and Account.dc.html#15c">15c</a></span><code>EmailLinkStatus</code>, <code>StrandedIdentityNotice</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Invite gate</span><span><a href="Social Auth and Generate.dc.html#5d">5d</a></span><code>AuthModal</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Dedup flow</span><span><a href="Social Auth and Generate.dc.html#7a">7a to 7d</a></span><code>RecipeChatPage</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Confirm dialog, error</span><span><a href="Recipe Parts and System.dc.html#19a">19a</a></span><code>ui/ConfirmDialog</code>, <code>ui/EmptyState</code></div>
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1.4fr;gap:8px;padding:7px 0"><span>Desktop ≥1024px</span><span><a href="Recipe Parts and System.dc.html#21a">21a</a></span><code>layout/*</code> (tab bar → left rail)</div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+</body>
+</html>

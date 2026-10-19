@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/styles.css">
+<script src="_ds/organic-61798556-ec1f-456b-bc98-0c3fb5de5973/_ds_bundle.js"></script>
+<script src="./image-slot.js"></script>
+<script src="./icons.js"></script>
+<style>body{margin:0;background:var(--color-neutral-200)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-800)}.dv-turn{padding:44px 48px 36px;scroll-margin-top:16px}.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#201e1d;color:#fff;border-radius:4px;text-decoration:none}.dv-tname{font:400 26px/1.2 var(--font-heading);color:#201e1d}.dv-intro{max-width:760px;font:14px/1.55 var(--font-body);color:var(--color-neutral-800);margin:0 0 28px;text-wrap:pretty}.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px;width:390px}.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1a1a1a;border-radius:5px;text-decoration:none}.dv-olabel{display:flex;align-items:baseline;gap:8px;font:600 13px/1.3 var(--font-body);color:#201e1d}.dv-note{font:13px/1.5 var(--font-body);color:var(--color-neutral-700);margin:0;text-wrap:pretty}.dv-card{background:var(--color-bg);border-radius:36px;box-shadow:var(--shadow-lg);overflow:hidden}.dv-opt:target .dv-oid{background:var(--color-accent);color:#fff}.dv-next{margin:28px 0 0;font:13px/1.5 var(--font-body);color:var(--color-neutral-700)}svg.lucide{display:block}</style>
+</helmet>
+
+<section class="dv-turn" id="t7">
+  <div class="dv-thd"><a class="dv-tid" href="#t7">7</a><span class="dv-tname">"It's already here": steering new recipes into branches</span></div>
+  <p class="dv-intro">A new cook types "Banana bread" into Create. The family already has 7 versions. The match shows up twice: while typing (<a class="dv-oid" href="#7a">7a</a>) and, if ignored, as one check before generating (<a class="dv-oid" href="#7b">7b</a>). Branching is always the primary action and keeps the cook's words (<a class="dv-oid" href="#7c">7c</a>). Writing a new one stays possible, and the result is linked to the family it resembles (<a class="dv-oid" href="#7d">7d</a>). Builds on <a class="dv-oid" href="#6a">6a</a> and <a class="dv-oid" href="#6b">6b</a>.</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="7a">
+      <div class="dv-olabel"><a class="dv-oid" href="#7a">7a</a>Match while typing</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 8px;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span><span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:18px">New recipe</span><span style="width:44px"></span></div>
+        <div style="padding:30px 22px 0"><h2 style="margin:0;font-size:30px;line-height:1.05">What do you want to cook?</h2></div>
+        <div style="flex:1"></div>
+        <div style="margin:0 14px 10px;padding:18px;border-radius:32px;background:var(--color-accent-2-100);display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;border-radius:999px;background:var(--color-accent-2-600);color:var(--color-accent-2-100);display:grid;place-items:center;font-size:18px"><i data-lucide="git-branch"></i></span><div style="flex:1;font-size:14px;color:var(--color-accent-2-900)"><b>Banana bread</b> is already growing here<br><span style="font-size:12px">7 versions by 5 cooks</span></div></div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ dupMatches }}" as="m" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:22px;background:var(--color-bg)">
+                <span style="font-size:20px">{{ m.emoji }}</span>
+                <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:14px">{{ m.title }}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;color:var(--color-neutral-700)"><dc-import name="User Pill" user="{{ m.by }}" initial="{{ m.ini }}" color="{{ m.av }}" hint-size="72px,24px"></dc-import>{{ m.meta }}</div></div>
+                <span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">Branch</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:12px;color:var(--color-accent-2-800)">Branching keeps the original and puts your name on your version.</div>
+        </div>
+        <div style="padding:0 14px 28px">
+          <div style="display:flex;align-items:center;gap:8px;height:54px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100);box-shadow:0 0 0 2px var(--color-accent)"><span style="flex:1;font-size:16px">Banana bread<span style="display:inline-block;width:2px;height:18px;background:var(--color-accent);vertical-align:-3px;margin-left:1px"></span></span><span style="width:42px;height:42px;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font-size:18px"><i data-lucide="arrow-up"></i></span></div>
+        </div>
+      </div>
+      <p class="dv-note">Appears after a short pause in typing, above the keyboard. It is a suggestion; the send button still works.</p>
+    </div>
+
+    <div class="dv-opt" id="7b">
+      <div class="dv-olabel"><a class="dv-oid" href="#7b">7b</a>One check before writing</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:110px 22px 0;opacity:.35"><div style="align-self:flex-end;margin-left:auto;width:170px;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent);color:var(--color-bg)">Banana bread</div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 45%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 20px 28px;display:flex;flex-direction:column;gap:12px">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1;margin-top:4px">Someone's already baked this</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">Start from one of these and change what you like. It's quicker, and the original cook gets the credit.</div>
+          <sc-for list="{{ dupClose }}" as="m" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:26px;background:var(--color-surface)">
+              <span style="width:44px;height:44px;flex:none;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:22px">{{ m.emoji }}</span>
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">{{ m.title }}</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;color:var(--color-neutral-700)"><dc-import name="User Pill" user="{{ m.by }}" initial="{{ m.ini }}" color="{{ m.av }}" hint-size="72px,24px"></dc-import>{{ m.meta }}</div></div>
+              <span class="tag" style="background:{{ m.tagBg }};color:{{ m.tagFg }};font-weight:600">{{ m.match }}</span>
+            </div>
+          </sc-for>
+          <button class="btn btn-primary" style="height:54px;font-size:16px;gap:8px;margin-top:4px"><i data-lucide="git-branch-plus"></i>Branch Banana bread</button>
+          <button class="btn btn-ghost" style="height:40px;font-size:14px">Mine's different, write a new one</button>
+        </div>
+      </div>
+      <p class="dv-note">Only for strong matches (same dish name or near-identical ingredients). Close-but-different dishes like a walnut loaf are listed but labelled as similar, not the same.</p>
+    </div>
+
+    <div class="dv-opt" id="7c">
+      <div class="dv-olabel"><a class="dv-oid" href="#7c">7c</a>Branch, with the gaps in the tree</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span></div>
+        <div style="padding:4px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:24px;background:var(--color-surface)"><span style="font-size:22px">🍞</span><div style="flex:1"><div style="font-size:11px;color:var(--color-neutral-700)">Branching from</div><div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px">Banana bread<dc-import name="User Pill" user="Hana" initial="H" color="var(--color-accent-300)" hint-size="72px,24px"></dc-import></div></div><span style="font-size:13px;font-weight:600;color:var(--color-accent-700)">Change</span></div>
+          <h2 style="margin:0;font-size:30px;line-height:1.05">How do you like yours?</h2>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:8px">Nobody's tried these yet</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ dupGaps }}" as="g" hint-placeholder-count="4"><span class="tag" style="font-size:14px;padding:8px 14px;background:var(--color-accent-2-200);color:var(--color-accent-2-900);font-weight:600;gap:6px"><i data-lucide="sprout"></i>{{ g }}</span></sc-for>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--color-neutral-700);margin-bottom:8px">Already a branch, open it instead</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <sc-for list="{{ dupTaken }}" as="g" hint-placeholder-count="3"><span class="tag tag-neutral" style="font-size:14px;padding:8px 14px;gap:6px">{{ g }}<i data-lucide="arrow-up-right"></i></span></sc-for>
+            </div>
+          </div>
+          <div style="padding:16px 18px;border-radius:26px;background:var(--color-neutral-100);box-shadow:inset 0 0 0 2px var(--color-accent);font-size:16px;min-height:80px;color:var(--color-neutral-700)">Or describe your change…</div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="padding:12px 20px 28px"><button class="btn btn-primary" style="height:54px;width:100%;font-size:16px;gap:8px" disabled><i data-lucide="git-branch-plus"></i>Grow this branch</button></div>
+      </div>
+      <p class="dv-note">The composer from <a class="dv-oid" href="#6b">6b</a>, adapted for someone who came to create. Changes nobody has made yet come first. Changes that already exist link to that branch, so the family doesn't fill up with copies.</p>
+    </div>
+
+    <div class="dv-opt" id="7d">
+      <div class="dv-olabel"><a class="dv-oid" href="#7d">7d</a>Wrote it anyway: linked as a cousin</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1"></span><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px"><i data-lucide="ellipsis"></i></span></div>
+        <div style="padding:4px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:flex-start;gap:16px"><h1 style="flex:1;font-size:34px;line-height:1.04;margin:0">Hazelnut banana bread</h1><span style="width:76px;height:76px;flex:none;border-radius:58% 42% 52% 48% / 46% 56% 44% 54%;background:var(--color-accent-200);display:grid;place-items:center;font-size:38px">🍞</span></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag tag-accent" style="font-weight:600">New original</span><span class="tag tag-neutral">1 hr 5 · Easy</span></div>
+          <div style="padding:16px;border-radius:28px;background:var(--color-accent-2-100);display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--color-accent-2-800)"><i data-lucide="link"></i>Related family</div>
+            <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:22px">🍞</span><div style="flex:1"><div style="font-weight:700">Banana bread</div><div style="display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;color:var(--color-accent-2-800)"><dc-import name="User Pill" user="Hana" initial="H" color="var(--color-accent-300)" hint-size="72px,24px"></dc-import>7 versions</div></div><i data-lucide="chevron-right"></i></div>
+            <div style="font-size:13px;color:var(--color-accent-2-900)">Shown on both recipes, so people browsing either one find the other.</div>
+          </div>
+          <div style="padding:14px 16px;border-radius:24px;background:var(--color-surface);display:flex;gap:10px;align-items:flex-start;font-size:13px"><span style="font-size:17px;margin-top:1px;color:var(--color-accent-700)"><i data-lucide="git-merge"></i></span><span style="flex:1">Is this really a version of Banana bread? <b style="color:var(--color-accent-700)">Move it into that family</b>. You stay the author.</span></div>
+        </div>
+      </div>
+      <p class="dv-note">Creating a near-duplicate is allowed but not hidden: the two are linked, and the author can move theirs into the family later without losing credit.</p>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "make <a class="dv-oid" href="#7a">7a</a> → <a class="dv-oid" href="#7c">7c</a> clickable" · "what the original cook sees when someone branches from a match"</p>
+</section>
+
+<section class="dv-turn" id="t4">
+  <div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Author page</span></div>
+  <p class="dv-intro">Hana's public page, seen by someone else. Every option separates what she started (originals) from what she grew on other people's recipes (branches) and where she was credited on someone else's recipe (collaborations), because those are three different kinds of credit.</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="4a">
+      <div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Profile with tabs</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="flex:1"></span><a href="#4b" aria-label="Her forest" style="width:44px;height:44px;display:grid;place-items:center;font-size:20px;color:inherit"><i data-lucide="trees"></i></a><span style="width:44px;height:44px;display:grid;place-items:center;font-size:20px"><i data-lucide="share"></i></span></div>
+        <div style="padding:4px 22px 0;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:16px">
+            <span style="width:84px;height:84px;border-radius:56% 44% 50% 50% / 48% 54% 46% 52%;background:var(--color-accent-300);display:grid;place-items:center;font-family:var(--font-heading);font-size:36px">H</span>
+            <div style="flex:1"><h3 style="margin:0">Hana Mori</h3><div style="font-size:13px;color:var(--color-neutral-700)">Cooking since March · Bristol</div></div>
+          </div>
+          <div style="font-size:14px;line-height:1.5">Weekend baker, weeknight noodle person. I branch everything to be a little less sweet.</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="tag tag-accent">Baking</span><span class="tag tag-accent-2">Mostly vegetarian</span><span class="tag tag-neutral">Under 30 min</span></div>
+          <div style="display:flex;gap:8px;margin-top:2px"><button class="btn btn-primary" style="flex:1;height:44px">Follow</button><button class="btn btn-secondary" style="height:44px;width:44px;padding:0"><i data-lucide="bell"></i></button></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px">
+            <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4"><div style="padding:10px 4px;border-radius:20px;background:var(--color-surface);text-align:center"><div style="font-family:var(--font-heading);font-size:20px">{{ s.v }}</div><div style="font-size:11px;color:var(--color-neutral-700)">{{ s.l }}</div></div></sc-for>
+          </div>
+          <div class="seg" style="display:flex;margin-top:6px"><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="p4a" checked>Originals 12</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="p4a">Branches 31</label><label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="p4a">Collabs 4</label></div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:12px 22px 90px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ originals }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:24px;background:var(--color-surface)">
+              <span style="width:44px;height:44px;flex:none;border-radius:999px;background:var(--color-neutral-100);display:grid;place-items:center;font-size:22px">{{ r.emoji }}</span>
+              <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:15px">{{ r.title }}</div><div style="font-size:12px;color:var(--color-neutral-700)">{{ r.favs }} favourites</div></div>
+              <span class="tag tag-accent-2" style="gap:4px;font-weight:600"><i data-lucide="git-branch"></i>{{ r.branches }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="explore" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">Today's profile reorganised: identity and bio first, stats as four tiles, then three tabs for the three kinds of credit.</p>
+    </div>
+
+    <div class="dv-opt" id="4b">
+      <div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Her forest · trees she planted and grew</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center;gap:6px"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span><span style="width:36px;height:36px;border-radius:999px;background:var(--color-accent-300);display:grid;place-items:center;font-weight:700">H</span><span style="flex:1;font-weight:700">Hana Mori</span><button class="btn btn-primary" style="height:38px;margin-right:8px">Follow</button></div>
+        <div style="padding:16px 22px 0"><div style="font-family:var(--font-heading);font-size:28px;line-height:1.12">Planted <span style="color:var(--color-accent)">12</span> recipes. <span style="color:var(--color-accent-2-600)">31</span> branches have grown from them.</div></div>
+        <div style="padding:16px 22px 0;display:flex;align-items:center;gap:14px;font-size:12px;color:var(--color-neutral-700)"><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:999px;background:var(--color-accent)"></span>Hana's</span><span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:999px;background:var(--color-neutral-400)"></span>Other cooks'</span></div>
+        <div style="flex:1;overflow:hidden;padding:12px 18px 90px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start">
+          <sc-for list="{{ forest }}" as="f" hint-placeholder-count="4">
+            <div style="padding:14px;border-radius:28px;background:{{ f.bg }};display:flex;flex-direction:column;gap:8px">
+              <svg width="140" height="74" viewBox="0 0 140 74" style="display:block">
+                <path d="{{ f.path }}" stroke="var(--color-neutral-400)" stroke-width="3" fill="none" stroke-linecap="round"></path>
+                <sc-for list="{{ f.dots }}" as="d" hint-placeholder-count="4"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="{{ d.r }}" fill="{{ d.c }}"></circle></sc-for>
+              </svg>
+              <div style="font-weight:700;font-size:14px;line-height:1.2">{{ f.emoji }} {{ f.title }}</div>
+              <div style="font-size:11px;color:var(--color-neutral-700)">{{ f.meta }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="explore" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">The page is the forest. Each tile is a whole family drawn small, with Hana's nodes in terracotta, so her own originals and her branches on other people's trees sit in one view.</p>
+    </div>
+
+    <div class="dv-opt" id="4c">
+      <div class="dv-olabel"><a class="dv-oid" href="#4c">4c</a>Cover + photo grid · with photos</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="position:relative;height:170px;flex:none;background:var(--color-neutral-300)"><image-slot id="au-cover" class="washed" shape="rect" placeholder="Cover photo"></image-slot>
+          <span style="position:absolute;top:50px;left:14px;width:44px;height:44px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:20px;pointer-events:none"><i data-lucide="chevron-left"></i></span></div>
+        <div style="padding:0 22px;margin-top:-40px;position:relative;display:flex;align-items:flex-end;gap:12px">
+          <span style="width:84px;height:84px;border-radius:999px;background:var(--color-accent-300);border:5px solid var(--color-bg);display:grid;place-items:center;font-family:var(--font-heading);font-size:34px">H</span>
+          <span style="flex:1"></span><button class="btn btn-primary" style="height:42px;padding:0 20px">Follow</button>
+        </div>
+        <div style="padding:8px 22px 0"><h3 style="margin:0">Hana Mori</h3><div style="font-size:13px;color:var(--color-neutral-700)">88 followers · 214 favourites · 1.2k views</div></div>
+        <div style="padding:14px 22px 0;display:flex;gap:18px;font-size:14px;font-weight:600"><span style="padding-bottom:6px;border-bottom:3px solid var(--color-accent)">Recipes</span><span style="color:var(--color-neutral-700)">Branches</span><span style="color:var(--color-neutral-700)">Collabs</span><span style="color:var(--color-neutral-700)">Activity</span></div>
+        <div style="flex:1;overflow:hidden;padding:14px 18px 90px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start">
+          <sc-for list="{{ originals }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="position:relative;height:150px;border-radius:26px;overflow:hidden;background:var(--color-neutral-300)"><image-slot id="au-g-{{ r.id }}" class="washed" shape="rect" placeholder="{{ r.title }}"></image-slot>
+                <span class="tag" style="position:absolute;bottom:10px;right:10px;gap:4px;background:var(--color-bg);font-weight:700;pointer-events:none"><i data-lucide="git-branch"></i>{{ r.branches }}</span></div>
+              <div style="font-weight:700;font-size:14px;padding:0 4px">{{ r.title }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="explore" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">Instagram-adjacent and the most familiar. Only works if photos are a real feature; without them the grid becomes emoji tiles, which <a class="dv-oid" href="#4b">4b</a> handles better.</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="dv-turn" id="t5" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">Sign-in, only when it's needed</span></div>
+  <p class="dv-intro">Browsing and reading never ask. The sheet in <a class="dv-oid" href="#5a">5a</a> appears the first time someone tries to save, branch, favourite or follow, and names the thing they were doing. Contributing (publish, suggest) still needs a verified email, as the rules require today. <a class="dv-oid" href="#5d">5d</a> covers the invite gate from the README.</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="5a">
+      <div class="dv-olabel"><a class="dv-oid" href="#5a">5a</a>Contextual sheet on "Branch"</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative">
+        <div style="padding:100px 22px 0;opacity:.4"><h2 style="margin:0;font-size:32px">Less sugar, extra banana</h2><div style="margin-top:16px;height:60px;border-radius:22px;background:var(--color-accent-2-100)"></div><div style="margin-top:14px;height:200px;border-radius:28px;background:var(--color-surface)"></div></div>
+        <div style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 45%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-bg);border-radius:36px 36px 0 0;padding:12px 22px 30px;display:flex;flex-direction:column;gap:12px">
+          <div style="width:44px;height:5px;border-radius:999px;background:var(--color-neutral-400);align-self:center"></div>
+          <span style="width:56px;height:56px;border-radius:999px;background:var(--color-accent-2-200);color:var(--color-accent-2-800);display:grid;place-items:center;font-size:26px;margin-top:6px"><i data-lucide="git-branch-plus"></i></span>
+          <div style="font-family:var(--font-heading);font-size:26px;line-height:1.1">Sign in to grow your branch</div>
+          <div style="font-size:14px;color:var(--color-neutral-800)">Your version gets your name on it, and you can find it again on any device.</div>
+          <button class="btn" style="height:52px;background:var(--color-text);color:var(--color-bg);font-size:15px;gap:8px;margin-top:4px"><i data-lucide="apple"></i>Continue with Apple</button>
+          <button class="btn btn-secondary" style="height:52px;font-size:15px;gap:8px"><span style="font-family:var(--font-body);font-weight:700">G</span>Continue with Google</button>
+          <button class="btn btn-secondary" style="height:52px;font-size:15px;gap:8px"><i data-lucide="mail"></i>Continue with email</button>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:4px">
+            <button class="btn btn-ghost" style="font-size:14px">Try it without an account</button>
+            <div style="font-size:12px;color:var(--color-neutral-700);text-align:center;max-width:290px">Your branch stays on this phone only. You can add a sign-in later.</div>
+          </div>
+        </div>
+      </div>
+      <p class="dv-note">The headline changes with the trigger ("…to save this recipe", "…to follow Ola"). Anonymous stays available but is a text link, with the trade-off stated in one line.</p>
+    </div>
+
+    <div class="dv-opt" id="5b">
+      <div class="dv-olabel"><a class="dv-oid" href="#5b">5b</a>Email: magic link or password</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="chevron-left"></i></span></div>
+        <div style="padding:16px 24px 0;display:flex;flex-direction:column;gap:18px">
+          <h2 style="margin:0;font-size:32px;line-height:1.05">Continue with email</h2>
+          <div class="field"><label>Email</label><input class="input" style="height:52px;font-size:16px" value="hana@example.com"></div>
+          <div class="seg" style="display:flex"><label class="seg-opt" style="flex:1;justify-content:center;padding:10px"><input type="radio" name="m5b">Email me a link</label><label class="seg-opt" style="flex:1;justify-content:center;padding:10px"><input type="radio" name="m5b" checked>Use a password</label></div>
+          <div class="field"><label style="display:flex"><span style="flex:1">Password</span><a href="#5b" style="font-size:12px">Forgot it?</a></label><div style="position:relative"><input class="input" type="password" style="height:52px;font-size:16px" value="pastrycream"><span style="position:absolute;right:16px;top:16px;font-size:18px;color:var(--color-neutral-700)"><i data-lucide="eye"></i></span></div></div>
+          <button class="btn btn-primary" style="height:54px;font-size:16px">Sign in</button>
+          <div style="padding:14px 16px;border-radius:22px;background:var(--color-accent-2-100);color:var(--color-accent-2-900);font-size:13px;display:flex;gap:10px"><span style="font-size:17px;margin-top:1px"><i data-lucide="shield-check"></i></span><span>New here? We'll send one email to confirm the address before you can publish or suggest changes.</span></div>
+        </div>
+      </div>
+      <p class="dv-note">One screen for both email methods. The segmented control remembers the last choice, so returning password users never see the link flow.</p>
+    </div>
+
+    <div class="dv-opt" id="5c">
+      <div class="dv-olabel"><a class="dv-oid" href="#5c">5c</a>Check your inbox</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="position:absolute;top:-70px;right:-80px;width:280px;height:280px;border-radius:999px;background:var(--color-accent-200)"></div>
+        <div style="position:absolute;top:140px;right:70px;width:90px;height:90px;border-radius:999px;background:var(--color-accent-2-300)"></div>
+        <div style="padding:50px 12px 0;position:relative"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span></div>
+        <div style="flex:1;padding:190px 24px 0;position:relative;display:flex;flex-direction:column;gap:14px">
+          <span style="font-size:36px;color:var(--color-accent)"><i data-lucide="mail-open"></i></span>
+          <h2 style="margin:0;font-size:34px;line-height:1.05">Check your inbox</h2>
+          <div style="font-size:15px;line-height:1.5">We sent a sign-in link to <span class="tag tag-neutral" style="font-size:14px;font-weight:600">hana@example.com</span>. Open it on this phone and you'll land back on your branch.</div>
+          <button class="btn btn-primary" style="height:54px;font-size:16px;margin-top:10px">Open mail app</button>
+          <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:var(--color-neutral-700)">Resend in 0:24</span><a href="#5b">Use a different email</a></div>
+        </div>
+      </div>
+      <p class="dv-note">Says where you'll land after the link, which today's "Click the link to sign in" leaves out.</p>
+    </div>
+
+    <div class="dv-opt" id="5d">
+      <div class="dv-olabel"><a class="dv-oid" href="#5d">5d</a>Invite gate</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column;background:var(--color-accent-2-700);color:var(--color-accent-2-100)">
+        <div style="position:absolute;left:-60px;top:60px;width:240px;height:240px;border-radius:999px;background:var(--color-accent-2-600)"></div>
+        <div style="position:absolute;right:-40px;top:200px;width:150px;height:150px;border-radius:999px;background:var(--color-accent)"></div>
+        <div style="flex:1;padding:380px 24px 0;position:relative;display:flex;flex-direction:column;gap:14px">
+          <div style="font-family:var(--font-heading);font-size:36px;line-height:1.04;color:var(--color-bg)">Recipe Lab is invite-only for now</div>
+          <div style="font-size:15px;line-height:1.5">Enter the code from your invite. If you opened an invite link, it's already filled in.</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <sc-for list="{{ code }}" as="c" hint-placeholder-count="6"><span style="flex:1;height:58px;border-radius:20px;background:{{ c.bg }};color:var(--color-text);display:grid;place-items:center;font-family:var(--font-heading);font-size:24px;box-shadow:{{ c.ring }}">{{ c.ch }}</span></sc-for>
+          </div>
+          <button class="btn" style="height:54px;font-size:16px;background:var(--color-bg);color:var(--color-text);margin-top:6px">Join with this code</button>
+          <button class="btn" style="height:44px;font-size:14px;color:var(--color-bg)">No code? Join the waitlist</button>
+        </div>
+      </div>
+      <p class="dv-note">Shown only at the first sign-up, never to browsers. A deep link from an invite pre-fills the code and names who invited you.</p>
+    </div>
+
+    <div class="dv-opt" id="5e">
+      <div class="dv-olabel"><a class="dv-oid" href="#5e">5e</a>Anonymous → keep your recipes</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:56px 22px 0;display:flex;align-items:center;gap:14px">
+          <span style="width:64px;height:64px;border-radius:999px;background:var(--color-neutral-300);display:grid;place-items:center;font-size:28px">🌿</span>
+          <div><h4 style="margin:0">Curious Fennel</h4><div style="font-size:13px;color:var(--color-neutral-700)">Guest · this phone only</div></div>
+        </div>
+        <div style="margin:20px 18px 0;padding:20px;border-radius:32px;background:var(--color-accent-200);display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:var(--font-heading);font-size:22px;line-height:1.1;color:var(--color-accent-900)">You have 3 recipes that only live on this phone</div>
+          <div style="font-size:14px;color:var(--color-accent-900)">Clearing your browser deletes them. Add a sign-in to keep them and use them anywhere.</div>
+          <div style="display:flex;gap:8px;margin-top:4px"><button class="btn" style="flex:1;height:46px;background:var(--color-text);color:var(--color-bg);gap:6px"><i data-lucide="apple"></i>Apple</button><button class="btn" style="flex:1;height:46px;background:var(--color-bg)">Google</button><button class="btn" style="flex:1;height:46px;background:var(--color-bg)">Email</button></div>
+        </div>
+        <div style="padding:22px 22px 0;display:flex;flex-direction:column;gap:8px">
+          <h5 style="margin:0">On this phone</h5>
+          <sc-for list="{{ local }}" as="r" hint-placeholder-count="3"><div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:24px;background:var(--color-surface)"><span style="font-size:22px">{{ r.emoji }}</span><span style="flex:1;font-weight:700;font-size:14px">{{ r.title }}</span><i data-lucide="smartphone"></i></div></sc-for>
+        </div>
+        <dc-import name="Tab Bar" active="profile" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">The guest's own profile. The warning sits above the recipes and counts what's at risk, carrying over the reasoning in today's EmailLinkingForm.</p>
+    </div>
+
+  </div>
+</section>
+
+<section class="dv-turn" id="t6" style="border-top:1px solid var(--color-divider)">
+  <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">Generate and branch</span></div>
+  <p class="dv-intro">The Create tab and the Branch action. <a class="dv-oid" href="#6a">6a</a> keeps today's chat. <a class="dv-oid" href="#6b">6b</a> is the branch composer, opened from any recipe. <a class="dv-oid" href="#6c">6c</a> gives first-time users a sentence to fill in instead of a blank box.</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="6a">
+      <div class="dv-olabel"><a class="dv-oid" href="#6a">6a</a>Chat with live recipe card</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 8px;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span><span style="flex:1;text-align:center;font-family:var(--font-heading);font-size:18px">New recipe</span><button class="btn btn-primary" style="height:38px;margin-right:6px">Save</button></div>
+        <div style="flex:1;overflow:hidden;padding:10px 18px 0;display:flex;flex-direction:column;gap:12px">
+          <div style="align-self:flex-end;max-width:80%;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent);color:var(--color-bg);font-size:15px">Something cosy with lentils, 40 minutes, no coconut</div>
+          <div style="font-size:14px;max-width:86%">A smoky red lentil and tomato stew, finished with lemon and yoghurt. Serves 4.</div>
+          <div style="padding:16px;border-radius:30px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:12px"><span style="width:52px;height:52px;border-radius:999px;background:var(--color-bg);display:grid;place-items:center;font-size:26px">🍲</span><div style="flex:1"><div style="font-family:var(--font-heading);font-size:19px;line-height:1.1">Smoky red lentil stew</div><div style="font-size:12px;color:var(--color-neutral-700)">40 min · Easy · 11 ingredients</div></div></div>
+            <div style="font-size:13px;color:var(--color-neutral-800);line-height:1.5">Red lentils · tinned tomatoes · smoked paprika · cumin · onion · garlic · lemon · Greek yoghurt…</div>
+            <button class="btn btn-secondary" style="height:40px;background:var(--color-bg);gap:6px">Read full recipe<i data-lucide="chevron-down"></i></button>
+          </div>
+          <div style="align-self:flex-end;max-width:80%;padding:12px 16px;border-radius:24px 24px 6px 24px;background:var(--color-accent);color:var(--color-bg);font-size:15px">Can it be one pot?</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--color-neutral-700)"><span style="display:flex;gap:4px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-accent-400)"></span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-accent-300)"></span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-accent-200)"></span></span>Rewriting the method…</div>
+        </div>
+        <div style="padding:8px 14px 28px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;gap:6px;overflow:hidden"><span class="tag tag-accent-2" style="font-size:13px;padding:6px 12px;white-space:nowrap">Make it spicier</span><span class="tag tag-accent-2" style="font-size:13px;padding:6px 12px;white-space:nowrap">Serve 2</span><span class="tag tag-accent-2" style="font-size:13px;padding:6px 12px;white-space:nowrap">No dairy</span></div>
+          <div style="display:flex;align-items:center;gap:8px;height:54px;padding:0 6px 0 18px;border-radius:999px;background:var(--color-neutral-100);box-shadow:var(--shadow-sm)"><span style="flex:1;color:var(--color-neutral-700);font-size:15px">Ask for a change…</span><span style="width:42px;height:42px;border-radius:999px;background:var(--color-accent);color:var(--color-bg);display:grid;place-items:center;font-size:18px"><i data-lucide="arrow-up"></i></span></div>
+        </div>
+      </div>
+      <p class="dv-note">The recipe is a collapsible card, so a long recipe doesn't push the conversation off screen. Suggested refinements sit above the composer.</p>
+    </div>
+
+    <div class="dv-opt" id="6b">
+      <div class="dv-olabel"><a class="dv-oid" href="#6b">6b</a>Branch composer</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="padding:50px 12px 0;display:flex;align-items:center"><span style="width:44px;height:44px;display:grid;place-items:center;font-size:22px"><i data-lucide="x"></i></span></div>
+        <div style="padding:4px 22px 0;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:24px;background:var(--color-surface)"><span style="font-size:22px">🍯</span><div style="flex:1"><div style="font-size:11px;color:var(--color-neutral-700)">Branching from</div><div style="font-weight:700;font-size:14px">Less sugar · by Ola</div></div><i data-lucide="git-branch"></i></div>
+          <h2 style="margin:0;font-size:30px;line-height:1.05">What should change?</h2>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <sc-for list="{{ quick }}" as="q" hint-placeholder-count="7"><span class="tag" style="font-size:14px;padding:8px 14px;background:{{ q.bg }};color:{{ q.fg }};font-weight:600">{{ q.label }}</span></sc-for>
+          </div>
+          <div style="padding:16px 18px;border-radius:26px;background:var(--color-neutral-100);box-shadow:inset 0 0 0 2px var(--color-accent);font-size:16px;min-height:96px">less sugar, extra banana<span style="display:inline-block;width:2px;height:18px;background:var(--color-accent);vertical-align:-3px;margin-left:1px"></span></div>
+          <label style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:44px;height:26px;border-radius:999px;background:var(--color-accent-2-600);position:relative;flex:none"><span style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:999px;background:var(--color-bg)"></span></span>Keep everything else the same</label>
+        </div>
+        <div style="flex:1"></div>
+        <div style="padding:12px 20px 28px;display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-primary" style="height:54px;font-size:16px;gap:8px"><i data-lucide="git-branch-plus"></i>Grow this branch</button>
+          <div style="font-size:12px;color:var(--color-neutral-700);text-align:center">Ola's version stays exactly as it is.</div>
+        </div>
+      </div>
+      <p class="dv-note">Not a chat: one instruction, a few common changes as chips, and a promise that the parent is untouched. The result opens straight into the diff in <a class="dv-oid" href="#3e">3e</a>.</p>
+    </div>
+
+    <div class="dv-opt" id="6c">
+      <div class="dv-olabel"><a class="dv-oid" href="#6c">6c</a>Fill-in-the-sentence starter</div>
+      <div class="dv-card" style="width:390px;height:844px;position:relative;display:flex;flex-direction:column">
+        <div style="position:absolute;right:-90px;top:-60px;width:260px;height:260px;border-radius:999px;background:var(--color-accent-2-200)"></div>
+        <div style="padding:56px 24px 0;position:relative"><div style="font-size:13px;font-weight:600;color:var(--color-accent-2-700)">Create</div></div>
+        <div style="padding:60px 24px 0;position:relative;font-family:var(--font-heading);font-size:32px;line-height:1.35">
+          Make me <span style="color:var(--color-accent-700);border-bottom:3px dashed var(--color-accent)">a weeknight dinner</span> with <span style="color:var(--color-accent-700);border-bottom:3px dashed var(--color-accent)">chicken</span> and <span style="color:var(--color-accent-700);border-bottom:3px dashed var(--color-accent)">lemon</span>, ready in <span style="color:var(--color-accent-700);border-bottom:3px dashed var(--color-accent)">30 minutes</span>, for <span style="color:var(--color-accent-700);border-bottom:3px dashed var(--color-accent)">2</span>.
+        </div>
+        <div style="padding:20px 24px 0;display:flex;gap:8px;position:relative"><span class="tag tag-neutral" style="font-size:13px;padding:6px 12px;gap:6px"><i data-lucide="plus"></i>Avoid…</span><span class="tag tag-neutral" style="font-size:13px;padding:6px 12px;gap:6px"><i data-lucide="plus"></i>Cuisine</span><span class="tag tag-neutral" style="font-size:13px;padding:6px 12px;gap:6px"><i data-lucide="plus"></i>Equipment</span></div>
+        <div style="flex:1"></div>
+        <div style="padding:0 20px 100px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary" style="height:54px;font-size:16px;gap:8px"><i data-lucide="sparkles"></i>Write the recipe</button>
+          <button class="btn btn-ghost" style="height:40px;font-size:14px">Or just type what you want</button>
+        </div>
+        <dc-import name="Tab Bar" active="create" hint-size="390px,78px" style="position:absolute;left:0;right:0;bottom:0"></dc-import>
+      </div>
+      <p class="dv-note">Each underlined word is tappable and swaps from a short list. It produces the same prompt text the chat would, then hands over to <a class="dv-oid" href="#6a">6a</a> for refining.</p>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "prototype <a class="dv-oid" href="#5a">5a</a> → <a class="dv-oid" href="#5b">5b</a> → <a class="dv-oid" href="#5c">5c</a> as a clickable flow" · "<a class="dv-oid" href="#4a">4a</a> with the forest tiles from <a class="dv-oid" href="#4b">4b</a> in the Originals tab" · Back to <a href="Explore and Recipe.dc.html">Explore &amp; recipe</a> · <a href="Branching.dc.html">Branching</a></p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const stats = [{ v: 12, l: 'originals' }, { v: 31, l: 'branches' }, { v: 214, l: 'favourites' }, { v: 88, l: 'followers' }];
+    const originals = [
+      { id: 'bb', emoji: '🍞', title: 'Banana bread', favs: 96, branches: 6 },
+      { id: 'mn', emoji: '🍜', title: 'Miso butter noodles', favs: 41, branches: 3 },
+      { id: 'sb', emoji: '🥐', title: 'Sesame morning buns', favs: 22, branches: 2 },
+      { id: 'tg', emoji: '🥚', title: 'Soy-cured eggs', favs: 18, branches: 1 }
+    ];
+    const A = 'var(--color-accent)', N = 'var(--color-neutral-400)';
+    const dot = (x, y, mine, r = 7) => ({ x, y, r, c: mine ? A : N });
+    const forest = [
+      { emoji: '🍞', title: 'Banana bread', meta: 'Planted · 7 versions', bg: 'var(--color-surface)', path: 'M20 37 H120 M50 37 C60 37 60 60 72 60 H110 M50 37 C60 37 60 14 72 14 H110',
+        dots: [dot(20, 37, 1, 9), dot(80, 37, 0), dot(120, 37, 0), dot(80, 60, 0), dot(110, 60, 1), dot(80, 14, 0), dot(110, 14, 0)] },
+      { emoji: '🍜', title: 'Miso butter noodles', meta: 'Planted · 4 versions', bg: 'var(--color-surface)', path: 'M20 37 H120 M60 37 C70 37 70 60 82 60 H120',
+        dots: [dot(20, 37, 1, 9), dot(60, 37, 0), dot(120, 37, 1), dot(120, 60, 0)] },
+      { emoji: '🍳', title: "Sami's shakshuka", meta: 'Grew 2 branches here', bg: 'var(--color-accent-100)', path: 'M20 37 H120 M50 37 C60 37 60 14 72 14 H120 M80 37 C90 37 90 60 102 60 H120',
+        dots: [dot(20, 37, 0, 9), dot(60, 37, 0), dot(120, 37, 0), dot(120, 14, 1), dot(120, 60, 1)] },
+      { emoji: '🍋', title: "Ana's lemon cake", meta: 'Collaborator · 1 branch', bg: 'var(--color-accent-2-100)', path: 'M20 37 H120 M60 37 C70 37 70 14 82 14 H120',
+        dots: [dot(20, 37, 0, 9), dot(80, 37, 0), dot(120, 37, 0), dot(120, 14, 1)] },
+      { emoji: '🥐', title: 'Sesame morning buns', meta: 'Planted · 3 versions', bg: 'var(--color-surface)', path: 'M20 37 H120 M60 37 C70 37 70 60 82 60 H120',
+        dots: [dot(20, 37, 1, 9), dot(120, 37, 0), dot(120, 60, 0)] },
+      { emoji: '🥟', title: "Lin's dumplings", meta: 'Grew 1 branch here', bg: 'var(--color-accent-100)', path: 'M20 37 H120',
+        dots: [dot(20, 37, 0, 9), dot(70, 37, 0), dot(120, 37, 1)] }
+    ];
+    const code = 'FENNEL'.split('').map((ch, i) => ({ ch: i < 4 ? ch : '', bg: 'var(--color-bg)', ring: i === 4 ? '0 0 0 3px var(--color-accent)' : 'none' }));
+    const local = [{ emoji: '🍲', title: 'Smoky red lentil stew' }, { emoji: '🍞', title: 'Banana bread, browned butter' }, { emoji: '🥗', title: 'Crunchy cabbage salad' }];
+    const quick = ['Less sugar', 'Make it vegan', 'Gluten-free', 'Faster', 'Double it', 'Air fryer', 'Spicier'].map((l, i) => ({ label: l, bg: i === 0 ? 'var(--color-accent)' : 'var(--color-surface)', fg: i === 0 ? 'var(--color-bg)' : 'var(--color-text)' }));
+    const dupMatches = [
+      { emoji: '🍞', title: 'Banana bread', by: 'Hana', ini: 'H', av: 'var(--color-accent-300)', meta: 'Original · 96 favourites' },
+      { emoji: '🍯', title: 'Less sugar', by: 'Ola', ini: 'O', av: 'var(--color-accent-2-300)', meta: 'Branch · 2 branches' },
+      { emoji: '🍫', title: 'Chocolate chunk', by: 'Lin', ini: 'L', av: 'var(--color-accent-2-400)', meta: 'Branch · 1 branch' }
+    ];
+    const S = ['var(--color-accent-2-600)', 'var(--color-accent-2-100)'], L = ['var(--color-neutral-100)', 'var(--color-neutral-800)'];
+    const dupClose = [
+      { emoji: '🍞', title: 'Banana bread', by: 'Hana', ini: 'H', av: 'var(--color-accent-300)', meta: '7 versions', match: 'Same dish', tagBg: S[0], tagFg: S[1] },
+      { emoji: '🍯', title: 'Less sugar', by: 'Ola', ini: 'O', av: 'var(--color-accent-2-300)', meta: 'Branch of Banana bread', match: 'Same dish', tagBg: S[0], tagFg: S[1] },
+      { emoji: '🥜', title: 'Banana walnut loaf', by: 'Sami', ini: 'S', av: 'var(--color-neutral-300)', meta: '2 versions', match: 'Similar', tagBg: L[0], tagFg: L[1] }
+    ];
+    return { stats, originals, forest, code, local, quick, dupMatches, dupClose, dupGaps: ['Gluten-free', 'Hazelnut', 'Miso caramel', 'Loaf for 2'], dupTaken: ['Less sugar', 'Chocolate chunk', 'Vegan'] };
+  }
+}
+</script>
+</body>
+</html>
