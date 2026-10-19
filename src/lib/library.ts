@@ -4,7 +4,7 @@
  * `useRecipeLibrary` (RL-008); no imports from services or hooks, so it tests in node.
  */
 import { countDescendantsByRoot } from './tree';
-import { recipeHaystack } from './search';
+import { queryWords, recipeHaystack } from './search';
 
 /**
  * Trimmed, lower-case, de-duplicated tags in first-seen order, for the published
@@ -190,4 +190,49 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 /** "New this week" when every recipe is at most 7 days old, else "Newest". */
 export function tileRowTitle(recipes: readonly { createdAt: number }[], now: number): string {
   return recipes.every((r) => now - r.createdAt <= WEEK_MS) ? 'New this week' : 'Newest';
+}
+
+export type SearchFilter = 'all' | 'under30' | 'easy' | 'branches';
+
+export const SEARCH_FILTERS: readonly { id: SearchFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'under30', label: 'Under 30 min' },
+  { id: 'easy', label: 'Easy' },
+  { id: 'branches', label: 'Branches' },
+];
+
+export type SearchResult = FeedRecipe & { familyLabel: string | null; line: string };
+
+/**
+ * The Search screen's matching (RL-123): every query word must be a substring of
+ * the title or an ingredient name (each word may hit a different field), across
+ * originals and branches. An empty query lists originals only, or branches under
+ * the Branches chip. Rows are de-duplicated by id, first wins; newest first.
+ */
+export function searchLibrary(
+  sources: readonly (FeedSource & { prompt?: string })[],
+  { query, filter }: { query: string; filter: SearchFilter }
+): SearchResult[] {
+  const trimmed = query.trim().toLowerCase();
+  let words = queryWords(trimmed);
+  if (words.length === 0 && trimmed) words = [trimmed];
+  const toFeed = feedMapper(sources);
+  const byId = new Map<string, FeedSource & { prompt?: string }>();
+  for (const r of sources) if (!byId.has(r.id)) byId.set(r.id, r);
+  const rows: SearchResult[] = [];
+  for (const r of byId.values()) {
+    if (!trimmed && filter !== 'branches' && r.parentId) continue;
+    if (filter === 'under30' && !(r.totalTime <= 30)) continue;
+    if (filter === 'easy' && r.difficulty !== 'easy') continue;
+    if (filter === 'branches' && !r.parentId) continue;
+    const fields = [r.title, ...(r.ingredients ?? []).map((i) => i.name)].map((f) => f.toLowerCase());
+    if (!words.every((w) => fields.some((f) => f.includes(w)))) continue;
+    const root = r.parentId ? byId.get(r.rootId ?? r.id) : undefined;
+    rows.push({
+      ...toFeed(r),
+      familyLabel: r.parentId ? (root ? `${root.title} variation` : 'Variation') : null,
+      line: r.parentId && r.prompt ? `"${r.prompt}"` : r.description,
+    });
+  }
+  return rows.sort((a, b) => b.createdAt - a.createdAt);
 }

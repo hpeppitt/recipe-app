@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, splitLibrary, normalizeTags, buildSavedList, type FavoriteFetch } from './library';
+import { buildFeed, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -212,5 +212,77 @@ describe('buildSavedList', () => {
     ]);
     const out = buildSavedList([], [], [fav('gone', 1), fav('bad', 2), fav('new', 3)], fetched, 'me');
     expect(out).toEqual({ rows: [], toFetch: ['new'], deletedCount: 1, failedCount: 1 });
+  });
+});
+
+describe('searchLibrary', () => {
+  const root = makeRecipe({
+    id: 'r', title: 'Lemon Pasta', description: 'Bright.', totalTime: 20, difficulty: 'easy', createdAt: 1,
+    ingredients: [makeIngredient('Spaghetti'), makeIngredient('Parsley')],
+  });
+  const branch = {
+    ...makeRecipe({
+      id: 'b', title: 'Vegan Pasta', description: 'Dairy free.', totalTime: 50, difficulty: 'hard', createdAt: 5,
+      parentId: 'r', rootId: 'r', depth: 1, ingredients: [makeIngredient('Cashews')],
+    }),
+    prompt: 'make it vegan',
+  };
+  const all = [root, branch];
+  const ids = (q: string, filter: 'all' | 'under30' | 'easy' | 'branches' = 'all', src: Parameters<typeof searchLibrary>[0] = all) =>
+    searchLibrary(src, { query: q, filter }).map((r) => r.id);
+
+  it('lists the four filters in order', () => {
+    expect(SEARCH_FILTERS.map((f) => f.label)).toEqual(['All', 'Under 30 min', 'Easy', 'Branches']);
+  });
+
+  it('matches titles and ingredients, case-insensitively, across originals and branches', () => {
+    expect(ids('PASTA')).toEqual(['b', 'r']);
+    expect(ids('cashews')).toEqual(['b']);
+  });
+
+  it('needs every word, each may hit a different field', () => {
+    expect(ids('lemon spaghetti')).toEqual(['r']);
+    expect(ids('lemon cashews')).toEqual([]);
+  });
+
+  it('falls back to the whole query when every word is short', () => {
+    const ox = makeRecipe({ id: 'ox', title: 'Ox tail' });
+    expect(ids('ox', 'all', [ox])).toEqual(['ox']);
+  });
+
+  it('lists roots only for an empty query, branches only under Branches', () => {
+    expect(ids('')).toEqual(['r']);
+    expect(ids('  ', 'branches')).toEqual(['b']);
+  });
+
+  it('applies the under30 and easy filters', () => {
+    expect(ids('pasta', 'under30')).toEqual(['r']);
+    expect(ids('pasta', 'easy')).toEqual(['r']);
+    expect(ids('pasta', 'branches')).toEqual(['b']);
+  });
+
+  it('keeps the first of duplicate ids', () => {
+    const dup = makeRecipe({ id: 'r', title: 'Lemon Other' });
+    const out = searchLibrary([root, dup], { query: 'lemon', filter: 'all' });
+    expect(out.map((r) => r.title)).toEqual(['Lemon Pasta']);
+  });
+
+  it('labels branches with their family, or Variation when the root is absent', () => {
+    const out = searchLibrary(all, { query: 'pasta', filter: 'all' });
+    expect(out.map((r) => r.familyLabel)).toEqual(['Lemon Pasta variation', null]);
+    expect(searchLibrary([branch], { query: 'pasta', filter: 'all' })[0].familyLabel).toBe('Variation');
+  });
+
+  it('uses the quoted prompt for a branch and the description otherwise', () => {
+    const out = searchLibrary(all, { query: 'pasta', filter: 'all' });
+    expect(out.map((r) => r.line)).toEqual(['"make it vegan"', 'Bright.']);
+    const noPrompt = { ...branch, prompt: undefined };
+    expect(searchLibrary([noPrompt], { query: 'pasta', filter: 'all' })[0].line).toBe('Dairy free.');
+  });
+
+  it('counts descendants over all sources and sorts newest first', () => {
+    const out = searchLibrary(all, { query: 'pasta', filter: 'all' });
+    expect(out.map((r) => r.id)).toEqual(['b', 'r']);
+    expect(out[1].childCount).toBe(1);
   });
 });

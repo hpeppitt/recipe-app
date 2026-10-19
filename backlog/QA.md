@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-123 searchLibrary (pure logic)
+
+- Nothing user-visible yet; the Search screen (RL-124) carries the QA entry.
+
 ### RL-122 The favourite heart is a Save bookmark
 
 - At 390x844 save and unsave from an original, a branch (floating control over the hero) and a `/shared/:id` link. The icon turns terracotta with a check when saved, and the recipe appears in and leaves the Saved tab. On `/shared/:id` the banner has no control; only the footer Save.
