@@ -167,8 +167,16 @@ describe('ExplorePage feed', () => {
     renderWithProviders(<ExplorePage />, { user: anon });
     await screen.findByText('Nothing published yet');
     expect(screen.queryByRole('button', { name: 'Following' })).not.toBeInTheDocument();
-    // Favourites still work for anonymous accounts, as local bookmarks.
-    expect(screen.getByRole('button', { name: 'Favorites' })).toBeInTheDocument();
+  });
+
+  it('has no Favourites chip for a verified user with favourites (RL-127)', async () => {
+    await db.favorites.add({ uid: fakeUser.uid, recipeId: 'fav', createdAt: 1 });
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'fav', title: 'Loved Stew' })], cursor: null, hasMore: false });
+    renderWithProviders(<ExplorePage />);
+    await screen.findByRole('link', { name: 'Loved Stew' });
+    expect(screen.queryByRole('button', { name: /favou?rites/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Following' })).toBeInTheDocument();
   });
 
   it('says when Load more fails, keeps the list, and clears on a successful retry', async () => {
@@ -187,26 +195,6 @@ describe('ExplorePage feed', () => {
     expect(await screen.findByRole('link', { name: 'Page Two' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Page One' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  it('does not claim there are no favourites while more Explore pages exist', async () => {
-    getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: {}, hasMore: true });
-    renderWithProviders(<ExplorePage />);
-    await screen.findByRole('link', { name: 'Cloud Curry' });
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('No favorites in the 1 recipe loaded so far. Load more to look further.')).toBeInTheDocument();
-    expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
-  });
-
-  it('shows the Favorites empty state copy with Show all back to the feed', async () => {
-    getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: null, hasMore: false });
-    renderWithProviders(<ExplorePage />);
-    await screen.findByRole('link', { name: 'Cloud Curry' });
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('No favorites yet')).toBeInTheDocument();
-    expect(screen.getByText('Tap Save on any recipe to keep it here.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
-    expect(screen.getByRole('link', { name: 'Cloud Curry' })).toBeInTheDocument();
   });
 
   it('shows Could not load with Try again when Explore fails', async () => {
@@ -300,15 +288,6 @@ describe('ExplorePage tile row', () => {
     expect(screen.getByRole('link', { name: 'Root 8' })).toBeInTheDocument();
   });
 
-  it('hides under the Favorites filter', async () => {
-    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
-    renderWithProviders(<ExplorePage />);
-    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('No favorites yet')).toBeInTheDocument();
-    expect(region('New this week')).not.toBeInTheDocument();
-  });
-
   it('hides under the Following filter', async () => {
     page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
     renderWithProviders(<ExplorePage />);
@@ -385,14 +364,10 @@ describe('ExplorePage Branching fast this week', () => {
     expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
   });
 
-  it('hides under Favorites and a tag with a non-empty week', async () => {
+  it('hides under a tag with a non-empty week', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
     getRecent.mockResolvedValue([kid('k1', 'a')]);
     renderWithProviders(<ExplorePage />);
-    expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(region('Branching fast this week')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
     expect(region('Branching fast this week')).not.toBeInTheDocument();
@@ -437,7 +412,6 @@ describe('ExplorePage local-only mode', () => {
     renderWithProviders(<ExplorePage />, localOnly);
     await screen.findByText(NEVER);
     expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Favorites' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Following' })).not.toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Filter by tag' })).not.toBeInTheDocument();
   });
@@ -488,18 +462,13 @@ describe('Explore tag chips', () => {
     expect(getPage).toHaveBeenLastCalledWith(null, undefined, null);
   });
 
-  it('returns focus to the cleared chip, and the empty states name the tag', async () => {
+  it('returns focus to the cleared chip, and the empty state names the tag', async () => {
     renderWithProviders(<ExplorePage />);
     await screen.findByText('Nothing published yet');
     fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
     await screen.findByText('No recipes tagged vegan yet');
     fireEvent.click(screen.getByRole('button', { name: 'Clear tag' }));
     expect(screen.getByRole('button', { name: 'vegan' })).toHaveFocus();
-
-    fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
-    await screen.findByText('No recipes tagged vegan yet');
-    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    expect(screen.getByText('No favorites tagged vegan')).toBeInTheDocument();
   });
 
   it('Try again after a failed tag load keeps the tag', async () => {

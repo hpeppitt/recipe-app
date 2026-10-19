@@ -303,6 +303,19 @@ describe('RecipeDetailPage header and More sheet', () => {
     expect(within(sheet).getByRole('button', { name: 'Continue without an account' })).toBeInTheDocument();
   });
 
+  it('counts saves under the title, and nothing for 0', () => {
+    const withCount = (n: number) => ({ ...makeRecipe({ id: 'r1', title: 'Soup' }), favoriteCount: n });
+    for (const [n, text] of [[3, '3 saves'], [1, '1 save']] as const) {
+      recipe = withCount(n) as never;
+      const { unmount } = show(null);
+      expect(screen.getByText(text)).toBeInTheDocument();
+      unmount();
+    }
+    recipe = withCount(0) as never;
+    show(null);
+    expect(screen.queryByText(/^\d+ saves?$/)).toBeNull();
+  });
+
   it('shows Save pressed for a favourited recipe', () => {
     isFavorite = true;
     show();

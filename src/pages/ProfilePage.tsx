@@ -320,7 +320,7 @@ function OwnProfile() {
             {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
               <p className="text-[13px] text-text-tertiary">
                 {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
-                {pluralize(stats.totalFavorites, 'favourite')}
+                {pluralize(stats.totalFavorites, 'save')}
               </p>
             )}
 
@@ -552,7 +552,7 @@ function PublicProfile({ uid }: { uid: string }) {
             {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
               <p className="text-[13px] text-text-tertiary">
                 {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
-                {pluralize(stats.totalFavorites, 'favourite')}
+                {pluralize(stats.totalFavorites, 'save')}
               </p>
             )}
           </div>

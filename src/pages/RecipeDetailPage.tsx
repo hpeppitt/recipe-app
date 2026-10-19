@@ -548,7 +548,7 @@ export function RecipeDetailPage() {
               Only rendered when there is something to report. */}
           {favoriteCount > 0 && (
             <p className="text-xs text-text-tertiary">
-              {favoriteCount} {pluralize(favoriteCount, 'favourite')}
+              {favoriteCount} {pluralize(favoriteCount, 'save')}
             </p>
           )}
 
@@ -689,8 +689,8 @@ export function RecipeDetailPage() {
           />
           {shareFallback.mode === 'self-contained' && (
             <p className="text-xs text-text-secondary">
-              This link carries the whole recipe, so it works without the cloud — but
-              recipients can't favourite it or suggest changes.
+              This link carries the whole recipe, so it works without the cloud. Recipients can
+              keep a copy, but they can't suggest changes.
             </p>
           )}
           {shareNote && <p className="text-xs text-text-secondary">{shareNote}</p>}
@@ -708,8 +708,8 @@ export function RecipeDetailPage() {
           <p className="text-sm font-medium text-text-primary">Link copied</p>
           {shareMode === 'self-contained' && (
             <p className="mt-0.5 text-xs text-text-secondary">
-              This link carries the whole recipe, so it works without the cloud — but
-              recipients can't favourite it or suggest changes.
+              This link carries the whole recipe, so it works without the cloud. Recipients can
+              keep a copy, but they can't suggest changes.
             </p>
           )}
           {shareNote && <p className="mt-0.5 text-xs text-text-secondary">{shareNote}</p>}

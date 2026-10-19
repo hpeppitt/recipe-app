@@ -233,13 +233,13 @@ describe('OwnProfile Organic layout (RL-095)', () => {
     expect(screen.queryByText('My Profile')).toBeNull();
   });
 
-  it('shows the views and favourites line only when there are some', () => {
+  it('shows the views and saves line only when there are some', () => {
     const { unmount } = renderAt('/profile', fakeUser);
     expect(screen.queryByText(/views/)).toBeNull();
     unmount();
     totals = { totalViews: 3, totalFavorites: 1 };
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('3 views · 1 favourite')).toBeInTheDocument();
+    expect(screen.getByText('3 views · 1 save')).toBeInTheDocument();
   });
 
   it('toggles the followers list from its stat tile', async () => {

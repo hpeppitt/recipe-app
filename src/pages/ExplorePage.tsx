@@ -18,11 +18,11 @@ import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
-import { CloudOff, BookmarkCheck, GitBranch, Heart, Search } from '../components/ui/icons';
+import { CloudOff, BookmarkCheck, GitBranch, Search } from '../components/ui/icons';
 
 const NO_ROWS: never[] = [];
 
-type Filter = 'all' | 'favorites' | 'following';
+type Filter = 'all' | 'following';
 
 /** What a row reads: a feed entry or a Following result (which has no counts). */
 type ExploreRecipe = ScorableRecipe & {
@@ -40,7 +40,7 @@ export function ExplorePage() {
   const [tag, setTag] = useState<string | null>(null);
   const tagRowRef = useRef<HTMLDivElement>(null);
   const { user, isConfigured } = useAuth();
-  const { favoriteIds, canFavorite } = useFavoriteIds();
+  const { favoriteIds } = useFavoriteIds();
   const { followingIds, followingProfiles } = useFollowingList();
   const navigate = useNavigate();
   const online = useOnline();
@@ -58,11 +58,7 @@ export function ExplorePage() {
   const canFilterFollowing = isConfigured && !!user?.emailVerified && followingProfiles.length > 0;
   // A filter that stops applying (signed out mid-visit) falls back to All
   // instead of stranding the user on an empty list with no chip to get back.
-  const filter: Filter =
-    (selectedFilter === 'favorites' && !canFavorite) ||
-    (selectedFilter === 'following' && !canFilterFollowing)
-      ? 'all'
-      : selectedFilter;
+  const filter: Filter = selectedFilter === 'following' && !canFilterFollowing ? 'all' : selectedFilter;
   const showFollowing = filter === 'following';
 
   const localRecords = useLocalLibrary();
@@ -84,17 +80,14 @@ export function ExplorePage() {
   const displayRecipes =
     source &&
     filterFeed(source, {
-      favoriteIds: filter === 'favorites' ? favoriteIds : undefined,
       followingIds: showFollowing ? new Set(followingIds) : undefined,
     });
 
   // Explore filters only the pages fetched so far, so Load more stays available
-  // under the favourites filter and the page says how far it looked. Search is /search (RL-124).
+  // under a tag. Search is /search (RL-124).
   const pagedExplore = isConfigured && !showFollowing && !cloud.cloudError;
   const showLoadMore = pagedExplore && !isLoading && cloud.hasMore;
   const tagActive = pagedExplore && tag !== null;
-  const filtering = filter === 'favorites';
-  const loadedCount = exploreFeed?.length ?? 0;
   const showOfflineBanner = isConfigured && !online && !isLoading && (source?.length ?? 0) > 0;
 
   // Both rows show only on the unfiltered feed: not under a filter or tag, while loading or failed,
@@ -130,17 +123,7 @@ export function ExplorePage() {
       )}
 
       <div className="flex gap-2 overflow-x-auto px-5 pt-3.5 pb-1 scrollbar-none">
-        {/* Favourites are keyed by uid, so with no signed-in user the filter
-            is permanently empty; don't offer it at all (FUN-16). */}
-        {((canFavorite && isConfigured ? ['all', 'favorites'] : ['all']) as Filter[]).map((f) => (
-          <Chip
-            key={f}
-            label={f === 'all' ? 'All' : 'Favorites'}
-            active={filter === f}
-            pressed={filter === f}
-            onClick={() => setSelectedFilter(f)}
-          />
-        ))}
+        <Chip label="All" active={filter === 'all'} pressed={filter === 'all'} onClick={() => setSelectedFilter('all')} />
         {canFilterFollowing && (
           <>
             <Chip
@@ -178,13 +161,6 @@ export function ExplorePage() {
           </div>
         )}
       </div>
-
-      {/* The favourites filter sees only the pages fetched, so say how far it reaches. */}
-      {showLoadMore && filtering && (
-        <p role="status" className="px-5 pt-2 text-xs text-text-tertiary">
-          Searching the {loadedCount} {pluralize(loadedCount, 'recipe')} loaded so far. Load more to search further.
-        </p>
-      )}
 
       {showOfflineBanner && (
         <div className="px-5 pt-3.5">
@@ -240,28 +216,6 @@ export function ExplorePage() {
             <Button variant="secondary" onClick={() => setSelectedFilter('all')}>
               Browse recipes
             </Button>
-          }
-        />
-      ) : filter === 'favorites' ? (
-        <EmptyState
-          icon={<Heart />}
-          title={showLoadMore ? 'No favorites loaded yet' : tagActive ? `No favorites tagged ${tag}` : 'No favorites yet'}
-          description={
-            showLoadMore
-              ? `No favorites in the ${loadedCount} ${pluralize(loadedCount, 'recipe')} loaded so far. Load more to look further.`
-              : 'Tap Save on any recipe to keep it here.'
-          }
-          action={
-            <div className="flex flex-col gap-2">
-              <Button variant="secondary" onClick={() => setSelectedFilter('all')}>
-                Show all
-              </Button>
-              {tagActive && (
-                <Button variant="secondary" onClick={clearTag}>
-                  Clear tag
-                </Button>
-              )}
-            </div>
           }
         />
       ) : tagActive ? (

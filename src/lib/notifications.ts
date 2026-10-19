@@ -24,7 +24,7 @@ export function truncateNotificationMessage(text: string): string {
 // silently rendering as a suggestion. `fromUid` is required on every notification,
 // so there is no icon-only fallback to keep.
 export const NOTIF_VERBS: Record<string, string> = {
-  favorite: 'favorited your recipe',
+  favorite: 'saved your recipe',
   suggestion: 'suggested a change to',
   suggestion_approved: 'approved your suggestion on',
   suggestion_rejected: 'passed on your suggestion for',

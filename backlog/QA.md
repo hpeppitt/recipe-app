@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-127 Saved wording, no Explore Favourites chip
+
+- Explore as a verified user: no Favourites chip; All, Following and a tag chip still filter; a saved recipe shows the bookmark marker.
+- A second account saves one of your recipes: Activity reads "<name> saved your recipe <title>". An older favourite notification reads the same way.
+- Your profile and another cook's show "<n> views · <n> saves"; a recipe someone saved shows "1 save" or "<n> saves" under the title.
+- Settings, Delete recipes on this device: the help text says "saves".
+- Share a recipe in the self-contained mode: the note reads "...works without the cloud. Recipients can keep a copy, but they can't suggest changes."
+- Terms and Privacy still say "favourite" on purpose (author to decide).
+
 ### RL-126 Branching fast this week
 
 - On the preview against the live project, at 390x844 and 320px: with two branches published this week on one family and one on another, Explore shows "Branching fast this week", the busier family first with "+2 this week". Tiles swipe and snap; Tab reaches each tile. VoiceOver reads a tile as its title and "2 new branches this week".

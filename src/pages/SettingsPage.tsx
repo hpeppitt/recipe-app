@@ -390,8 +390,8 @@ export function SettingsPage() {
         title="Delete Recipes on This Device"
         message={
           accountReloads
-            ? 'This deletes all recipes, variations and favourites stored on this device. Recipes saved to your account stay there and load again the next time you open the app.'
-            : "This permanently deletes all recipes, variations and favourites stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
+            ? 'This deletes all recipes, variations and saves stored on this device. Recipes saved to your account stay there and load again the next time you open the app.'
+            : "This permanently deletes all recipes, variations and saves stored on this device. Recipes you've already shared stay in the shared library. This cannot be undone."
         }
         confirmLabel="Delete"
         confirmVariant="danger"

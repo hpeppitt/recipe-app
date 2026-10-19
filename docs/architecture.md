@@ -90,7 +90,7 @@ Each list reads one store. `hooks/useRecipeLibrary.ts` exports `useLocalLibrary`
 query, behind Saved, the own profile and local-only Explore) and `useCloudLibrary` (the
 cursor-paged `getPublishedRecipesPage` feed, behind Explore at `/`, read on first render). The
 pure list logic, roots only, dedup by id, newest first, variation counts across both stores, and
-the search, favourites and following filters, is `lib/library.ts`. Until RL-098 `/` was a
+the search, favourites and following filters, is `lib/library.ts`. Explore uses following and tags (RL-127 dropped its favourites chip); `filterFeed` keeps a `favoriteIds` option no page uses. Until RL-098 `/` was a
 Library with My Recipes and Explore tabs; own recipes now live on the You tab and other people's
 kept copies on Saved. Explore also fires one `getRecentPublishedRecipes` week query per session through `hooks/useBranchingThisWeek.ts` (RL-126). One source per list replaced a merged feed whose union of a live query and
 a paged window had no stable cursor.
