@@ -18,6 +18,32 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-113 A shared recipe opens straight to the recipe layout with a "Shared by" banner, Save and Make it yours
+
+- Open a `/shared/:id` link signed out, as an anonymous account and as a verified account (not the author):
+  - A slim cream banner "Shared by <author pill> ... Open Recipe Lab", then the title beside the emoji blob, the description and the usual recipe body. The author pill opens their profile; Open Recipe Lab goes to the library. A flat heart sits to the right of the banner.
+  - Footer (at the end of the page, not pinned): Save (outlined) and Make it yours (terracotta), with a ghost "Suggest a change" under them. Save is the favourite: tapping fills it and the label reads "Saved"; the heart in the banner follows it. Verified saves to the cloud, anonymous keeps a bookmark on this device, signed out opens the sign-in sheet.
+  - Make it yours opens the variation composer for that recipe; signed out or anonymous you get the sign-up screen there.
+  - Suggest a change as verified: the page becomes suggest mode (as on a recipe page); Send shows "Sent to <author>" over the shared page. As anonymous or signed out: the sign-up dialog "Sign in to suggest a change", the page stays.
+  - Your own recipe's link: no heart, no Save and no Suggest, only Make it yours.
+  - A branch (a variation) shows a sage line "<author> asked for "<prompt>"." under the description. An author with no name reads "Someone"; a blank prompt reads "<author> made this variation."
+- Open a hash link (`/shared#r=...`, for example from Copy share link in local-only mode): the banner has no heart, and the footer has only "Save to my library". Tap it once: it saves a copy that still names the original author, and the button becomes "Open in my library" with focus on it; tap it and the saved recipe opens. There is no Save, Make it yours or Suggest here.
+- A broken hash (`/shared#r=abc`) shows "Invalid Link" with Go to Recipe Lab. Offline on `/shared/:id` shows "Couldn't Load Recipe" with Try Again.
+- At 320px: a very long author name wraps inside the banner, a very long title and prompt wrap, nothing scrolls sideways, and the footer buttons keep their labels (the Save icon hides under 360px). jsdom cannot check any of this layout, nor the 44px hit areas on the author pill and Open Recipe Lab (they are 32px pills with an extended tap area).
+- Decision (mine): the old "Read-only copy" badge and the "Shared from Recipe Lab" footer line are gone (the banner replaces them); the hash page keeps its one-line note "Saves a copy on this device...". Collaborators render as author-style pills.
+- Dark classes were removed from the shared page; the favourite error text is `text-danger-700` only (light-theme token, no contrast guard needed).
+- The favourite error (a failed cloud save) now shows just above the footer buttons, since the footer Save is the main control; it used to be at the top of the page. A hash link whose copy cannot be saved shows "Couldn't save a copy. Try again." there too.
+- Moving from one shared link to another (a different id or hash) resets suggest mode, the saved copy and the save button.
+- A link with no author name reads "Shared by Someone".
+- Reviewer noted (low): the author appears twice, in the banner and in the Added-by pill in the recipe content. The ticket asks for both; confirm it is intended.
+- Reviewer noted (low): collaborators render as non-link UserPills while the author pill is a link.
+- Reviewer noted (low): the hash link lost its explicit "Read-only copy" cue; the hint "Saves a copy on this device..." remains.
+- Reviewer noted (low): a hash link whose `createdBy.uid` equals the importer's own uid saves a Dexie row that looks like an own recipe, and `planOwnRecipeSync` could remove it on the next sync (RL-086 corner case, pre-existing; worth a ticket if RL-086 means never).
+- Reviewer noted (low): the `'local'` owner-id fallback for a missing `createdBy` would be rejected by the suggestion rule, so the user would see the generic "didn't send" message (unlikely).
+- Reviewer noted (low): local-bookmark failures are not shown (same as before).
+- Reviewer noted (low): the deleted modal's real-hook path (a `RateLimitedError` thrown by `createSuggestion` through `useSubmitSuggestion`) is no longer exercised end to end, only by rejecting `onSend`.
+- Reviewer noted (low): the footer button class string is duplicated between RecipeDetailPage and SharedRecipePage, and the "Sent to" toast is ad hoc markup on both pages.
+
 ### RL-112 Branching a recipe opens the 6b composer: one instruction, quick-change chips, a promise, Grow this branch
 
 - On the preview as a verified user, open a recipe and choose Branch this recipe (or approve a suggestion as the owner):
@@ -108,7 +134,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   - Open the link on the same device, then request another and open it on a different device (the cross-device email prompt). Either way you land on the app, not the page you started from, and nothing you were doing runs on its own: tap it again.
   - No Apple, Google or password option anywhere.
 - VoiceOver on iOS: opening each sheet reads its title ("Sign in to save this recipe", then "Continue with email" on the next step, "Check your inbox" after sending), focus stays in the sheet, and closing returns focus to the button that opened it.
-- The shared page's suggest gate uses the same field look under its existing card (the chat gate is now a full-screen empty state, see RL-111), without the sheet's footnote and sage note, and do not move focus. In the sign-up sheets (Follow, Share, Suggest, edit profile) Continue with email puts focus and the keyboard in the Email field, and Back is disabled while a link is sending.
+- In the sign-up sheets (Follow, Share, Suggest, edit profile) Continue with email puts focus and the keyboard in the Email field, and Back is disabled while a link is sending.
 - Reviewer noted (low): the sent step's 280px `bg-accent-200` circle sits behind themed text colours, so it would be illegible if dark mode returned; pin the colours then.
 - Reviewer noted (low): the email pill (`bg-neutral-100`) has almost no contrast with the `bg-surface` sheet, and it uses `break-all`.
 - Reviewer noted (low): the invite tone shows "Sending..." text while AuthModal shows a Spinner.
@@ -117,7 +143,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): `onAuthenticated` can fire more than once (the auto-dismiss effect and the guest handler both call it). Every caller's handler is idempotent; this predates the ticket.
 - Reviewer noted (low): closing the sheet mid-send and reopening it can show a stale sent step.
 - Reviewer noted (low, product call): AuthModal shows the guest link for the plain Sign in callers (Activity, suggestion thread, profile) as before. Decide whether the guest option should be offered there.
-- Reviewer noted (low): the copy "Sign up to suggest a change" (SuggestChangeModal) and "Sign up to start cooking up recipes" (RecipeChatPage) stays until RL-113 replaces that screen; RL-111 restyled the chat gate but kept its copy.
+- Reviewer noted (low): the copy "Sign up to start cooking up recipes" (RecipeChatPage) is kept; RL-111 restyled the chat gate but kept its copy. The shared page's "Sign up to suggest a change" copy went with the modal in RL-113.
 
 ### RL-107 Suggesting a change turns the recipe page into a form (9b)
 
@@ -198,7 +224,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): the nutrition card's mt-[18px] and Method's mt-[26px] are overridden by the parents' space-y-4 and space-y-5, so spacing drifts 2 to 4px from the spec.
 - Reviewer noted (low): ticked step text is line-through opacity-60 and the ticked disc check is about 3.7:1 contrast; verify at QA.
 - Reviewer noted (low): the compact preview hides the nutrition card. That matches the old compact behaviour (it was `!compact` before too).
-- Reviewer noted (low): SharedRecipePage still has pre-existing dark: classes and passes no nutrition to MetadataPills.
+- Reviewer noted (low): SharedRecipePage had pre-existing dark: classes (removed in RL-113).
 - Steps with repeated numbering across groups (1, 2 in each group) tick independently.
 
 ### RL-102 The recipe body shows pills, an inline servings stepper, the Scaled strip and tick-off rows
@@ -209,10 +235,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Tap rows to tick and untick (whole row is the target); ticked rows get a sage circle with a check and a struck name. With a keyboard, Tab to a row and press Space: it toggles and a focus ring shows on the circle. Ticks vanish on reload.
 - Switch units in Settings and confirm amounts on the recipe page still convert.
 - The chat recipe card and the parent preview in the chat still read well: same row layout without the circle, servings as a pill, no author pill, no stepper.
-- Shared recipe page (/shared/:id) also picks up the new pills and rows; check it renders (its own author chip is unchanged, servings stay a pill).
+- Shared recipe page (/shared/:id) also picks up the new pills and rows (RL-113 later replaced its header and author chip with the banner).
 - The nutrition card now sits below the method (moved by RL-103).
 - Reviewer noted (med, follow-up ticket): RecipeDetailPage.tsx still renders its old "Added by" avatar button below the content, so every recipe with a named author now shows the author twice (the new pill and Added by). Remove one in a follow-up.
-- Reviewer noted (med, one-line follow-up): SharedRecipePage passes neither nutrition nor author to MetadataPills, so it shows no kcal pill even when the NutritionPanel shows calories, and it keeps its own Added by button.
+- Reviewer noted (med, resolved by RL-113): SharedRecipePage now renders through RecipeContent, so it has the kcal pill, and the Added by button is gone.
 - Reviewer noted (low): the unticked circle border-neutral-400 on bg-surface is probably under 3:1 non-text contrast (ticket-specified value). Check at QA; use neutral-500 or 600 if it fails.
 - Reviewer noted (low): UserPill is 12px while the other pills are 13px (RL-088 component).
 - A one-serving recipe now reads "1 serving" in the servings pill, not "1 servings".
@@ -728,7 +754,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Needs a browser against `npm run emulators` plus `npm run dev:emulated` (no agent ran this walk). Temporarily lower the reply cap to 3 in BOTH `REPLY_CAP` (`src/lib/rateLimit.ts`) and `replyCap()` (`firestore.rules`); `npm test` fails if they differ. Then:
   - Send replies quickly on one suggestion: the first three send; the fourth shows "You've sent a lot of replies recently. Try again in a while." under the reply box (readable in light and dark), and the draft stays in the box. In the emulator UI, `writeWindows/{uid}_reply` has `count` 3 and `last` naming the third message's path, and no fourth message exists.
   - In `clientErrors`, one entry with context `rate-limited-reply` and your uid for that attempt.
-  - Suggestions still work normally below their cap: send one, see "Suggestion sent" (a dialog on the shared page; on the recipe page it is the toast "Sent to <author>"), and `writeWindows/{uid}_suggestion` has `count` 1. Optionally lower the suggestion cap the same way and confirm "You've sent a lot of suggestions recently. Try again in a while." in the dialog.
+  - Suggestions still work normally below their cap: send one, see the toast "Sent to <author>" (recipe page and shared page), and `writeWindows/{uid}_suggestion` has `count` 1. Optionally lower the suggestion cap the same way and confirm "You've sent a lot of suggestions recently. Try again in a while." in suggest mode.
   - Offline: stop the Firestore emulator and send a reply and a suggestion. Within about 5 seconds each shows the generic message ("Couldn't send that reply. Please try again." / "That didn't send. Check your connection and try again."), not the rate-limit message. They no longer queue and send later, which is a behaviour change.
   - Put both caps back and confirm `npm test` passes, so the numbers in the rules and `rateLimit.ts` match (10 and 30).
 - On the preview build, after RL-051 deploys the rules: send replies quickly past 30 in an hour (or lower the cap on a preview only) and confirm the message, then confirm the `rate-limited-reply` entry in `clientErrors` in the console.

@@ -235,7 +235,7 @@ Functions:
 
 | Action | Cap | Window | Limited write | When limited |
 |---|---|---|---|---|
-| `suggestion` | 10 | 1 hour | suggestion create | message in the suggest dialog on the shared page, and in suggest mode on the recipe page |
+| `suggestion` | 10 | 1 hour | suggestion create | message in suggest mode on the recipe page and the shared page |
 | `reply` | 30 | 1 hour | message create | message under the reply box |
 | `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, approve, reject) | skipped silently, reported |
 | `recipe` | 30 | 1 day | recipe create only (a re-publish is an update and is not limited) | "You've published a lot today. Try again tomorrow." |

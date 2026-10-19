@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { decodeRecipeFromHash, type SharedRecipe } from '../lib/share';
 import { getPublishedRecipe } from '../services/firestore';
 import { createRecipe } from '../db/recipes';
@@ -7,28 +7,47 @@ import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCloudFavorite, useFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
-import { MetadataPills } from '../components/recipe/MetadataPills';
-import { IngredientList } from '../components/recipe/IngredientList';
-import { NutritionPanel } from '../components/recipe/NutritionPanel';
-import { TagList } from '../components/recipe/TagList';
-import { InstructionList } from '../components/recipe/InstructionList';
-import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
+import { RecipeContent } from '../components/recipe/RecipeContent';
+import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
-import { Avatar } from '../components/ui/Avatar';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
+import { EmojiBlob } from '../components/ui/EmojiBlob';
+import { EmptyState } from '../components/ui/EmptyState';
+import { IconButton } from '../components/ui/IconButton';
+import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
+import { UserPill } from '../components/ui/UserPill';
 import { incrementRecipeViews } from '../services/firestore';
 import { trackRecipeViewed } from '../services/analytics';
-import type { Collaborator } from '../types/recipe';
-import { Heart } from '../components/ui/icons';
+import type { Collaborator, Recipe } from '../types/recipe';
+import { Bookmark, BookmarkCheck, GitBranch, GitBranchPlus, Heart, MessageCircle } from '../components/ui/icons';
 
 interface FullSharedRecipe extends SharedRecipe {
   id?: string;
   favoriteCount?: number;
   collaborators?: Collaborator[];
+  // Cloud documents carry these; a hash link never does (the schema strips them).
+  parentId?: string | null;
+  prompt?: string;
 }
 
+const footerButton =
+  'inline-flex h-[52px] min-w-0 items-center justify-center gap-1.5 rounded-full px-1.5 font-heading text-[15px] whitespace-nowrap transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:pointer-events-none disabled:opacity-45';
+// A 44px hit area around a smaller visual pill, via a pseudo-element, so the
+// element itself never needs overflow handling that would clip it.
+const hitArea = "relative before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']";
+
+// Keyed on the shared link so suggest mode, the saved copy, the save guard and
+// toasts all reset when the route moves to another recipe (this page stays
+// mounted across params and hashes).
 export function SharedRecipePage() {
+  const { id } = useParams<{ id: string }>();
+  const { hash } = useLocation();
+  return <SharedRecipeView key={`${id ?? ''}|${hash}`} />;
+}
+
+function SharedRecipeView() {
   const { id: paramId } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -39,8 +58,11 @@ export function SharedRecipePage() {
   // flaky connection that a perfectly good link was corrupt.
   const [status, setStatus] = useState<'loading' | 'ready' | 'not-found' | 'failed'>('loading');
   const [reloadKey, setReloadKey] = useState(0);
-  const [showSuggest, setShowSuggest] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [showSuggestSignUp, setShowSuggestSignUp] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [showAuth, setShowAuth] = useState(false);
+  const openSavedRef = useRef<HTMLButtonElement>(null);
   // Verified accounts favourite in the cloud; anyone else keeps a local Dexie
   // bookmark, since the rules deny them cloud writes (decision 1a).
   const cloudFavorite = useCloudFavorite(paramId);
@@ -55,12 +77,14 @@ export function SharedRecipePage() {
   // that produced 3 saved copies. Same failure mode as saveRecipe (FUN-14).
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
 
   const handleSaveCopy = async () => {
     if (!recipe || savingRef.current || savedId) return;
     savingRef.current = true;
     setSaving(true);
+    setSaveError(false);
     try {
       // Deliberately not published: this is the recipient's private copy of
       // someone else's recipe, and the original creator is preserved in
@@ -77,6 +101,7 @@ export function SharedRecipePage() {
       setSavedId(saved.id);
     } catch (err) {
       console.error('Saving the shared recipe failed', err);
+      setSaveError(true);
       // Only released on failure: after a success the button becomes a link to
       // the saved recipe, so re-arming it would invite a duplicate.
       savingRef.current = false;
@@ -149,12 +174,26 @@ export function SharedRecipePage() {
     });
   };
 
+  // Same gate as RecipeDetailPage: suggesting needs a verified email, so anyone
+  // else gets the sign-up dialog and the page stays as it is.
   const handleSuggestClick = () => {
-    // Same as RecipeDetailPage: the dialog itself asks for an email when it
-    // needs one, so routing through the sign-in modal first only added taps and
-    // advertised anonymous accounts, which cannot suggest.
-    setShowSuggest(true);
+    if (!user?.emailVerified) {
+      setShowSuggestSignUp(true);
+      return;
+    }
+    setSuggesting(true);
   };
+
+  useEffect(() => {
+    if (!sentTo) return;
+    const timer = setTimeout(() => setSentTo(null), 3000);
+    return () => clearTimeout(timer);
+  }, [sentTo]);
+
+  // The Save button is replaced by this one, so focus would otherwise fall to the body.
+  useEffect(() => {
+    if (savedId) openSavedRef.current?.focus();
+  }, [savedId]);
 
   const handleSubmitSuggestion = async (message: string) => {
     if (!recipe || !paramId) return;
@@ -168,197 +207,219 @@ export function SharedRecipePage() {
   };
 
   if (status !== 'ready' || !recipe) {
-    const heading =
-      status === 'loading'
-        ? 'Loading Recipe'
-        : status === 'failed'
-          ? "Couldn't Load Recipe"
-          : 'Invalid Link';
-
-    return (
-      <div className="min-h-dvh flex flex-col bg-surface">
-        <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border">
-          <div className="flex items-center h-14 px-4 max-w-lg mx-auto">
-            <h1 className="flex-1 text-lg font-semibold">{heading}</h1>
-          </div>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-8">
-          {status === 'loading' ? (
-            <Spinner className="text-primary-600 dark:text-primary-400" />
-          ) : (
-            <div className="text-center space-y-3">
-              <p className="text-4xl">{status === 'failed' ? '📡' : '🔗'}</p>
-              <p className="text-text-secondary">
-                {status === 'failed'
-                  ? "We couldn't reach the recipe library. Check your connection and try again."
-                  : 'This shared recipe link is invalid or corrupted.'}
-              </p>
-              <div className="flex flex-col items-center gap-2">
-                {status === 'failed' && (
-                  <Button onClick={() => setReloadKey((k) => k + 1)}>Try Again</Button>
-                )}
-                <button
-                  onClick={() => navigate('/')}
-                  className="text-primary-600 dark:text-primary-400 text-sm font-medium py-2 px-3"
-                >
-                  Go to Recipe Lab
-                </button>
-              </div>
-            </div>
-          )}
+    if (status === 'loading') {
+      return (
+        <div role="status" aria-label="Loading recipe" className="mx-auto max-w-lg space-y-4 p-4">
+          <Skeleton className="h-12" />
+          <Skeleton className="h-8" />
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
         </div>
+      );
+    }
+    const failed = status === 'failed';
+    return (
+      <div className="mx-auto max-w-lg">
+        <EmptyState
+          tone="error"
+          icon={failed ? '📡' : '🔗'}
+          title={failed ? "Couldn't Load Recipe" : 'Invalid Link'}
+          description={
+            failed
+              ? "We couldn't reach the recipe library. Check your connection and try again."
+              : 'This shared recipe link is invalid or corrupted.'
+          }
+          action={
+            <div className="flex flex-col items-start gap-2">
+              {failed && <Button onClick={() => setReloadKey((k) => k + 1)}>Try Again</Button>}
+              <Button variant="ghost" onClick={() => navigate('/')}>
+                Go to Recipe Lab
+              </Button>
+            </div>
+          }
+        />
       </div>
+    );
+  }
+
+  // The cloud document is a full Recipe; a hash link is not, but everything the
+  // shared components read is present in both.
+  const fullRecipe = { ...recipe, id: paramId ?? 'shared' } as unknown as Recipe;
+  const authorName = recipe.createdBy?.displayName?.trim();
+  const authorUid = recipe.createdBy?.uid;
+  const prompt = recipe.prompt?.trim();
+  const canSuggest = isConfigured && !!paramId && !isOwner;
+  const authorPill = authorUid ? <UserPill wrap uid={authorUid} name={recipe.createdBy?.displayName ?? null} /> : null;
+
+  if (suggesting && canSuggest) {
+    return (
+      <SuggestMode
+        key={fullRecipe.id}
+        recipe={fullRecipe}
+        onSend={handleSubmitSuggestion}
+        onCancel={() => setSuggesting(false)}
+        onSent={() => {
+          setSuggesting(false);
+          setSentTo(authorName || 'the author');
+        }}
+      />
     );
   }
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center h-14 px-4 max-w-lg mx-auto">
-          <h1 className="flex-1 text-lg font-semibold truncate">{recipe.title}</h1>
-          <div className="flex items-center gap-1 ml-2">
-            {/* Favorite button (only for Firestore-shared recipes) */}
-            {paramId && !isOwner && (
-              <button
-                onClick={handleFavoriteClick}
-                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors"
-                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      <header className="mx-auto flex w-full max-w-lg items-center gap-1 px-4 pt-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-3 rounded-full bg-surface-secondary py-2 pl-3.5 pr-2 text-[13px] text-text-secondary">
+          <span>Shared by</span>
+          {authorPill ? (
+            authorUid !== 'local' ? (
+              <Link
+                to={`/profile/${authorUid}`}
+                className={`${hitArea} inline-flex min-w-0 max-w-full rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
               >
-                {isFavorite ? (
-                  <Heart className="w-5 h-5 text-red-500" filled />
-                ) : (
-                  <Heart className="w-5 h-5" />
-                )}
-              </button>
-            )}
-            {/* Only the hash link is genuinely read-only. On /shared/:id the
-                badge sat directly beside a working favourite button and a
-                Suggest a Change action, flatly contradicting both. */}
-            {!paramId && (
-              <span className="text-xs font-medium text-text-tertiary bg-surface-secondary rounded-full px-2.5 py-0.5">
-                Read-only copy
-              </span>
-            )}
-          </div>
+                {authorPill}
+              </Link>
+            ) : (
+              authorPill
+            )
+          ) : (
+            <span className="font-medium text-text-primary">Someone</span>
+          )}
+          <div className="flex-1" />
+          <Link
+            to="/"
+            className={`${hitArea} inline-flex h-8 items-center rounded-full bg-surface px-3 text-[13px] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
+          >
+            Open Recipe Lab
+          </Link>
         </div>
+        {paramId && !isOwner && (
+          <IconButton
+            variant="flat"
+            label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            onClick={handleFavoriteClick}
+            icon={<Heart className={`h-5 w-5 ${isFavorite ? 'text-red-500' : ''}`} filled={isFavorite} />}
+          />
+        )}
       </header>
 
-      <main className="flex-1 max-w-lg mx-auto w-full">
-        <div className="p-4 space-y-5">
-          {favoriteError && (
-            <p role="alert" className="text-sm text-danger-700 dark:text-danger-300">
-              {favoriteError}
-            </p>
-          )}
+      <main className="mx-auto w-full max-w-lg flex-1">
+        <div className="space-y-5 px-[22px] pb-4 pt-4">
           <div>
-            <div className="flex items-start gap-3">
-              <span className="text-4xl">{recipe.emoji}</span>
-              <div>
-                <h2 className="text-xl font-bold">{recipe.title}</h2>
-                <p className="text-sm text-text-secondary mt-1">{recipe.description}</p>
-                {recipe.createdBy?.displayName && (
-                  <button
-                    onClick={() => navigate(`/profile/${recipe.createdBy!.uid}`)}
-                    className="min-h-11 flex items-center gap-1.5 mt-1 hover:opacity-80 transition-opacity"
-                  >
-                    <Avatar uid={recipe.createdBy.uid} name={recipe.createdBy.displayName} size="sm" />
-                    <p className="text-xs text-text-tertiary">
-                      Added by <span className="text-primary-600 dark:text-primary-400 font-medium">{recipe.createdBy.displayName}</span>
-                    </p>
-                  </button>
-                )}
-                {recipe.collaborators && recipe.collaborators.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                    <span className="text-xs text-text-tertiary">Collaborators:</span>
-                    {recipe.collaborators.map((c) => (
-                      <span key={c.uid} className="inline-flex items-center gap-1 bg-surface-secondary rounded-full pl-0.5 pr-2 py-0.5">
-                        <Avatar uid={c.uid} name={c.displayName} size="sm" />
-                        <span className="text-xs text-text-secondary">{c.displayName ?? 'Anonymous'}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <div className="flex items-start gap-4">
+              <h1 className="min-w-0 flex-1 break-words font-heading text-[34px] leading-[1.04]">{recipe.title}</h1>
+              <EmojiBlob size={72} emoji={recipe.emoji} />
             </div>
+            <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">{recipe.description}</p>
+            {recipe.parentId && (
+              <p className="mt-[14px] flex items-start gap-2.5 rounded-[22px] bg-accent-2-100 px-4 py-3 text-[14px] text-accent-2-900">
+                <GitBranch className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="min-w-0 break-words">
+                  {authorName || 'Someone'}
+                  {prompt ? (
+                    <>
+                      {' asked for '}
+                      <i>&quot;{prompt}&quot;</i>.
+                    </>
+                  ) : (
+                    ' made this variation.'
+                  )}
+                </span>
+              </p>
+            )}
           </div>
 
-          <MetadataPills
-            prepTime={recipe.prepTime}
-            cookTime={recipe.cookTime}
-            totalTime={recipe.totalTime}
-            servings={recipe.servings}
-            difficulty={recipe.difficulty}
-          />
+          <RecipeContent recipe={fullRecipe} hideHeader />
 
-          <IngredientList ingredients={recipe.ingredients} checkable />
-          <InstructionList instructions={recipe.instructions} checkable />
-
-          <NutritionPanel nutrition={recipe.nutrition} />
-
-          {recipe.notes.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="font-semibold text-text-primary">Notes</h3>
-              <ul className="space-y-1">
-                {recipe.notes.map((note, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-text-secondary">
-                    <span className="text-primary-500">💡</span>
-                    <span>{note}</span>
-                  </li>
-                ))}
-              </ul>
+          {recipe.collaborators && recipe.collaborators.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-text-tertiary">Collaborators:</span>
+              {recipe.collaborators.map((c) => (
+                <UserPill key={c.uid} uid={c.uid} name={c.displayName} />
+              ))}
             </div>
           )}
-
-          <TagList tags={recipe.tags} />
         </div>
       </main>
 
-      <div className="sticky bottom-0 p-4 bg-surface border-t border-border">
-        <div className="max-w-lg mx-auto">
-          {paramId && !isOwner ? (
-            <button
-              onClick={handleSuggestClick}
-              className="w-full py-2.5 min-h-11 rounded-xl border border-primary-600 text-primary-600 dark:text-primary-400 text-sm font-medium hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
-            >
-              Suggest a Change
-            </button>
-          ) : !paramId ? (
-            // A hash link carries the whole recipe in the URL and nothing else:
-            // no Firestore doc to favourite, no owner to suggest to. Without a
-            // save action the recipient could only read it and close the tab,
-            // which is the one moment they most want to keep it.
-            <div className="space-y-2">
-              {savedId ? (
-                <Button fullWidth onClick={() => navigate(`/recipe/${savedId}`)}>
-                  Saved — open it
-                </Button>
-              ) : (
-                <Button fullWidth onClick={handleSaveCopy} disabled={saving}>
-                  {saving ? <Spinner size="sm" /> : 'Save to my library'}
+      {/* Not sticky, as on the recipe page: the decision happens at the end of the recipe. */}
+      <div className="bg-surface px-5 pt-3 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
+        <div className="mx-auto flex max-w-lg flex-col gap-2">
+          {favoriteError && (
+            <p role="alert" className="break-words text-sm text-danger-700">
+              {favoriteError}
+            </p>
+          )}
+          {saveError && (
+            <p role="alert" className="break-words text-sm text-danger-700">
+              Couldn&apos;t save a copy. Try again.
+            </p>
+          )}
+          {paramId ? (
+            <>
+              <div className="flex gap-2.5">
+                {!isOwner && (
+                  <button
+                    type="button"
+                    aria-pressed={isFavorite}
+                    onClick={handleFavoriteClick}
+                    className={`${footerButton} flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
+                  >
+                    {isFavorite ? (
+                      <BookmarkCheck className="h-4 w-4 shrink-0 max-[359px]:hidden" />
+                    ) : (
+                      <Bookmark className="h-4 w-4 shrink-0 max-[359px]:hidden" />
+                    )}
+                    {isFavorite ? 'Saved' : 'Save'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate(`/recipe/${paramId}/vary`)}
+                  className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
+                >
+                  <GitBranchPlus className="h-4 w-4 shrink-0" />
+                  Make it yours
+                </button>
+              </div>
+              {canSuggest && (
+                <Button variant="ghost" fullWidth onClick={handleSuggestClick}>
+                  <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
+                  Suggest a change
                 </Button>
               )}
-              <p className="text-xs text-text-tertiary text-center">
-                Saves a copy on this device. You can then branch it into your own
-                variations.
-              </p>
-            </div>
+            </>
           ) : (
-            <p className="text-xs text-text-tertiary text-center">
-              Shared from{' '}
-              <button onClick={() => navigate('/')} className="text-primary-600 dark:text-primary-400 font-medium">
-                Recipe Lab
-              </button>
-            </p>
+            // A hash link carries the whole recipe and nothing else: no cloud doc
+            // to favourite, branch or suggest on. Saving a copy is the one thing
+            // the recipient can keep.
+            <>
+              {savedId ? (
+                <button
+                  ref={openSavedRef}
+                  type="button"
+                  onClick={() => navigate(`/recipe/${savedId}`)}
+                  className={`${footerButton} w-full bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
+                >
+                  Open in my library
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSaveCopy}
+                  disabled={saving}
+                  className={`${footerButton} w-full bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
+                >
+                  {saving ? <Spinner size="sm" /> : 'Save to my library'}
+                </button>
+              )}
+              <p className="text-center text-xs text-text-tertiary">
+                Saves a copy on this device. You can then branch it into your own variations.
+              </p>
+            </>
           )}
         </div>
       </div>
-
-      <SuggestChangeModal
-        open={showSuggest}
-        recipeTitle={recipe.title}
-        onSubmit={handleSubmitSuggestion}
-        onClose={() => setShowSuggest(false)}
-      />
 
       <AuthModal
         open={showAuth}
@@ -366,6 +427,22 @@ export function SharedRecipePage() {
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
       />
+
+      <SignUpDialog
+        open={showSuggestSignUp}
+        action={{ kind: 'suggest' }}
+        body={`Suggestions go to the person who wrote ${recipe.title}, so they come from a name rather than an anonymous account. Add your email and you can suggest, reply, and publish recipes of your own.`}
+        onClose={() => setShowSuggestSignUp(false)}
+      />
+
+      {sentTo && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="break-words text-sm font-medium text-text-primary">Sent to {sentTo}</p>
+        </div>
+      )}
     </div>
   );
 }
