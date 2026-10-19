@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, act } from '@testing-library/react';
+import { screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import type { AppUser } from '../types/recipe';
@@ -38,6 +38,8 @@ vi.mock('../hooks/useUserRecipes', () => ({
 import { ProfilePage } from './ProfilePage';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
+
+const verified: AppUser = { ...anon, uid: 'v-1', isAnonymous: false, emailVerified: true, email: 'v@example.com' };
 
 function renderAt(route: string, user: AppUser | null) {
   return renderWithProviders(
@@ -93,7 +95,23 @@ describe('ProfilePage sign-up gates', () => {
     expect(screen.getByRole('heading', { name: 'Sign up to edit your profile' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Edit display name/ }));
     expect(screen.queryByPlaceholderText('Display name')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull();
     expect(updateAvatar).not.toHaveBeenCalled();
+  });
+});
+
+describe('OwnProfile avatar sheet', () => {
+  it('opens the editor sheet for a verified account and saves through updateAvatar', async () => {
+    updateAvatar.mockClear();
+    renderAt('/profile', verified);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Edit avatar' });
+    expect(within(sheet).getByRole('radio', { name: 'Photo' })).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateAvatar).toHaveBeenCalledWith(expect.objectContaining({ photoType: 'generated' })));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull());
   });
 });
 

@@ -14,6 +14,8 @@ let consent = { configured: false, granted: false };
 const setConsent = vi.fn();
 vi.mock('../hooks/useConsent', () => ({ useConsent: () => ({ ...consent, setConsent }) }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
+const updateAvatar = vi.fn(async () => {});
+vi.mock('../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null, updateAvatar }) }));
 const fetchCloud = vi.fn();
 vi.mock('../services/firestore', () => ({ fetchCloudDataForExport: (...a: unknown[]) => fetchCloud(...a) }));
 const exportRecipes = vi.fn(async (): Promise<unknown[]> => []);
@@ -207,12 +209,38 @@ describe('Settings: layout (RL-093)', () => {
   });
 
   it.each([
-    ['verified', member, 'cook@example.com'],
-    ['anonymous', anon, 'Guest · this device only'],
-  ])('Account row shows the %s sub line', (_n, u, sub) => {
+    ['verified', member, 'Test Cook, cook@example.com, edit avatar', 'dialog'],
+    ['anonymous', anon, 'Test Cook, Guest · this device only', null],
+  ])('Account row for a %s account is named "%s" and haspopup %s', (_n, u, name, popup) => {
     user = u;
     render();
-    expect(screen.getByRole('button', { name: `Test Cook, ${sub}` })).toBeTruthy();
+    expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe(popup);
+  });
+
+  it('Account row opens the avatar sheet for a verified account, and closes it on save', async () => {
+    user = member;
+    render();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Test Cook, cook@example.com, edit avatar' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Edit avatar' });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateAvatar).toHaveBeenCalledWith(expect.objectContaining({ photoType: 'generated' })));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull());
+  });
+
+  it('Account row navigates to /profile, without a sheet, for an anonymous account', async () => {
+    user = anon;
+    renderWithProviders(
+      <Routes>
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<p>profile page</p>} />
+      </Routes>,
+      { user, route: '/settings' }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Test Cook, Guest · this device only' }));
+    expect(await screen.findByText('profile page')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull();
   });
 
   it('shows the add-an-email help line for an anonymous account only', () => {

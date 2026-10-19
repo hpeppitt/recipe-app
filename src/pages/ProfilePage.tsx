@@ -130,10 +130,10 @@ function OwnProfile() {
                 A persistent badge replaces it; the hover tint is kept as a
                 pointer-only nicety on top. */}
             <button
-              onClick={() => (needsSignUp ? setShowSignUp(true) : setEditingAvatar(!editingAvatar))}
+              onClick={() => (needsSignUp ? setShowSignUp(true) : setEditingAvatar(true))}
               className="relative group rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
               aria-label="Change avatar"
-              aria-expanded={editingAvatar}
+              aria-haspopup="dialog"
             >
               <Avatar
                 uid={user.uid}
@@ -192,24 +192,6 @@ function OwnProfile() {
               {user.isAnonymous ? 'Anonymous account' : user.email}
             </p>
           </div>
-
-          {/* Avatar editor */}
-          {editingAvatar && (
-            <div className="border border-border rounded-2xl p-4 bg-surface-secondary">
-              <AvatarEditor
-                uid={user.uid}
-                name={user.displayName}
-                currentPhotoType={profile?.photoType ?? 'generated'}
-                currentPhotoEmoji={profile?.photoEmoji ?? null}
-                currentPhotoBgColor={profile?.photoBgColor ?? null}
-                currentPhotoURL={profile?.photoURL ?? null}
-                onSave={async (data) => {
-                  await updateAvatar(data);
-                  setEditingAvatar(false);
-                }}
-              />
-            </div>
-          )}
 
           {/* Stats. Hidden entirely until there is something to report: a row of
               four zeros is a worse first impression than no row, and it is the
@@ -333,6 +315,21 @@ function OwnProfile() {
           </div>
         </div>
       </main>
+
+      <AvatarEditor
+        open={editingAvatar}
+        onClose={() => setEditingAvatar(false)}
+        uid={user.uid}
+        name={user.displayName}
+        currentPhotoType={profile?.photoType ?? 'generated'}
+        currentPhotoEmoji={profile?.photoEmoji ?? null}
+        currentPhotoBgColor={profile?.photoBgColor ?? null}
+        currentPhotoURL={profile?.photoURL ?? null}
+        onSave={async (data) => {
+          await updateAvatar(data);
+          setEditingAvatar(false);
+        }}
+      />
 
       <SignUpDialog
         open={showSignUp}

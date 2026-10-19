@@ -8,6 +8,8 @@ import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useConsent } from '../hooks/useConsent';
 import { Avatar } from '../components/ui/Avatar';
+import { AvatarEditor } from '../components/profile/AvatarEditor';
+import { useOwnProfile } from '../hooks/useProfile';
 import { IconButton } from '../components/ui/IconButton';
 import { ChevronLeft, ChevronRight, Download } from '../components/ui/icons';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
@@ -50,6 +52,8 @@ export function SettingsPage() {
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured, signOut } = useAuth();
+  const { profile, updateAvatar } = useOwnProfile();
+  const [editingAvatar, setEditingAvatar] = useState(false);
   // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
   const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
@@ -181,12 +185,20 @@ export function SettingsPage() {
               <Row><button
                 type="button"
                 className={ROW}
-                aria-label={`${accountName}, ${accountSub}`}
-                onClick={() => navigate('/profile')}
+                aria-label={user?.emailVerified ? `${accountName}, ${accountSub}, edit avatar` : `${accountName}, ${accountSub}`}
+                aria-haspopup={user?.emailVerified ? 'dialog' : undefined}
+                onClick={() => (user?.emailVerified ? setEditingAvatar(true) : navigate('/profile'))}
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="flex-shrink-0 [&>div]:h-10 [&>div]:w-10 [&>div]:text-sm">
-                    <Avatar uid={user?.uid ?? 'local'} name={user?.displayName ?? null} />
+                    <Avatar
+                      uid={user?.uid ?? 'local'}
+                      name={user?.displayName ?? null}
+                      photoType={profile?.photoType}
+                      photoEmoji={profile?.photoEmoji}
+                      photoBgColor={profile?.photoBgColor}
+                      photoURL={profile?.photoURL}
+                    />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate font-bold">
@@ -386,6 +398,23 @@ export function SettingsPage() {
         onConfirm={handleClear}
         onCancel={() => setShowClearConfirm(false)}
       />
+
+      {user?.emailVerified && (
+        <AvatarEditor
+          open={editingAvatar}
+          onClose={() => setEditingAvatar(false)}
+          uid={user.uid}
+          name={user.displayName}
+          currentPhotoType={profile?.photoType ?? 'generated'}
+          currentPhotoEmoji={profile?.photoEmoji ?? null}
+          currentPhotoBgColor={profile?.photoBgColor ?? null}
+          currentPhotoURL={profile?.photoURL ?? null}
+          onSave={async (data) => {
+            await updateAvatar(data);
+            setEditingAvatar(false);
+          }}
+        />
+      )}
     </div>
   );
 }
