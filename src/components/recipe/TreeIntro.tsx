@@ -1,24 +1,33 @@
+import { useRef } from 'react';
 import { Button } from '../ui/Button';
 
 /**
  * Teaches the one idea the whole app is built on: changing a recipe makes a new
- * version rather than overwriting it.
+ * version rather than overwriting it. Redrawn in the 16a language (RL-114).
  *
- * Nothing taught this before. The library welcome panel described it in prose,
- * which the people who most need it skip, and `Branch this recipe` sat on every
- * recipe with no hint that it produces a child rather than editing this one. A
- * user could get all the way through the app without discovering the feature it
- * exists for.
- *
- * The diagram is deliberately built from the same borders the real version tree
- * uses (`border-l-2 border-border`, `ml-3 pl-3`), so recognising it later on
- * `/recipe/:id/tree` is the point rather than a coincidence.
+ * The diagram is a scaled 3a: same line width and colours as
+ * `components/tree/TreeView.tsx` (RL-068), smaller elbow (14px) and indent
+ * (36px) so it fits a 320px card. It is decorative
+ * (`aria-hidden`); the visually hidden sentence is its only description.
  *
  * @param onDismiss Records it as seen. There is no "remind me later": either the
  *   idea landed or it did not, and re-showing it is nagging.
  * @param onOpenTree Optional. Offered only when this recipe actually has
  *   variations, since sending someone to a tree with one node teaches nothing.
  */
+const STEPS = [
+  'Someone asks for a change, like "less sugar".',
+  'A new version grows off it. The original never changes.',
+  'The terracotta line shows how you got here.',
+];
+
+const NODE = 'min-w-0 break-words rounded-[18px] bg-surface px-3 py-[7px] text-xs font-bold text-text-primary';
+const RAIL = 'absolute left-0 top-0 bottom-0 border-l-[3px] border-neutral-400';
+// bottom is half the row minus the 8px top padding, less half the 3px line, so the
+// elbow's line meets the node's vertical centre whether the node wraps or not.
+const ELBOW =
+  'absolute top-0 bottom-[calc(50%-5.5px)] w-3.5 rounded-bl-[12px] border-b-[3px] border-l-[3px]';
+
 export function TreeIntro({
   onDismiss,
   onOpenTree,
@@ -26,71 +35,106 @@ export function TreeIntro({
   onDismiss: () => void;
   onOpenTree?: () => void;
 }) {
+  const ref = useRef<HTMLElement>(null);
+
+  // Got it removes this card, which would drop focus to the body. Hand it to the
+  // enclosing <main> instead so the next Tab starts at the recipe.
+  const gotIt = () => {
+    const main = ref.current?.closest('main');
+    if (main) {
+      main.setAttribute('tabindex', '-1');
+      main.style.outline = 'none';
+      main.focus({ preventScroll: true });
+      main.addEventListener(
+        'blur',
+        () => {
+          main.removeAttribute('tabindex');
+          main.style.outline = '';
+        },
+        { once: true }
+      );
+    }
+    onDismiss();
+  };
+
   return (
     <section
+      ref={ref}
       aria-labelledby="tree-intro-heading"
-      className="border border-primary-200 bg-primary-50/50 dark:border-primary-800 dark:bg-primary-950/40 rounded-2xl p-4 space-y-3"
+      className="flex flex-col gap-4 rounded-card bg-surface p-4 shadow-md"
     >
-      <div>
-        <h2
-          id="tree-intro-heading"
-          className="text-sm font-semibold text-text-primary"
-        >
-          Recipes here branch instead of being overwritten
-        </h2>
-        <p className="text-xs text-text-secondary mt-1">
-          Ask for a change and you get a new version that remembers where it came
-          from. The original stays exactly as it was, so you can cook either one, or
-          compare them.
-        </p>
+      <div aria-hidden="true" className="rounded-[28px] bg-surface-secondary px-3.5 py-4">
+        <div className="flex items-center gap-2.5 rounded-[20px] bg-surface px-3 py-2">
+          <span className="text-[18px]">🍞</span>
+          <span className="min-w-0 flex-1 break-words text-[13px] font-bold">Banana bread</span>
+          <span className="text-[11px] text-text-tertiary">Original</span>
+        </div>
+        <div className="ml-[26px]">
+          <div className="relative pt-2">
+            <span className={RAIL} />
+            <span className={`${ELBOW} left-0 border-accent`} />
+            <div className="ml-[18px] flex">
+              <span className={NODE}>"less sugar"</span>
+            </div>
+          </div>
+          <div className="relative pt-2">
+            <span className={RAIL} />
+            <span className={`${ELBOW} left-9 border-accent`} />
+            <div className="ml-[54px] flex items-center gap-2">
+              <span className={`${NODE} flex-1 shadow-[0_0_0_2px_var(--color-accent)]`}>
+                "extra banana"
+              </span>
+              <span className="shrink-0 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-bold text-on-accent">
+                Here
+              </span>
+            </div>
+          </div>
+          <div className="relative pt-2">
+            <span className={`${ELBOW} left-0 border-neutral-400`} />
+            <div className="ml-[18px] flex">
+              <span className={NODE}>"add chocolate"</span>
+            </div>
+          </div>
+        </div>
       </div>
-
-      {/* aria-hidden: the list below is decorative, and the paragraph above
-          already carries the meaning for a screen reader. */}
-      <div
-        aria-hidden="true"
-        className="text-xs bg-surface rounded-xl border border-border p-3"
+      <h2
+        id="tree-intro-heading"
+        className="font-heading text-[24px] leading-[1.1] text-text-primary"
       >
-        <div className="flex items-center gap-2 text-text-primary">
-          <span>🍞</span>
-          <span className="font-medium">Banana bread</span>
-        </div>
-        <div className="ml-3 mt-2 space-y-2 border-l-2 border-border pl-3">
-          <div className="flex items-center gap-2 text-text-secondary">
-            <span>🥜</span>
-            <span>with walnuts</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 text-text-secondary">
-              <span>🍫</span>
-              <span>less sugar</span>
-            </div>
-            {/* A grandchild, because the tree is not just one level deep and that
-                is the part prose fails to convey. */}
-            <div className="ml-3 mt-2 border-l-2 border-border pl-3">
-              <div className="flex items-center gap-2 text-text-tertiary">
-                <span>🍌</span>
-                <span>less sugar, extra banana</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        Every recipe can grow branches
+      </h2>
+      <p className="sr-only">
+        An original recipe with two branches; one branch has its own branch, marked Here.
+      </p>
 
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" onClick={onDismiss}>
+      <ol role="list" className="flex flex-col gap-2.5 text-sm text-text-primary">
+        {STEPS.map((text, i) => (
+          <li key={text} className="flex gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-2-200 text-xs font-bold text-accent-2-800"
+            >
+              {i + 1}
+            </span>
+            <span className="min-w-0 break-words">{text}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="flex flex-col gap-2">
+        <Button fullWidth style={{ minHeight: 52 }} onClick={gotIt}>
           Got it
         </Button>
         {onOpenTree && (
           <Button
-            size="sm"
+            fullWidth
             variant="secondary"
             onClick={() => {
               onDismiss();
               onOpenTree();
             }}
           >
-            See this recipe's versions
+            See the tree
           </Button>
         )}
       </div>
