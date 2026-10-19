@@ -8,7 +8,8 @@ not a replacement. Ask for a variation of the variation and the tree grows again
 overwritten, the lineage stays navigable, and you can compare a branch against the version it
 came from.
 
-Text-first, permanently and on purpose. Recipes carry no photos. The identity of the product
+Text-first, permanently and on purpose. Recipes carry no photos. Photos can be sent to the AI
+as generation input, and they are never stored. The identity of the product
 is generation plus the tree, and food photography would mean image storage, upload UX, and a
 moderation story for no gain to either. (Profile avatars are the one image in the app, capped
 at 128px.)
