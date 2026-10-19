@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Instruction } from '../../types/recipe';
 import { useUnitSystem } from '../../hooks/useUnitSystem';
 import { convertTemperatures } from '../../lib/units';
+import { Check } from '../ui/icons';
 
 interface InstructionListProps {
   instructions: Instruction[];
@@ -24,62 +25,68 @@ export function InstructionList({ instructions, checkable = false }: Instruction
     });
 
   return (
-    <div className="space-y-4">
-      <h3 className="font-semibold text-text-primary">Instructions</h3>
+    <div className="mt-[26px]">
+      <h3 className="break-words font-heading text-[20px] leading-tight text-text-primary">Method</h3>
       {groups.map(({ group, items }) => (
         <div key={group ?? '__default'}>
           {group && (
-            <h4 className="text-sm font-medium text-text-secondary mb-2">{group}</h4>
+            <h4 className="mt-3 break-words text-[14px] font-semibold text-text-secondary">{group}</h4>
           )}
-          <ol className="space-y-3">
+          <ol className="mt-2">
             {items.map((inst) => {
-              const isDone = checkable && done.has(inst.step);
-              // The step number doubles as the tick target: it is already a
-              // circle in the right place, so cooking adds no new furniture.
-              const marker = (
+              // Identity is the position in the list, not `inst.step`: the model can
+              // restart numbering per group, and cloud data is not validated.
+              const id = instructions.indexOf(inst);
+              const isDone = checkable && done.has(id);
+              // The disc doubles as the tick picture: it is already a circle in
+              // the right place, so cooking adds no new furniture.
+              const disc = (
                 <span
-                  className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold ${
-                    isDone
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-primary-100 text-primary-700 dark:bg-primary-950 dark:text-primary-300'
+                  aria-hidden="true"
+                  className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full font-heading text-[14px] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent-700 ${
+                    isDone ? 'bg-accent-2-600 text-surface' : 'bg-surface-secondary text-text-primary'
                   }`}
                 >
-                  {isDone ? '✓' : inst.step}
+                  {isDone ? <Check className="h-4 w-4" /> : inst.step}
                 </span>
               );
+              // Oven temperatures live in prose, so converting ingredients
+              // while leaving "Bake at 180°C" alone would be a half-done
+              // toggle. Rewritten for display only.
               const body = (
-                <p
-                  className={`text-text-primary leading-relaxed pt-1 ${
+                <span
+                  className={`min-w-0 flex-1 break-words text-text-primary ${
                     isDone ? 'line-through opacity-60' : ''
                   }`}
                 >
-                  {/* Oven temperatures live in prose, so converting ingredients
-                      while leaving "Bake at 180°C" alone would be a half-done
-                      toggle — the oven is exactly where an imperial cook is
-                      stuck. Rewritten for display only. */}
-                  {convertTemperatures(inst.text, unitSystem)}
-                </p>
+                  {convertTemperatures(inst.text ?? '', unitSystem)}
+                </span>
               );
+              const row = 'flex min-h-11 items-start gap-3 py-2 text-[15px] leading-normal';
 
               if (!checkable) {
                 return (
-                  <li key={inst.step} className="flex gap-3 text-base">
-                    {marker}
+                  <li key={id} className={row}>
+                    {disc}
                     {body}
                   </li>
                 );
               }
 
               return (
-                <li key={inst.step} className="text-base">
-                  <button
-                    onClick={() => toggle(inst.step)}
-                    aria-pressed={isDone}
-                    className="w-full flex gap-3 text-left min-h-11 rounded-lg hover:bg-surface-secondary transition-colors"
-                  >
-                    {marker}
+                <li key={id}>
+                  {/* Native checkbox, visually hidden, named by the step text (or its number if blank). */}
+                  <label className={`${row} cursor-pointer`}>
+                    <input
+                      type="checkbox"
+                      checked={isDone}
+                      onChange={() => toggle(id)}
+                      aria-label={inst.text?.trim() ? undefined : `Step ${inst.step}`}
+                      className="peer sr-only"
+                    />
+                    {disc}
                     {body}
-                  </button>
+                  </label>
                 </li>
               );
             })}

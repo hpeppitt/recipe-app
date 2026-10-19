@@ -41,15 +41,14 @@ export function RecipeCardMessage({
         nutrition={(recipe as { nutrition?: Nutrition | null }).nutrition}
       />
 
+      <IngredientList ingredients={recipe.ingredients} />
+      <InstructionList instructions={recipe.instructions} />
+
       {/* Shown before saving: macros are part of deciding whether this is the
           recipe you want, so withholding them until after the save would be odd. */}
       <NutritionPanel
         nutrition={(recipe as { nutrition?: Nutrition | null }).nutrition}
-        servings={recipe.servings}
       />
-
-      <IngredientList ingredients={recipe.ingredients} />
-      <InstructionList instructions={recipe.instructions} />
 
       {recipe.notes.length > 0 && (
         <div className="space-y-1.5">

@@ -18,6 +18,21 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-103 Method steps get numbered discs and nutrition is a collapsed card under the method
+
+- On a recipe with nutrition, find the "Nutrition per serving" card below the method (before notes and tags). It is closed on load. Open and close it by tap, then with the keyboard (Tab to it, Enter or Space); the chevron flips. Open shows Calories, Carbs, Fat, Protein tiles (g units, no unit on calories) and "Estimated from ingredients. Changes with each branch." Moving to another recipe shows it closed again.
+- Scale servings with the stepper while the card is open: the numbers must not change.
+- A recipe without nutrition shows no card at all.
+- Method at 390px and 320px: sage-cream numbered discs. Try a very long step and four macro tiles with three-digit values (for example 1,250 kcal): nothing overflows sideways, text wraps. The card header and each step feel like 44px targets (jsdom cannot check this).
+- Tap a step to tick it: disc fills green with a check and the text is struck; Tab to a step and press Space toggles it. Ticks vanish on reload. Oven temperatures still follow the units setting.
+- The chat recipe card shows the same collapsed card after the method (steps there are not tickable). The shared page (/shared/:id) got the new method and the card too.
+- Note: the old "estimated, per serving (of N)" line is gone; the count no longer appears in the card.
+- Reviewer noted (low): the nutrition card's mt-[18px] and Method's mt-[26px] are overridden by the parents' space-y-4 and space-y-5, so spacing drifts 2 to 4px from the spec.
+- Reviewer noted (low): ticked step text is line-through opacity-60 and the ticked disc check is about 3.7:1 contrast; verify at QA.
+- Reviewer noted (low): the compact preview hides the nutrition card. That matches the old compact behaviour (it was `!compact` before too).
+- Reviewer noted (low): SharedRecipePage still has pre-existing dark: classes and passes no nutrition to MetadataPills.
+- Steps with repeated numbering across groups (1, 2 in each group) tick independently.
+
 ### RL-102 The recipe body shows pills, an inline servings stepper, the Scaled strip and tick-off rows
 
 - Open a recipe with nutrition and one without, at 390px and 320px: the pills wrap cleanly (author, time, difficulty, kcal, and prep and cook when both are set). The kcal pill appears only with nutrition. Tap the author pill: their profile opens. A local-only recipe has no author pill.
@@ -27,7 +42,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Switch units in Settings and confirm amounts on the recipe page still convert.
 - The chat recipe card and the parent preview in the chat still read well: same row layout without the circle, servings as a pill, no author pill, no stepper.
 - Shared recipe page (/shared/:id) also picks up the new pills and rows; check it renders (its own author chip is unchanged, servings stay a pill).
-- Left as is: the nutrition card keeps its place above the ingredients (RL-103 moves it).
+- The nutrition card now sits below the method (moved by RL-103).
 - Reviewer noted (med, follow-up ticket): RecipeDetailPage.tsx still renders its old "Added by" avatar button below the content, so every recipe with a named author now shows the author twice (the new pill and Added by). Remove one in a follow-up.
 - Reviewer noted (med, one-line follow-up): SharedRecipePage passes neither nutrition nor author to MetadataPills, so it shows no kcal pill even when the NutritionPanel shows calories, and it keeps its own Added by button.
 - Reviewer noted (low): the unticked circle border-neutral-400 on bg-surface is probably under 3:1 non-text contrast (ticket-specified value). Check at QA; use neutral-500 or 600 if it fails.
