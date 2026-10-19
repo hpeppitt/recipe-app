@@ -19,3 +19,29 @@ export function truncateNotificationMessage(text: string): string {
   if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
   return cut + '…';
 }
+
+// A keyed map rather than a ternary chain; an unknown type falls back instead of
+// silently rendering as a suggestion. `fromUid` is required on every notification,
+// so there is no icon-only fallback to keep.
+export const NOTIF_VERBS: Record<string, string> = {
+  favorite: 'favorited your recipe',
+  suggestion: 'suggested a change to',
+  suggestion_approved: 'approved your suggestion on',
+  suggestion_rejected: 'passed on your suggestion for',
+  // Works in both directions: the owner and the suggester each receive this when
+  // the other replies, so the verb cannot assume which side is reading.
+  suggestion_reply: 'replied about',
+  follow: 'started following you',
+};
+
+/** Split items (any order kept) into those created since local midnight of `now` and the rest. */
+export function groupByDay<T extends { createdAt: number }>(
+  items: T[],
+  now: number = Date.now()
+): { today: T[]; earlier: T[] } {
+  const midnight = new Date(now).setHours(0, 0, 0, 0);
+  return {
+    today: items.filter((i) => i.createdAt >= midnight),
+    earlier: items.filter((i) => i.createdAt < midnight),
+  };
+}

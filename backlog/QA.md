@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-092 Activity page component
+
+- No route yet (RL-097 adds `/activity`), so nothing is visible in the app. Check it with RL-097's entry: with unread notifications, open Activity and confirm Today and Earlier groups, the type badges on the avatars, the unread dots, and that a row marks read and opens the recipe (or the profile for a follow).
+- Mark all read now shows "Couldn't mark those as read. Try again." if the write fails (the bell still swallows it). Hard to trigger by hand; the test covers it.
+- Signed out, anonymous or unverified shows the 19a empty state with Sign in; local-only shows it with no action.
+- The Avatar is forced to 40px with a CSS child selector because `Avatar` has no 40px size; replace with a real size if another screen needs it.
+- The first line of a row (who, verb, title) wraps with `break-words` rather than truncating; check a long unspaced name and title at 320px with RL-097 that the unread dot stays visible.
+- Reviewer noted (low): `text-accent-700` on Mark all read would be about 2.5:1 on a dark surface (moot while light only, RL-065; RL-117 brings dark back, so re-check then). Mark all read has no in-flight disable, so a double tap sends two writes. `open()` awaits `markRead` with no catch, so a rejection means no navigation (the bell has the same flaw). The error state has no retry action (the ticket's copy says reopen). `useNotifications` starts with `isLoading` false for a signed-in user, so "Nothing here yet." can flash for a frame; fix in the hook. The full-page empty state is `min-h-[70dvh]` under the header, so the page may scroll slightly above the bottom nav.
+
 ### RL-091 Saved page component
 
 - No route yet (RL-097 adds `/saved`), so nothing is visible in the app. Check it with RL-097's entry: save a shared link with "Save to my library", open Saved, and confirm the row (emoji circle, title, author pill, time, chevron) opens the recipe.
