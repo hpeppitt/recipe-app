@@ -18,6 +18,16 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-121 The Saved page also lists favourites, with offline, failed and deleted cases shown honestly
+
+- On the preview against the live project as a verified user at 390x844. On browser A favourite two recipes by someone else and save one shared link with "Save to my library". On browser B, same account, fresh profile, open Saved: all three show, newest kept first. Devtools Network shows one `recipes/{id}` read per favourite, and none on a second visit to Saved.
+- Go offline, reload, open Saved: the device's rows show and "<n> saved recipes need a connection to show." counts the rest.
+- Ask the other account to delete a favourited recipe: "1 saved recipe was deleted by their authors." shows and the row is gone; nothing else changes.
+- Anonymous account: bookmark a recipe, open Saved, it is listed. Your own favourited recipe is not in Saved.
+- The empty state now reads "Tap the bookmark on any recipe and it'll wait for you here." Failed reads and Try again are covered by tests only; the heart is still a heart until RL-122.
+- Reviewer noted (low): the session cache is not keyed by uid or cleared on sign-out, so it holds memory and may show a stale recipe until reload; this matches "per session".
+- Reviewer noted (low): `withTimeout` swallows rejections, so `reportError` is attached to the read before wrapping.
+
 ### RL-119 The chat composer has an Add photos button with removable thumbnails, and sent photos show in the user bubble
 
 - Release together with RL-120's Privacy Policy change, after the author has signed off that wording.

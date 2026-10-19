@@ -1,8 +1,7 @@
+import { useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useLocalLibrary } from '../hooks/useRecipeLibrary';
-import { splitLibrary } from '../lib/library';
-import { formatTime } from '../lib/utils';
+import { useSavedFavorites } from '../hooks/useSavedFavorites';
+import { formatTime, pluralize } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
@@ -10,30 +9,37 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { UserPill } from '../components/ui/UserPill';
 import { Bookmark, ChevronRight } from '../components/ui/icons';
 
-/** Other people's recipes kept on this device (Organic 19a). Favourites are not listed, see RL-091. */
+/** Other people's recipes kept on this device, plus the user's favourites (Organic 19a, RL-121). */
 export function SavedPage() {
-  const { user, isConfigured } = useAuth();
   const navigate = useNavigate();
-  const rows = useLocalLibrary();
-  const saved = rows ? splitLibrary(rows, rows, { uid: user?.uid, isConfigured }).saved : undefined;
+  const { isLoading, rows: saved, deletedCount, failedCount, offlineCount, retrying, retry } = useSavedFavorites();
+  const statusRef = useRef<HTMLDivElement>(null);
+  const noun = (n: number) => `${n} saved ${pluralize(n, 'recipe')}`;
+  const note = offlineCount > 0
+    ? `${noun(offlineCount)} need${offlineCount === 1 ? 's' : ''} a connection to show.`
+    : failedCount > 0
+      ? `${noun(failedCount)} couldn't load.`
+      : deletedCount > 0
+        ? `${noun(deletedCount)} ${deletedCount === 1 ? 'was' : 'were'} deleted by their authors.`
+        : null;
 
   return (
     <div>
       <h1 className="px-5 pt-4 font-heading text-[30px] leading-tight text-text-primary">Saved</h1>
-      {saved === undefined ? (
+      {isLoading ? (
         <div className="flex flex-col gap-3 px-5 pt-3.5" role="status" aria-label="Loading saved recipes">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-[80px] rounded-[28px]" />
           ))}
         </div>
-      ) : saved.length === 0 ? (
+      ) : saved.length === 0 && !note && !retrying ? (
         <EmptyState
           icon={<Bookmark />}
           title="Nothing saved yet"
-          description="Recipes you keep from a shared link or an import wait for you here."
+          description="Tap the bookmark on any recipe and it'll wait for you here."
           action={<Button onClick={() => navigate('/')}>Explore recipes</Button>}
         />
-      ) : (
+      ) : saved.length > 0 ? (
         <ul className="flex flex-col gap-3 px-5 pt-3.5">
           {saved.map((r) => (
             <li key={r.id}>
@@ -58,7 +64,27 @@ export function SavedPage() {
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
+      <div ref={statusRef} role="status" tabIndex={-1} className="px-5 text-[13px] text-text-tertiary outline-none">
+        {!isLoading && retrying && <p className="pt-3.5">Retrying...</p>}
+        {!isLoading && !retrying && note && (
+          <p className="flex flex-wrap items-center gap-x-2 pt-3.5">
+            {note}
+            {offlineCount === 0 && failedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  statusRef.current?.focus();
+                  retry();
+                }}
+                className="inline-flex min-h-[44px] items-center text-[13px] font-medium text-text-primary underline"
+              >
+                Try again
+              </button>
+            )}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

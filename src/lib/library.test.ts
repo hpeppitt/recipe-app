@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, splitLibrary, normalizeTags } from './library';
+import { buildFeed, filterFeed, splitLibrary, normalizeTags, buildSavedList, type FavoriteFetch } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -159,5 +159,58 @@ describe('splitLibrary', () => {
     const r = splitLibrary([myRoot, myRoot], all, cfg);
     expect(r.created).toHaveLength(1);
     expect(r.created[0].childCount).toBe(1);
+  });
+});
+
+describe('buildSavedList', () => {
+  const other = { uid: 'chef', displayName: 'Ann' };
+  const fav = (recipeId: string, createdAt: number) => ({ recipeId, createdAt });
+  const none = new Map<string, FavoriteFetch>();
+  const savedOf = (recipes: ReturnType<typeof makeRecipe>[]) =>
+    splitLibrary(recipes, recipes, { uid: 'me', isConfigured: true }).saved;
+
+  it('uses the device row for a local favourite and never fetches it', () => {
+    const r = makeRecipe({ id: 'a', createdBy: other, parentId: 'p', rootId: 'p', depth: 1 });
+    const out = buildSavedList([r], savedOf([r]), [fav('a', 5)], none, 'me');
+    expect(out.rows.map((x) => x.id)).toEqual(['a']);
+    expect(out.toFetch).toEqual([]);
+  });
+
+  it('leaves out the user\'s own recipes from either source', () => {
+    const mine = makeRecipe({ id: 'm', createdBy: { uid: 'me', displayName: 'Me' } });
+    const remote = makeRecipe({ id: 'r', createdBy: { uid: 'me', displayName: 'Me' } });
+    const fetched = new Map<string, FavoriteFetch>([['r', { status: 'recipe', recipe: remote }]]);
+    const out = buildSavedList([mine], [], [fav('m', 1), fav('r', 2)], fetched, 'me');
+    expect(out.rows).toEqual([]);
+  });
+
+  it('includes favourited branches of other people\'s recipes', () => {
+    const branch = makeRecipe({ id: 'b', createdBy: other, parentId: 'p', rootId: 'p', depth: 1 });
+    const fetched = new Map<string, FavoriteFetch>([['b', { status: 'recipe', recipe: branch }]]);
+    expect(buildSavedList([], [], [fav('b', 1)], fetched, 'me').rows.map((x) => x.id)).toEqual(['b']);
+  });
+
+  it('lists a recipe both saved and favourited once', () => {
+    const r = makeRecipe({ id: 'a', createdBy: other });
+    const out = buildSavedList([r], savedOf([r]), [fav('a', 5)], none, 'me');
+    expect(out.rows).toHaveLength(1);
+  });
+
+  it('orders newest first by favourite date for favourites and recipe date for saved copies', () => {
+    const s1 = makeRecipe({ id: 's1', createdBy: other, createdAt: 100 });
+    const s2 = makeRecipe({ id: 's2', createdBy: other, createdAt: 300 });
+    const f = makeRecipe({ id: 'f', createdBy: other, createdAt: 1 });
+    const fetched = new Map<string, FavoriteFetch>([['f', { status: 'recipe', recipe: f }]]);
+    const out = buildSavedList([s1, s2], savedOf([s1, s2]), [fav('f', 200)], fetched, 'me');
+    expect(out.rows.map((x) => x.id)).toEqual(['s2', 'f', 's1']);
+  });
+
+  it('counts missing and failed reads, reports unfetched ids, and keeps all three out of rows', () => {
+    const fetched = new Map<string, FavoriteFetch>([
+      ['gone', { status: 'missing' }],
+      ['bad', { status: 'failed' }],
+    ]);
+    const out = buildSavedList([], [], [fav('gone', 1), fav('bad', 2), fav('new', 3)], fetched, 'me');
+    expect(out).toEqual({ rows: [], toFetch: ['new'], deletedCount: 1, failedCount: 1 });
   });
 });

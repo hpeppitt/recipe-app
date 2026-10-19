@@ -117,6 +117,47 @@ export function splitLibrary(
   return { created: out.created.sort(newest), branched: out.branched.sort(newest), saved: out.saved.sort(newest) };
 }
 
+/** What a cloud read of one favourited recipe produced (RL-121). */
+export type FavoriteFetch = { status: 'recipe'; recipe: FeedSource } | { status: 'missing' } | { status: 'failed' };
+
+/**
+ * The Saved list: saved copies plus the user's favourites (RL-121). A favourite
+ * uses the device's row when there is one, else the fetched recipe. Own recipes
+ * (they live on the You tab), deleted and failed reads are left out and counted;
+ * ids not fetched yet come back in `toFetch`. Favourites keep branches, unlike
+ * saved copies. A recipe both saved and favourited appears once, ordered by the
+ * favourite's date. Newest first.
+ */
+export function buildSavedList(
+  recipes: readonly FeedSource[],
+  saved: readonly FeedRecipe[],
+  favorites: readonly { recipeId: string; createdAt: number }[],
+  fetched: ReadonlyMap<string, FavoriteFetch>,
+  uid: string | undefined
+): { rows: FeedRecipe[]; toFetch: string[]; deletedCount: number; failedCount: number } {
+  const toFeed = feedMapper(recipes);
+  const local = new Map(recipes.map((r) => [r.id, r]));
+  const byId = new Map<string, { row: FeedRecipe; at: number }>();
+  for (const r of saved) byId.set(r.id, { row: r, at: r.createdAt });
+  const toFetch: string[] = [];
+  let deletedCount = 0;
+  let failedCount = 0;
+  for (const f of favorites) {
+    let source = local.get(f.recipeId);
+    if (!source) {
+      const result = fetched.get(f.recipeId);
+      if (!result) toFetch.push(f.recipeId);
+      else if (result.status === 'missing') deletedCount++;
+      else if (result.status === 'failed') failedCount++;
+      else source = result.recipe;
+    }
+    if (!source || (uid && source.createdBy.uid === uid)) continue;
+    byId.set(f.recipeId, { row: toFeed(source), at: f.createdAt });
+  }
+  const rows = [...byId.values()].sort((a, b) => b.at - a.at).map((e) => e.row);
+  return { rows, toFetch, deletedCount, failedCount };
+}
+
 export interface FeedFilter {
   search?: string;
   /** Set to keep favourites only; undefined means no favourites filter. */

@@ -104,6 +104,12 @@ adds what is missing in one transaction using the pure `selectFavoritesToHydrate
 favourite removed on this device this session is skipped. There is no live listener and no
 deletion sync.
 
+The Saved page lists favourites too (RL-121, `hooks/useSavedFavorites.ts`, pure merge `buildSavedList` in
+`lib/library.ts`). A favourite whose recipe is not on the device is read from the cloud with
+`getPublishedRecipe`, once per session, kept in a module-level map and never cached in Dexie:
+a Dexie row of someone else's recipe would be a saved copy, and a favourite is not a copy. The
+path is read only; a deleted recipe's favourite is counted, not removed.
+
 What can still disagree: **other users' recipes and saved copies.** A recipe published by
 someone else lives only in the cloud unless it was saved to this device, so local-only
 features (the version tree, local search) cannot see all of it, and a saved copy is not
