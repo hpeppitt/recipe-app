@@ -76,19 +76,19 @@ describe('ConsentBanner', () => {
         <SettingsPage />
       </>
     );
-    const toggle = screen.getByRole('checkbox') as HTMLInputElement;
-    expect(toggle.checked).toBe(false);
+    const toggle = screen.getByRole('switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
     fireEvent.click(toggle);
     expect(stored().analytics).toBe('granted');
     expect(screen.queryByRole('region', { name: 'Analytics consent' })).toBeNull();
-    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(screen.getByRole('checkbox'));
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('switch'));
     expect(stored().analytics).toBe('denied');
   });
 
   it('Settings hides the toggle without a key', () => {
     vi.stubEnv('VITE_POSTHOG_KEY', '');
     renderWithProviders(<SettingsPage />);
-    expect(screen.queryByRole('checkbox')).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 });

@@ -16,15 +16,15 @@ Three sections, kept apart on purpose:
 ## 1. Today
 
 "Clearing browser data" below means the user clearing site data for the app in their
-browser. "Delete Recipes on This Device" is the Settings control (`clearAllRecipes` in
+browser. "Delete recipes on this device" is the Settings control (`clearAllRecipes` in
 `src/db/recipes.ts`): it empties the Dexie `recipes` and `favorites` tables and nothing else.
 
 ### On the device: IndexedDB
 
 | Item | Where | Contents | Who can read it | Retention | Written by |
 |---|---|---|---|---|---|
-| Recipes | IndexedDB `RecipeAppDB`, table `recipes` | Full `Recipe` (`src/types/recipe.ts`): title, description, ingredients, instructions, notes, times, servings, difficulty, tags, emoji, nutrition estimate, the originating `prompt`, `chatHistory` (every message of the generation conversation, each assistant message carrying a recipe snapshot), `createdBy` `{ uid, displayName }`, `collaborators` (uid and display name), tree ids, timestamps | Only code running on this device in this browser | Until the user deletes the recipe, uses "Delete Recipes on This Device", or clears browser data. For a verified account, own recipes cleared with "Delete Recipes on This Device" come back through the RL-078 sync the next time the app opens. Signing out of a verified account removes that account's own rows (RL-085); they reload from the cloud on the next sign-in. The sync (RL-078) also removes own rows the server snapshot lacks, and rows of other uids that signed in on this device. Imported rows owned by an account of this device are stored as `'local'` (RL-086), so the sync never removes them | `src/db/recipes.ts` (`createRecipe`, `cacheRecipe` after a successful publish from the chat save and after a verified owner's successful cloud edit in `src/pages/RecipeEditPage.tsx`, `updateRecipe`, `importRecipes`, `migrateRecipesUid`, `applyOwnRecipeSync` from the own-recipes listener in `src/hooks/useOwnRecipesSync.ts`; `clearOwnRecipes` deletes on a verified sign-out from `src/contexts/AuthContext.tsx`) |
-| Bookmarks (local favourites) | IndexedDB `RecipeAppDB`, table `favorites` | `{ uid, recipeId, createdAt }` | This device only for anonymous accounts. For a verified account the table is also pushed to cloud favourites on upgrade (RL-034) and filled from them once per session on each device (RL-043) | Until unfavourited, "Delete Recipes on This Device", or clearing browser data | `src/db/favorites.ts` |
+| Recipes | IndexedDB `RecipeAppDB`, table `recipes` | Full `Recipe` (`src/types/recipe.ts`): title, description, ingredients, instructions, notes, times, servings, difficulty, tags, emoji, nutrition estimate, the originating `prompt`, `chatHistory` (every message of the generation conversation, each assistant message carrying a recipe snapshot), `createdBy` `{ uid, displayName }`, `collaborators` (uid and display name), tree ids, timestamps | Only code running on this device in this browser | Until the user deletes the recipe, uses "Delete recipes on this device", or clears browser data. For a verified account, own recipes cleared with "Delete recipes on this device" come back through the RL-078 sync the next time the app opens. Signing out of a verified account removes that account's own rows (RL-085); they reload from the cloud on the next sign-in. The sync (RL-078) also removes own rows the server snapshot lacks, and rows of other uids that signed in on this device. Imported rows owned by an account of this device are stored as `'local'` (RL-086), so the sync never removes them | `src/db/recipes.ts` (`createRecipe`, `cacheRecipe` after a successful publish from the chat save and after a verified owner's successful cloud edit in `src/pages/RecipeEditPage.tsx`, `updateRecipe`, `importRecipes`, `migrateRecipesUid`, `applyOwnRecipeSync` from the own-recipes listener in `src/hooks/useOwnRecipesSync.ts`; `clearOwnRecipes` deletes on a verified sign-out from `src/contexts/AuthContext.tsx`) |
+| Bookmarks (local favourites) | IndexedDB `RecipeAppDB`, table `favorites` | `{ uid, recipeId, createdAt }` | This device only for anonymous accounts. For a verified account the table is also pushed to cloud favourites on upgrade (RL-034) and filled from them once per session on each device (RL-043) | Until unfavourited, "Delete recipes on this device", or clearing browser data | `src/db/favorites.ts` |
 | Firebase Auth session | IndexedDB `firebaseLocalStorageDb` (Firebase Auth SDK default persistence; name confirmed in `node_modules/@firebase/auth`) | The signed-in Firebase user: uid, email (if any), display name, and the tokens that keep the session alive | This device; sent to Google with Auth and Firestore requests | Until sign-out or clearing browser data | Firebase Auth SDK, started by `getAuth` in `src/services/firebase.ts` |
 | App Check token | IndexedDB `firebase-app-check-database` (name confirmed in `node_modules/@firebase/app-check`) | A short-lived App Check token from the reCAPTCHA v3 attestation | This device; sent with Firebase AI Logic requests | Refreshed automatically (`isTokenAutoRefreshEnabled: true`); lifetime set by Google, not verified | `initializeAppCheck` in `src/services/firebase.ts`, only when `VITE_RECAPTCHA_SITE_KEY` is set |
 | Firebase heartbeat | IndexedDB `firebase-heartbeat-database` (`node_modules/@firebase/app`, `MAX_NUM_STORED_HEARTBEATS = 30`) | One entry per day: the date and the Firebase SDK user-agent string | This device; summarised in a header the SDK sends to Firebase services | Rolling, at most 30 daily entries | Firebase App SDK, from `initializeApp` |
@@ -33,7 +33,7 @@ browser. "Delete Recipes on This Device" is the Settings control (`clearAllRecip
 ### On the device: localStorage
 
 All keys except `emailForSignIn` are in `STORAGE_KEYS` (`src/lib/constants.ts`) and written
-through `src/services/storage.ts`. None is cleared by "Delete Recipes on This Device".
+through `src/services/storage.ts`. None is cleared by "Delete recipes on this device".
 
 | Key | Contents | Retention | Written by |
 |---|---|---|---|
@@ -69,7 +69,7 @@ noted. The operator can read everything in the Firebase console.
 
 | Collection | Contents | Who can read it | Retention | Written by |
 |---|---|---|---|---|
-| `recipes/{id}` | Everything in the local recipe **except `chatHistory`**: content, the originating `prompt`, `createdBy` uid and display name, `collaborators` uid and display name, `favoriteCount`, `viewCount`, timestamps | **Anyone, including signed-out visitors** | Until the owner deletes it from the recipe page. "Delete Recipes on This Device" does not touch it (product decision 5) | `publishRecipe` in `services/firestore.ts`. **Called automatically on every save** of a generated recipe (`hooks/useRecipeChat.ts`), on edit when a copy exists, and on share |
+| `recipes/{id}` | Everything in the local recipe **except `chatHistory`**: content, the originating `prompt`, `createdBy` uid and display name, `collaborators` uid and display name, `favoriteCount`, `viewCount`, timestamps | **Anyone, including signed-out visitors** | Until the owner deletes it from the recipe page. "Delete recipes on this device" does not touch it (product decision 5) | `publishRecipe` in `services/firestore.ts`. **Called automatically on every save** of a generated recipe (`hooks/useRecipeChat.ts`), on edit when a copy exists, and on share |
 | `recipes` `viewCount` | A raw +1 per page view, no identity stored | Anyone | With the recipe | `incrementRecipeViews`; open to signed-out visitors |
 | `profiles/{uid}` | `displayName`, `photoType`, `photoEmoji`, `photoBgColor`, `photoURL` (an uploaded avatar as a 128x128 JPEG `data:` URL, at most 100000 characters), `recipeCount`, `followerCount`, `followingCount`, `createdAt`. No email | **Anyone** | Indefinite. The rules allow the owner to delete it but no UI does | `createOrUpdateProfile` (from `AuthContext.ensureProfile`, `hooks/useProfile.ts`, `AvatarEditor`) |
 | `favorites/{uid}_{recipeId}` | `uid`, `recipeId`, `recipeOwnerId`, `createdAt` | The owner only | Until unfavourited | Written by `addCloudFavorite`, `pushLocalFavoritesToCloud`. Read by `isCloudFavorite` and, once per session per verified uid, `getCloudFavorites` (RL-043), which copies `uid`, `recipeId`, `createdAt` into the device's Dexie `favorites` |
@@ -98,7 +98,7 @@ noted. The operator can read everything in the Firebase console.
 
 ### Rights the app can honour itself today
 
-- **Export**: "Export All Recipes" in Settings downloads the local Dexie `recipes` table as JSON
+- **Export**: "Export my recipes" in Settings downloads the local Dexie `recipes` table as JSON
   (`exportAllRecipes`). "Download my data" (RL-056) downloads local recipes and bookmarks plus,
   for a signed-in non-anonymous account, the cloud data it can read (profile, published recipes,
   favourites, follows, suggestions and replies, notifications, terms acceptance, write counters).
@@ -106,7 +106,7 @@ noted. The operator can read everything in the Firebase console.
   `clientErrors`; the operator runbook (RL-055) covers those.
 - **Deletion**: per-recipe delete (for a verified account the cloud copies the user owns, then
   the local subtree; otherwise the local subtree only);
-  unfavourite; unfollow; "Delete Recipes on This Device" (local `recipes` and `favorites`; for a verified account own recipes reload through the RL-078 sync).
+  unfavourite; unfollow; "Delete recipes on this device" (local `recipes` and `favorites`; for a verified account own recipes reload through the RL-078 sync).
 - **Correction**: display name and avatar on the profile; editing one's own recipes.
 - **Not possible in the app**: deleting the account, the profile, suggestions, replies,
   notifications (sent or received), error reports, or the Auth user.
@@ -161,9 +161,9 @@ The ticket's starting inventory was checked line by line. What changed:
     allow it.
 12. **Profiles.** The rules let the owner delete their own profile, but no UI does. The
     profile holds no email address.
-13. **"Clear All Data"** is now labelled "Delete Recipes on This Device" in Settings. It clears
+13. **"Clear All Data"** is now labelled "Delete recipes on this device" in Settings. It clears
     local recipes **and** local bookmarks, and no localStorage keys. For a verified account the cleared own recipes load again through the RL-078 sync.
-14. **Export**: "Export All Recipes" covers local recipes only. "Download my data" (RL-056) adds local bookmarks and the user's readable cloud data.
+14. **Export**: "Export my recipes" covers local recipes only. "Download my data" (RL-056) adds local bookmarks and the user's readable cloud data.
 15. **GA4 was removed by RL-058 (2026-10-15).** Before that it ran without consent when configured and set the GA4 User-ID to the uid
     of every signed-in user including anonymous ones. Its events include another user's uid
     (`target_uid`). RL-058 removes it; the policies are written for after that.

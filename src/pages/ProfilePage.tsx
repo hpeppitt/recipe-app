@@ -15,7 +15,6 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
-import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { pluralize } from '../lib/utils';
 import { Pencil, User } from '../components/ui/icons';
 
@@ -84,7 +83,7 @@ function PersonRow({
 }
 
 function OwnProfile() {
-  const { user, signOut, updateDisplayName } = useAuth();
+  const { user, updateDisplayName } = useAuth();
   const { profile, updateAvatar, updateName } = useOwnProfile();
   const { recipes, stats, isLoading: ownLoading } = useOwnRecipes(user?.uid);
   const waitingForSync = useOwnRecipesWaiting();
@@ -94,7 +93,6 @@ function OwnProfile() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
   // Which list, if any, the user has opened from the stat row. Inline disclosure
   // rather than a new route: it is a short list read in context, and a separate
@@ -333,39 +331,8 @@ function OwnProfile() {
               <EmptyState compact icon="🍳" title="No published recipes yet" />
             )}
           </div>
-
-          {/* Account actions. Sign Out stays at the bottom — it is a deliberate
-              exit, not something to surface urgently. The anonymous branch moved
-              up above the recipe list.
-
-              Anonymous users get this too. Withholding it did not protect them,
-              it stranded them: no way off a shared device, and no way into an
-              existing email account. The confirmation carries the warning. */}
-          <Button
-            variant="ghost"
-            fullWidth
-            onClick={() => (user.isAnonymous ? setShowSignOutConfirm(true) : signOut())}
-          >
-            Sign Out
-          </Button>
         </div>
       </main>
-
-      {/* Anonymous accounts have no credential, so signing out is one-way. Says
-          so plainly rather than relying on the user to infer it, and names the
-          safer alternative sitting further up the page. */}
-      <ConfirmDialog
-        open={showSignOutConfirm}
-        title="Sign out of this anonymous account?"
-        message="There's no way to sign back in to an anonymous account. Recipes on this device stay here, but you won't be able to manage the copies you've already shared. Adding an email first keeps the account."
-        confirmLabel="Sign Out"
-        confirmVariant="danger"
-        onConfirm={() => {
-          setShowSignOutConfirm(false);
-          signOut();
-        }}
-        onCancel={() => setShowSignOutConfirm(false)}
-      />
 
       <SignUpDialog
         open={showSignUp}

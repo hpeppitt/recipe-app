@@ -97,6 +97,17 @@ describe('ProfilePage sign-up gates', () => {
   });
 });
 
+describe('OwnProfile sign out (moved to Settings, RL-093)', () => {
+  it.each([
+    ['verified', fakeUser],
+    ['anonymous', anon],
+  ])('has no Sign Out button for a %s account', (_label, user) => {
+    renderAt('/profile', user);
+    expect(screen.getByRole('button', { name: 'Change avatar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument();
+  });
+});
+
 describe('OwnProfile sync states (RL-079)', () => {
   const skeletons = (c: HTMLElement) => c.querySelectorAll('.skeleton-pulse').length;
   afterEach(() => {

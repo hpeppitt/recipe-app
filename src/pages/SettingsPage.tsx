@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
 import { exportAllFavorites } from '../db/favorites';
 import { fetchCloudDataForExport } from '../services/firestore';
@@ -7,14 +7,37 @@ import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useConsent } from '../hooks/useConsent';
-import { Button } from '../components/ui/Button';
+import { Avatar } from '../components/ui/Avatar';
+import { IconButton } from '../components/ui/IconButton';
+import { ChevronLeft, ChevronRight, Download } from '../components/ui/icons';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
-import { TopBar } from '../components/layout/TopBar';
 import { useAuth } from '../contexts/AuthContext';
 import { getPreviousUids } from '../services/storage';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+const ROW =
+  'flex w-full min-h-11 items-center justify-between gap-3 py-3.5 text-left text-[15px] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:opacity-50';
+const CARD = 'rounded-[28px] bg-surface-secondary px-4 py-1';
+
+function Group({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-1.5 ml-1.5 text-xs font-semibold text-text-tertiary">{label}</h2>
+      {children}
+    </section>
+  );
+}
+
+// Rules sit between rows only; a row's help and status text stay inside its wrapper.
+function Row({ children }: { children: ReactNode }) {
+  return <div className="border-b border-border last:border-b-0">{children}</div>;
+}
+
+function Help({ children }: { children: ReactNode }) {
+  return <p className="pb-2 text-xs text-text-tertiary">{children}</p>;
+}
 
 export function SettingsPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -26,10 +49,15 @@ export function SettingsPage() {
   const downloading = useRef(false);
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
-  const { user, isConfigured } = useAuth();
+  const { user, isConfigured, signOut } = useAuth();
   // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
   const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
+  const accountName = user ? (user.displayName ?? 'Anonymous') : 'Sign in';
+  const accountSub = !user ? 'Not signed in' : user.isAnonymous ? 'Guest · this device only' : user.email;
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  // 'default' is the first entry: nothing to go back to, so Back lands on the profile.
+  const hasHistory = useLocation().key !== 'default';
 
   const handleExport = async () => {
     setExportStatus(null);
@@ -136,158 +164,194 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-lg mx-auto">
-      {/* Was a hand-rolled copy of TopBar's sticky header. */}
-      <TopBar title="Settings" />
+      <header className="flex items-center gap-2 px-3 pt-3">
+        <IconButton
+          variant="flat"
+          label="Back"
+          icon={<ChevronLeft className="h-6 w-6" />}
+          onClick={() => (hasHistory ? navigate(-1) : navigate('/profile'))}
+        />
+        <h1 className="font-heading text-[22px] text-text-primary">Settings</h1>
+      </header>
 
-      <div className="p-4 space-y-8">
-        {/* Account. The page never acknowledged who was signed in, which is odd
-            for the screen people open looking for their account. Identity and
-            sign-out live on the Profile page, so this links there rather than
-            duplicating the anonymous-upgrade form and the sign-out confirm — two
-            flows that would then need keeping in step. */}
+      <div className="space-y-[18px] px-[18px] pb-[30px] pt-3">
         {isConfigured && (
-          <section className="space-y-3">
-            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
-              Account
-            </h2>
-            {user ? (
-              <div className="space-y-2">
-                <p className="text-sm text-text-primary">
-                  Signed in as{' '}
-                  <span className="font-medium">{user.displayName ?? 'Anonymous'}</span>
-                </p>
-                <p className="text-xs text-text-tertiary">
-                  {user.isAnonymous
-                    ? 'This account lives only in this browser. Add an email to keep your recipes.'
-                    : user.email}
-                </p>
-                <Button variant="secondary" fullWidth onClick={() => navigate('/profile')}>
-                  {user.isAnonymous ? 'Add an email, or sign out' : 'Manage account'}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-text-secondary">You're not signed in.</p>
-                <Button variant="secondary" fullWidth onClick={() => navigate('/profile')}>
-                  Sign in
-                </Button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Units. A display preference: it
-            changes how recipes are rendered, never what is stored. */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Units</h2>
-          <SegmentedControl
-            label="Measurement units"
-            value={unitSystem}
-            onChange={setUnitSystem}
-            options={[
-              { value: 'original', label: 'As written' },
-              { value: 'metric', label: 'Metric' },
-              { value: 'imperial', label: 'Imperial' },
-            ]}
-          />
-          <p className="text-xs text-text-tertiary">
-            Converts ingredient amounts and oven temperatures as they're displayed. Anything
-            that can't be converted exactly — a cup of flour into grams, "2 onions" — is left
-            as written rather than guessed.
-          </p>
-        </section>
-
-        {/* Data */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Data</h2>
-          <div className="space-y-2">
-            <Button variant="secondary" fullWidth onClick={handleExport}>
-              Export All Recipes
-            </Button>
-            {exportStatus && (
-              <p role="status" className="text-xs text-text-secondary">
-                {exportStatus}
+          <Group label="Account">
+            <div className={CARD}>
+              <Row><button
+                type="button"
+                className={ROW}
+                aria-label={`${accountName}, ${accountSub}`}
+                onClick={() => navigate('/profile')}
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex-shrink-0 [&>div]:h-10 [&>div]:w-10 [&>div]:text-sm">
+                    <Avatar uid={user?.uid ?? 'local'} name={user?.displayName ?? null} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-bold">
+                      {accountName}
+                    </span>
+                    <span className="block truncate text-xs text-text-tertiary">
+                      {accountSub}
+                    </span>
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
+              </button></Row>
+            </div>
+            {user?.isAnonymous && (
+              <p className="mt-2 ml-1.5 text-xs text-text-tertiary">
+                Add an email to keep your recipes.
               </p>
             )}
-            <Button variant="secondary" fullWidth disabled={dataStatus?.busy} onClick={handleDownloadData}>
+          </Group>
+        )}
+
+        {/* A display preference: changes how recipes are rendered, never what is stored. */}
+        <Group label="Appearance">
+          <div className="rounded-[28px] bg-surface-secondary px-4 py-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[15px] text-text-primary">Units</span>
+              <div className="w-full [&_button]:px-1.5 [&>div]:bg-surface">
+              <SegmentedControl
+                compact
+                label="Measurement units"
+                value={unitSystem}
+                onChange={setUnitSystem}
+                options={[
+                  { value: 'original', label: 'As written' },
+                  { value: 'metric', label: 'Metric' },
+                  { value: 'imperial', label: 'Imperial' },
+                ]}
+              />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-text-tertiary">
+              Converts ingredient amounts and oven temperatures as they're displayed. Anything
+              that can't be converted exactly — a cup of flour into grams, "2 onions" — is left
+              as written rather than guessed.
+            </p>
+          </div>
+        </Group>
+
+        <Group label="Your data">
+          <div className={CARD}>
+            <Row>
+              <button type="button" className={ROW} onClick={handleExport}>
+                Export my recipes
+                <Download className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
+              </button>
+              {exportStatus && (
+                <p role="status" className="pb-2 text-xs text-text-tertiary">
+                  {exportStatus}
+                </p>
+              )}
+            </Row>
+            <Row>
+            <button type="button" className={ROW} disabled={dataStatus?.busy} onClick={handleDownloadData}>
               {dataStatus?.busy
                 ? 'Preparing...'
                 : user && !user.isAnonymous
                   ? 'Download my data'
                   : 'Download my data (this device only)'}
-            </Button>
-            <p className="text-xs text-text-tertiary">
-              A full copy of your data for your records. To move recipes between devices, use Export All Recipes.
-            </p>
+            </button>
+            <Help>A full copy of your data for your records. To move recipes between devices, use Export my recipes.</Help>
             {dataStatus && (
               <p
                 role={dataStatus.failed ? 'alert' : 'status'}
-                className={`text-xs ${dataStatus.failed ? 'text-danger-700 dark:text-danger-300' : 'text-text-secondary'}`}
+                className={`pb-2 text-xs ${dataStatus.failed ? 'text-danger-700' : 'text-text-tertiary'}`}
               >
                 {dataStatus.message}
               </p>
             )}
-            <Button variant="secondary" fullWidth onClick={handleImport}>
-              Import Recipes
-            </Button>
-            {importStatus && (
-              <p
-                role="status"
-                className={`text-xs ${
-                  importStatus.ok
-                    ? 'text-success-700 dark:text-success-400'
-                    : 'text-danger-700 dark:text-danger-300'
-                }`}
-              >
-                {importStatus.message}
-              </p>
-            )}
+            </Row>
+            <Row>
+              <button type="button" className={ROW} onClick={handleImport}>
+                Import recipes
+              </button>
+              {importStatus && (
+                <p
+                  role="status"
+                  className={`pb-2 text-xs ${importStatus.ok ? 'text-success-700' : 'text-danger-700'}`}
+                >
+                  {importStatus.message}
+                </p>
+              )}
+            </Row>
             {/* Named for what it actually does. "Clear All Data" implied it
                 removed published recipes too, which it never did — they stay
                 public under the user's name in the shared library. */}
-            <Button variant="danger" fullWidth onClick={() => setShowClearConfirm(true)}>
-              Delete Recipes on This Device
-            </Button>
-            <p className="text-xs text-text-tertiary">
+            <Row>
+            <button
+              type="button"
+              className={`${ROW} font-semibold text-accent-700`}
+              onClick={() => setShowClearConfirm(true)}
+            >
+              Delete recipes on this device
+            </button>
+            <Help>
               {accountReloads
                 ? 'Recipes saved to your account stay there and load again the next time you open the app. To remove one for good, delete it from its own page.'
                 : "Recipes you've shared stay in the shared library. Delete those from each recipe's own page."}
-            </p>
+            </Help>
+            </Row>
           </div>
-        </section>
+        </Group>
 
-        {/* Legal */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Legal</h2>
-          <ul className="space-y-2">
+        <Group label="Legal">
+          <div className={CARD}>
             {[
               ['/terms', 'Terms of Service'],
               ['/privacy', 'Privacy Policy'],
               ['/cookies', 'Cookie Policy'],
             ].map(([to, label]) => (
-              <li key={to}>
-                <Link
-                  to={to}
-                  className="flex items-center min-h-11 px-4 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary hover:bg-surface-tertiary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                >
+              <Row key={to}>
+                <Link to={to} className={ROW}>
                   {label}
+                  <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
                 </Link>
-              </li>
+              </Row>
             ))}
-          </ul>
-          {/* Hidden until PostHog is configured: with no provider there is nothing to consent to. */}
-          {analyticsConfigured && (
-            <label className="flex items-center justify-between gap-3 min-h-11 px-4 rounded-xl border border-border bg-surface-secondary text-sm text-text-primary">
-              Privacy: allow analytics
-              <input
-                type="checkbox"
-                checked={analyticsGranted}
-                onChange={(e) => setConsent(e.target.checked)}
-                className="h-5 w-5 accent-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-              />
-            </label>
-          )}
-        </section>
+            {/* Hidden until PostHog is configured: with no provider there is nothing to consent to. */}
+            {analyticsConfigured && (
+              <Row>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={analyticsGranted}
+                  onClick={() => setConsent(!analyticsGranted)}
+                  className={ROW}
+                >
+                  Privacy: allow analytics
+                  <span
+                    aria-hidden
+                    className={`relative h-[26px] w-11 flex-shrink-0 rounded-full transition-colors ${analyticsGranted ? 'bg-accent-2-600' : 'bg-neutral-400'}`}
+                  >
+                    <span
+                      className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface transition-[left] ${analyticsGranted ? 'left-[21px]' : 'left-[3px]'}`}
+                    />
+                  </span>
+                </button>
+              </Row>
+            )}
+          </div>
+        </Group>
+
+        {user && (
+          <div className={CARD}>
+            <Row>
+            {/* Anonymous accounts have no credential, so signing out is one-way: confirm first. */}
+            <button
+              type="button"
+              className={`${ROW} font-semibold text-accent-700`}
+              onClick={() => (user.isAnonymous ? setShowSignOutConfirm(true) : signOut())}
+            >
+              Sign out
+            </button>
+            </Row>
+          </div>
+        )}
 
         {/* Read from package.json via Vite `define`, so it cannot drift from
             reality the way the hardcoded "v1.0" had. */}
@@ -295,6 +359,19 @@ export function SettingsPage() {
           {APP_NAME} v{__APP_VERSION__}
         </p>
       </div>
+
+      <ConfirmDialog
+        open={showSignOutConfirm}
+        title="Sign out of this anonymous account?"
+        message="There's no way to sign back in to an anonymous account. Recipes on this device stay here, but you won't be able to manage the copies you've already shared. Adding an email first keeps the account."
+        confirmLabel="Sign Out"
+        confirmVariant="danger"
+        onConfirm={() => {
+          setShowSignOutConfirm(false);
+          signOut();
+        }}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
 
       <ConfirmDialog
         open={showClearConfirm}
