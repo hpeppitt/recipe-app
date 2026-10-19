@@ -1,0 +1,267 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Routes, Route, Link } from 'react-router-dom';
+import { renderWithProviders } from '../test/renderWithProviders';
+import { makeRecipe } from '../test/factories';
+import type { GeneratedRecipe } from '../types/api';
+import type { ChatMessage } from '../types/recipe';
+
+vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
+vi.mock('../hooks/useRecipe', () => ({
+  useRecipe: () => ({ recipe: undefined, isLoading: false, cloudError: null, retry: vi.fn() }),
+}));
+
+const sendMessage = vi.fn();
+const saveRecipe = vi.fn();
+type Chat = {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  latestRecipe: GeneratedRecipe | null;
+  error?: { message: string; retryable?: boolean } | null;
+};
+let chat: Chat;
+let setChat: (c: Chat) => void;
+vi.mock('../hooks/useRecipeChat', async () => {
+  const { useState } = await import('react');
+  return {
+  useRecipeChat: () => {
+    const [state, set] = useState(chat);
+    setChat = set;
+    return {
+      isSaving: false,
+      error: null,
+      generationUnavailable: false,
+      similarRecipes: [],
+      loadingPhase: 'generating',
+      pendingQuery: null,
+      sendMessage,
+      retryGeneration: vi.fn(),
+      dismissSimilar: vi.fn(),
+      saveRecipe,
+    ...state,
+    };
+  },
+  };
+});
+
+import { RecipeChatPage } from './RecipeChatPage';
+
+const gen = (title: string) => makeRecipe({ title }) as unknown as GeneratedRecipe;
+const user = (content: string): ChatMessage => ({ role: 'user', content, timestamp: 1 });
+const bot = (title: string): ChatMessage => ({
+  role: 'assistant',
+  content: '',
+  recipe: gen(title) as never,
+  timestamp: 2,
+});
+const withRecipes = (...titles: string[]): Chat => {
+  const messages = titles.flatMap((t) => [user(`make ${t}`), bot(t)]);
+  return { messages, isLoading: false, latestRecipe: gen(titles[titles.length - 1]) };
+};
+
+const view = () =>
+  renderWithProviders(
+    <Routes>
+      <Route path="/create" element={<RecipeChatPage />} />
+      <Route path="*" element={<p>elsewhere</p>} />
+    </Routes>,
+    { route: '/create' }
+  );
+const toggles = () =>
+  screen
+    .getAllByRole('button')
+    .filter((b) => ['Show full recipe', 'Hide full recipe'].includes(b.getAttribute('aria-label') ?? ''));
+
+beforeEach(() => {
+  sendMessage.mockReset();
+  saveRecipe.mockReset();
+  chat = { messages: [], isLoading: false, latestRecipe: null };
+  Element.prototype.scrollIntoView = vi.fn();
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open'); };
+});
+
+describe('RecipeChatPage chips and composer', () => {
+  it('before a recipe: starter chips, no refinement chips, the starter placeholder', async () => {
+    view();
+    expect(screen.getByText('What would you like to cook?')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Make it spicier' })).toBeNull();
+    expect(screen.getByPlaceholderText('Describe what you want to cook...')).toBeTruthy();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Banana bread' }));
+    expect(sendMessage).toHaveBeenCalledWith('Banana bread');
+  });
+
+  it('with a recipe: refinement chips send their label, the placeholder changes, starters go', async () => {
+    chat = withRecipes('Pasta');
+    view();
+    expect(screen.getByPlaceholderText('Ask for a change…')).toBeTruthy();
+    expect(screen.queryByText('What would you like to cook?')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Banana bread' })).toBeNull();
+    const u = userEvent.setup();
+    await u.click(screen.getByRole('button', { name: 'Make it spicier' }));
+    await u.click(screen.getByRole('button', { name: 'Fewer dishes' }));
+    await u.click(screen.getByRole('button', { name: 'No dairy' }));
+    expect(sendMessage.mock.calls).toEqual([['Make it spicier'], ['Fewer dishes'], ['No dairy']]);
+  });
+
+  it('hides refinement chips while a reply is loading', () => {
+    chat = { ...withRecipes('Pasta'), isLoading: true };
+    view();
+    expect(screen.queryByRole('button', { name: 'Make it spicier' })).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('Generating recipe...');
+  });
+
+  it('sends typed text with the Send button', async () => {
+    view();
+    const u = userEvent.setup();
+    await u.type(screen.getByRole('textbox'), 'tacos');
+    await u.click(screen.getByRole('button', { name: 'Send' }));
+    expect(sendMessage).toHaveBeenCalledWith('tacos');
+  });
+});
+
+describe('RecipeChatPage cards', () => {
+  it('opens only the newest card and keeps every Save label', () => {
+    chat = withRecipes('Pasta', 'Curry');
+    view();
+    expect(toggles().map((b) => b.getAttribute('aria-expanded'))).toEqual(['false', 'true']);
+    expect(screen.getAllByRole('button', { name: 'Read full recipe' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Save This Version' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save Recipe' })).toBeTruthy();
+  });
+
+  it('collapsed card shows ingredient names cut at 8 with an ellipsis', () => {
+    const many = Array.from({ length: 10 }, (_, i) => ({
+      amount: 1, unit: null, name: `item${i + 1}`, notes: null, group: null,
+    }));
+    const r = { ...gen('Big'), ingredients: many } as unknown as ChatMessage['recipe'];
+    chat = {
+      messages: [user('a'), { ...bot('Big'), recipe: r }, user('b'), bot('Next')],
+      isLoading: false,
+      latestRecipe: gen('Next'),
+    };
+    view();
+    expect(
+      screen.getByText('item1 · item2 · item3 · item4 · item5 · item6 · item7 · item8…')
+    ).toBeTruthy();
+  });
+
+  it('the toggle and Read full recipe open and close a card from the keyboard', async () => {
+    chat = withRecipes('Pasta', 'Curry');
+    view();
+    const u = userEvent.setup();
+    toggles()[0].focus();
+    await u.keyboard('{Enter}');
+    expect(toggles().map((b) => b.getAttribute('aria-expanded'))).toEqual(['true', 'true']);
+    await u.click(toggles()[1]);
+    expect(toggles().map((b) => b.getAttribute('aria-expanded'))).toEqual(['true', 'false']);
+    await u.click(screen.getByRole('button', { name: 'Read full recipe' }));
+    expect(toggles()[1].getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('a new card opens and the previous closes, unless the user toggled the previous', async () => {
+    chat = withRecipes('Pasta', 'Curry');
+    view();
+    const u = userEvent.setup();
+    // user collapses the newest (Curry) by hand
+    await u.click(toggles()[1]);
+    act(() => setChat(withRecipes('Pasta', 'Curry', 'Soup')));
+    // Pasta untouched -> closed, Curry hand-collapsed -> stays closed, Soup newest -> open
+    expect(toggles().map((b) => b.getAttribute('aria-expanded'))).toEqual(['false', 'false', 'true']);
+
+    // and a hand-opened older card survives the next arrival
+    await u.click(toggles()[0]);
+    act(() => setChat(withRecipes('Pasta', 'Curry', 'Soup', 'Stew')));
+    expect(toggles().map((b) => b.getAttribute('aria-expanded'))).toEqual(['true', 'false', 'false', 'true']);
+  });
+
+  it('survives a card with no title or ingredients', () => {
+    const r = { ...gen(''), ingredients: [] } as unknown as ChatMessage['recipe'];
+    chat = { messages: [user('x'), { ...bot(''), recipe: r }], isLoading: false, latestRecipe: gen('') };
+    view();
+    expect(screen.getByRole('heading', { name: 'Untitled recipe' })).toBeTruthy();
+  });
+});
+
+describe('RecipeChatPage close and gate', () => {
+  it('Close asks before discarding an unsaved recipe', async () => {
+    chat = withRecipes('Pasta');
+    view();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('dialog', { name: 'Discard this recipe?' })).toBeTruthy();
+  });
+
+  it('Close goes back one entry when there is history', async () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/create" element={<RecipeChatPage />} />
+        <Route path="/other" element={<Link to="/create">open chat</Link>} />
+        <Route path="*" element={<p>home</p>} />
+      </Routes>,
+      { route: '/other' }
+    );
+    const u = userEvent.setup();
+    await u.click(screen.getByRole('link', { name: 'open chat' }));
+    await u.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('link', { name: 'open chat' })).toBeTruthy();
+  });
+
+  it('Close goes home on a cold load with no history', async () => {
+    view();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByText('elsewhere')).toBeTruthy();
+  });
+
+  it('signed out sees the sign-up gate and no composer', () => {
+    renderWithProviders(<RecipeChatPage />, { user: null, route: '/create' });
+    expect(screen.getByRole('heading', { name: 'Sign up to start cooking up recipes' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back to recipes' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Describe what you want to cook...' })).toBeNull();
+  });
+});
+
+describe('RecipeChatPage announcements', () => {
+  const live = () => screen.getByRole('status').textContent;
+
+  it('has one live region and the typing indicator is hidden from assistive tech', () => {
+    chat = { ...withRecipes('Pasta'), isLoading: true };
+    const { container } = view();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(container.querySelectorAll('[aria-live]')).toHaveLength(1);
+    const dots = container.querySelector('.motion-safe\\:animate-bounce');
+    expect(dots?.closest('[aria-hidden="true"]')).toBeTruthy();
+  });
+
+  it('announces a new recipe once it arrives', () => {
+    chat = { messages: [user('a')], isLoading: true, latestRecipe: null };
+    view();
+    expect(live()).toBe('Generating recipe...');
+    act(() => setChat(withRecipes('Pasta')));
+    expect(live()).toBe('Pasta is ready');
+  });
+
+  it('a failed refinement does not say ready and shows an alert', () => {
+    chat = withRecipes('Pasta');
+    view();
+    act(() =>
+      setChat({
+        ...withRecipes('Pasta'),
+        messages: [...withRecipes('Pasta').messages, user('No dairy')],
+        error: { message: 'Something went wrong' },
+      })
+    );
+    expect(live()).toBe('');
+    expect(screen.getByRole('alert').textContent).toContain('Something went wrong');
+  });
+
+  it('a failed save on the newest card does not say ready either', () => {
+    chat = { ...withRecipes('Pasta'), error: { message: "Couldn't save the recipe." } };
+    view();
+    expect(live()).toBe('');
+    expect(screen.getByRole('alert')).toBeTruthy();
+  });
+});

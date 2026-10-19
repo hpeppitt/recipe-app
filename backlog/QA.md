@@ -18,6 +18,28 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-111 The new-recipe chat follows 6a: Close header, Organic bubbles, a collapsible recipe card, refinement chips and a pill composer
+
+- On the preview as a verified user at 390px (and 320px, no horizontal scroll), open Create:
+  - Header: an X "Close" and "New recipe" (a variation reads "New variation"). Under "What would you like to cook?" the starter chips are small terracotta-tint pills; tap one to generate.
+  - Your message is a terracotta bubble on the right (cream text, no timestamp any more). While it works, three dots in terracotta tints bounce (still with reduced motion on) and the label sits beside them.
+  - The recipe arrives as a rounded card: emoji blob, title, "<time> · <difficulty> · <n> ingredients", a round chevron toggle. The newest card is open; tap the chevron (or Read full recipe on a closed card) to open and close it. Closed cards list up to 8 ingredient names joined with " · " and "…" after that.
+  - Chips "Make it spicier", "Fewer dishes", "No dairy" sit above the composer once a recipe exists, scroll sideways at 320px, and vanish while a reply is generating. Tap one: it sends as if typed. The composer placeholder reads "Ask for a change…". Refine by typing too.
+  - Card rule to judge: a new card opens and the previous one closes, unless you opened or closed that previous card by hand, in which case it stays as you left it.
+  - Save an older version ("Save This Version") and the newest ("Save Recipe"); each shows a bookmark and "Saving…" while it saves.
+  - Trigger the similar-recipes panel with a common dish ("banana bread"): sage card with a branch icon, Open, Branch from this, Create New Recipe Anyway.
+  - Go offline, send a message, then Try again: the error is a terracotta-tint box. Press Back or Close with an unsaved recipe: "Discard this recipe?".
+  - Signed out (or anonymous) at /create: the Sparkles sign-up screen with the email form under it, "You can keep browsing..." and Back to recipes.
+- iOS Safari and Android Chrome: tap the composer and check the pill and the chips stay above the keyboard (the bar is sticky inside the page, not a fixed or vh-sized bar). index.html has no interactive-widget setting, so on Android Chrome 108+ the layout viewport does not resize for the keyboard and the sticky composer may sit behind it until the browser pans; the viewport meta is not changed here because it affects the whole app. The composer text is 16px, not the design's 15px, so iOS does not zoom on focus (see DECISIONS).
+- Send is a 40px circle with a 44px hit area; the card toggle is 36px with a 44px hit area. Screen reader: a new recipe is announced once as "<title> is ready", and the typing label is announced once.
+- The variation parent preview ("(original)" row) is unchanged, RL-112 restyles it.
+- Close goes back one entry; with no history (cold load or a deep link to /create) it goes to the library instead of doing nothing. A failed reply or save shows the error box, announced as an alert, and the screen reader does not say "<title> is ready".
+- Reviewer noted (low): the chip row scrolls horizontally with the scrollbar hidden and no fade or peek cue, so "No dairy" may be off-screen at 320px.
+- Reviewer noted (low, for RL-112): the parent preview toggle has no aria-expanded and its chevron is not aria-hidden.
+- Reviewer noted (low): the card title is an h3 under the h1 with no h2, and collapsed and expanded cards both produce h3 "Notes", so heading navigation is flat.
+- Reviewer noted (low): `min-h-[46px]` on the Save button sits beside Button's `min-h-11` and `cn` has no tailwind-merge (2px, no real impact).
+- Reviewer noted (low): card expansion is keyed by message index; safe because messages are append-only, but a future reset or insert would need real ids.
+
 ### RL-110 The edit page follows 8a, with a sticky footer that says how many branches keep their own copy
 
 - Edit an original that has three branches and a leaf, at 390px and again at 320px (no horizontal scroll at either):
@@ -65,7 +87,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   - Open the link on the same device, then request another and open it on a different device (the cross-device email prompt). Either way you land on the app, not the page you started from, and nothing you were doing runs on its own: tap it again.
   - No Apple, Google or password option anywhere.
 - VoiceOver on iOS: opening each sheet reads its title ("Sign in to save this recipe", then "Continue with email" on the next step, "Check your inbox" after sending), focus stays in the sheet, and closing returns focus to the button that opened it.
-- The chat gate (`/create` as anonymous) and the shared page's suggest gate use the same field look under their existing card, without the sheet's footnote and sage note, and do not move focus. In the sign-up sheets (Follow, Share, Suggest, edit profile) Continue with email puts focus and the keyboard in the Email field, and Back is disabled while a link is sending.
+- The shared page's suggest gate uses the same field look under its existing card (the chat gate is now a full-screen empty state, see RL-111), without the sheet's footnote and sage note, and do not move focus. In the sign-up sheets (Follow, Share, Suggest, edit profile) Continue with email puts focus and the keyboard in the Email field, and Back is disabled while a link is sending.
 - Reviewer noted (low): the sent step's 280px `bg-accent-200` circle sits behind themed text colours, so it would be illegible if dark mode returned; pin the colours then.
 - Reviewer noted (low): the email pill (`bg-neutral-100`) has almost no contrast with the `bg-surface` sheet, and it uses `break-all`.
 - Reviewer noted (low): the invite tone shows "Sending..." text while AuthModal shows a Spinner.
@@ -74,7 +96,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): `onAuthenticated` can fire more than once (the auto-dismiss effect and the guest handler both call it). Every caller's handler is idempotent; this predates the ticket.
 - Reviewer noted (low): closing the sheet mid-send and reopening it can show a stale sent step.
 - Reviewer noted (low, product call): AuthModal shows the guest link for the plain Sign in callers (Activity, suggestion thread, profile) as before. Decide whether the guest option should be offered there.
-- Reviewer noted (low): the copy "Sign up to suggest a change" (SuggestChangeModal) and "Sign up to start cooking up recipes" (RecipeChatPage) stays until RL-113 and RL-111 replace those screens.
+- Reviewer noted (low): the copy "Sign up to suggest a change" (SuggestChangeModal) and "Sign up to start cooking up recipes" (RecipeChatPage) stays until RL-113 replaces that screen; RL-111 restyled the chat gate but kept its copy.
 
 ### RL-107 Suggesting a change turns the recipe page into a form (9b)
 
@@ -150,7 +172,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - A recipe without nutrition shows no card at all.
 - Method at 390px and 320px: sage-cream numbered discs. Try a very long step and four macro tiles with three-digit values (for example 1,250 kcal): nothing overflows sideways, text wraps. The card header and each step feel like 44px targets (jsdom cannot check this).
 - Tap a step to tick it: disc fills green with a check and the text is struck; Tab to a step and press Space toggles it. Ticks vanish on reload. Oven temperatures still follow the units setting.
-- The chat recipe card shows the same collapsed card after the method (steps there are not tickable). The shared page (/shared/:id) got the new method and the card too.
+- The open (newest) chat recipe card shows the same collapsed Nutrition card after the method (steps there are not tickable); nutrition renders only inside the expanded body. The shared page (/shared/:id) got the new method and the card too.
 - Note: the old "estimated, per serving (of N)" line is gone; the count no longer appears in the card.
 - Reviewer noted (low): the nutrition card's mt-[18px] and Method's mt-[26px] are overridden by the parents' space-y-4 and space-y-5, so spacing drifts 2 to 4px from the spec.
 - Reviewer noted (low): ticked step text is line-through opacity-60 and the ticked disc check is about 3.7:1 contrast; verify at QA.
@@ -394,7 +416,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - DevTools Network shows no request to any Google Fonts host and both fonts load from `/fonts/`. An offline reload still shows the fonts.
 - Dark mode is interim: dark surfaces with terracotta links until RL-065 hides it. Check it is legible, not that it is pretty.
 - Include a fraction such as one third in an ingredient quantity: the Figtree latin subset may not cover U+2153 and U+2154, which would fall back to the system font.
-- Reviewer noted (med): the 10px chat timestamp is `text-primary-200` on primary-600 at exactly 4.50:1 (`ChatMessage.tsx:15`); use `primary-100` or `on-accent`.
+- Reviewer noted (med, moot since RL-111: the chat bubble no longer shows a timestamp): the 10px chat timestamp is `text-primary-200` on primary-600 at exactly 4.50:1 (`ChatMessage.tsx:15`); use `primary-100` or `on-accent`.
 - Reviewer noted (med): only Figtree is preloaded, so on a cold first visit headings flash in the system font and reflow; preloading Caprasimo is a one-line fix in `index.html`.
 - Reviewer noted (low): small all-caps 14px Settings and edit-page section headings now render in Caprasimo and may look heavy (RL-063 or QA call); heart icons and bullet glyphs are about 3:1 (non-text); `public/icon.svg` and the PWA icons are still indigo and now clash with the cream manifest colours (needs its own ticket); dark-mode borders `dark:border-primary-800` nearly vanish until RL-065 hides dark (moot after RL-065: light only).
 
