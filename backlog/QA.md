@@ -18,6 +18,20 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-101 A branch shows the sage lineage strip
+
+- Open branches at depth 1, 2 and 4 or more, at 390px and 320px: a sage rounded strip under the title and family label. Depth 1 reads root, current. Depth 2 reads root, parent, current. Depth 4+ reads root, "+N", parent, current. Nothing overflows sideways at 320px, with long titles or long author names (the crumbs wrap).
+- Tap every crumb: each opens that recipe. Tap "+N": the middle crumbs appear inline. Crumb targets feel 44px tall (jsdom cannot check this, look on a phone).
+- The sentence reads "<author> asked for "<prompt>" on <parent author>'s <parent title>." Tap the author name: their profile opens. A branch with no prompt reads "Branched from <parent title>."
+- "See what changed" opens the diff against the parent. An original recipe shows no strip.
+- VoiceOver: the nav is read as "Recipe lineage", the last crumb as "current page", and the +N button as "Show N more".
+- The old breadcrumb and Prompt box are gone; LineageBreadcrumb.tsx and its (nonexistent) test were removed, nothing else imported it.
+- After pressing "+N", focus moves to the first revealed crumb; navigating to another branch collapses the strip again.
+- Reviewer noted (low): the crumb cut `slice(0, 18)` counts UTF-16 units, so an emoji at the cut could split; the root emoji prefix is not counted in the 18 (undocumented, fine for the spec).
+- Reviewer noted (low): the author link in the sentence has no enlarged hit area (inline links are exempt).
+- Reviewer noted (low): until the lineage loads the sentence omits the parent ("<author> asked for "<prompt>"." or "Branched from a recipe."). A permanent lineage failure leaves it that way, there is no retry.
+- Reviewer noted (low): crumb rows use a 24px row gap so wrapped 44px targets do not overlap; at 320px a depth-3+ chain must be tapped crumb by crumb.
+
 ### RL-100 The recipe page header follows 2a and 2b, with the More menu as a sheet
 
 - Open an original recipe at 390x844 and 320px: title in the heading font beside a 76px emoji blob, description under it, buttons (back, version tree, heart, More) in a flat row. A very long title wraps and does not push the blob off screen.
@@ -1107,7 +1121,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-074 What changed entry points
 
-- Open a variation's recipe page. "See what changed" sits directly under the Prompt box; tap it, check the screen, then Back returns to the recipe.
+- Open a variation's recipe page. "See what changed" is the button in the lineage strip under the title; tap it, check the screen, then Back returns to the recipe.
 - Open a root recipe and confirm there is no such link.
 - In the Timeline, open a child stop's sheet. The ghost "See what changed" button sits between the change tags and Open / Branch here; it opens the changes screen. The root stop's sheet has no such button. Check the sheet at 320 px.
 - Reviewer noted (moot while the app is light only): in dark mode primary-600 text and the forced primary-600 focus ring are about 2.6:1 on the dark surface, a token-level issue shared with the ghost Button.

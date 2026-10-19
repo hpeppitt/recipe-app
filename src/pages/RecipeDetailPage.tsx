@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -18,7 +18,7 @@ import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../ser
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeHeader } from '../components/recipe/RecipeHeader';
 import { RecipeContent } from '../components/recipe/RecipeContent';
-import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
+import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -510,23 +510,14 @@ export function RecipeDetailPage() {
         onSuggest={handleSuggestClick}
       />
 
+      {recipe.depth > 0 && (
+        <div className="mx-auto w-full max-w-lg">
+          <LineageStrip recipe={recipe} ancestors={ancestors} />
+        </div>
+      )}
+
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="p-4 space-y-6">
-          {recipe.depth > 0 && (
-            <div className="space-y-2">
-              <LineageBreadcrumb ancestors={ancestors} current={recipe} />
-              <div className="bg-surface-secondary rounded-xl px-3 py-2 text-sm text-text-secondary">
-                <span className="text-text-tertiary">Prompt: </span>"{recipe.prompt}"
-              </div>
-              <Link
-                to={`/recipe/${recipe.id}/changes`}
-                className="inline-flex items-center min-h-11 text-sm text-primary-600 hover:text-primary-700 underline underline-offset-2 rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
-              >
-                See what changed
-              </Link>
-            </div>
-          )}
-
           {/* Pending review sits above the recipe body. This is the owner's
               action item on their own page; it was previously below ingredients,
               instructions, notes, tags, credits, collaborators and variations. */}
