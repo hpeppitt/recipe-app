@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-120 The Privacy Policy covers photos added to the recipe chat
+
+- Read `/privacy` on a phone and sign off the four changed paragraphs before release: "The short version" (third paragraph), and "AI recipe generation" What, Who sees it and How long. This is legal text; the wording is in the ticket and awaits your approval.
+- The page header shows "Last updated 19 October 2026".
+- Sign in as an existing user: no Terms update dialog appears (Terms and `TERMS_VERSION` are unchanged).
+- The EXIF claim ("removes the location and camera details") rests on the canvas redraw in `downscaleToJpeg`, read in code only. Check with a geotagged photo in RL-119's walk if you want proof.
+
 ### RL-118 useRecipeChat can send up to three downscaled photos with a message to Gemini
 
 - Nothing to see in the UI yet: this is the hook, request shape and downscale only. The human check (attach photos, generate, save, confirm nothing image-shaped is stored) is in RL-119.

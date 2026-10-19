@@ -98,3 +98,4 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 32. **Limits on suggestions and replies.** Privacy "Lawful bases". RL-048 (built in the repo 2026-10-15; rules pending RL-051).
 33. **Pages exist.** All three documents assume they are reachable at `/terms`, `/privacy` and
     `/cookies`, and the Settings "Legal" section. Built as drafts in RL-045; still open for the author's check.
+34. **Photos in the recipe chat.** Privacy 'The short version' and 'AI recipe generation': photos are not stored, are resent each turn, and the downscale drops EXIF. RL-118, RL-119, RL-120.
