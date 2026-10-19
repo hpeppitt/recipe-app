@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode, type Ref } from 'react';
 import { Button } from '../ui/Button';
 import { Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
 
@@ -65,11 +65,14 @@ export function EmailField({
   onChange,
   onEnter,
   autoFocus = false,
+  inputRef,
 }: {
   value: string;
   onChange: (value: string) => void;
   onEnter: () => void;
   autoFocus?: boolean;
+  /** For a caller that must focus the field after its sheet opens (EmailLinkStatus). */
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const id = useId();
   return (
@@ -78,6 +81,7 @@ export function EmailField({
         Email
       </label>
       <input
+        ref={inputRef}
         id={id}
         type="email"
         autoComplete="email"

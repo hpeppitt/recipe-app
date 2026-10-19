@@ -18,6 +18,24 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-109 Email-link outcomes show as one sheet over the page the link opened
+
+- On the preview at 390x844 and 320px (no horizontal scroll, headlines and bodies wrap, nothing hidden under the home indicator). jsdom cannot open a real Firebase link, so this walk is the only check of the real flow:
+  - Request a link and open it in the same browser: a bottom sheet "Signing you in…" with a spinner in a grey circle and no buttons. Escape and tapping the dimmed backdrop do nothing. It then closes on its own for a plain sign-in. For an anonymous (guest) account that added its email, it turns into "You're signed in, and your bookmarks came with you" with a sage check and "Got it".
+  - Open a fresh link in a different browser: the sheet "Finish signing in here" with the phone icon, the "different browser" explanation, the Terms box, the "Email" pill field with focus in it (iOS may not raise the keyboard without a tap), and "Sign in". Unticked, Sign in is disabled and Enter shows the tick-the-box error; ticked, Sign in turns the sheet into "Signing you in…". Escape or the backdrop closes it.
+  - Open an already used link: "That sign-in link has expired" with the hourglass icon and one "OK" button. OK, Escape and the backdrop each close it, and it does not come back.
+  - The email-taken case (as a guest, add an email that already has an account, then open that link): "That email already has an account" with the warning triangle and the body "...so bookmarks you made here as a guest stay on this device under your guest name rather than moving across. Request a new link to continue." and OK.
+  - In every case the page underneath stays where the link landed (Explore for a fresh link), and after closing you are still on it.
+- VoiceOver on iOS: each sheet is announced by its headline, then its body (the body is the dialog's description); on the spinner the text is read once (the spinner itself is silent); in the email sheet focus starts in the Email field; closing returns to the page.
+- In a real browser (Chrome desktop and Chrome on Android), press Escape twice quickly while "Signing you in…" shows: the sheet stays (or reappears at once) and the outcome sheet then shows.
+- Dismiss the email sheet after typing an address and ticking the box, then open another cross-device link: the field is empty, the box unticked and no error shows.
+- Reviewer noted (low): the needs-email catch that clears the stored acceptance is dead code, because `runEmailLinkCompletion` never rejects (pre-existing). On a failure the sheet re-shows the error or needs-email state with no message from this component.
+- Reviewer noted (low): in the spinner sheet the focused heading sits inside `role="status"`, so VoiceOver may read "Signing you in…" twice.
+- Reviewer noted (low): OK is 44px tall while Sign in and Got it are 52px.
+- Reviewer noted (low): a link finishing while the RL-108 sign-in sheet is open would stack two native dialogs (not traced).
+- Reviewer noted (low): the dark-theme contrast of the accent circles was judged only from the token pairs.
+- Reviewer noted (low, second round on the Sheet native-close handler): the handler has no `dialog.isConnected` guard, so a native close pending in the same tick the Sheet unmounts could call `showModal()` on a detached node (a console InvalidStateError; narrow race, completing sheet only; fix: `if (!openRef.current || !dialog?.isConnected || dialog.open) return;`). In the dismissible native-close path a parent that ignores `onClose` leaves the dialog closed while `open` stays true (same as before; AuthModal's `onDismiss` is the only case). No Sheet test covers rapid open toggling or unmount, and the mocked `close()` does not queue a real close event.
+
 ### RL-108 Sign-in is a contextual sheet whose headline names the action
 
 - On the preview, signed out, at 390x844 and 320px (no horizontal scroll, the 26px headline and the 34px "Check your inbox" wrap cleanly, the sheet clears the home indicator):
@@ -408,7 +426,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-032 Remove the cloud uid migration and the stranded-identity notice
 
 - On the emulator or preview: bookmark a recipe as anonymous, then sign in with an email that
-  already has an account. The bookmark and any local recipes carry over, and no banner appears.
+  already has an account. The bookmark and any local recipes carry over, and the removed stranded-identity notice does not appear (the RL-109 sign-in sheet may briefly show "Signing you in…", which is expected).
 - Publish a recipe as a verified user: it still publishes, and the profile's `recipeCount` no
   longer rises (nothing read it).
 - Stale wording for the author (not edited, `src/content/legal/` is out of the loop's scope):
@@ -688,7 +706,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Needs a browser, against `npm run emulators` plus `npm run dev:emulated` (no agent ran this walk). At 390 px and 320 px, light and dark:
   - Sign-in sheet, email step: with the box unticked the "Send me a link" button is disabled and "Tick the box above to continue." shows under it; Enter shows "Tick the box..." with the box outlined; tick it and the hint goes and the link sends. Same on Profile's "Add Email" banner, the sign-up sheet (Follow, then Continue with email) and `/create` as anonymous, where the box sits above the email field.
   - Open the link from the Auth emulator in the same browser. In the Firestore emulator UI, `termsAcceptance/{uid}` has exactly `version` (today's TERMS_VERSION), `acceptedAt` (a number) and `recordedAt` (a timestamp). No dialog appears. Signed in as another account, reading that document is denied.
-  - Cross-device: open the link in a private window. The "Confirm the email address" prompt has the box above the field, Continue stays disabled with the hint, and Enter while unticked shows the error; after it completes, the document exists and no dialog appears.
+  - Cross-device: open the link in a private window. The "Finish signing in here" sheet (RL-109) has the box above the field, Sign in stays disabled with the hint, and Enter while unticked shows the error; after it completes, the document exists and no dialog appears.
   - Account binding: tick the box and request a link for address A, then sign in as a different verified account B on the same browser. B gets the dialog; A's tick is not recorded for B.
   - A failed send (stop the Auth emulator, then send) leaves no `recipe-app-terms-acceptance` key in local storage.
   - An existing verified account with no document (delete it in the emulator UI, then reload): the blocking "Accept the Terms to continue" dialog appears with focus on its title. Escape does not close it. Open each policy link: the new tab shows the policy readable with no dialog over it; navigate to the library in that tab and the dialog appears there. Accept is disabled until the box is ticked; Accept records the document and closes it, and its width does not jump between Accept, the spinner and Retry. Repeat and press "Decline and sign out": you are signed out, a double tap does nothing extra, and recipes saved on the device are still listed.
@@ -702,7 +720,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   - (med) An unaccepted user sees usable app content for a network round trip before the dialog appears, because `setIsLoading(false)` and `setUser` run before `checkTermsOnce` resolves, so they can start an action under the old terms.
   - The checkbox's policy links are `text-xs` `inline-block py-2` (about 32 px tall) inside a label, below 44 px, and are interactive content nested in a label.
   - The AuthModal's "Continue Anonymously" step and "sent" step show no policy link, and the Cookie Policy is linked from no form (only Settings and the dialog).
-  - `ensureProfile` and the "Signing you in" banner now wait on the terms check (up to about 10 s on a bad connection: the 5 s read bound plus the 5 s stored-entry write bound).
+  - `ensureProfile` and the "Signing you in…" sheet (a banner before RL-109) now wait on the terms check (up to about 10 s on a bad connection: the 5 s read bound plus the 5 s stored-entry write bound).
   - `recordTermsAcceptance` gives up at 5 s, but the write stays queued and may commit later (idempotent, harmless).
   - `acceptedAt` has no lower bound in the rules (0 or negative is accepted), and a re-acceptance overwrites the previous record (latest only, by design).
   - Acceptance is client-attested: it proves a verified-email account wrote a record with the current version and the server stamped the time, not that the user saw the text.
@@ -710,7 +728,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   - Tests do not strictly cover the push-after-terms ordering, the completion-versus-listener race, sign-out then sign-in re-checking, or a read timeout end to end.
   - The draft terms still carry `[DEPENDS ON RL-047]` markers (policy wording for RL-046).
   - (low) The retry needs an `online` or tab-visible event, so a read that keeps timing out while the tab stays visible and online is not retried after its 3 attempts until a reload (an optional timed retry would help).
-  - (low) The link completion awaits the terms check before `ensureProfile` and the banner update (up to about 10 s on a bad network).
+  - (low) The link completion awaits the terms check before `ensureProfile` and the sheet update (up to about 10 s on a bad network).
   - (low) In `EmailLinkStatus` the catch that clears the entry never runs, because `runEmailLinkCompletion` never rejects; after a wrong address or an expired link the entry (bound to that address) stays until sign-out. Harmless because it is email-bound.
   - (low) A failed resend clears the entry of a still-valid earlier link; that fails safe to the dialog.
   - (low) An already-accepted account keeps its stored entry until sign-out (email-bound, harmless).

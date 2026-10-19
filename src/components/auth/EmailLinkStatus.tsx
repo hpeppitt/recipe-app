@@ -1,9 +1,11 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
+import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
+import { Check, Hourglass, Smartphone, TriangleAlert } from '../ui/icons';
 import { TermsCheckbox, TermsHint } from './TermsCheckbox';
+import { EmailField } from './AuthSheetParts';
 import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
 import { TERMS_VERSION } from '../../lib/legal';
 
@@ -15,183 +17,220 @@ import { TERMS_VERSION } from '../../lib/legal';
  * message at all: the user landed on a signed-out app having done everything
  * right. That is the whole reason this component exists.
  *
- * Rendered in `AppShell` above the outlet, because the link returns to the app
- * origin and the user can land on any of its routes.
+ * Rendered once in `AppShell`, because the link returns to the app origin and the
+ * user can land on any of its routes. Each state is one sheet (15b) over that page,
+ * so the page underneath stays put.
  */
 export function EmailLinkStatus() {
   const { linkState, submitLinkEmail, dismissLinkState } = useAuth();
+  const titleId = useId();
+  const bodyId = useId();
+  const headlineRef = useRef<HTMLHeadingElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+
+  // A successful upgrade needs no announcement beyond the account itself
+  // changing, and a plain sign-in even less. Only `linked` is worth a word,
+  // because "your bookmarks came with you" is the reassurance the user wants.
+  // Derived from linkState, so dismissing (back to idle) closes it for good.
+  const open = linkState.status !== 'idle' && !(linkState.status === 'done' && !linkState.linked);
+  const stateKey = linkState.status === 'error' ? linkState.reason : linkState.status;
+
+  // Runs after Sheet's own effect has opened the dialog. The control that had focus
+  // (e.g. "Sign in") is gone when the state changes, so put focus on the new content.
+  useEffect(() => {
+    if (!open) return;
+    (stateKey === 'needs-email' ? fieldRef.current : headlineRef.current)?.focus();
+  }, [open, stateKey]);
+
+  const headline = (text: string) => (
+    <h2
+      ref={headlineRef}
+      id={titleId}
+      tabIndex={-1}
+      className="min-w-0 break-words font-heading text-2xl leading-[1.1] text-text-primary focus:outline-none"
+    >
+      {text}
+    </h2>
+  );
+
+  let content: ReactNode = null;
+
+  if (linkState.status === 'done' && linkState.linked) {
+    content = (
+      <>
+        <Circle className="bg-accent-2-200 text-accent-2-800">
+          <Check className="h-6 w-6" />
+        </Circle>
+        {headline("You're signed in, and your bookmarks came with you")}
+        <Body id={bodyId}>
+          This is the same account you were already using, now reachable by email on
+          any device.
+        </Body>
+        <Button fullWidth size="lg" className="h-[52px]" onClick={dismissLinkState}>
+          Got it
+        </Button>
+      </>
+    );
+  } else if (linkState.status === 'completing') {
+    content = (
+      <>
+        <Circle className="bg-surface-secondary text-text-secondary">
+          {/* aria-hidden on the circle: the text below is the one live announcement. */}
+          <Spinner />
+        </Circle>
+        <div role="status" className="min-w-0">
+          {headline('Signing you in…')}
+        </div>
+      </>
+    );
+  } else if (linkState.status === 'needs-email') {
+    content = (
+      <>
+        <Circle className="bg-accent-2-200 text-accent-2-800">
+          <Smartphone className="h-6 w-6" />
+        </Circle>
+        {headline('Finish signing in here')}
+        <Body id={bodyId}>
+          {/* Explains the cause, because otherwise being asked again looks like the
+              app lost the address for no reason. */}
+          You opened this link in a different browser from the one that asked for it,
+          so we need the address again to check the link belongs to you.
+        </Body>
+        {/* Its own component, so the address, the tick and the error reset with each attempt. */}
+        <NeedsEmailForm submitLinkEmail={submitLinkEmail} fieldRef={fieldRef} />
+      </>
+    );
+  } else if (linkState.status === 'error') {
+    // Expired, taken, or otherwise failed. The link is single-use in every case, so
+    // there is nothing to retry here; the honest action is to request a new one.
+    const { title, body } = {
+      expired: {
+        title: 'That sign-in link has expired',
+        body: 'Links can only be used once, and they time out. Request a new one and it will work.',
+      },
+      'email-taken': {
+        title: 'That email already has an account',
+        // Guests can only bookmark (decision 1a), so bookmarks are what stay behind.
+        body:
+          'Signing in with it will take you to that account, so bookmarks you made here ' +
+          'as a guest stay on this device under your guest name rather than moving across. ' +
+          'Request a new link to continue.',
+      },
+      failed: {
+        title: "That sign-in link didn't work",
+        body: 'Something went wrong finishing your sign-in. Requesting a new link is the quickest fix.',
+      },
+    }[linkState.reason];
+    const Icon = linkState.reason === 'expired' ? Hourglass : TriangleAlert;
+    content = (
+      <>
+        <Circle className="bg-accent-200 text-accent-800">
+          <Icon className="h-6 w-6" />
+        </Circle>
+        {headline(title)}
+        <Body id={bodyId}>{body}</Body>
+        <Button fullWidth variant="secondary" onClick={dismissLinkState}>
+          OK
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={dismissLinkState}
+      labelledBy={titleId}
+      // The body is the actionable part ("Request a new link"), so it is read on open too.
+      describedBy={open && linkState.status !== 'completing' ? bodyId : undefined}
+      // Completion must finish; closing mid-flight would hide a sign-in that still lands.
+      dismissible={linkState.status !== 'completing'}
+    >
+      {open && (
+        <div className="flex min-w-0 flex-col gap-[14px] pb-[env(safe-area-inset-bottom)]">{content}</div>
+      )}
+    </Sheet>
+  );
+}
+
+function NeedsEmailForm({
+  submitLinkEmail,
+  fieldRef,
+}: {
+  submitLinkEmail: (email: string) => Promise<void>;
+  fieldRef: Ref<HTMLInputElement>;
+}) {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [termsError, setTermsError] = useState(false);
   const hintId = useId();
 
-  if (linkState.status === 'idle') return null;
-
-  // A successful upgrade needs no announcement beyond the account itself
-  // changing, and a plain sign-in even less. Only `linked` is worth a word,
-  // because "your recipes came with you" is the reassurance the user wants.
-  if (linkState.status === 'done') {
-    if (!linkState.linked) return null;
-    return (
-      <Banner tone="success" role="status">
-        <p className="text-sm font-medium text-success-800 dark:text-success-200">
-          You're signed in, and your recipes came with you
-        </p>
-        <p className="text-xs text-success-700 dark:text-success-300 mt-0.5">
-          This is the same account you were already using, now reachable by email on
-          any device.
-        </p>
-        <div className="mt-2">
-          <Button size="sm" variant="secondary" onClick={dismissLinkState}>
-            Got it
-          </Button>
-        </div>
-      </Banner>
-    );
-  }
-
-  if (linkState.status === 'completing') {
-    return (
-      <Banner tone="neutral" role="status">
-        <div className="flex items-center gap-3">
-          <Spinner size="sm" />
-          <p className="text-sm font-medium text-text-primary">Signing you in…</p>
-        </div>
-      </Banner>
-    );
-  }
-
-  if (linkState.status === 'needs-email') {
-    const handle = async () => {
-      if (!email.trim() || submitting) return;
-      if (!accepted) {
-        setTermsError(true);
-        return;
-      }
-      setSubmitting(true);
-      try {
-        // This browser never saw the form that sent the link, so the box here is
-        // the acceptance AuthContext records once the link completes (RL-047).
-        setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email });
-        await submitLinkEmail(email);
-      } catch {
-        clearTermsAcceptance();
-      } finally {
-        setSubmitting(false);
-      }
-    };
-    return (
-      // No role: a whole form announced as an alert is noise; only the error below is live.
-      <Banner tone="warning">
-        <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
-          Confirm the email address to finish signing in
-        </p>
-        <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">
-          {/* Explains the cause, because otherwise being asked again looks like the
-              app lost the address for no reason. */}
-          You opened this link in a different browser from the one that asked for it,
-          so we need the address again to check the link belongs to you.
-        </p>
-        <div className="mt-1">
-          <TermsCheckbox
-            checked={accepted}
-            onChange={(c) => {
-              setAccepted(c);
-              if (c) setTermsError(false);
-            }}
-            disabled={submitting}
-            invalid={termsError && !accepted}
-            describedBy={accepted ? undefined : hintId}
-          />
-        </div>
-        <div className="flex gap-2 mt-1">
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            aria-label="Email address"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handle();
-            }}
-          />
-          <Button
-            size="sm"
-            onClick={handle}
-            disabled={submitting || !email.trim() || !accepted}
-            aria-describedby={accepted ? undefined : hintId}
-          >
-            {submitting ? <Spinner size="sm" /> : 'Continue'}
-          </Button>
-        </div>
-        {!accepted && (
-          <div className="mt-2">
-            <TermsHint id={hintId} />
-          </div>
-        )}
-        {termsError && !accepted && (
-          <p role="alert" className="text-xs text-danger-700 dark:text-danger-300 mt-1">
-            Tick the box to accept the Terms before we finish signing you in.
-          </p>
-        )}
-      </Banner>
-    );
-  }
-
-  // Expired, taken, or otherwise failed. The link is single-use in every case, so
-  // there is nothing to retry here; the honest action is to request a new one.
-  const { title, body } = {
-    expired: {
-      title: 'That sign-in link has expired',
-      body: 'Links can only be used once, and they time out. Request a new one and it will work.',
-    },
-    'email-taken': {
-      title: 'That email already has an account',
-      body:
-        'Signing in with it will take you to that account, so anything you made here ' +
-        'as a guest will stay under your guest name rather than moving across. ' +
-        'Request a new link to continue.',
-    },
-    failed: {
-      title: "That sign-in link didn't work",
-      body: 'Something went wrong finishing your sign-in. Requesting a new link is the quickest fix.',
-    },
-  }[linkState.reason];
+  const handle = async () => {
+    if (!email.trim() || submitting) return;
+    if (!accepted) {
+      setTermsError(true);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // This browser never saw the form that sent the link, so the box here is
+      // the acceptance AuthContext records once the link completes (RL-047).
+      // Trimmed here rather than trusting each callee to do it.
+      const address = email.trim();
+      setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: address });
+      await submitLinkEmail(address);
+    } catch {
+      clearTermsAcceptance();
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <Banner tone="warning" role="alert">
-      <p className="text-sm font-medium text-warning-800 dark:text-warning-200">{title}</p>
-      <p className="text-xs text-warning-700 dark:text-warning-300 mt-0.5">{body}</p>
-      <div className="mt-2">
-        <Button size="sm" variant="secondary" onClick={dismissLinkState}>
-          Dismiss
-        </Button>
-      </div>
-    </Banner>
+    <>
+      <TermsCheckbox
+        checked={accepted}
+        onChange={(c) => {
+          setAccepted(c);
+          if (c) setTermsError(false);
+        }}
+        disabled={submitting}
+        invalid={termsError && !accepted}
+        describedBy={accepted ? undefined : hintId}
+      />
+      <EmailField value={email} onChange={setEmail} onEnter={handle} inputRef={fieldRef} />
+      <Button
+        fullWidth
+        size="lg"
+        className="h-[52px]"
+        onClick={handle}
+        disabled={submitting || !email.trim() || !accepted}
+        aria-describedby={accepted ? undefined : hintId}
+      >
+        {submitting ? <Spinner size="sm" /> : 'Sign in'}
+      </Button>
+      {!accepted && <TermsHint id={hintId} />}
+      {termsError && !accepted && (
+        <p role="alert" className="text-sm text-danger-700">
+          Tick the box to accept the Terms before we finish signing you in.
+        </p>
+      )}
+    </>
   );
 }
 
-function Banner({
-  tone,
-  role,
-  children,
-}: {
-  tone: 'neutral' | 'warning' | 'success';
-  role?: 'status' | 'alert';
-  children: React.ReactNode;
-}) {
-  const toneClasses = {
-    neutral: 'border-border bg-surface-secondary',
-    warning:
-      'border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950',
-    success:
-      'border-success-200 bg-success-50 dark:border-success-800 dark:bg-success-950',
-  }[tone];
-
+function Circle({ className, children }: { className: string; children: ReactNode }) {
   return (
-    <div role={role} className={`m-4 border rounded-2xl p-4 ${toneClasses}`}>
+    <span
+      aria-hidden="true"
+      className={`flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full ${className}`}
+    >
       {children}
-    </div>
+    </span>
   );
+}
+
+function Body({ id, children }: { id: string; children: ReactNode }) {
+  return <p id={id} className="min-w-0 break-words text-sm text-text-secondary">{children}</p>;
 }

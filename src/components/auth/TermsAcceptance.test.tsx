@@ -88,7 +88,7 @@ const forms = [
   {
     name: 'cross-device needs-email prompt',
     send: 'submitLinkEmail' as const,
-    button: 'Continue',
+    button: 'Sign in',
     mount: (spy: () => Promise<void>) =>
       renderWithProviders(<EmailLinkStatus />, {
         user: null,
