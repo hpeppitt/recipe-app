@@ -80,3 +80,13 @@ export function dayPartLabel(date: Date): string {
   const part = h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
   return `${DAY_NAMES[date.getDay()]} ${part}`;
 }
+
+/**
+ * Adds a clause to free text, joined with ", ". Whitespace-only text counts as
+ * empty, a trailing comma or space is trimmed first so the join never doubles,
+ * and a clause already present is still appended (the caller asked for it).
+ */
+export function appendClause(text: string, clause: string): string {
+  const base = text.trim().replace(/[,\s]+$/, '');
+  return base ? `${base}, ${clause}` : clause;
+}

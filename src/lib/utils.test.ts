@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { withTimeout, timeAgo, dayPartLabel } from './utils';
+import { withTimeout, timeAgo, dayPartLabel, appendClause } from './utils';
 
 describe('withTimeout', () => {
   it('returns the resolved value when it beats the deadline', async () => {
@@ -90,5 +90,26 @@ describe('dayPartLabel', () => {
   it('reads night after midnight with the new weekday', () => {
     expect(at(2)).toBe('Tuesday night');
     expect(dayPartLabel(new Date(2026, 9, 21, 0, 30))).toBe('Wednesday night');
+  });
+});
+
+describe('appendClause', () => {
+  it('returns the clause for empty or whitespace-only text', () => {
+    expect(appendClause('', 'vegan')).toBe('vegan');
+    expect(appendClause('  \n ', 'vegan')).toBe('vegan');
+  });
+
+  it('joins onto existing text with a comma and space', () => {
+    expect(appendClause('less sugar', 'spicier')).toBe('less sugar, spicier');
+  });
+
+  it('trims a trailing comma or space before joining', () => {
+    expect(appendClause('less sugar,', 'spicier')).toBe('less sugar, spicier');
+    expect(appendClause('less sugar, ', 'spicier')).toBe('less sugar, spicier');
+    expect(appendClause('less sugar ,  ', 'spicier')).toBe('less sugar, spicier');
+  });
+
+  it('still appends a clause that is already there', () => {
+    expect(appendClause('vegan', 'vegan')).toBe('vegan, vegan');
   });
 });

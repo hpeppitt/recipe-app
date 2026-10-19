@@ -9,6 +9,8 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-19 | RL-112 | The "Growing your branch…" announcement comes from one permanently mounted sr-only `role="status"` on the page; the visual growing card is `aria-hidden`. Reason: a live region that appears already containing text is not announced by NVDA or VoiceOver. | The ticket's `role="status"` on the card itself. | pending |
+| 2026-10-19 | RL-112 | A chip tap refocuses the instruction box (caret at the end) only on fine pointers; on coarse pointers it does not, matching the skipped mount autofocus, so the keyboard does not open over the remaining chips and Grow at 320px. | Always refocus after a chip tap. | pending |
 | 2026-10-19 | RL-090 | Empty-state callers keep their emoji icons (the full-page variant shows the emoji at 36px on the sage blob); only error callers use Lucide `CloudOff`. | Move each empty caller to a matching Lucide icon (Bookmark, Search, Users). | pending |
 | 2026-10-19 | RL-090 | The profile load error in `ProfilePage` was not changed to `tone="error"` (the ticket lists three callers); the `ErrorBoundary` fallback keeps its "Back to library" label with the `CloudOff` blob, since the button navigates rather than retries. | Convert the profile error too, and relabel the boundary action "Try again" with `RotateCw`. | pending |
 | 2026-10-18 | RL-072 | Above 20 versions the Map shows a notice pointing to the Timeline and the map still renders, with full-screen mode (twice the scale, pan by scrolling) for room; no pinch zoom. Grooming decision. | Pinch-zoom and gesture handling on the map itself. | pending |

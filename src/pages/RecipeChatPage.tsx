@@ -9,6 +9,7 @@ import { ChatMessageBubble } from '../components/chat/ChatMessage';
 import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
+import { BranchComposer, GrowingCard } from '../components/chat/BranchComposer';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Button } from '../components/ui/Button';
@@ -56,6 +57,18 @@ function ChatHeader({ title, onClose }: { title: string; onClose: () => void }) 
       <IconButton variant="flat" label="Close" icon={<X className="size-5" />} onClick={onClose} />
       <h1 className="min-w-0 flex-1 break-words font-heading text-lg text-text-primary">{title}</h1>
     </header>
+  );
+}
+
+function GenerationUnavailableNotice() {
+  return (
+    <div className="rounded-[22px] bg-surface-secondary p-4 space-y-2">
+      <p className="text-sm font-medium text-text-primary">Recipe generation is unavailable</p>
+      <p className="text-sm text-text-secondary">
+        This build has no Firebase configuration, so it can't reach the recipe generator. Your
+        saved recipes are unaffected.
+      </p>
+    </div>
   );
 }
 
@@ -154,6 +167,28 @@ export function RecipeChatPage() {
   const readyTitle =
     !isLoading && !error && lastMsg?.role === 'assistant' ? (lastMsg.recipe?.title ?? '') : null;
 
+  // The first turn of a variation shows the growing card, which is then the
+  // live region (and the sr-only one is silent), so it is announced once.
+  const growingFirst = isVarying && isLoading && messages.length === 1;
+
+  // The one live region, permanently mounted (a region that appears already
+  // containing its text is not announced by NVDA or VoiceOver) and in the same
+  // spot in both the composer and chat trees so it survives the switch. The
+  // visible typing label and growing card are aria-hidden.
+  const liveRegion = (
+    <p role="status" aria-live="polite" className="sr-only">
+      {growingFirst
+        ? 'Growing your branch…'
+        : isLoading
+          ? loadingPhase === 'checking'
+            ? 'Checking for similar recipes...'
+            : 'Generating recipe...'
+          : readyTitle !== null
+            ? `${readyTitle || 'Your recipe'} is ready`
+            : ''}
+    </p>
+  );
+
   const title = isVarying ? 'New variation' : 'New recipe';
 
   // The contribute gate, and the one place it cannot be a rule.
@@ -214,37 +249,36 @@ export function RecipeChatPage() {
     );
   }
 
+  // The 6b first screen. Once the first message exists the chat below takes over.
+  if (isVarying && parentRecipe && messages.length === 0) {
+    return (
+      <div className="min-h-dvh flex flex-col bg-surface">
+        {liveRegion}
+        <ChatHeader title={title} onClose={handleBack} />
+        <BranchComposer
+          // Keyed on the seed, as the ChatInput was: navigating /create ->
+          // /recipe/:id/vary keeps this page mounted.
+          key={suggestionSeed}
+          parent={parentRecipe}
+          seed={suggestionSeed}
+          generating={isLoading}
+          unavailableNotice={generationUnavailable ? <GenerationUnavailableNotice /> : undefined}
+          onGrow={sendMessage}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
+      {liveRegion}
       <ChatHeader title={title} onClose={handleBack} />
 
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-lg min-w-0 flex-col gap-3 px-[18px] pt-1 pb-3">
-          {/* The one live region: the typing label while working, then the new
-              recipe's title. Visible copies of both are aria-hidden or inert. */}
-          <p aria-live="polite" role="status" className="sr-only">
-            {isLoading
-              ? loadingPhase === 'checking'
-                ? 'Checking for similar recipes...'
-                : 'Generating recipe...'
-              : readyTitle !== null
-                ? `${readyTitle || 'Your recipe'} is ready`
-                : ''}
-          </p>
-
           {/* Surfaced before composing rather than after. There is nothing the user
               can do about this one — no key to paste any more — so it links nowhere. */}
-          {generationUnavailable && (
-            <div className="rounded-[22px] bg-surface-secondary p-4 space-y-2">
-              <p className="text-sm font-medium text-text-primary">
-                Recipe generation is unavailable
-              </p>
-              <p className="text-sm text-text-secondary">
-                This build has no Firebase configuration, so it can't reach the recipe
-                generator. Your saved recipes are unaffected.
-              </p>
-            </div>
-          )}
+          {generationUnavailable && <GenerationUnavailableNotice />}
 
           {/* Why the composer is inert. Each of these three is a distinct
               situation and only one of them is worth retrying. */}
@@ -289,6 +323,8 @@ export function RecipeChatPage() {
             <div className="border border-border rounded-2xl overflow-hidden">
               <button
                 onClick={() => setParentExpanded(!parentExpanded)}
+                aria-expanded={parentExpanded}
+                aria-controls="parent-preview"
                 className="w-full flex items-center justify-between p-3 text-left hover:bg-surface-secondary transition-colors"
               >
                 <div className="flex items-center gap-2">
@@ -301,7 +337,7 @@ export function RecipeChatPage() {
                 <ChevronDown className={`w-4 h-4 text-text-tertiary transition-transform ${parentExpanded ? 'rotate-180' : ''}`} />
               </button>
               {parentExpanded && (
-                <div className="p-4 border-t border-border">
+                <div id="parent-preview" className="p-4 border-t border-border">
                   <RecipeContent recipe={parentRecipe} compact />
                 </div>
               )}
@@ -317,14 +353,6 @@ export function RecipeChatPage() {
                   <PillChip key={chip} label={chip} onClick={() => sendMessage(chip)} />
                 ))}
               </div>
-            </div>
-          )}
-
-          {messages.length === 0 && isVarying && parentRecipe && (
-            <div className="py-8 text-center">
-              <p className="text-text-secondary text-sm">
-                How would you like to modify this recipe?
-              </p>
             </div>
           )}
 
@@ -452,7 +480,9 @@ export function RecipeChatPage() {
             </div>
           )}
 
-          {isLoading && (
+          {growingFirst && <GrowingCard />}
+
+          {isLoading && !growingFirst && (
             <TypingIndicator
               label={
                 loadingPhase === 'checking'
