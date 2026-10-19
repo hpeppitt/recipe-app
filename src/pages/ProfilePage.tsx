@@ -3,6 +3,10 @@ import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
+import { useLocalLibrary } from '../hooks/useRecipeLibrary';
+import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
+import { useOnline } from '../hooks/useOnline';
+import { splitLibrary, type FeedRecipe, type FeedSource } from '../lib/library';
 import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
 import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
@@ -16,7 +20,11 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
 import { pluralize } from '../lib/utils';
-import { Pencil, User } from '../components/ui/icons';
+import { EmojiBlob } from '../components/ui/EmojiBlob';
+import { IconButton } from '../components/ui/IconButton';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { RecipeTileGrid } from '../components/profile/RecipeTileGrid';
+import { CloudOff, Pencil, RotateCw, Settings, UserRound } from '../components/ui/icons';
 
 /**
  * A stat, optionally tappable.
@@ -82,12 +90,121 @@ function PersonRow({
   );
 }
 
-function OwnProfile() {
-  const { user, updateDisplayName } = useAuth();
-  const { profile, updateAvatar, updateName } = useOwnProfile();
-  const { recipes, stats, isLoading: ownLoading } = useOwnRecipes(user?.uid);
+/** A tappable (or inert) stat tile on the own profile, Organic 4a. */
+function StatTile({
+  label,
+  value,
+  onClick,
+  expanded,
+}: {
+  label: string;
+  value: number;
+  onClick?: () => void;
+  expanded?: boolean;
+}) {
+  const cls = `min-w-0 rounded-[20px] px-1 py-3 text-center ${expanded ? 'bg-surface-tertiary' : 'bg-surface-secondary'}`;
+  const body = (
+    <>
+      <p className="font-heading text-xl leading-tight text-text-primary">{value}</p>
+      <p className="truncate text-[11px] text-text-tertiary">{label}</p>
+    </>
+  );
+  if (!onClick) return <div className={cls}>{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      className={`${cls} min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
+    >
+      {body}
+    </button>
+  );
+}
+
+const TAB_OPTIONS = [
+  { value: 'started', label: 'Started' },
+  { value: 'grew', label: 'Grew' },
+] as const;
+
+/**
+ * The Started / Grew tabs over the tile grid, shared by the own profile and the
+ * local-only "Your recipes" view. Started is own recipes with no parent, Grew is
+ * own recipes with a parent, whoever owns the parent (`splitLibrary`).
+ */
+function RecipeTabs({
+  created,
+  branched,
+  promptById,
+  loading,
+  offline,
+}: {
+  created: FeedRecipe[];
+  branched: FeedRecipe[];
+  promptById: ReadonlyMap<string, string>;
+  loading: boolean;
+  offline: boolean;
+}) {
+  const [tab, setTab] = useState<(typeof TAB_OPTIONS)[number]['value']>('started');
+  const tiles =
+    tab === 'started'
+      ? created.map((r) => ({
+          id: r.id,
+          emoji: r.emoji,
+          title: r.title,
+          meta: r.childCount > 0 ? `${r.childCount} ${pluralize(r.childCount, 'branch', 'branches')}` : 'No branches yet',
+        }))
+      : branched.map((r) => ({
+          id: r.id,
+          emoji: r.emoji,
+          title: r.title,
+          meta: promptById.get(r.id)?.trim() ? `"${promptById.get(r.id)}"` : 'Branched',
+        }));
+  return (
+    <div className="space-y-3">
+      <SegmentedControl label="Recipes" options={TAB_OPTIONS} value={tab} onChange={setTab} />
+      {offline && (
+        <p role="status" className="text-xs text-text-tertiary">
+          You're offline. Showing the recipes saved on this device.
+        </p>
+      )}
+      {loading ? (
+        <div className="grid grid-cols-2 gap-2.5">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="aspect-square rounded-[28px]" />
+          ))}
+        </div>
+      ) : (
+        <RecipeTileGrid tiles={tiles} />
+      )}
+    </div>
+  );
+}
+
+/** Dexie rows split for the tabs, plus the loading and offline state the tabs need. */
+function useRecipeTabs(uid: string | undefined, isConfigured: boolean) {
+  const rows: readonly (FeedSource & { prompt?: string })[] | undefined = useLocalLibrary();
   const waitingForSync = useOwnRecipesWaiting();
-  const recipesLoading = ownLoading || (waitingForSync && recipes.length === 0);
+  const syncStatus = useOwnRecipesSyncStatus();
+  const online = useOnline();
+  const split = rows ? splitLibrary(rows, rows, { uid, isConfigured }) : undefined;
+  const created = split?.created ?? [];
+  const branched = split?.branched ?? [];
+  return {
+    created,
+    branched,
+    promptById: new Map((rows ?? []).map((r) => [r.id, r.prompt ?? ''])),
+    // The skeleton replaces only an empty list, never recipes already in Dexie.
+    loading: !rows || (waitingForSync && created.length + branched.length === 0),
+    offline: !online && syncStatus !== 'synced' && syncStatus !== 'off',
+  };
+}
+
+function OwnProfile() {
+  const { user, updateDisplayName, isConfigured } = useAuth();
+  const { profile, updateAvatar, updateName } = useOwnProfile();
+  const { stats } = useOwnRecipes(user?.uid);
+  const tabs = useRecipeTabs(user?.uid, isConfigured);
   const navigate = useNavigate();
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -117,202 +234,173 @@ function OwnProfile() {
     setTimeout(() => setNameSaved(false), 2000);
   };
 
+  const since = profile?.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString('en', { month: 'long', year: 'numeric' })
+    : null;
+
   return (
     <div className="flex flex-col bg-surface">
-      <TopBar title="My Profile" />
-
       <main className="flex-1 max-w-lg mx-auto w-full">
-        <div className="p-4 space-y-6">
-          {/* Avatar + Name */}
-          <div className="flex flex-col items-center space-y-3">
+        <div className="flex justify-end px-3 pt-2">
+          <IconButton variant="flat" label="Settings" href="/settings" icon={<Settings className="size-6" />} />
+        </div>
+        <div className="space-y-5 px-[22px] pb-6">
+          <div className="flex items-center gap-4">
             {/* The edit affordance used to appear only on hover, which on a phone
-                meant the entire avatar editor was invisible and undiscoverable.
-                A persistent badge replaces it; the hover tint is kept as a
-                pointer-only nicety on top. */}
+                meant the avatar editor was invisible. A persistent badge stays. */}
             <button
               onClick={() => (needsSignUp ? setShowSignUp(true) : setEditingAvatar(true))}
-              className="relative group rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              className="relative shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
               aria-label="Change avatar"
               aria-haspopup="dialog"
             >
-              <Avatar
-                uid={user.uid}
-                name={user.displayName}
-                size="xl"
-                photoType={profile?.photoType}
-                photoEmoji={profile?.photoEmoji}
-                photoBgColor={profile?.photoBgColor}
-                photoURL={profile?.photoURL}
-              />
-              <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/20 transition-colors" />
+              <EmojiBlob
+                size={84}
+                tint="bg-transparent"
+                className="overflow-hidden [&>div]:size-full! [&>div]:text-4xl! [&>div]:font-heading"
+              >
+                <Avatar
+                  uid={user.uid}
+                  name={user.displayName}
+                  size="xl"
+                  photoType={profile?.photoType}
+                  photoEmoji={profile?.photoEmoji}
+                  photoBgColor={profile?.photoBgColor}
+                  photoURL={profile?.photoURL}
+                />
+              </EmojiBlob>
               <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 border-2 border-surface flex items-center justify-center">
                 <Pencil className="w-3.5 h-3.5 text-white" />
               </span>
             </button>
 
-            {editingName ? (
-              <div className="flex items-center gap-2 w-full max-w-xs">
-                <Input
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="Display name"
-                  className="text-center"
-                />
-                <Button size="sm" onClick={handleSaveName} disabled={!nameInput.trim()}>
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  if (needsSignUp) {
-                    setShowSignUp(true);
-                    return;
-                  }
-                  setNameInput(user.displayName ?? '');
-                  setEditingName(true);
-                }}
-                className="flex items-center gap-1.5 rounded-lg px-2 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-                aria-label={`Edit display name, currently ${user.displayName ?? 'Anonymous'}`}
-              >
-                <h2 className="text-xl font-bold text-text-primary">
-                  {user.displayName ?? 'Anonymous'}
-                </h2>
-                {/* Always visible for the same reason as the avatar badge: on touch
-                    there is no hover, so a hover-only pencil is no affordance at all. */}
-                <Pencil className="w-4 h-4 text-text-tertiary" />
-              </button>
-            )}
-            {nameSaved && <span className="text-xs text-success-600">Name saved!</span>}
-
-            <p className="text-sm text-text-tertiary">
-              {user.isAnonymous ? 'Anonymous account' : user.email}
-            </p>
+            <div className="min-w-0 flex-1">
+              {editingName ? (
+                <div className="flex w-full flex-col gap-2">
+                  <Input
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    placeholder="Display name"
+                    className="w-full min-w-0"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveName} disabled={!nameInput.trim()}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (needsSignUp) {
+                      setShowSignUp(true);
+                      return;
+                    }
+                    setNameInput(user.displayName ?? '');
+                    setEditingName(true);
+                  }}
+                  className="flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  aria-label={`Edit display name, currently ${user.displayName ?? 'Anonymous'}`}
+                >
+                  <h2 className="min-w-0 break-words font-heading text-[26px] leading-[1.1] text-text-primary">
+                    {user.displayName ?? 'Anonymous'}
+                  </h2>
+                  {/* Always visible: on touch there is no hover. */}
+                  <Pencil className="size-4 shrink-0 text-text-tertiary" />
+                </button>
+              )}
+              {nameSaved && <span className="text-xs text-success-600">Name saved!</span>}
+              {(user.isAnonymous || since) && (
+                <p className="text-[13px] text-text-tertiary">
+                  {user.isAnonymous ? 'Guest · this device only' : `Cooking since ${since}`}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Stats. Hidden entirely until there is something to report: a row of
-              four zeros is a worse first impression than no row, and it is the
-              first thing a brand-new user sees on their own profile.
-
-              Labels are always plural. Previously three of the four switched to
-              the singular at exactly 1 while "views" never did, so the row was
-              both inconsistent and twitchy as counts crossed 1. With the number
-              on its own line above the label, a static plural reads correctly. */}
-          {(recipes.length > 0 ||
-            stats.totalViews > 0 ||
-            stats.totalFavorites > 0 ||
-            (profile?.followerCount ?? 0) > 0 ||
-            followingProfiles.length > 0) && (
-            <div className="space-y-2">
-              <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-                <StatBox label="recipes" value={recipes.length} />
-                <StatBox label="views" value={stats.totalViews} />
-                <StatBox label="favorites" value={stats.totalFavorites} />
-                <StatBox
-                  label="followers"
-                  value={profile?.followerCount ?? 0}
-                  expanded={openList === 'followers'}
-                  onClick={() =>
-                    setOpenList(openList === 'followers' ? null : 'followers')
-                  }
-                />
-                <StatBox
-                  label="following"
-                  value={profile?.followingCount ?? followingProfiles.length}
-                  expanded={openList === 'following'}
-                  onClick={() =>
-                    setOpenList(openList === 'following' ? null : 'following')
-                  }
-                />
-              </div>
-
-              {openList === 'followers' && (
-                <div className="border border-border rounded-2xl p-2">
-                  {followersLoading ? (
-                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
-                  ) : followersError ? (
-                    <p className="text-sm text-text-secondary text-center py-3">
-                      Couldn't load your followers.
-                    </p>
-                  ) : followers.length === 0 ? (
-                    <EmptyState compact icon="👤" title="No followers yet" />
-                  ) : (
-                    followers.map((f) => (
-                      <PersonRow
-                        key={f.uid}
-                        uid={f.uid}
-                        displayName={f.displayName}
-                        onOpen={(uid) => navigate(`/profile/${uid}`)}
-                      />
-                    ))
-                  )}
-                </div>
-              )}
-
-              {openList === 'following' && (
-                <div className="border border-border rounded-2xl p-2">
-                  {followingLoading ? (
-                    <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
-                  ) : followingProfiles.length === 0 ? (
-                    <EmptyState
-                      compact
-                      icon="👥"
-                      title="Not following anyone yet"
-                    />
-                  ) : (
-                    followingProfiles.map((p) => (
-                      <PersonRow
-                        key={p.uid}
-                        uid={p.uid}
-                        displayName={p.displayName}
-                        onOpen={(uid) => navigate(`/profile/${uid}`)}
-                      />
-                    ))
-                  )}
-                </div>
-              )}
+          {/* Above the grid, not below: this is all that stands between an
+              anonymous user and losing their recipes. */}
+          {user.isAnonymous && (
+            <div className="space-y-2.5 rounded-[28px] bg-accent-100 p-4">
+              <p className="text-[15px] font-bold text-text-primary">Your bookmarks only live on this device</p>
+              <p className="text-[13px] text-accent-900">
+                Add an email to keep them if you switch or lose this device.
+              </p>
+              <EmailLinkingForm bare />
             </div>
           )}
 
-          {/* Sits above the recipe list, not below it. This is the only thing
-              standing between an anonymous user and permanent loss of their
-              recipes, and rendering it after the list meant the more you had to
-              lose, the further you had to scroll to find it. */}
-          {user.isAnonymous && <EmailLinkingForm />}
+          <div className="space-y-2">
+            <div className="grid grid-cols-4 gap-2">
+              <StatTile label="Originals" value={tabs.created.length} />
+              <StatTile label="Branches" value={tabs.branched.length} />
+              <StatTile
+                label="Followers"
+                value={profile?.followerCount ?? 0}
+                expanded={openList === 'followers'}
+                onClick={() => setOpenList(openList === 'followers' ? null : 'followers')}
+              />
+              <StatTile
+                label="Following"
+                value={profile?.followingCount ?? followingProfiles.length}
+                expanded={openList === 'following'}
+                onClick={() => setOpenList(openList === 'following' ? null : 'following')}
+              />
+            </div>
+            {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
+              <p className="text-[13px] text-text-tertiary">
+                {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
+                {pluralize(stats.totalFavorites, 'favourite')}
+              </p>
+            )}
 
-          {/* My Recipes */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-text-primary">My Recipes</h3>
-            {recipesLoading ? (
-              Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20" />)
-            ) : recipes.length > 0 ? (
-              <div className="space-y-2">
-                {recipes.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => navigate(`/recipe/${r.id}`)}
-                    className="w-full text-left bg-surface rounded-xl border border-border p-3 hover:border-border-strong transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{r.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary truncate">{r.title}</p>
-                        <div className="flex gap-3 text-xs text-text-tertiary mt-0.5">
-                          <span>{r.viewCount || 0} {pluralize(r.viewCount || 0, 'view')}</span>
-                          <span>{r.favoriteCount || 0} {pluralize(r.favoriteCount || 0, 'fav')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+            {openList === 'followers' && (
+              <div className="border border-border rounded-2xl p-2">
+                {followersLoading ? (
+                  <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                ) : followersError ? (
+                  <p className="text-sm text-text-secondary text-center py-3">
+                    Couldn't load your followers.
+                  </p>
+                ) : followers.length === 0 ? (
+                  <EmptyState compact icon="👤" title="No followers yet" />
+                ) : (
+                  followers.map((f) => (
+                    <PersonRow
+                      key={f.uid}
+                      uid={f.uid}
+                      displayName={f.displayName}
+                      onOpen={(uid) => navigate(`/profile/${uid}`)}
+                    />
+                  ))
+                )}
               </div>
-            ) : (
-              <EmptyState compact icon="🍳" title="No published recipes yet" />
+            )}
+
+            {openList === 'following' && (
+              <div className="border border-border rounded-2xl p-2">
+                {followingLoading ? (
+                  <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
+                ) : followingProfiles.length === 0 ? (
+                  <EmptyState compact icon="👥" title="Not following anyone yet" />
+                ) : (
+                  followingProfiles.map((p) => (
+                    <PersonRow
+                      key={p.uid}
+                      uid={p.uid}
+                      displayName={p.displayName}
+                      onOpen={(uid) => navigate(`/profile/${uid}`)}
+                    />
+                  ))
+                )}
+              </div>
             )}
           </div>
+
+          <RecipeTabs {...tabs} />
         </div>
       </main>
 
@@ -337,6 +425,17 @@ function OwnProfile() {
         body="Your name and avatar are shown to other cooks, so they belong to an account with an email. Your bookmarks stay on this device either way."
         onClose={() => setShowSignUp(false)}
       />
+    </div>
+  );
+}
+
+/** Local-only build: no account, so no identity or stats, just every recipe on the device. */
+function LocalRecipes() {
+  const tabs = useRecipeTabs(undefined, false);
+  return (
+    <div className="max-w-lg mx-auto w-full space-y-4 px-[22px] pt-4 pb-6">
+      <h1 className="font-heading text-[26px] leading-[1.1] text-text-primary">Your recipes</h1>
+      <RecipeTabs {...tabs} />
     </div>
   );
 }
@@ -382,11 +481,13 @@ function PublicProfile({ uid }: { uid: string }) {
         <TopBar title="Couldn't load" showBack />
         <div className="p-8 max-w-lg mx-auto w-full">
           <EmptyState
-            icon="📡"
+            tone="error"
+            icon={<CloudOff />}
             title="Couldn't load this profile"
             description="The connection failed. The account is probably fine."
             action={
-              <Button variant="secondary" onClick={retryProfile}>
+              <Button variant="secondary" className="border-border-strong!" onClick={retryProfile}>
+                <RotateCw className="mr-2 size-4" />
                 Try again
               </Button>
             }
@@ -514,44 +615,25 @@ export function ProfilePage() {
   }
 
   // Own profile - needs auth
-  if (!isConfigured) {
-    return (
-      <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar title="Profile" showBack />
-        <div className="p-8 text-center text-text-secondary max-w-lg mx-auto">
-          Sign in is not available in local-only mode.
-        </div>
-      </div>
-    );
-  }
+  if (!isConfigured) return <LocalRecipes />;
 
   if (!user) {
     return (
-      <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar title="Profile" showBack />
-        <div className="flex-1 flex flex-col items-center justify-center p-8 max-w-lg mx-auto">
-          <div className="text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-surface-secondary flex items-center justify-center mx-auto">
-              <User className="w-10 h-10 text-text-tertiary" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-text-primary">Sign in to view your profile</h2>
-              <p className="text-sm text-text-tertiary mt-1">
-                Track your recipe stats and customize your avatar
-              </p>
-            </div>
-            <Button onClick={() => setShowAuth(true)} className="px-6">
-              Sign In
-            </Button>
-          </div>
-        </div>
-
+      <>
+        {/* The error tone is the terracotta blob the 19a signed-out state asks for. */}
+        <EmptyState
+          tone="error"
+          icon={<UserRound />}
+          title="You're browsing"
+          description="Reading is free. Sign in to save recipes, branch them and follow cooks."
+          action={<Button onClick={() => setShowAuth(true)}>Sign in</Button>}
+        />
         <AuthModal
           open={showAuth}
           onAuthenticated={() => setShowAuth(false)}
           onDismiss={() => setShowAuth(false)}
         />
-      </div>
+      </>
     );
   }
 
