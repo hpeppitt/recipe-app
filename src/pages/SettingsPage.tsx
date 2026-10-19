@@ -178,7 +178,7 @@ export function SettingsPage() {
         <h1 className="font-heading text-[22px] text-text-primary">Settings</h1>
       </header>
 
-      <div className="space-y-[18px] px-[18px] pb-[30px] pt-3">
+      <div className="space-y-[18px] px-[18px] pb-[calc(30px+env(safe-area-inset-bottom))] pt-3">
         {isConfigured && (
           <Group label="Account">
             <div className={CARD}>

@@ -75,7 +75,7 @@ except view counts and error reports); **appcheck** additionally needs
 | Custom avatars | shipped | verified email | `components/profile/AvatarEditor.tsx` | Edited in a bottom sheet (RL-094) opened from the own profile's avatar or, for verified users, Settings' Account row, with Photo, Initials and Emoji modes and six palette swatches (older saved colours still render). Three types: `generated` (initials + colour from uid), `emoji` (food emoji + background), `uploaded` (cropped square, 128×128 base64 JPEG in the profile doc; `Avatar` and the rules accept only `data:image/` URLs of at most 100000 characters; the rule applies on profile create and on owner updates that touch `photoURL`, RL-019). Recipe cards and detail pages use the generated avatar regardless; custom avatars appear on profile pages and the library header. |
 | Follow / unfollow | shipped | verified email | `hooks/useFollow.ts` | Counts maintained on profile docs via `increment()`; rules constrain foreign writes to a ±1 `followerCount` bump. Rules since RL-040 (in the repo, deployed by RL-022): needs a verified email. Since RL-041 anonymous and signed-out visitors see the Follow button but it opens the sign-up call to action instead of writing. Since RL-026 the lookup is stamped with `uid:target` (a late answer for another profile is ignored), a failed lookup reports and reads as not following, and a failed toggle keeps the previous state and shows "Couldn't update that. Check your connection and try again." under the button. The cloud favourite on `SharedRecipePage` behaves the same. |
 | Follower / following lists | shipped | auth | `ProfilePage` | Own profile only. |
-| Notifications | shipped | auth to read, verified email to write | `components/notifications/NotificationBell.tsx`, `pages/ActivityPage.tsx` (no route until RL-097), `hooks/useNotifications.ts` | Real-time via `onSnapshot`. Types: `favorite`, `suggestion`, `suggestion_approved`, `suggestion_rejected`, `suggestion_reply`, `follow`. Created fire-and-forget so they never slow the triggering action. Since RL-049 (rules deployed by RL-051) each is its own small transaction after the action commits, limited to 60 per hour per sender: past that, notifications are skipped silently (the favourite, follow, suggestion, reply or review itself still lands) and the skip is reported as `rate-limited-notification`. Offline, a notification is no longer queued; it is skipped. Since RL-040 create, mark read and delete all need a verified email. Since RL-015 the notification text for a suggestion, reply or approval is capped at 500 UTF-16 units and cut with a trailing ellipsis; the suggestion and reply documents keep the full text. |
+| Notifications | shipped | auth to read, verified email to write | `components/notifications/NotificationBell.tsx`, `pages/ActivityPage.tsx` (`/activity`, with the unread badge on the nav's Activity tab), `hooks/useNotifications.ts` | Real-time via `onSnapshot`. Types: `favorite`, `suggestion`, `suggestion_approved`, `suggestion_rejected`, `suggestion_reply`, `follow`. Created fire-and-forget so they never slow the triggering action. Since RL-049 (rules deployed by RL-051) each is its own small transaction after the action commits, limited to 60 per hour per sender: past that, notifications are skipped silently (the favourite, follow, suggestion, reply or review itself still lands) and the skip is reported as `rate-limited-notification`. Offline, a notification is no longer queued; it is skipped. Since RL-040 create, mark read and delete all need a verified email. Since RL-015 the notification text for a suggestion, reply or approval is capped at 500 UTF-16 units and cut with a trailing ellipsis; the suggestion and reply documents keep the full text. |
 | Sign out | shipped | auth | `SettingsPage`, `contexts/AuthContext.tsx` (`handleSignOut`), `db/recipes.ts` (`clearOwnRecipes`) | Anonymous users included (RL-093 moved the row from the profile to the last card in Settings). They are warned first, since signing out of an anonymous account is unrecoverable; their bookmarks stay on the device. Signing out of a verified account removes that account's own recipes from the device (RL-085) and they reload from the cloud on the next sign-in; saved copies, `'local'` rows and bookmarks stay. A failed clear is reported as `sign-out-clear` and does not block sign-out. |
 
 ## Data and settings
@@ -98,14 +98,16 @@ except view counts and error reports); **appcheck** additionally needs
 
 | Route | Page | Auth |
 |---|---|---|
-| `/` | LibraryPage | open |
+| `/` | LibraryPage | open; the Explore tab until RL-098 replaces the page |
+| `/saved` | SavedPage | open; lazy |
+| `/activity` | ActivityPage | open (signed out it offers sign-in); lazy |
 | `/create` | RecipeChatPage | auth-gated |
 | `/recipe/:id` | RecipeDetailPage | open; owner actions conditional |
 | `/recipe/:id/edit` | RecipeEditPage | owner only; refuses with an explanation otherwise |
 | `/recipe/:id/vary` | RecipeChatPage | auth-gated |
 | `/recipe/:id/tree` | VersionTreePage | open |
 | `/recipe/:id/changes` | RecipeChangesPage | open (`?vs=<id>` picks the version to compare with) |
-| `/settings` | SettingsPage | open |
+| `/settings` | SettingsPage | open; outside AppShell with its own back button, reached from the You tab's gear |
 | `/shared` | SharedRecipePage | open (recipe decoded from the URL hash) |
 | `/shared/:id` | SharedRecipePage | open (recipe read from Firestore) |
 | `/profile` | ProfilePage | own profile |
@@ -114,5 +116,8 @@ except view counts and error reports); **appcheck** additionally needs
 | `/privacy` | LegalPage | open, no sign-in needed; lazy, outside AppShell with its own back button; DRAFT pending RL-046 |
 | `/cookies` | LegalPage | open, no sign-in needed; lazy, outside AppShell with its own back button; DRAFT pending RL-046 |
 
-`/`, `/profile`, and `/settings` render inside `AppShell` (top bar + bottom nav). The rest
-are detail views carrying their own back affordance.
+`/`, `/saved`, `/activity` and `/profile` render inside `AppShell`, above the five-slot bottom nav
+(RL-097): Explore `/`, Saved `/saved`, a raised terracotta Create circle linking to `/create`,
+Activity `/activity` with an unread badge (verified email with Firebase only, "99+" above 99, link
+named "Activity, 3 unread"), and You `/profile`. Settings is not in the nav. The rest are detail
+views carrying their own back affordance; `/create` opens full screen with no nav.

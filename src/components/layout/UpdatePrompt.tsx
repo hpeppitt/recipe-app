@@ -21,7 +21,8 @@ export function UpdatePrompt() {
   return (
     <div
       role="status"
-      className="fixed bottom-14 left-0 right-0 z-40 px-3 pb-2 max-w-lg mx-auto"
+      // Sits on top of the 78px bottom nav (RL-097); elsewhere it floats the same height above sticky footers.
+      className="fixed bottom-[calc(70px_+_max(8px,env(safe-area-inset-bottom)))] left-0 right-0 z-40 px-3 pb-2 max-w-lg mx-auto"
     >
       {needRefresh && <div className="flex items-center gap-2 rounded-xl border border-border bg-surface-secondary px-3 py-2 text-sm text-text-primary shadow-md">
         <span className="flex-1">Update available</span>

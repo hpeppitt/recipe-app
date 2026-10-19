@@ -12,9 +12,10 @@ export function AppShell() {
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
       <ConsentBanner />
-      <main className="flex-1 pb-16">
+      {/* The 78px bar plus its safe-area growth, plus 8px of air. */}
+      <main className="flex-1 pb-[calc(78px_+_max(8px,env(safe-area-inset-bottom)))]">
         {/* Above the outlet, not inside a page: the sign-in link that triggers a
-            migration can land the user on any of the shell's three routes. */}
+            migration can land the user on any of the shell's routes. */}
         <EmailLinkStatus />
         {/* Keeps the nav alive when a shell page throws. */}
         <RouteErrorBoundary>

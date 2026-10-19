@@ -35,7 +35,7 @@ flowchart TD
 **`pages/`** own routing-level state and compose components. **`components/`** are
 presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 `notifications/`, `layout/`, `tree/`) plus a shared `ui/` primitive set (Button, Input, Chip,
-Skeleton, EmptyState, ConfirmDialog, Sheet, FAB, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary, EmojiBlob, UserPill, IconButton). Every icon comes from `ui/icons.tsx`: Lucide
+Skeleton, EmptyState, ConfirmDialog, Sheet, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary, EmojiBlob, UserPill, IconButton). Every icon comes from `ui/icons.tsx`: Lucide
 paths (ISC licence) copied into one inline-SVG wrapper at stroke width 2.75, with no icon
 dependency. **`hooks/`**
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
@@ -55,7 +55,7 @@ state (parsed by pure `lib/consent.ts`, stored through `services/storage.ts`). `
 current uid when consent is granted after sign-in. `setAnalyticsConsent(granted)` persists, updates the state and calls
 every `onConsentChange` listener: RL-054's single hook for opting PostHog in or out, so no
 provider reads consent itself. `hooks/useConsent.ts` (`useSyncExternalStore`) keeps
-`ConsentBanner` (mounted in `AppShell` in normal flow above `<main>`, never fixed, so it cannot cover the FAB, update prompt or toasts) and the Settings switch in sync. Both appear only when
+`ConsentBanner` (mounted in `AppShell` in normal flow above `<main>`, never fixed, so it cannot cover the bottom nav, update prompt or toasts) and the Settings switch in sync. Both appear only when
 `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` are set. Bumping `CONSENT_VERSION` makes every stored choice parse as not
 chosen, so the banner asks again. `AppShell` also runs `clearLeftoverGaCookies` once per browser.
 
@@ -221,6 +221,14 @@ shell route loads and a failed chunk load lands in the error fallback. Firebase 
 `firebase` chunk in `vite.config.ts`; `services/` imports it statically, so it still loads at
 start and is split only for caching.
 
+`AppShell` wraps `/` (`LibraryPage`, eager), `/saved` (`SavedPage`) and `/activity`
+(`ActivityPage`), both lazy, and `/profile`. Its `BottomNav` (RL-097) is five `NavLink`s:
+Explore, Saved, Create (a link to `/create`, never shown as current), Activity and You, so
+`aria-current="page"` comes from the router. The Activity badge reads `useNotifications()`, which
+reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. The bar is fixed, 78px plus the bottom safe area beyond
+8px; `AppShell`'s `<main>` padding and `UpdatePrompt`'s offset use the same sum. `/settings` sits
+outside the shell, reached from the You tab's gear, with its own Back button.
+
 The three legal routes (`/terms`, `/privacy`, `/cookies`) are lazy `LegalPage` routes outside
 `AppShell` (`src/App.tsx`); their content comes from `src/content/legal/` via `lib/legal.ts`.
 
@@ -232,6 +240,6 @@ rewrite to `index.html` (required for client-side routing). Tailwind v4 runs thr
 `@tailwindcss/vite` plugin with no separate config step. The theme is Organic: tokens live in the
 `@theme` block of `src/index.css`, with values from `docs/design/organic/tokens.css`, and the fonts
 (Caprasimo, Figtree) are self-hosted woff2 files in `public/fonts/`. `vite-plugin-pwa` (dev dependency) emits
-`sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` in `AppShell` registers
+`sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` (mounted in `App.tsx`, outside the routes) registers
 the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. Two workflows: `ci.yml` runs the
 gates, and `preview.yml` deploys `dist/` to the `qa` Hosting preview channel (not live).
