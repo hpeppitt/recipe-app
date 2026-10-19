@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, matchPath, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -17,6 +17,9 @@ const tabs = [
 export function BottomNav() {
   const { user, isConfigured } = useAuth();
   const { unreadCount } = useNotifications();
+  const { pathname } = useLocation();
+  // A plain Link with a computed state, because NavLink cannot mark Explore current on /search (RL-124).
+  const isCurrent = (to: string) => !!matchPath(to, pathname) || (to === '/' && !!matchPath('/search', pathname));
   // ActivityPage lists nothing without a verified email, so a badge there would lead nowhere.
   const showBadge = isConfigured && !!user?.emailVerified && unreadCount > 0;
 
@@ -29,19 +32,18 @@ export function BottomNav() {
         {tabs.map(({ to, label, icon: Icon }) => {
           const create = to === '/create';
           const badge = to === '/activity' && showBadge;
+          const isActive = isCurrent(to);
           return (
-            <NavLink
+            <Link
               key={to}
               to={to}
-              end
+              aria-current={isActive ? 'page' : undefined}
               aria-label={badge ? `${label}, ${unreadCount} unread` : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex-1 min-w-0 min-h-11 flex flex-col items-center justify-center gap-0.5 text-[11px] leading-[14px] font-semibold',
-                  // Create opens the chat full screen, so it never shows as the current tab.
-                  isActive && !create ? 'text-accent-700' : 'text-text-tertiary'
-                )
-              }
+              className={cn(
+                'flex-1 min-w-0 min-h-11 flex flex-col items-center justify-center gap-0.5 text-[11px] leading-[14px] font-semibold',
+                // Create opens the chat full screen, so it never shows as the current tab.
+                isActive && !create ? 'text-accent-700' : 'text-text-tertiary'
+              )}
             >
               <span
                 className={cn(
@@ -61,7 +63,7 @@ export function BottomNav() {
                 )}
               </span>
               <span>{label}</span>
-            </NavLink>
+            </Link>
           );
         })}
       </div>

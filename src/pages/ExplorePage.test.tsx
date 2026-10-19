@@ -28,9 +28,6 @@ import { ExplorePage } from './ExplorePage';
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
 const cloud = (over: Partial<Recipe> = {}) => ({ ...makeRecipe(over), favoriteCount: 0, viewCount: 0 });
 const localOnly = { auth: { isConfigured: false } } as const;
-const openSearch = () => fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-const search = (value: string) =>
-  fireEvent.change(screen.getByRole('searchbox', { name: 'Search recipes and ingredients' }), { target: { value } });
 
 beforeEach(async () => {
   await db.recipes.clear();
@@ -62,48 +59,11 @@ describe('ExplorePage header', () => {
   });
 });
 
-describe('ExplorePage search toggle', () => {
-  it('opens the pill with focus in the input and closes on Escape with focus back on the button', async () => {
-    getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: null, hasMore: false });
+describe('ExplorePage search', () => {
+  it('the Search button is a link to /search', () => {
     renderWithProviders(<ExplorePage />);
-    await screen.findByRole('link', { name: 'Cloud Curry' });
-    const button = screen.getByRole('button', { name: 'Search' });
-    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('href', '/search');
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-
-    openSearch();
-    const input = screen.getByRole('searchbox', { name: 'Search recipes and ingredients' });
-    expect(input).toHaveFocus();
-    expect(input).toHaveAttribute('placeholder', 'Search recipes and ingredients');
-    expect(button).toHaveAttribute('aria-expanded', 'true');
-
-    search('zzz');
-    expect(screen.queryByRole('link', { name: 'Cloud Curry' })).not.toBeInTheDocument();
-    fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(button).toHaveFocus();
-    // Closing clears, so the hidden query no longer filters the list.
-    expect(screen.getByRole('link', { name: 'Cloud Curry' })).toBeInTheDocument();
-  });
-
-  it('the clear button clears, closes and returns focus to the Search button', async () => {
-    renderWithProviders(<ExplorePage />);
-    await screen.findByText('Nothing published yet');
-    openSearch();
-    search('abc');
-    const clear = screen.getAllByRole('button', { name: 'Clear search' })[0];
-    fireEvent.click(clear);
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus();
-    expect(await screen.findByText('Nothing published yet')).toBeInTheDocument();
-  });
-
-  it('the Search button closes an open pill too', () => {
-    renderWithProviders(<ExplorePage />);
-    openSearch();
-    openSearch();
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus();
   });
 });
 
@@ -202,17 +162,6 @@ describe('ExplorePage feed', () => {
     expect(screen.getByRole('button', { name: 'Favorites' })).toBeInTheDocument();
   });
 
-  it('keeps Load more under a search and says what it searched', async () => {
-    getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: {}, hasMore: true });
-    renderWithProviders(<ExplorePage />, { user: fakeUser });
-    await screen.findByRole('link', { name: 'Cloud Curry' });
-    openSearch();
-    search('nothing-matches');
-    expect(screen.getByText('Searching the 1 recipe loaded so far. Load more to search further.')).toBeInTheDocument();
-    expect(screen.getByText('0 results for "nothing-matches"')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Load more recipes' })).toBeInTheDocument();
-  });
-
   it('says when Load more fails, keeps the list, and clears on a successful retry', async () => {
     getPage
       .mockResolvedValueOnce({ recipes: [cloud({ title: 'Page One' })], cursor: {}, hasMore: true })
@@ -240,15 +189,15 @@ describe('ExplorePage feed', () => {
     expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
   });
 
-  it('still shows No results first when the favourites filter is on', async () => {
+  it('shows the Favorites empty state copy with Show all back to the feed', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: null, hasMore: false });
     renderWithProviders(<ExplorePage />);
     await screen.findByRole('link', { name: 'Cloud Curry' });
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
-    openSearch();
-    search('zzzz-no-match');
-    expect(await screen.findByText('No results')).toBeInTheDocument();
-    expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
+    expect(screen.getByText('No favorites yet')).toBeInTheDocument();
+    expect(screen.getByText('Tap Save on any recipe to keep it here.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(screen.getByRole('link', { name: 'Cloud Curry' })).toBeInTheDocument();
   });
 
   it('shows Could not load with Try again when Explore fails', async () => {
@@ -342,18 +291,6 @@ describe('ExplorePage tile row', () => {
     expect(screen.getByRole('link', { name: 'Root 8' })).toBeInTheDocument();
   });
 
-  it('hides while searching and returns when the search closes', async () => {
-    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
-    renderWithProviders(<ExplorePage />);
-    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
-    openSearch();
-    search('alpha');
-    expect(screen.getByRole('link', { name: 'Alpha' })).toBeInTheDocument();
-    expect(region('New this week')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
-    expect(region('New this week')).toBeInTheDocument();
-  });
-
   it('hides under the Favorites filter', async () => {
     page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
     renderWithProviders(<ExplorePage />);
@@ -421,7 +358,7 @@ describe('ExplorePage local-only mode', () => {
     expect(screen.queryByRole('link', { name: 'Local Branch' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: "What's growing" })).toBeInTheDocument();
     // Every row is the device's own, so no author link.
-    expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['/recipe/l1']);
+    expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['/search', '/recipe/l1']);
     expect(getPage).not.toHaveBeenCalled();
   });
 
@@ -434,37 +371,13 @@ describe('ExplorePage local-only mode', () => {
     expect(screen.queryByRole('group', { name: 'Filter by tag' })).not.toBeInTheDocument();
   });
 
-  it('shows the never-created copy only with no recipes and an empty search', async () => {
+  it('shows the never-created copy with no recipes', async () => {
     renderWithProviders(<ExplorePage />, localOnly);
     expect(await screen.findByText(NEVER)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create a recipe' })).toBeInTheDocument();
     expect(screen.queryByText('No results')).not.toBeInTheDocument();
   });
 
-  it('shows No results, not the never-created copy, with no recipes and a non-empty search', async () => {
-    renderWithProviders(<ExplorePage />, localOnly);
-    await screen.findByText(NEVER);
-    openSearch();
-    search('anything');
-    expect(await screen.findByText('No results')).toBeInTheDocument();
-    expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
-  });
-
-  it('shows No results when a search matches none of the device\'s recipes, and Clear search restores the list', async () => {
-    await db.recipes.add(makeRecipe({ title: 'Local Lasagne' }));
-    renderWithProviders(<ExplorePage />, localOnly);
-    await screen.findByText('Local Lasagne');
-    openSearch();
-    search('zzzz-no-match');
-    expect(await screen.findByText('No results')).toBeInTheDocument();
-    expect(screen.getByText('0 results for "zzzz-no-match"')).toBeInTheDocument();
-    expect(screen.queryByText(NEVER)).not.toBeInTheDocument();
-    // The pill's own clear icon shares the name, so pick the visible button.
-    fireEvent.click(screen.getByText('Clear search', { selector: 'button' }));
-    expect(await screen.findByText('Local Lasagne')).toBeInTheDocument();
-    expect(screen.queryByText('No results')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Search' })).toHaveFocus();
-  });
 });
 
 describe('Explore tag chips', () => {
@@ -514,11 +427,6 @@ describe('Explore tag chips', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
     await screen.findByText('No recipes tagged vegan yet');
-    openSearch();
-    search('zzz');
-    expect(screen.getByText('Nothing matches "zzz" in titles, ingredients or tags, within recipes tagged vegan.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear tag' })).toBeInTheDocument();
-    search('');
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
     expect(screen.getByText('No favorites tagged vegan')).toBeInTheDocument();
   });
