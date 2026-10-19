@@ -11,10 +11,11 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
+import { RecipeTileRow, MAX_TILES } from '../components/recipe/RecipeTileRow';
 import { UserPill } from '../components/ui/UserPill';
 import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
-import { buildFeed, filterFeed } from '../lib/library';
+import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
 import { CloudOff, GitBranch, Heart, Search, X } from '../components/ui/icons';
 
@@ -109,6 +110,11 @@ export function ExplorePage() {
   const loadedCount = exploreFeed?.length ?? 0;
   const showOfflineBanner = isConfigured && !online && !isLoading && (source?.length ?? 0) > 0;
 
+  // The newest roots of the unfiltered feed. Nothing to show while a search, filter or tag
+  // narrows the list, while loading or failed, or in local-only mode (no shared feed).
+  const tileRecipes =
+    pagedExplore && !isLoading && filter === 'all' && !tag && !search.trim() ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
+
   return (
     <div>
       <header className="flex items-end gap-2.5 px-5 pt-4">
@@ -162,6 +168,10 @@ export function ExplorePage() {
             )}
           </div>
         </div>
+      )}
+
+      {tileRecipes.length > 0 && (
+        <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} />
       )}
 
       <div className="flex gap-2 overflow-x-auto px-5 pt-3.5 pb-1 scrollbar-none">

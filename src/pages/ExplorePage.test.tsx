@@ -205,7 +205,7 @@ describe('ExplorePage feed', () => {
   it('keeps Load more under a search and says what it searched', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: {}, hasMore: true });
     renderWithProviders(<ExplorePage />, { user: fakeUser });
-    await screen.findByText('Cloud Curry');
+    await screen.findByRole('link', { name: 'Cloud Curry' });
     openSearch();
     search('nothing-matches');
     expect(screen.getByText('Searching the 1 recipe loaded so far. Load more to search further.')).toBeInTheDocument();
@@ -219,22 +219,22 @@ describe('ExplorePage feed', () => {
       .mockRejectedValueOnce(new Error('flaky'))
       .mockResolvedValueOnce({ recipes: [cloud({ title: 'Page Two' })], cursor: null, hasMore: false });
     renderWithProviders(<ExplorePage />);
-    await screen.findByText('Page One');
+    await screen.findByRole('link', { name: 'Page One' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more recipes' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not load more recipes. Try again.');
-    expect(screen.getByText('Page One')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Page One' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Load more recipes' }));
-    expect(await screen.findByText('Page Two')).toBeInTheDocument();
-    expect(screen.getByText('Page One')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Page Two' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Page One' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('does not claim there are no favourites while more Explore pages exist', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: {}, hasMore: true });
     renderWithProviders(<ExplorePage />);
-    await screen.findByText('Cloud Curry');
+    await screen.findByRole('link', { name: 'Cloud Curry' });
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
     expect(screen.getByText('No favorites in the 1 recipe loaded so far. Load more to look further.')).toBeInTheDocument();
     expect(screen.queryByText('No favorites yet')).not.toBeInTheDocument();
@@ -243,7 +243,7 @@ describe('ExplorePage feed', () => {
   it('still shows No results first when the favourites filter is on', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: null, hasMore: false });
     renderWithProviders(<ExplorePage />);
-    await screen.findByText('Cloud Curry');
+    await screen.findByRole('link', { name: 'Cloud Curry' });
     fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
     openSearch();
     search('zzzz-no-match');
@@ -274,7 +274,7 @@ describe('ExplorePage feed', () => {
   it('shows the offline banner over rows loaded before, and drops it back online', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ title: 'Cloud Curry' })], cursor: null, hasMore: false });
     renderWithProviders(<ExplorePage />);
-    await screen.findByText('Cloud Curry');
+    await screen.findByRole('link', { name: 'Cloud Curry' });
     const BANNER = "You're offline. Showing what was loaded before.";
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
     vi.stubGlobal('navigator', { onLine: false });
@@ -282,12 +282,131 @@ describe('ExplorePage feed', () => {
       window.dispatchEvent(new Event('offline'));
     });
     expect(screen.getByText(BANNER)).toBeInTheDocument();
-    expect(screen.getByText('Cloud Curry')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cloud Curry' })).toBeInTheDocument();
     vi.stubGlobal('navigator', { onLine: true });
     act(() => {
       window.dispatchEvent(new Event('online'));
     });
     expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
+  });
+});
+
+describe('ExplorePage tile row', () => {
+  const NOW = new Date(2026, 9, 20, 12, 0).getTime();
+  const DAY = 24 * 60 * 60 * 1000;
+  const page = (recipes: ReturnType<typeof cloud>[]) =>
+    getPage.mockResolvedValue({ recipes, cursor: null, hasMore: false });
+  const region = (name: string) => screen.queryByRole('region', { name });
+  const tileLink = (title: string) => screen.queryByRole('link', { name: `Open ${title}` });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
+  });
+
+  it('is a region named by its heading, between the header and the chips, with tiles in feed order', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW - DAY }), cloud({ id: 'b', title: 'Beta', createdAt: NOW - 2 * DAY })]);
+    renderWithProviders(<ExplorePage />);
+    const row = await screen.findByRole('region', { name: 'New this week' });
+    expect(within(row).getByRole('heading', { level: 2, name: 'New this week' })).toBeInTheDocument();
+    expect(
+      within(row).getAllByRole('link').map((a) => a.getAttribute('href')).filter((h) => h?.startsWith('/recipe/'))
+    ).toEqual(['/recipe/a', '/recipe/b']);
+    const chips = screen.getByRole('button', { name: 'All' });
+    expect(row.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('is titled New this week at exactly 7 days and Newest one millisecond past it', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW }), cloud({ id: 'b', title: 'Beta', createdAt: NOW - 7 * DAY })]);
+    const { unmount } = renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    expect(region('Newest')).not.toBeInTheDocument();
+    unmount();
+
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW }), cloud({ id: 'b', title: 'Beta', createdAt: NOW - 7 * DAY - 1 })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'Newest' })).toBeInTheDocument();
+    expect(region('New this week')).not.toBeInTheDocument();
+  });
+
+  it('shows only roots, at most 8, and leaves the list intact', async () => {
+    const roots = Array.from({ length: 9 }, (_, i) => cloud({ id: `r${i}`, title: `Root ${i}`, createdAt: NOW - i * 1000 }));
+    page([...roots, cloud({ id: 'kid', parentId: 'r0', rootId: 'r0', depth: 1, title: 'Kid', createdAt: NOW })]);
+    renderWithProviders(<ExplorePage />);
+    const row = await screen.findByRole('region', { name: 'New this week' });
+    expect(within(row).getAllByRole('listitem')).toHaveLength(8);
+    expect(tileLink('Root 7')).toBeInTheDocument();
+    expect(tileLink('Root 8')).not.toBeInTheDocument();
+    expect(tileLink('Kid')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Root 8' })).toBeInTheDocument();
+  });
+
+  it('hides while searching and returns when the search closes', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    openSearch();
+    search('alpha');
+    expect(screen.getByRole('link', { name: 'Alpha' })).toBeInTheDocument();
+    expect(region('New this week')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(region('New this week')).toBeInTheDocument();
+  });
+
+  it('hides under the Favorites filter', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
+    expect(screen.getByText('No favorites yet')).toBeInTheDocument();
+    expect(region('New this week')).not.toBeInTheDocument();
+  });
+
+  it('hides under the Following filter', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Following' }));
+    await screen.findByText('No recipes from followed users');
+    expect(region('New this week')).not.toBeInTheDocument();
+    expect(region('Newest')).not.toBeInTheDocument();
+  });
+
+  it('hides under a tag', async () => {
+    page([cloud({ id: 'a', title: 'Alpha', createdAt: NOW })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
+    expect(await screen.findByRole('link', { name: 'Alpha' })).toBeInTheDocument();
+    expect(region('New this week')).not.toBeInTheDocument();
+    expect(region('Newest')).not.toBeInTheDocument();
+  });
+
+  it('is absent while loading, when the feed is empty, and on a load error', async () => {
+    getPage.mockReturnValue(new Promise(() => {}));
+    const first = renderWithProviders(<ExplorePage />);
+    expect(screen.getByRole('status', { name: 'Loading recipes' })).toBeInTheDocument();
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    first.unmount();
+
+    page([]);
+    const second = renderWithProviders(<ExplorePage />);
+    await screen.findByText('Nothing published yet');
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    second.unmount();
+
+    getPage.mockRejectedValue(new Error('offline'));
+    renderWithProviders(<ExplorePage />);
+    await screen.findByText('Could not load');
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+
+  it('is absent in local-only mode even with recipes', async () => {
+    await db.recipes.add(makeRecipe({ id: 'l1', title: 'Local Loaf', createdAt: NOW }));
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByRole('link', { name: 'Local Loaf' })).toBeInTheDocument();
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
   });
 });
 
@@ -427,7 +546,7 @@ describe('Explore tag chips', () => {
       .mockReturnValueOnce(new Promise((r) => (resolveOld = r)))
       .mockResolvedValueOnce({ recipes: [cloud({ title: 'Vegan One' })], cursor: null, hasMore: false });
     renderWithProviders(<ExplorePage />);
-    await screen.findByText('Untagged One');
+    await screen.findByRole('link', { name: 'Untagged One' });
     fireEvent.click(screen.getByRole('button', { name: 'Load more recipes' }));
     fireEvent.click(screen.getByRole('button', { name: 'vegan' }));
     await screen.findByText('Vegan One');
