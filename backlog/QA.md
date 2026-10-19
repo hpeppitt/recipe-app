@@ -18,6 +18,30 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-119 The chat composer has an Add photos button with removable thumbnails, and sent photos show in the user bubble
+
+- Release together with RL-120's Privacy Policy change, after the author has signed off that wording.
+- On the preview as a verified user at 390x844 (and 320px, no horizontal scroll), `/create`:
+  - An image-plus button sits at the left inside the pill. iOS Safari: Add photos offers camera and library; photograph a printed recipe, and a HEIC library photo arrives as JPEG and is accepted; the recipe follows the printed one. Check a portrait photo comes out upright.
+  - Android Chrome: three photos of a fridge, no text; a recipe comes back using what is visible; the bubble shows three photos and "Suggest a recipe based on these photos." and stays within its width.
+  - The notice "Photos are sent to Google's Gemini to write your recipe and are not saved. Leave out people and personal details." shows above the first thumbnail and disappears when the last is removed; at 320px with three thumbnails it wraps without pushing the composer off screen.
+  - A fourth photo is refused with "You can add up to 3 photos at a time." and the button is dimmed at three; a 25 MB file and a GIF are refused with their messages (a GIF only if the picker lets you choose it).
+  - Remove a thumbnail (the X is a 44px target on a 28px circle), then add the same file again. Focus moves to the next X, or to Add photos after the last.
+  - Send is dimmed while a thumbnail shows its spinner.
+  - Try a real 48 MP photo (decoding is not bounded, see RL-118).
+  - On a variation (`/recipe/:id/vary`): the first screen (Grow this branch) has no attach button, by decision (see DECISIONS.md). Send the first message, then attach a dish photo in the follow-up and ask to make it like that.
+  - Go offline, send with a photo, see the connection error, come back online, Try again: the photo is resent and a recipe arrives.
+  - Send photos in two chats of 3, then try a seventh: the chat limit copy shows and your text and photos stay in the composer.
+  - Save, open the recipe: no photo anywhere; in devtools the Dexie row's `chatHistory` and the Firestore document contain no `data:image` or long base64.
+  - Text-only create and refine, and the suggestion chips, still work as before. With VoiceOver the attach, thumbnail and remove controls announce as labelled, and a photo error is announced once.
+  - The composer gets taller with the tray; check the newest message still scrolls into view above it.
+- After attaching three photos at 320px, the newest bubble is still visible above the taller composer (the page scrolls when the tray, notice or an error appears).
+- Reviewer noted (low): the pixel guard runs after a full decode, so a huge photo can still spike memory first; check a real 48 MP photo on a device.
+- Reviewer noted (low): `src/content/legal/terms.ts` lines about 40 and 53 still describe only typed text going to Google; Terms were deliberately not changed.
+- Reviewer noted (low): `src/content/legal/privacy.ts` about line 24 says "the prompt you typed", which is wrong for a photos-only send.
+- Reviewer noted (low): index.html has no `viewport-fit=cover`, so `env(safe-area-inset-bottom)` is 0 and the taller composer's bottom padding relies on the fixed 1.75rem.
+- jsdom covers the behaviour (picks, limits, remove, late results, focus), not layout, hit-area size, real decoding or focus rings.
+
 ### RL-120 The Privacy Policy covers photos added to the recipe chat
 
 - Read `/privacy` on a phone and sign off the four changed paragraphs before release: "The short version" (third paragraph), and "AI recipe generation" What, Who sees it and How long. This is legal text; the wording is in the ticket and awaits your approval.
@@ -27,13 +51,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-118 useRecipeChat can send up to three downscaled photos with a message to Gemini
 
-- Nothing to see in the UI yet: this is the hook, request shape and downscale only. The human check (attach photos, generate, save, confirm nothing image-shaped is stored) is in RL-119.
+- The UI for this arrived with RL-119 (see its entry). The human check (attach photos, generate, save, confirm nothing image-shaped is stored) is there.
 - Text-only generation should behave exactly as before; a normal create and refine on the preview is enough.
 - `downscaleToJpeg` was tested in jsdom against a stubbed image and canvas only (sizes, white fill, quality retry, caps, URL revoke); real decoding and JPEG output are unverified until RL-119's browser walk.
 - Decision (mine): over the photo limits the hook sends nothing, keeps the typed text with the caller and resolves to `'message-limit'` or `'chat-limit'`. Only photos in turns that generated count towards the 6 per chat, so a failed send or an abandoned dedup match costs nothing. Logged in DECISIONS.md.
 - Decoding is not bounded yet: a file under 20 MB can decode to 100 MP or more. There is a guard that rejects over 60 megapixels after decoding and before drawing (`MAX_SOURCE_PIXELS`). The real fix (`createImageBitmap` with resize options) and a check with a real 48 MP phone photo are for RL-119's browser QA.
 - Decision 3 got a dated line saying your approval of RL-118 at /groom was taken as confirmation that in-memory generation photos fit it. That is still yours to confirm; correct it if not.
-- Reviewer noted (low), privacy handoff: RL-120 (privacy text) must land BEFORE or WITH RL-119, never after. The moment photos are exposed these lines become inaccurate, because they say only typed text goes to Google and the conversation stays only on the device: `src/content/legal/privacy.ts` lines about 26, 123, 126, 127 and 205, and `src/content/legal/terms.ts` lines about 40 and 53.
+- Reviewer noted (low), privacy handoff (resolved: RL-120 is merged and live; the release-together gate sits in the RL-119 entry): RL-120 (privacy text) must land BEFORE or WITH RL-119, never after. The moment photos are exposed these lines become inaccurate, because they say only typed text goes to Google and the conversation stays only on the device: `src/content/legal/privacy.ts` lines about 26, 123, 126, 127 and 205, and `src/content/legal/terms.ts` lines about 40 and 53.
 - Reviewer noted (low): a photographed fridge, dish or handwritten recipe can show people, addresses or handwriting, and it goes to Google with the message (`docs/legal/claims-to-verify.md` item 13 now covers images).
 - Reviewer noted (low): EXIF orientation is honoured by current browsers when drawing through an `Image`; check a portrait phone photo comes out upright in RL-119.
 - Reviewer noted (low): the previews, the SDK chat history and the retry ref each hold a copy of the photos, about 15 MB worst case per chat, in memory only.

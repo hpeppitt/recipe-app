@@ -46,7 +46,7 @@ Cookies = `src/content/legal/cookies.ts`. Facts behind the drafts are in
     `gemini-3.6-flash`) to improve its products, whether people may review them, and how long
     Google keeps them, under the tier actually in use (the project is on Spark per product
     decision 2). The same question now covers images: since RL-118 a message can carry up to
-    3 photos (UI in RL-119), so Google's use, human review and retention of inputs apply to
+    3 photos (UI from RL-119), so Google's use, human review and retention of inputs apply to
     them too, and a photographed fridge, dish or handwritten recipe can show people,
     addresses or handwriting. Ticket: RL-046.
 14. **reCAPTCHA v3 collection.** Privacy "Bot protection": what reCAPTCHA v3 collects, and

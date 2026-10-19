@@ -805,3 +805,7 @@ The app is light only. The Theme control is removed from Settings and `useTheme`
 ### Suggestions section sits below the recipe body (RL-105, 2026-10-19)
 
 The owner's suggestions section moved from above the recipe body to below it (after nutrition, notes and credits, before the branch carousel). The owner is still alerted by the pending-suggestions badge on More and by the Activity tab, and the recipe itself is what people read while cooking.
+
+### Photos on a variation start from the follow-up message (RL-119, 2026-10-19)
+
+`BranchComposer`, the first screen of `/recipe/:id/vary`, has no attach button, so a photo-based variation is only possible from the follow-up message. Whether it should take photos is deferred to the author (pending row in `backlog/DECISIONS.md`).

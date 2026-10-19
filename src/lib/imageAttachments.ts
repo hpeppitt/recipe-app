@@ -13,8 +13,8 @@ export const MAX_IMAGES_PER_CHAT = 6;
 export const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 /**
  * Rejected after decoding but before drawing: a small file can still decode to a
- * huge bitmap. shortcut: the decode itself is not bounded; RL-119 should move to
- * createImageBitmap with resize options and check a real 48 MP photo.
+ * huge bitmap. shortcut: this guard runs after a full decode, so the decode itself is
+ * not bounded; accepted for now, to be checked with a real 48 MP photo on a device.
  */
 export const MAX_SOURCE_PIXELS = 60_000_000;
 export const MAX_LONG_SIDE_PX = 1024;

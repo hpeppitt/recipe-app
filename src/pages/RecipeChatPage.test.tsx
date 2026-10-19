@@ -29,6 +29,8 @@ type Chat = {
   isLoading: boolean;
   latestRecipe: GeneratedRecipe | null;
   error?: { message: string; retryable?: boolean } | null;
+  attachmentPreviews?: Record<number, string[]>;
+  sentImageCount?: number;
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -45,6 +47,8 @@ vi.mock('../hooks/useRecipeChat', async () => {
       similarRecipes: [],
       loadingPhase: 'generating',
       pendingQuery: null,
+      attachmentPreviews: {},
+      sentImageCount: 0,
       sendMessage,
       retryGeneration: vi.fn(),
       dismissSimilar: vi.fn(),
@@ -54,6 +58,9 @@ vi.mock('../hooks/useRecipeChat', async () => {
   },
   };
 });
+
+const downscale = vi.hoisted(() => vi.fn());
+vi.mock('../services/imageDownscale', () => ({ downscaleToJpeg: downscale }));
 
 import { RecipeChatPage } from './RecipeChatPage';
 
@@ -131,7 +138,77 @@ describe('RecipeChatPage chips and composer', () => {
     const u = userEvent.setup();
     await u.type(screen.getByRole('textbox'), 'tacos');
     await u.click(screen.getByRole('button', { name: 'Send' }));
-    expect(sendMessage).toHaveBeenCalledWith('tacos');
+    expect(sendMessage).toHaveBeenCalledWith('tacos', []);
+  });
+});
+
+describe('RecipeChatPage photos', () => {
+  const pick = (name = 'a.jpg') =>
+    userEvent
+      .setup()
+      .upload(
+        document.querySelector('input[type="file"]') as HTMLInputElement,
+        new File(['x'], name, { type: 'image/jpeg' })
+      );
+
+  beforeEach(() => {
+    downscale.mockReset();
+    downscale.mockResolvedValue({ mimeType: 'image/jpeg', base64: 'QQ==' });
+  });
+
+  it('shows the hook previews in the user bubble by message timestamp', () => {
+    chat = {
+      ...withRecipes('Pasta'),
+      messages: [user('what is in my fridge'), bot('Pasta')],
+      attachmentPreviews: { 1: ['data:image/jpeg;base64,QQ=='] },
+    };
+    view();
+    expect(screen.getByAltText('Your photo 1')).toBeTruthy();
+  });
+
+  it('shows no bubble photos without previews', () => {
+    chat = withRecipes('Pasta');
+    view();
+    expect(screen.queryByAltText('Your photo 1')).toBeNull();
+  });
+
+  it('passes the hook sentImageCount to the composer, not the preview count', async () => {
+    // Two failed 3-photo sends leave six previews but a count of zero.
+    chat = {
+      messages: [],
+      isLoading: false,
+      latestRecipe: null,
+      attachmentPreviews: { 1: ['a', 'b', 'c'], 2: ['d', 'e', 'f'] },
+      sentImageCount: 0,
+    };
+    view();
+    await pick();
+    expect(await screen.findByAltText('Attached photo 1 of 1')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('refuses a pick when the hook says the chat is full', async () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, sentImageCount: 6 };
+    view();
+    await pick();
+    expect(screen.getByRole('alert').textContent).toBe(
+      'This chat already has 6 photos. Start a new recipe to use more.'
+    );
+  });
+
+  it('adds a status region only while a photo is being prepared', async () => {
+    let resolve!: (a: unknown) => void;
+    downscale.mockImplementation(() => new Promise((r) => (resolve = r)));
+    chat = { messages: [], isLoading: false, latestRecipe: null };
+    view();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    await pick();
+    expect(screen.getAllByRole('status').map((s) => s.getAttribute('aria-label'))).toEqual([
+      null,
+      'Preparing photo',
+    ]);
+    await act(async () => resolve({ mimeType: 'image/jpeg', base64: 'QQ==' }));
+    expect(screen.getAllByRole('status')).toHaveLength(1);
   });
 });
 

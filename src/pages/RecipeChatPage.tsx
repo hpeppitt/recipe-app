@@ -109,6 +109,8 @@ export function RecipeChatPage() {
     similarRecipes,
     loadingPhase,
     pendingQuery,
+    attachmentPreviews,
+    sentImageCount,
     sendMessage,
     retryGeneration,
     dismissSimilar,
@@ -151,6 +153,7 @@ export function RecipeChatPage() {
     goBack();
   };
 
+  const scrollToNewest = () => scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, similarRecipes]);
@@ -360,7 +363,7 @@ export function RecipeChatPage() {
           {messages.map((msg, i) => (
             <div key={i} className="min-w-0">
               {msg.role === 'user' ? (
-                <ChatMessageBubble message={msg} />
+                <ChatMessageBubble message={msg} photos={attachmentPreviews[msg.timestamp]} />
               ) : (
                 <RecipeCardMessage
                   recipe={msg.recipe as unknown as GeneratedRecipe}
@@ -536,6 +539,8 @@ export function RecipeChatPage() {
           // and the carried-over prompt was silently dropped.
           key={suggestionSeed}
           onSend={sendMessage}
+          sentImageCount={sentImageCount}
+          onLayoutChange={scrollToNewest}
           initialValue={suggestionSeed}
           disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
           placeholder={

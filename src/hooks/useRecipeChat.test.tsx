@@ -310,10 +310,12 @@ describe('useRecipeChat photos as generation input (RL-118)', () => {
     // Two failed sends of 3 cost nothing.
     expect(await send('soup', [photo(1), photo(2), photo(3)])).toBeNull();
     expect(await send('soup', [photo(1), photo(2), photo(3)])).toBeNull();
+    expect(result.current.sentImageCount).toBe(0);
     // Two successful sends of 3 fill the chat.
     expect(await send('soup', [photo(1), photo(2), photo(3)])).toBeNull();
     expect(await send('spicier', [photo(4), photo(5), photo(6)])).toBeNull();
     expect(session).toHaveBeenCalledTimes(4);
+    expect(result.current.sentImageCount).toBe(6);
 
     expect(await send('more', [photo(7)])).toBe('chat-limit');
     expect(session).toHaveBeenCalledTimes(4);
