@@ -27,6 +27,13 @@ import type { Recipe, ChatMessage } from '../types/recipe';
 import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
 import { reportError } from '../services/telemetry';
+import {
+  IMAGE_ONLY_PROMPT,
+  MAX_IMAGES_PER_CHAT,
+  MAX_IMAGES_PER_MESSAGE,
+  redactInlineData,
+  type ImageAttachment,
+} from '../lib/imageAttachments';
 
 /** How long a save waits for the cloud publish before reporting a failure. */
 const PUBLISH_TIMEOUT_MS = 4000;
@@ -129,6 +136,16 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const [similarRecipes, setSimilarRecipes] = useState<SimilarRecipe[]>([]);
   const [pendingQuery, setPendingQuery] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Photos sent with each user message, as data URLs keyed by its timestamp, for
+  // the transcript to show. React state only: never in `messages` (decision 3).
+  const [attachmentPreviews, setAttachmentPreviews] = useState<Record<number, string[]>>({});
+  // The photos of the last send, so retry and "Create New Anyway" resend them.
+  // Replaced by every send and cleared once it generates, so they never ride
+  // along with a later message.
+  const lastImagesRef = useRef<ImageAttachment[] | undefined>(undefined);
+  // Photos in successful turns only: the SDK keeps (and resends every turn) the
+  // history of turns that succeeded, so a failed or abandoned send costs nothing.
+  const chatImageCountRef = useRef(0);
   const chatRef = useRef<ChatSession | null>(null);
   const sendingRef = useRef(false);
   const generatingRef = useRef(false);
@@ -146,7 +163,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const { user } = useAuth();
 
   const generateRecipe = useCallback(
-    async (text: string) => {
+    async (text: string, images?: ImageAttachment[]) => {
       if (!isFirebaseConfigured) {
         setError(GENERATION_UNAVAILABLE);
         return;
@@ -173,7 +190,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
             : createRecipeChat();
         }
 
-        const generated = await chatRef.current.sendMessage(text);
+        const generated = await chatRef.current.sendMessage(text, images);
+        chatImageCountRef.current += images?.length ?? 0;
+        lastImagesRef.current = undefined;
         generatedOnceRef.current = true;
         setLatestRecipe(generated);
 
@@ -187,9 +206,11 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       } catch (err) {
         // Keep the raw SDK message out of the UI but available in the console:
         // it is developer-facing and can echo request details back.
-        console.error('Recipe generation failed', err);
-        reportError(err, 'generate-recipe');
-        setError(describeGenerationError(err));
+        // The SDK may echo request parts, photos included, into its message.
+        const safe = redactInlineData(err);
+        console.error('Recipe generation failed', safe);
+        reportError(safe, 'generate-recipe');
+        setError(describeGenerationError(safe));
       } finally {
         setIsLoading(false);
         setLoadingPhase(null);
@@ -199,21 +220,40 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     [parentRecipe]
   );
 
+  /**
+   * Resolves to the reason when the photos would break a limit, in which case
+   * nothing is sent and the caller keeps the typed text; otherwise to null.
+   */
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (
+      typed: string,
+      images?: ImageAttachment[]
+    ): Promise<'message-limit' | 'chat-limit' | null> => {
       // The dedup check hits the network, so a second send while it is in flight
       // would race a second generation against the pending search.
-      if (sendingRef.current) return;
+      if (sendingRef.current) return null;
+      const photos = images?.length ? images : undefined;
+      if (photos && photos.length > MAX_IMAGES_PER_MESSAGE) return 'message-limit';
+      if (photos && chatImageCountRef.current + photos.length > MAX_IMAGES_PER_CHAT) return 'chat-limit';
       sendingRef.current = true;
 
       try {
-        const shouldCheckDuplicates = !generatedOnceRef.current;
+        // Photos with no text still need a meaningful `prompt` once saved.
+        const photosOnly = !!photos && !typed.trim();
+        const text = photosOnly ? IMAGE_ONLY_PROMPT : typed;
+        // Dedup searches typed text, so a photos-only send has nothing to match.
+        const shouldCheckDuplicates = !generatedOnceRef.current && !photosOnly;
         const userMessage: ChatMessage = {
           role: 'user',
           content: text,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, userMessage]);
+        lastImagesRef.current = photos;
+        if (photos) {
+          const urls = photos.map((p) => `data:${p.mimeType};base64,${p.base64}`);
+          setAttachmentPreviews((prev) => ({ ...prev, [userMessage.timestamp]: urls }));
+        }
 
         // Check for duplicates until a recipe has actually been generated.
         if (shouldCheckDuplicates) {
@@ -229,7 +269,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
             if (matches.length > 0) {
               setSimilarRecipes(matches);
               setPendingQuery(text);
-              return;
+              return null;
             }
           } catch {
             // Search failed — proceed to generation
@@ -239,7 +279,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
           }
         }
 
-        await generateRecipe(text);
+        await generateRecipe(text, photos);
+        return null;
       } finally {
         sendingRef.current = false;
       }
@@ -255,12 +296,12 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   const retryGeneration = useCallback(async () => {
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     if (!lastUser) return;
-    await generateRecipe(lastUser.content);
+    await generateRecipe(lastUser.content, lastImagesRef.current);
   }, [messages, generateRecipe]);
 
   const dismissSimilar = useCallback(async () => {
     if (pendingQuery) {
-      await generateRecipe(pendingQuery);
+      await generateRecipe(pendingQuery, lastImagesRef.current);
     }
   }, [pendingQuery, generateRecipe]);
 
@@ -373,6 +414,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     loadingPhase,
     /** The prompt that produced the current matches, so the UI can carry it forward. */
     pendingQuery,
+    attachmentPreviews,
     sendMessage,
     retryGeneration,
     dismissSimilar,

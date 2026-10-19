@@ -99,7 +99,7 @@ identity-orphaning path, so its copy needs a real contact route rather than a pl
 *2026-10-18 (RL-032):* the notice was removed. After RL-040 an anonymous account owns no cloud
 data, so nothing can be stranded; only the local carry-over of recipes and bookmarks remains.
 
-### 3. Photos: no, text-first, permanently
+### 3. Photos: no, text-first, permanently (recipe photos; generation input photos, see the dated note below)
 
 Requires Firebase Storage, upload UX, and a moderation story. The base64-in-Firestore trick
 that works for 128px avatars categorically does not extend to food photography — 1 MiB
@@ -109,6 +109,13 @@ tree.
 Consequence: do **not** add a speculative `imageUrl` field to the recipe document or the Zod
 schema as a hedge. An unused nullable field is a standing invitation to drift into the
 decision sideways. If this ever reverses it is a phase of its own, not a field.
+
+2026-10-19 (RL-118): photos as **generation input** are consistent with this decision. They
+are held in memory for the length of a chat, sent to Gemini through AI Logic, and never
+stored: not in Dexie, Firestore, Storage, `chatHistory`, `prompt`, analytics or telemetry,
+and no schema field was added. The author's confirmation is taken from RL-118 having been
+approved at `/groom`; it was not asked separately, so correct this line if that reading is
+wrong.
 
 ### 4. The merged feed was an accident, so split it
 

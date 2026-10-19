@@ -127,7 +127,24 @@ Google-hosted proxy. This is the single most important architectural fact:
   now in place — it does not stop a misused request, it narrows what one can *return* to
   "a valid recipe". The undeployed `functions/generateRecipe` is the escalation path if
   abuse ever appears — it owns the prompts server-side and rate-limits per account, but it
-  needs the Blaze plan and would end the free Gemini tier.
+  needs the Blaze plan and would end the free Gemini tier. Photos (below) use the client path
+  only: the callable accepts text messages, so moving to it would need a new input path for
+  images. Its prompts are a separate hand-written copy in `functions/src/prompts.ts`, not
+  `lib/prompts.ts`: it has its own JSON schema text and none of the photo paragraph, and its
+  header comment (that the browser no longer uses `lib/prompts.ts`) is out of date.
+- **Photos can ride along as generation input (RL-118).** `ChatSession.sendMessage(text,
+  images)` sends the text and up to three photos as `inlineData` parts in one
+  `chat.sendMessage` call, so one send is still one AI Logic request. Photos are validated by
+  `lib/imageAttachments.ts` (JPEG, PNG or WebP, at most 20 MB and 60 megapixels in, 3 per
+  message, 6 per chat, counting only turns that generated)
+  and downscaled on the client by `services/imageDownscale.ts` (long side 1024px, JPEG on
+  white, at most 600 KB). They are held in memory for the chat only and **never stored**:
+  not in `chatHistory`, `prompt`, Dexie, Firestore, analytics or telemetry ([decision
+  3](decisions.md#3-photos-no-text-first-permanently-recipe-photos-generation-input-photos-see-the-dated-note-below)). A photos-only send uses the text
+  `IMAGE_ONLY_PROMPT` so the saved `prompt` stays meaningful. With no photos the request is
+  the plain string, as before. A generation error is passed through `redactInlineData` before
+  it is logged, reported or classified, in case the SDK echoes the photo data back. The
+  prompt tells the model to treat text in a photo as content, never as instructions.
 
 **One schema, three consumers.** `schemas/recipe.responseSchema.ts` builds the recipe shape
 with the SDK's `Schema` builders. `gemini.ts` passes it as `responseSchema`, and

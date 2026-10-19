@@ -18,6 +18,22 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-118 useRecipeChat can send up to three downscaled photos with a message to Gemini
+
+- Nothing to see in the UI yet: this is the hook, request shape and downscale only. The human check (attach photos, generate, save, confirm nothing image-shaped is stored) is in RL-119.
+- Text-only generation should behave exactly as before; a normal create and refine on the preview is enough.
+- `downscaleToJpeg` was tested in jsdom against a stubbed image and canvas only (sizes, white fill, quality retry, caps, URL revoke); real decoding and JPEG output are unverified until RL-119's browser walk.
+- Decision (mine): over the photo limits the hook sends nothing, keeps the typed text with the caller and resolves to `'message-limit'` or `'chat-limit'`. Only photos in turns that generated count towards the 6 per chat, so a failed send or an abandoned dedup match costs nothing. Logged in DECISIONS.md.
+- Decoding is not bounded yet: a file under 20 MB can decode to 100 MP or more. There is a guard that rejects over 60 megapixels after decoding and before drawing (`MAX_SOURCE_PIXELS`). The real fix (`createImageBitmap` with resize options) and a check with a real 48 MP phone photo are for RL-119's browser QA.
+- Decision 3 got a dated line saying your approval of RL-118 at /groom was taken as confirmation that in-memory generation photos fit it. That is still yours to confirm; correct it if not.
+- Reviewer noted (low), privacy handoff: RL-120 (privacy text) must land BEFORE or WITH RL-119, never after. The moment photos are exposed these lines become inaccurate, because they say only typed text goes to Google and the conversation stays only on the device: `src/content/legal/privacy.ts` lines about 26, 123, 126, 127 and 205, and `src/content/legal/terms.ts` lines about 40 and 53.
+- Reviewer noted (low): a photographed fridge, dish or handwritten recipe can show people, addresses or handwriting, and it goes to Google with the message (`docs/legal/claims-to-verify.md` item 13 now covers images).
+- Reviewer noted (low): EXIF orientation is honoured by current browsers when drawing through an `Image`; check a portrait phone photo comes out upright in RL-119.
+- Reviewer noted (low): the previews, the SDK chat history and the retry ref each hold a copy of the photos, about 15 MB worst case per chat, in memory only.
+- Reviewer noted (low): previews are keyed by `Date.now()`, so two sends in the same millisecond would overwrite each other. Only possible in tests, because the hook blocks a second send while one is in flight.
+- Reviewer noted (low): `/create` and `/recipe/:id/vary` render the same `RecipeChatPage` element type, so React may reuse one hook instance if the app moves straight between them, keeping photos, previews and the session. This was already true for `chatRef` and messages.
+- Reviewer noted (low): generation errors are now passed through `redactInlineData` before logging and reporting, in case the SDK echoes photo data; ordinary errors are reported unchanged.
+
 ### RL-114 The tree explainer is redrawn in the 16a language
 
 - Clear the intro state in local storage, open two root recipes: the card appears on the second, above the recipe, with the heading "Every recipe can grow branches", a mini tree, three numbered steps, a full-width Got it and (only if the recipe has variations) See the tree.

@@ -6,6 +6,7 @@ import { firebaseApp } from './firebase';
 import { captureAiGeneration } from './analytics';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
+import type { ImageAttachment } from '../lib/imageAttachments';
 
 // gemini-2.0-flash was shut down on 2026-06-01 and returns 404. Keep this in
 // step with the Firebase AI Logic supported-models list; a retired model breaks
@@ -44,7 +45,8 @@ function buildModel(systemInstruction: string) {
 }
 
 export interface ChatSession {
-  sendMessage: (message: string) => Promise<GeneratedRecipe>;
+  /** Photos ride in the same request as the text: one send is one AI Logic call. */
+  sendMessage: (message: string, images?: ImageAttachment[]) => Promise<GeneratedRecipe>;
 }
 
 function parseRecipeJson(text: string): GeneratedRecipe {
@@ -72,9 +74,13 @@ function toChatSession(chat: AIChatSession): ChatSession {
   const sessionId = crypto.randomUUID();
 
   return {
-    async sendMessage(message: string): Promise<GeneratedRecipe> {
+    async sendMessage(message: string, images?: ImageAttachment[]): Promise<GeneratedRecipe> {
       const startedAt = performance.now();
-      const result = await chat.sendMessage(message);
+      const result = await chat.sendMessage(
+        images?.length
+          ? [message, ...images.map((i) => ({ inlineData: { mimeType: i.mimeType, data: i.base64 } }))]
+          : message
+      );
       const output = result.response.text();
       const recipe = parseRecipeJson(output);
 
