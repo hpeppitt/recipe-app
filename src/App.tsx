@@ -22,6 +22,7 @@ const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m
 const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
 const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
+const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -41,6 +42,8 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<ExplorePage />} />
+            {/* Search (RL-124) keeps the Explore tab highlighted, so it stays in the shell. */}
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/saved" element={<SavedPage />} />
             <Route path="/activity" element={<ActivityPage />} />
             {/* Own profile is a top-level destination now that it has a nav tab;

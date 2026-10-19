@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -17,7 +17,7 @@ import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
-import { CloudOff, BookmarkCheck, GitBranch, Heart, Search, X } from '../components/ui/icons';
+import { CloudOff, BookmarkCheck, GitBranch, Heart, Search } from '../components/ui/icons';
 
 type Filter = 'all' | 'favorites' | 'following';
 
@@ -32,10 +32,6 @@ type ExploreRecipe = ScorableRecipe & {
 
 /** The landing page at `/` (Organic 1b): the shared feed, or the device's recipes in local-only mode. */
 export function ExplorePage() {
-  const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchButtonRef = useRef<HTMLButtonElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedFilter, setSelectedFilter] = useState<Filter>('all');
   // Not persisted: a topic is a momentary lens (RL-009).
   const [tag, setTag] = useState<string | null>(null);
@@ -45,17 +41,6 @@ export function ExplorePage() {
   const { followingIds, followingProfiles } = useFollowingList();
   const navigate = useNavigate();
   const online = useOnline();
-
-  useEffect(() => {
-    if (searchOpen) searchInputRef.current?.focus();
-  }, [searchOpen]);
-
-  // Closing always clears, so a hidden query never filters the list.
-  const closeSearch = () => {
-    setSearch('');
-    setSearchOpen(false);
-    searchButtonRef.current?.focus();
-  };
 
   // The Clear tag button unmounts, so hand focus back to the chip it cleared.
   const clearTag = () => {
@@ -96,24 +81,23 @@ export function ExplorePage() {
   const displayRecipes =
     source &&
     filterFeed(source, {
-      search,
       favoriteIds: filter === 'favorites' ? favoriteIds : undefined,
       followingIds: showFollowing ? new Set(followingIds) : undefined,
     });
 
   // Explore filters only the pages fetched so far, so Load more stays available
-  // under a search or the favourites filter and the page says what it searched.
+  // under the favourites filter and the page says how far it looked. Search is /search (RL-124).
   const pagedExplore = isConfigured && !showFollowing && !cloud.cloudError;
   const showLoadMore = pagedExplore && !isLoading && cloud.hasMore;
   const tagActive = pagedExplore && tag !== null;
-  const filtering = !!search.trim() || filter === 'favorites';
+  const filtering = filter === 'favorites';
   const loadedCount = exploreFeed?.length ?? 0;
   const showOfflineBanner = isConfigured && !online && !isLoading && (source?.length ?? 0) > 0;
 
-  // The newest roots of the unfiltered feed. Nothing to show while a search, filter or tag
+  // The newest roots of the unfiltered feed. Nothing to show while a filter or tag
   // narrows the list, while loading or failed, or in local-only mode (no shared feed).
   const tileRecipes =
-    pagedExplore && !isLoading && filter === 'all' && !tag && !search.trim() ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
+    pagedExplore && !isLoading && filter === 'all' && !tag ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
   return (
     <div>
@@ -122,53 +106,15 @@ export function ExplorePage() {
           <p className="text-[13px] text-text-tertiary">{dayPartLabel(new Date())}</p>
           <h1 className="font-heading text-[30px] leading-[1.05] text-text-primary">What's growing</h1>
         </div>
-        <button
-          ref={searchButtonRef}
-          type="button"
+        {/* One search screen (RL-124); Explore keeps its chips, tags and Load more. */}
+        <Link
+          to="/search"
           aria-label="Search"
-          aria-expanded={searchOpen}
-          aria-controls={searchOpen ? 'explore-search' : undefined}
-          onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
           className="flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-text-primary shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
         >
           <Search className="size-[19px]" />
-        </button>
+        </Link>
       </header>
-
-      {searchOpen && (
-        <div id="explore-search" className="px-5 pt-3.5">
-          <div className="flex h-[52px] items-center gap-2 rounded-full bg-neutral-100 pl-4 pr-1.5 shadow-sm">
-            <Search className="size-[18px] shrink-0 text-text-tertiary" />
-            <input
-              ref={searchInputRef}
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  e.preventDefault();
-                  closeSearch();
-                }
-              }}
-              placeholder="Search recipes and ingredients"
-              // Placeholder text is not an accessible name: it disappears on input.
-              aria-label="Search recipes and ingredients"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-text-primary placeholder:text-text-tertiary focus:outline-none"
-            />
-            {/* type="search" has a native clear affordance only in some browsers. */}
-            {search && (
-              <button
-                type="button"
-                onClick={closeSearch}
-                aria-label="Clear search"
-                className="flex size-11 shrink-0 items-center justify-center rounded-full text-text-tertiary hover:text-text-primary"
-              >
-                <X className="size-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {tileRecipes.length > 0 && (
         <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} />
@@ -224,14 +170,7 @@ export function ExplorePage() {
         )}
       </div>
 
-      {/* A count confirms the search did something, and how much. */}
-      {search && !isLoading && displayRecipes && (
-        <p role="status" className="break-words px-5 pt-3 text-xs text-text-tertiary">
-          {displayRecipes.length} {pluralize(displayRecipes.length, 'result')} for "{search}"
-        </p>
-      )}
-
-      {/* Explore cannot search what it has not fetched, so say how far it reaches. */}
+      {/* The favourites filter sees only the pages fetched, so say how far it reaches. */}
       {showLoadMore && filtering && (
         <p role="status" className="px-5 pt-2 text-xs text-text-tertiary">
           Searching the {loadedCount} {pluralize(loadedCount, 'recipe')} loaded so far. Load more to search further.
@@ -283,24 +222,6 @@ export function ExplorePage() {
             ))}
           </ul>
         </>
-      ) : search ? (
-        <EmptyState
-          icon={<Search />}
-          title="No results"
-          description={`Nothing matches "${search}" in titles, ingredients or tags${tagActive ? `, within recipes tagged ${tag}` : ''}.`}
-          action={
-            <div className="flex flex-col gap-2">
-              <Button variant="secondary" onClick={closeSearch}>
-                Clear search
-              </Button>
-              {tagActive && (
-                <Button variant="secondary" onClick={clearTag}>
-                  Clear tag
-                </Button>
-              )}
-            </div>
-          }
-        />
       ) : showFollowing ? (
         <EmptyState
           icon="👥"

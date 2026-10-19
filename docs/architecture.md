@@ -250,10 +250,11 @@ shell route loads and a failed chunk load lands in the error fallback. Firebase 
 `firebase` chunk in `vite.config.ts`; `services/` imports it statically, so it still loads at
 start and is split only for caching.
 
-`AppShell` wraps `/` (`ExplorePage`, eager, RL-098), `/saved` (`SavedPage`) and `/activity`
-(`ActivityPage`), both lazy, and `/profile`. Its `BottomNav` (RL-097) is five `NavLink`s:
-Explore, Saved, Create (a link to `/create`, never shown as current), Activity and You, so
-`aria-current="page"` comes from the router. The Activity badge reads `useNotifications()`, which
+`AppShell` wraps `/` (`ExplorePage`, eager, RL-098), `/search` (`SearchPage`, RL-124), `/saved`
+(`SavedPage`) and `/activity` (`ActivityPage`), all three lazy, and `/profile`. Its `BottomNav`
+(RL-097) is five `Link`s: Explore, Saved, Create (a link to `/create`, never shown as current),
+Activity and You. Each sets `aria-current="page"` from `matchPath` on the current path, and
+Explore is also current on `/search` (a `NavLink` could not do that). The Activity badge reads `useNotifications()`, which
 reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. The bar is fixed, 78px plus the bottom safe area beyond
 8px; `AppShell`'s `<main>` padding and `UpdatePrompt`'s offset use the same sum. `/settings` sits
 outside the shell, reached from the You tab's gear, with its own Back button.

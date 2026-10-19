@@ -49,13 +49,22 @@ describe('BottomNav', () => {
 
   it.each([
     ['/', 'Explore'],
+    ['/search', 'Explore'],
+    ['/search?q=walnut', 'Explore'],
     ['/saved', 'Saved'],
+    ['/saved/', 'Saved'],
     ['/activity', 'Activity'],
     ['/profile', 'You'],
   ])('marks only the %s tab as the current page', (route, name) => {
     renderWithProviders(<BottomNav />, { route });
     const current = screen.getAllByRole('link').filter((a) => a.getAttribute('aria-current') === 'page');
     expect(current).toEqual([screen.getByRole('link', { name })]);
+  });
+
+  // Exact matching, as NavLink with `end` did before RL-124; no shell route nests under a tab.
+  it('marks no tab on a path nested under one', () => {
+    renderWithProviders(<BottomNav />, { route: '/profile/ann' });
+    expect(screen.getAllByRole('link').filter((a) => a.getAttribute('aria-current') === 'page')).toEqual([]);
   });
 
   it('does not mark Explore on another path', () => {

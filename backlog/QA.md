@@ -18,6 +18,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-124 The /search screen
+
+- At 390x844 and 320px, signed out and as a verified user: Explore's Search opens `/search` with the keyboard up. Typing an ingredient of a known recipe (for example "walnut") finds it; a branch shows "<original> variation" in green under its title.
+- Each chip (All, Under 30 min, Easy, Branches) filters and reads as pressed in VoiceOver; the input reads "Search recipes, or describe a dish". Open a result and go Back: the query and chip are restored.
+- A nonsense query shows the peach card. Write it (card and pill) opens the chat with the text in the composer and nothing sent; as a verified user, send it and a recipe comes back.
+- Search more shared recipes widens the search. With the network off on a fresh load, device results show with "Shared recipes couldn't load." and Try again works once back online.
+- The Explore tab stays highlighted on `/search`. Explore no longer has an inline search pill; its "No results" state is gone with it.
+- At 320px the pill's Write it shows the sparkle icon only (named "Write it" to VoiceOver); from 360px up it shows the text too. VoiceOver announces the scope line and "<n> results" as the query changes.
+- Reviewer noted (low): the author link's `-my-3` hit area overlaps the row's padding; check visually that it does not crowd the time and difficulty text or catch taps meant for the row.
+- Reviewer noted (low): the disabled pill Write it is at 45% opacity; check it still reads as a control yet clearly unavailable.
+
 ### RL-123 searchLibrary (pure logic)
 
 - Nothing user-visible yet; the Search screen (RL-124) carries the QA entry.
