@@ -10,7 +10,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
 import type { Ingredient, Recipe } from '../types/recipe';
-import { ChevronLeft } from '../components/ui/icons';
+import { ChevronLeft, CloudOff, RotateCw } from '../components/ui/icons';
 
 const MODES = [
   { value: 'changes', label: 'Changes only' },
@@ -283,7 +283,8 @@ export function RecipeChangesPage() {
     return shell(
       <div role="alert">
         <EmptyState
-          icon="📡"
+          tone="error"
+          icon={<CloudOff />}
           title="Could not load this comparison"
           description="Check your connection and try again."
           action={
@@ -295,6 +296,7 @@ export function RecipeChangesPage() {
                 other.retry();
               }}
             >
+              <RotateCw className="mr-2 size-4" />
               Try again
             </Button>
           }

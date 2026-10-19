@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-090 Soft dialogs, empty, error and skeleton states
+
+- At 390x844: delete a recipe. The dialog is centred, has two equal-width buttons, and Delete is dark terracotta (check its contrast, cream on accent-700).
+- Open a version tree while offline: the error state is bottom-aligned and left-aligned, with the terracotta circle off the top left and a secondary "Try again" with a rotate icon.
+- Open What changed on a root recipe: the "This is the original" state uses the sage circle top right and the bottom-aligned layout. Its sprout emoji sits on the blob.
+- Reload a recipe on a slow connection (throttle in dev tools): skeleton blocks pulse between two beiges. With reduced motion on, nothing pulses.
+- Not polished on purpose: LibraryPage empty states (RL-098 replaces them). Empty-state action buttons are 44px tall, not the design's 46px.
+- Deviation: the error boundary's crash screen keeps "Back to library" (no "Try again"), because a retry would re-render the same crashing child. The reviewer judged this acceptable.
+- Reviewer noted (med): the full-page EmptyState has `overflow-hidden` on its own root, which sits inside the page padding, so at 320 to 390px the off-canvas circle may end in a hard edge about 16px short of the screen edge, and text may sit about 40px in instead of 24px. Check on the 390x844 walk; if it shows, move the clipping to the page or drop the page padding around the state.
+- Reviewer noted (med): the profile load error in `ProfilePage` keeps the old styling (sage circle, emoji, "Try again" without `RotateCw`). It is the same kind of failure as the other three error screens. RL-095 rebuilds that page, so convert it there.
+- Reviewer noted (low): `role="alert"` wraps the whole EmptyState on the What changed error (message and button), while the version tree error has none. The compact variant does not size a node icon. `ConfirmDialog`'s new inner div is not re-indented. No test asserts the circle is `aria-hidden` or covers the reduced-motion gate.
+
 ### RL-089 Sheet primitive
 
 - Nothing visible yet: no screen uses `Sheet`. RL-108 and RL-094 carry the visual checks (36px top radius, grabber, 45% backdrop, tap-to-close, Escape).

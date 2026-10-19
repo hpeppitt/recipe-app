@@ -192,3 +192,16 @@ body {
   border-radius: 9999px;
 }
 
+
+/* Skeleton pulse between neutral-200 and neutral-300; no animation under reduced motion. */
+@keyframes skeleton-pulse {
+  50% {
+    background-color: var(--color-neutral-300);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-pulse {
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+  }
+}

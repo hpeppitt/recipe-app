@@ -9,6 +9,8 @@ Format: one row per decision, newest first.
 
 | Date | Ticket | Decision taken | Alternative not taken | Status |
 |---|---|---|---|---|
+| 2026-10-19 | RL-090 | Empty-state callers keep their emoji icons (the full-page variant shows the emoji at 36px on the sage blob); only error callers use Lucide `CloudOff`. | Move each empty caller to a matching Lucide icon (Bookmark, Search, Users). | pending |
+| 2026-10-19 | RL-090 | The profile load error in `ProfilePage` was not changed to `tone="error"` (the ticket lists three callers); the `ErrorBoundary` fallback keeps its "Back to library" label with the `CloudOff` blob, since the button navigates rather than retries. | Convert the profile error too, and relabel the boundary action "Try again" with `RotateCw`. | pending |
 | 2026-10-18 | RL-072 | Above 20 versions the Map shows a notice pointing to the Timeline and the map still renders, with full-screen mode (twice the scale, pan by scrolling) for room; no pinch zoom. Grooming decision. | Pinch-zoom and gesture handling on the map itself. | pending |
 | 2026-10-18 | RL-072 | Node tap targets are 44px transparent HTML buttons over the SVG, in generation order so a deeper node wins where targets overlap on a crowded ring. Nodes are not spread further apart; the over-20 notice is the answer to crowding. | Enlarge rings with family size, or hit-test the nearest node centre on tap. | pending |
 | 2026-10-18 | RL-062 | Tailwind's own `--radius-sm/md/lg` and `--spacing` are not overridden; only `--radius-card: 32px` is added. Overriding would silently resize 18 existing `rounded-sm/md/lg` uses and every spacing utility. | Adopt the Organic 4.4px spacing base and 8/16/28px radii globally. | pending |

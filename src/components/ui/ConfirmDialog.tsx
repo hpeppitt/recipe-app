@@ -44,21 +44,28 @@ export function ConfirmDialog({
       onClose={onCancel}
       aria-labelledby={titleId}
       aria-describedby={messageId}
-      className="backdrop:bg-black/50 bg-surface rounded-card p-6 max-w-sm w-[calc(100%-2rem)] shadow-lg"
+      className="backdrop:bg-neutral-900/40 bg-surface rounded-card p-[22px] max-w-sm w-[calc(100%-2rem)] shadow-lg m-auto"
     >
-      <h2 id={titleId} className="font-heading text-h4 text-text-primary mb-2">
+      <div className="flex flex-col gap-2.5">
+      <h2 id={titleId} className="font-heading text-[22px] text-text-primary">
         {title}
       </h2>
-      <p id={messageId} className="text-sm text-text-secondary mb-6">
+      <p id={messageId} className="text-sm text-text-secondary">
         {message}
       </p>
-      <div className="flex gap-3 justify-end">
-        <Button variant="secondary" onClick={onCancel} disabled={busy}>
+      <div className="mt-2 flex gap-2">
+        <Button variant="secondary" className="flex-1 min-h-12" onClick={onCancel} disabled={busy}>
           {cancelLabel}
         </Button>
-        <Button variant={confirmVariant} onClick={onConfirm} disabled={busy}>
+        {/* Destructive confirms use the dark terracotta primary, not the red danger fill. */}
+        <Button
+          className={`flex-1 min-h-12 ${confirmVariant === 'danger' ? 'bg-accent-700 hover:bg-accent-800 active:bg-accent-800' : ''}`}
+          onClick={onConfirm}
+          disabled={busy}
+        >
           {confirmLabel}
         </Button>
+      </div>
       </div>
     </dialog>
   );

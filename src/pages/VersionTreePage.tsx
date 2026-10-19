@@ -9,7 +9,7 @@ import { TreeView } from '../components/tree/TreeView';
 import { TimelineView } from '../components/tree/TimelineView';
 import { MapView } from '../components/tree/MapView';
 import { familySubtitle } from '../lib/tree';
-import { ChevronLeft } from '../components/ui/icons';
+import { ChevronLeft, CloudOff, RotateCw } from '../components/ui/icons';
 
 // The switch only renders once there is more than one view.
 const VIEWS = [
@@ -100,11 +100,13 @@ export function VersionTreePage() {
         <div className="max-w-lg mx-auto">
           {cloudError ? (
             <EmptyState
-              icon="📡"
+              tone="error"
+              icon={<CloudOff />}
               title="Couldn't load the version tree"
               description="The shared library is unreachable right now. Your recipe is fine."
               action={
                 <Button variant="secondary" onClick={retry}>
+                  <RotateCw className="mr-2 size-4" />
                   Try again
                 </Button>
               }

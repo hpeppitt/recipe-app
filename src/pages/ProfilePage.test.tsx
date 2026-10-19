@@ -98,7 +98,7 @@ describe('ProfilePage sign-up gates', () => {
 });
 
 describe('OwnProfile sync states (RL-079)', () => {
-  const skeletons = (c: HTMLElement) => c.querySelectorAll('.animate-pulse').length;
+  const skeletons = (c: HTMLElement) => c.querySelectorAll('.skeleton-pulse').length;
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
