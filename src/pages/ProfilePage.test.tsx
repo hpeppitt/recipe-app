@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, act, within, waitFor } from '@testing-library/react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Link } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import type { AppUser, Recipe } from '../types/recipe';
 import { makeRecipe } from '../test/factories';
@@ -21,13 +21,18 @@ vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({
   useOwnProfile: () => ({ profile: ownProfile, updateAvatar, updateName: vi.fn() }),
-  usePublicProfile: () => ({
-    profile: { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 0 },
-    isLoading: false,
-    error: false,
-    retry: () => {},
-  }),
+  usePublicProfile: () => publicProfile,
 }));
+const chefProfile = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
+const retryProfile = vi.fn();
+let publicProfile: { profile: typeof chefProfile | null; isLoading: boolean; error: boolean; retry: () => void } = {
+  profile: chefProfile,
+  isLoading: false,
+  error: false,
+  retry: retryProfile,
+};
+let chefRecipes: unknown[] = [];
+let chefLoading = false;
 let syncStatus = 'off';
 let rows: Recipe[] | undefined = [];
 let ownProfile: { createdAt: number; followerCount: number; followingCount: number } | null = null;
@@ -36,7 +41,7 @@ let totals = { totalViews: 0, totalFavorites: 0 };
 vi.mock('../hooks/useRecipeLibrary', () => ({ useLocalLibrary: () => rows }));
 vi.mock('../hooks/useUserRecipes', () => ({
   useOwnRecipes: () => ({ recipes: [], stats: totals, isLoading: false }),
-  useUserRecipes: () => ({ recipes: [], stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
+  useUserRecipes: () => ({ recipes: chefRecipes, stats: { totalViews: 0, totalFavorites: 0 }, isLoading: chefLoading }),
 }));
 
 import { ProfilePage } from './ProfilePage';
@@ -63,6 +68,10 @@ beforeAll(() => {
 beforeEach(() => {
   followUser.mockClear();
   syncStatus = 'off';
+  publicProfile = { profile: chefProfile, isLoading: false, error: false, retry: retryProfile };
+  chefRecipes = [];
+  chefLoading = false;
+  retryProfile.mockClear();
   rows = [];
   ownProfile = null;
   totals = { totalViews: 0, totalFavorites: 0 };
@@ -74,25 +83,25 @@ describe('ProfilePage sign-up gates', () => {
     ['signed-out', null],
   ])('Follow opens the sign-up call to action for a %s visitor', (_label, user) => {
     renderAt('/profile/chef', user);
-    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Follow Chef' }));
     expect(screen.getByRole('heading', { name: 'Sign up to follow Chef' })).toBeInTheDocument();
     expect(followUser).not.toHaveBeenCalled();
   });
 
   it('Follow writes for a verified account', () => {
     renderAt('/profile/chef', fakeUser);
-    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Follow Chef' }));
     expect(followUser).toHaveBeenCalledWith(fakeUser.uid, 'chef', fakeUser.displayName);
   });
 
   it('shows the follow error under the Follow button when the write fails', async () => {
     followUser.mockRejectedValueOnce(new Error('offline'));
     renderAt('/profile/chef', fakeUser);
-    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Follow Chef' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
       "Couldn't update that. Check your connection and try again."
     );
-    expect(screen.getByRole('button', { name: 'Follow' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Follow Chef' })).toBeInTheDocument();
   });
 
   it('routes an anonymous account editing its avatar or name to sign-up', () => {
@@ -182,6 +191,13 @@ describe('OwnProfile sync states (RL-079)', () => {
 const mine = (o: Partial<Recipe>) => makeRecipe({ createdBy: { uid: fakeUser.uid, displayName: null }, ...o });
 
 describe('OwnProfile Organic layout (RL-095)', () => {
+  it('shows placeholders instead of 0 for Originals and Branches while the library loads', () => {
+    rows = undefined;
+    renderAt('/profile', fakeUser);
+    expect(within(screen.getByText('Originals').parentElement!).getByText('–')).toBeInTheDocument();
+    expect(within(screen.getByText('Branches').parentElement!).queryByText('0')).toBeNull();
+  });
+
   it('splits Started and Grew with counts, a branch of someone else under Grew, and the right meta', () => {
     rows = [
       mine({ id: 'root', title: 'Root Soup', createdAt: 5 }),
@@ -311,5 +327,110 @@ describe('ProfilePage signed out, local-only and errors (RL-095)', () => {
     expect(screen.getByRole('link', { name: /Local One/ })).toBeInTheDocument();
     expect(screen.queryByText('Originals')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
+  });
+});
+
+describe('PublicProfile Organic layout (RL-096)', () => {
+  const theirs = (o: Record<string, unknown>) => ({ ...makeRecipe({ createdBy: { uid: 'chef', displayName: 'Chef' } }), ...o });
+
+  it('splits Started and Grew by parentId, with branch counts and prompts as meta', () => {
+    chefRecipes = [
+      theirs({ id: 'root', title: 'Root Soup', rootId: 'root', createdAt: 3 }),
+      theirs({ id: 'lone', title: 'Lone Toast', rootId: 'lone', createdAt: 2 }),
+      theirs({ id: 'kid', title: 'Spicy Soup', parentId: 'root', rootId: 'root', prompt: 'make it spicy', createdAt: 1 }),
+    ];
+    renderAt('/profile/chef', null);
+    const tile = (label: string) => screen.getByText(label).parentElement!;
+    expect(within(tile('Originals')).getByText('2')).toBeInTheDocument();
+    expect(within(tile('Branches')).getByText('1')).toBeInTheDocument();
+    expect(within(tile('Followers')).getByText('3')).toBeInTheDocument();
+    expect(within(tile('Following')).getByText('5')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Root Soup/ })).toHaveTextContent('1 branch');
+    expect(screen.getByRole('link', { name: /Lone Toast/ })).not.toHaveTextContent('No branches yet');
+    expect(screen.queryByRole('link', { name: /Spicy Soup/ })).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    expect(screen.getByRole('link', { name: /Spicy Soup/ })).toHaveTextContent('"make it spicy"');
+    expect(screen.queryByRole('link', { name: /Root Soup/ })).toBeNull();
+  });
+
+  it('falls back to Branched when a branch has no prompt', () => {
+    chefRecipes = [theirs({ id: 'kid', title: 'Plain Kid', parentId: 'root', rootId: 'root' })];
+    renderAt('/profile/chef', null);
+    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    expect(screen.getByRole('link', { name: /Plain Kid/ })).toHaveTextContent('Branched');
+  });
+
+  it('stat tiles are not interactive and the heading is the name', () => {
+    renderAt('/profile/chef', fakeUser);
+    expect(screen.getByRole('heading', { name: 'Chef' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Followers|Following/ })).toBeNull();
+  });
+
+  it('has no Follow button on a local-only build', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/profile/:uid" element={<ProfilePage />} />
+      </Routes>,
+      { route: '/profile/chef', user: null, auth: { isConfigured: false } }
+    );
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Follow/ })).toBeNull();
+  });
+
+  const backRoutes = (
+    <Routes>
+      <Route path="/" element={<p>Home page</p>} />
+      <Route path="/prev" element={<Link to="/profile/chef">Open Chef</Link>} />
+      <Route path="/profile/:uid" element={<ProfilePage />} />
+    </Routes>
+  );
+
+  it('Back returns to the previous page when there is history', () => {
+    renderWithProviders(backRoutes, { route: '/prev', user: null });
+    fireEvent.click(screen.getByRole('link', { name: 'Open Chef' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('link', { name: 'Open Chef' })).toBeInTheDocument();
+    expect(screen.queryByText('Home page')).toBeNull();
+  });
+
+  it('Back goes home on a deep link with no history', () => {
+    renderWithProviders(backRoutes, { route: '/profile/chef', user: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByText('Home page')).toBeInTheDocument();
+  });
+
+  it('shows placeholders instead of 0 for Originals and Branches while recipes load', () => {
+    chefLoading = true;
+    renderAt('/profile/chef', null);
+    const tile = (label: string) => screen.getByText(label).parentElement!;
+    expect(within(tile('Originals')).getByText('–')).toBeInTheDocument();
+    expect(within(tile('Branches')).getByText('–')).toBeInTheDocument();
+    expect(within(tile('Originals')).queryByText('0')).toBeNull();
+    expect(within(tile('Followers')).getByText('3')).toBeInTheDocument();
+  });
+
+  it('keeps a long unspaced name inside the Follow button via truncation', () => {
+    const long = 'A'.repeat(60);
+    publicProfile = { profile: { ...chefProfile, displayName: long }, isLoading: false, error: false, retry: retryProfile };
+    renderAt('/profile/chef', fakeUser);
+    const btn = screen.getByRole('button', { name: `Follow ${long}` });
+    expect(within(btn).getByText(`Follow ${long}`)).toHaveClass('truncate', 'min-w-0');
+  });
+
+  it('shows the load error with Try again that retries', () => {
+    publicProfile = { profile: null, isLoading: false, error: true, retry: retryProfile };
+    renderAt('/profile/chef', null);
+    expect(screen.getByRole('heading', { name: "Couldn't load this profile" })).toBeInTheDocument();
+    expect(screen.getByText('The connection failed. The account is probably fine.')).toBeInTheDocument();
+    expect(screen.queryByText('User not found')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retryProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows User not found when there is no profile and no error', () => {
+    publicProfile = { profile: null, isLoading: false, error: false, retry: retryProfile };
+    renderAt('/profile/chef', null);
+    expect(screen.getByRole('heading', { name: 'User not found' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
   });
 });

@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-096 Another cook's profile (Organic 4a)
+
+- Open /profile/<uid> of another cook signed out, anonymous and verified, at 390x844 and 320px (no horizontal scroll): Back icon top left (goes back, or home on a deep link), blob avatar, heading-font name, full-width "Follow <name>" button. Check a very long display name.
+- Follow and Unfollow as verified: label flips to "Following" (secondary). Signed out and anonymous: the button opens "Sign up to follow <name>". Turn the network off and tap Follow: the error line shows under the button.
+- Four tiles (Originals, Branches, Followers, Following) fit at 320px and are not tappable. The views and favourites line is hidden when both are 0.
+- Started and Grew tabs: Started has recipes with no parent and "<n> branches" or "No branches yet"; Grew has recipes with a parent and the prompt in quotes, or "Branched" when there is none.
+- Another cook's Started tiles show "<n> branches" only when n is above 0 and never "No branches yet" (only that author's own recipes are fetched, so a root other people branched could be wrongly labelled). Originals and Branches show "–" until recipes load.
+- Loading skeleton, "User not found" (bad uid) and the terracotta load error with Try again (network off) all have the Back button.
+- Reviewer noted (med): when `getUserRecipes` fails the hook returns an empty list, so the public profile shows 0 and "Nothing here yet." with no error or retry. It needs an error flag in `useUserRecipes`; for /groom, the ticket did not cover it.
+- Reviewer noted (low): the test mock always returned `isLoading: false`, so the skeleton path was untested before this round (now covered).
+- Reviewer noted (low): the name heading is an h2 on a page with no h1, and the sign-up dialog title falls back to "this cook" while the button falls back to "Anonymous".
+
 ### RL-095 Own profile (You tab layout)
 
 - As a verified user, anonymous, signed out, and in a local-only build, at 390x844 and 320px (no horizontal scroll): identity row (blob avatar, heading-font name, "Cooking since <Month YYYY>" or "Guest · this device only"), Settings icon top right going to /settings.

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
@@ -8,7 +8,6 @@ import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
 import { useOnline } from '../hooks/useOnline';
 import { splitLibrary, type FeedRecipe, type FeedSource } from '../lib/library';
 import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
-import { TopBar } from '../components/layout/TopBar';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -24,48 +23,7 @@ import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { IconButton } from '../components/ui/IconButton';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { RecipeTileGrid } from '../components/profile/RecipeTileGrid';
-import { CloudOff, Pencil, RotateCw, Settings, UserRound } from '../components/ui/icons';
-
-/**
- * A stat, optionally tappable.
- *
- * Only tappable where there is something to show. Followers and following are
- * readable for the signed-in user's own profile; on someone else's the rules
- * deliberately keep their follow graph private, so those counts stay inert rather
- * than leading to a denied query.
- */
-function StatBox({
-  label,
-  value,
-  onClick,
-  expanded,
-}: {
-  label: string;
-  value: number;
-  onClick?: () => void;
-  expanded?: boolean;
-}) {
-  const body = (
-    <>
-      <p className="text-lg font-bold text-text-primary">{value}</p>
-      <p className="text-xs text-text-tertiary">{label}</p>
-    </>
-  );
-
-  if (!onClick) return <div className="flex-1 text-center">{body}</div>;
-
-  return (
-    <button
-      onClick={onClick}
-      aria-expanded={expanded}
-      className={`flex-1 text-center min-h-11 py-1 transition-colors hover:bg-surface-secondary ${
-        expanded ? 'bg-surface-secondary' : ''
-      }`}
-    >
-      {body}
-    </button>
-  );
-}
+import { ChevronLeft, CloudOff, Pencil, RotateCw, Settings, UserRound } from '../components/ui/icons';
 
 /** One row in the followers / following list. */
 function PersonRow({
@@ -98,7 +56,8 @@ function StatTile({
   expanded,
 }: {
   label: string;
-  value: number;
+  /** A string is a placeholder while the count is still loading. */
+  value: number | string;
   onClick?: () => void;
   expanded?: boolean;
 }) {
@@ -138,12 +97,15 @@ function RecipeTabs({
   promptById,
   loading,
   offline,
+  hideNoBranches = false,
 }: {
   created: FeedRecipe[];
   branched: FeedRecipe[];
   promptById: ReadonlyMap<string, string>;
   loading: boolean;
   offline: boolean;
+  /** Another cook's profile only knows their own recipes, so "No branches yet" could be false there. */
+  hideNoBranches?: boolean;
 }) {
   const [tab, setTab] = useState<(typeof TAB_OPTIONS)[number]['value']>('started');
   const tiles =
@@ -152,7 +114,12 @@ function RecipeTabs({
           id: r.id,
           emoji: r.emoji,
           title: r.title,
-          meta: r.childCount > 0 ? `${r.childCount} ${pluralize(r.childCount, 'branch', 'branches')}` : 'No branches yet',
+          meta:
+            r.childCount > 0
+              ? `${r.childCount} ${pluralize(r.childCount, 'branch', 'branches')}`
+              : hideNoBranches
+                ? ''
+                : 'No branches yet',
         }))
       : branched.map((r) => ({
           id: r.id,
@@ -335,8 +302,8 @@ function OwnProfile() {
 
           <div className="space-y-2">
             <div className="grid grid-cols-4 gap-2">
-              <StatTile label="Originals" value={tabs.created.length} />
-              <StatTile label="Branches" value={tabs.branched.length} />
+              <StatTile label="Originals" value={tabs.loading ? '–' : tabs.created.length} />
+              <StatTile label="Branches" value={tabs.loading ? '–' : tabs.branched.length} />
               <StatTile
                 label="Followers"
                 value={profile?.followerCount ?? 0}
@@ -440,6 +407,22 @@ function LocalRecipes() {
   );
 }
 
+/** Flat back button, shared by every public profile state. With no history (a deep link) it goes home. */
+function BackRow() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  return (
+    <div className="flex px-3 pt-2">
+      <IconButton
+        variant="flat"
+        label="Back"
+        icon={<ChevronLeft className="size-6" />}
+        onClick={() => (location.key === 'default' ? navigate('/') : navigate(-1))}
+      />
+    </div>
+  );
+}
+
 function PublicProfile({ uid }: { uid: string }) {
   const { user, isConfigured } = useAuth();
   const [showSignUp, setShowSignUp] = useState(false);
@@ -451,7 +434,6 @@ function PublicProfile({ uid }: { uid: string }) {
   } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
   const { isFollowing, toggleFollow, loading: followLoading, error: followError } = useFollow(uid);
-  const navigate = useNavigate();
 
   const isSelf = user?.uid === uid;
   // Following is a cloud write, so signed-out and anonymous visitors see the
@@ -461,11 +443,11 @@ function PublicProfile({ uid }: { uid: string }) {
   if (profileLoading) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar title="Profile" showBack />
-        <div className="p-4 space-y-4 max-w-lg mx-auto w-full">
-          <div className="flex flex-col items-center gap-3">
-            <Skeleton className="w-20 h-20 rounded-full" />
-            <Skeleton className="h-6 w-32" />
+        <BackRow />
+        <div className="px-[22px] space-y-4 max-w-lg mx-auto w-full">
+          <div className="flex items-center gap-4">
+            <Skeleton className="size-[84px] rounded-full" />
+            <Skeleton className="h-7 w-32" />
           </div>
           <Skeleton className="h-16" />
         </div>
@@ -478,7 +460,7 @@ function PublicProfile({ uid }: { uid: string }) {
   if (!profile && profileError) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar title="Couldn't load" showBack />
+        <BackRow />
         <div className="p-8 max-w-lg mx-auto w-full">
           <EmptyState
             tone="error"
@@ -500,7 +482,7 @@ function PublicProfile({ uid }: { uid: string }) {
   if (!profile) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar title="Profile" showBack />
+        <BackRow />
         <div className="p-8 max-w-lg mx-auto w-full">
           <EmptyState
             icon="🔍"
@@ -512,79 +494,77 @@ function PublicProfile({ uid }: { uid: string }) {
     );
   }
 
+  const name = profile.displayName ?? 'Anonymous';
+  const { created, branched } = splitLibrary(recipes, recipes, { uid, isConfigured: true });
+  const promptById = new Map(recipes.map((r) => [r.id, r.prompt ?? '']));
+
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar title={profile.displayName ?? 'Profile'} showBack />
+      <BackRow />
 
       <main className="flex-1 max-w-lg mx-auto w-full">
-        <div className="p-4 space-y-6">
-          {/* Avatar + Name + Follow */}
-          <div className="flex flex-col items-center space-y-3">
-            <Avatar
-              uid={uid}
-              name={profile.displayName}
-              size="xl"
-              photoType={profile.photoType}
-              photoEmoji={profile.photoEmoji}
-              photoBgColor={profile.photoBgColor}
-              photoURL={profile.photoURL}
-            />
-            <h2 className="text-xl font-bold text-text-primary">
-              {profile.displayName ?? 'Anonymous'}
+        <div className="space-y-5 px-[22px] pb-6">
+          <div className="flex items-center gap-4">
+            <EmojiBlob
+              size={84}
+              tint="bg-transparent"
+              className="shrink-0 overflow-hidden [&>div]:size-full! [&>div]:text-4xl! [&>div]:font-heading"
+            >
+              <Avatar
+                uid={uid}
+                name={profile.displayName}
+                size="xl"
+                photoType={profile.photoType}
+                photoEmoji={profile.photoEmoji}
+                photoBgColor={profile.photoBgColor}
+                photoURL={profile.photoURL}
+              />
+            </EmojiBlob>
+            <h2 className="min-w-0 flex-1 break-words font-heading text-[26px] leading-[1.1] text-text-primary">
+              {name}
             </h2>
+          </div>
 
-            {isConfigured && !isSelf && (
-              <Button
-                onClick={needsSignUp ? () => setShowSignUp(true) : toggleFollow}
-                disabled={followLoading}
-                variant={isFollowing ? 'secondary' : 'primary'}
-                className="px-6"
-              >
-                {isFollowing ? 'Following' : 'Follow'}
-              </Button>
-            )}
-            {followError && (
-              <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 text-center">
-                {followError}
+          {isConfigured && !isSelf && (
+            <Button
+              onClick={needsSignUp ? () => setShowSignUp(true) : toggleFollow}
+              disabled={followLoading}
+              variant={isFollowing ? 'secondary' : 'primary'}
+              fullWidth
+              className="h-[46px] text-[15px]"
+            >
+              <span className="min-w-0 truncate">{isFollowing ? 'Following' : `Follow ${name}`}</span>
+            </Button>
+          )}
+          {followError && (
+            <p role="alert" className="text-sm text-danger-700 text-center">
+              {followError}
+            </p>
+          )}
+
+          <div className="space-y-2">
+            <div className="grid grid-cols-4 gap-2">
+              <StatTile label="Originals" value={recipesLoading ? '–' : created.length} />
+              <StatTile label="Branches" value={recipesLoading ? '–' : branched.length} />
+              <StatTile label="Followers" value={profile.followerCount ?? 0} />
+              <StatTile label="Following" value={profile.followingCount ?? 0} />
+            </div>
+            {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
+              <p className="text-[13px] text-text-tertiary">
+                {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
+                {pluralize(stats.totalFavorites, 'favourite')}
               </p>
             )}
           </div>
 
-          {/* Stats */}
-          <div className="flex border border-border rounded-2xl overflow-hidden divide-x divide-border">
-            <StatBox label="recipes" value={recipes.length} />
-            <StatBox label="views" value={stats.totalViews} />
-            <StatBox label="favorites" value={stats.totalFavorites} />
-            <StatBox label="followers" value={profile.followerCount} />
-          </div>
-
-          {/* Recipes */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-text-primary">Recipes</h3>
-            {recipesLoading ? (
-              Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-20" />)
-            ) : recipes.length > 0 ? (
-              <div className="space-y-2">
-                {recipes.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => navigate(`/recipe/${r.id}`)}
-                    className="w-full text-left bg-surface rounded-xl border border-border p-3 hover:border-border-strong transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{r.emoji}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-text-primary truncate">{r.title}</p>
-                        <p className="text-xs text-text-tertiary mt-0.5 line-clamp-1">{r.description}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <EmptyState compact icon="🍳" title="No recipes yet" />
-            )}
-          </div>
+          <RecipeTabs
+            created={created}
+            branched={branched}
+            promptById={promptById}
+            loading={recipesLoading}
+            offline={false}
+            hideNoBranches
+          />
         </div>
       </main>
 
