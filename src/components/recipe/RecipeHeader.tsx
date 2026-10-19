@@ -23,6 +23,8 @@ interface RecipeHeaderProps {
   onShare: () => void;
   onDelete: () => void;
   onSuggest: () => void;
+  /** In the wide-screen pane (RL-116): the pane pads the page, and sizes follow the pane's width, not the viewport. */
+  inPane?: boolean;
 }
 
 function SheetRow({ icon, label, onClick, disabled, danger }: {
@@ -58,6 +60,9 @@ export function RecipeHeader(props: RecipeHeaderProps) {
   const controlsRef = useRef<HTMLDivElement>(null);
   const isBranch = recipe.parentId != null;
   const variant = isBranch ? 'floating' : 'flat';
+  // Wide sizes from lg alone; in the pane only once it is 36rem wide (at 1024px it is about 384px).
+  const titleSize = props.inPane ? '@xl:text-[44px]' : 'lg:text-[44px]';
+  const titlePad = props.inPane ? '' : 'px-[22px]';
 
   // Actions close the sheet first, then run; a dialog they open takes focus itself.
   const act = (fn: () => void) => () => {
@@ -76,7 +81,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
       className={
         isBranch
           ? 'absolute left-[14px] right-[14px] z-10 flex gap-2 top-[calc(12px+env(safe-area-inset-top))]'
-          : 'flex gap-0.5 px-3 pt-3'
+          : `flex gap-0.5 pt-3 ${props.inPane ? '' : 'px-3'}`
       }
     >
       <IconButton variant={variant} label="Go back" onClick={onBack} icon={<ChevronLeft className="h-5 w-5" />} />
@@ -104,7 +109,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
   );
 
   return (
-    <header className="mx-auto max-w-lg">
+    <header className="mx-auto max-w-lg lg:max-w-[720px]">
       {isBranch ? (
         <>
           <div className="relative flex h-[230px] justify-center bg-accent-200">
@@ -113,8 +118,8 @@ export function RecipeHeader(props: RecipeHeaderProps) {
               <span style={{ fontSize: 78 }}>{recipe.emoji}</span>
             </EmojiBlob>
           </div>
-          <div className="px-[22px]">
-            <h1 className="mt-[14px] break-words font-heading text-[32px] leading-[1.04]">{recipe.title}</h1>
+          <div className={titlePad}>
+            <h1 className={`mt-[14px] break-words font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
             {familyRoot && (
               <p className="mt-1.5 break-words text-[16px] font-bold text-accent-2-700">
                 {familyRoot.emoji} {familyRoot.title} variation
@@ -125,10 +130,15 @@ export function RecipeHeader(props: RecipeHeaderProps) {
       ) : (
         <>
           {controls}
-          <div className="px-[22px] pt-2">
+          <div className={`${titlePad} pt-2`}>
             <div className="mt-1 flex items-start gap-4">
-              <h1 className="min-w-0 flex-1 break-words font-heading text-[34px] leading-[1.04]">{recipe.title}</h1>
-              <EmojiBlob size={76} emoji={recipe.emoji} />
+              <h1 className={`min-w-0 flex-1 break-words font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+              {/* 96px when wide (RL-116); !important because the size is an inline style. */}
+              <EmojiBlob
+                size={76}
+                emoji={recipe.emoji}
+                className={props.inPane ? '@xl:!size-24 @xl:!text-[48px]' : 'lg:!size-24 lg:!text-[48px]'}
+              />
             </div>
             <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">
               {recipe.description}

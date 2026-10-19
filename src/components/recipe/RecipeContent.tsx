@@ -74,6 +74,8 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
           amounts are the only thing it changes. Hidden in the compact preview,
           where the recipe is a proposal rather than something being cooked from;
           ticks are likewise full-view only. */}
+      {/* Side by side only at lg in a column of 36rem or more (the recipe page's @container, RL-116). */}
+      <div className={compact ? 'space-y-5' : 'space-y-5 lg:@xl:grid lg:@xl:grid-cols-[1fr_1.4fr] lg:@xl:gap-9 lg:@xl:space-y-0 [&>*]:min-w-0'}>
       {ingredients ? (
         <IngredientList
           ingredients={scaled.ingredients}
@@ -98,6 +100,7 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
       ) : (
         <MissingSection name="instructions" />
       )}
+      </div>
 
       {/* Nutrition is per serving, so scaling leaves the figures alone. Renders
           nothing without estimates, and stays collapsed (keyed per recipe). */}

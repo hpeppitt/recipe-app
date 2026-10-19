@@ -28,6 +28,7 @@ vi.mock('../hooks/useFollow', () => ({
 }));
 
 import { ExplorePage } from './ExplorePage';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { clearBranchingThisWeekCache } from '../hooks/useBranchingThisWeek';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
@@ -73,6 +74,27 @@ describe('ExplorePage search', () => {
     renderWithProviders(<ExplorePage />);
     expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('href', '/search');
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+  });
+});
+
+describe('ExplorePage beside a recipe (RL-116)', () => {
+  it('demotes its heading to h2 and marks the open recipe current', async () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'r1', title: 'Soup' }), cloud({ id: 'r2', title: 'Stew' })], cursor: null, hasMore: false });
+    renderWithProviders(
+      <RecipePaneContext.Provider value="r1">
+        <ExplorePage />
+      </RecipePaneContext.Provider>
+    );
+    expect(await screen.findByRole('link', { name: 'Soup' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('link', { name: 'Stew' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('heading', { level: 2, name: "What's growing" })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+  });
+
+  it('marks nothing current without a pane', async () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'r1', title: 'Soup' })], cursor: null, hasMore: false });
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('link', { name: 'Soup' })).not.toHaveAttribute('aria-current');
   });
 });
 

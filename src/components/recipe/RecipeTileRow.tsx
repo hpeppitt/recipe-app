@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { Link } from 'react-router-dom';
+import { listOriginState } from '../../lib/paneMode';
 import { UserPill } from '../ui/UserPill';
 import { GitBranch } from '../ui/icons';
 import { formatTime, pluralize } from '../../lib/utils';
@@ -48,6 +49,7 @@ function Tile({ recipe, tint }: { recipe: TileRecipe; tint: string }) {
     <li className="relative flex w-[200px] shrink-0 snap-start flex-col gap-2">
       <Link
         to={`/recipe/${recipe.id}`}
+        state={listOriginState('/')}
         // "Open" keeps it distinct from the list row's link to the same recipe.
         aria-label={`Open ${title}`}
         aria-describedby={week > 0 ? weekId : undefined}

@@ -25,6 +25,7 @@ const deleteRecipeTree = vi.fn();
 const getSubtreeIds = vi.fn();
 const navigateSpy = vi.fn();
 const submitMock = vi.fn();
+const recipeIds: (string | undefined)[] = [];
 
 vi.mock('../services/firestore', () => ({
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
@@ -52,7 +53,10 @@ vi.mock('../services/analytics', () => ({
   trackRecipeDeleted: vi.fn(),
 }));
 vi.mock('../hooks/useRecipe', () => ({
-  useRecipe: () => ({ recipe, source, isLoading: false, cloudError: false, retry: () => {} }),
+  useRecipe: (id?: string) => {
+    recipeIds.push(id);
+    return { recipe, source, isLoading: false, cloudError: false, retry: () => {} };
+  },
   useRecipeLineage: () => ({ children: [], ancestors, descendantCount: 0, recipes: [], isLoading: false }),
 }));
 vi.mock('../hooks/useFavorites', () => ({
@@ -251,6 +255,50 @@ describe('RecipeDetailPage Delete', () => {
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/', { replace: true }));
     expect(deletePublishedRecipeTree).not.toHaveBeenCalled();
     expect(calls).toEqual(['local']);
+  });
+});
+
+describe('RecipeDetailPage in the wide-screen pane (RL-116)', () => {
+  it('reads the recipe from its id prop when rendered outside its own route', () => {
+    recipeIds.length = 0;
+    renderWithProviders(<RecipeDetailPage id="r1" />, { route: '/' });
+    expect(recipeIds.at(-1)).toBe('r1');
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Soup']);
+  });
+
+  it('drops its own main landmark, pads once and wraps the footer in the pane', () => {
+    renderWithProviders(<RecipeDetailPage id="r1" />, { route: '/' });
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    const h1 = screen.getByRole('heading', { level: 1 });
+    // Wide sizes follow the pane's container, not the viewport, so a 384px pane keeps mobile sizes.
+    expect(h1).toHaveClass('@xl:text-[44px]');
+    expect(h1).not.toHaveClass('lg:text-[44px]');
+    expect(h1.parentElement?.parentElement).not.toHaveClass('px-[22px]');
+    expect(screen.getByRole('button', { name: 'Branch this recipe' }).parentElement).toHaveClass('flex-wrap');
+  });
+
+  it('keeps main, the viewport sizes and the unwrapped footer on its own route', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1' }
+    );
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveClass('lg:text-[44px]');
+    expect(screen.getByRole('button', { name: 'Branch this recipe' }).parentElement).not.toHaveClass('flex-wrap');
+  });
+
+  it('reports the shown title for the announcement', () => {
+    const onShown = vi.fn();
+    renderWithProviders(<RecipeDetailPage id="r1" onShown={onShown} />, { route: '/' });
+    expect(onShown).toHaveBeenCalledWith('Soup');
+  });
+
+  it('offers Family in the footer, which opens the tree', () => {
+    renderWithProviders(<RecipeDetailPage id="r1" />, { route: '/' });
+    fireEvent.click(screen.getByRole('button', { name: 'Family' }));
+    expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/tree');
   });
 });
 

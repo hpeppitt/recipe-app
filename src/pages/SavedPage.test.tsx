@@ -9,6 +9,7 @@ const getPublished = vi.fn(async (..._a: unknown[]): Promise<unknown> => null);
 vi.mock('../services/firestore', () => ({ getPublishedRecipe: (...a: unknown[]) => getPublished(...a) }));
 
 import { SavedPage } from './SavedPage';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { clearSavedFavoritesCache } from '../hooks/useSavedFavorites';
 
 const other = { uid: 'chef', displayName: 'Chef Ann' };
@@ -36,6 +37,22 @@ describe('SavedPage', () => {
     expect(link.querySelectorAll('a,button')).toHaveLength(0);
     expect(link).toHaveAccessibleDescription(/Chef Ann/);
     expect(screen.queryByText('My Stew')).not.toBeInTheDocument();
+  });
+
+  it('beside a recipe, demotes its heading to h2 and marks the open recipe current (RL-116)', async () => {
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'a', title: 'Ann Soup', createdBy: other }),
+      makeRecipe({ id: 'b', title: 'Ann Stew', createdBy: other }),
+    ]);
+    renderWithProviders(
+      <RecipePaneContext.Provider value="a">
+        <SavedPage />
+      </RecipePaneContext.Provider>
+    );
+    expect(await screen.findByRole('link', { name: 'Ann Soup' })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('link', { name: 'Ann Stew' })).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('heading', { level: 2, name: 'Saved' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 
   it('shows the empty state with an action', async () => {

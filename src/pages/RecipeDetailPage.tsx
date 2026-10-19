@@ -22,7 +22,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
-import { GitBranchPlus, MessageCircle, Pencil } from '../components/ui/icons';
+import { GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/icons';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
@@ -44,10 +44,20 @@ const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 const CLOUD_DELETE_TIMEOUT_MS = 10000;
 
 const footerButton =
-  'inline-flex h-[52px] min-w-0 items-center justify-center gap-1.5 rounded-full px-1.5 font-heading text-[15px] whitespace-nowrap transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
+  'inline-flex h-[52px] lg:h-12 min-w-0 items-center justify-center gap-1.5 rounded-full px-1.5 font-heading text-[15px] whitespace-nowrap transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 
-export function RecipeDetailPage() {
-  const { id } = useParams<{ id: string }>();
+interface PaneProps {
+  /** Passed when the page renders in the wide-screen pane, outside its own route (RL-116). */
+  id?: string;
+  /** Pane only: called with the title each time a recipe is shown, for the shell's announcement. */
+  onShown?: (title: string) => void;
+}
+
+export function RecipeDetailPage({ id: paneId, onShown }: PaneProps = {}) {
+  const params = useParams<{ id: string }>();
+  const id = paneId ?? params.id;
+  const inPane = paneId !== undefined;
+  const Main = inPane ? 'div' : 'main';
   const navigate = useNavigate();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
@@ -363,6 +373,12 @@ export function RecipeDetailPage() {
     });
   };
 
+  // Keyed on the id so a re-render does not re-announce; waits for the title to load.
+  const shownTitle = recipe?.id === id ? recipe?.title : undefined;
+  useEffect(() => {
+    if (shownTitle !== undefined) onShown?.(shownTitle);
+  }, [id, shownTitle, onShown]);
+
   const viewCountedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!id || !isFirebaseConfigured) return;
@@ -483,8 +499,10 @@ export function RecipeDetailPage() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col bg-surface">
+    // In the pane one padding wraps the page, 36px 48px once the pane is 36rem wide (its @container is in AppShell).
+    <div className={`min-h-dvh flex flex-col bg-surface${inPane ? ' px-4 pt-4 @xl:px-12 @xl:pt-9' : ''}`}>
       <RecipeHeader
+        inPane={inPane}
         recipe={recipe}
         familyRoot={ancestors[0]}
         onBack={handleBack}
@@ -508,13 +526,15 @@ export function RecipeDetailPage() {
       />
 
       {recipe.depth > 0 && (
-        <div className="mx-auto w-full max-w-lg">
+        <div className={`mx-auto w-full max-w-lg lg:max-w-[720px]${inPane ? ' [&>*]:mx-0' : ''}`}>
           <LineageStrip recipe={recipe} ancestors={ancestors} />
         </div>
       )}
 
-      <main className="flex-1 max-w-lg mx-auto w-full">
-        <div className="p-4 space-y-6">
+      {/* A size container, so ingredients and method go side by side only when the column is wide enough.
+          A div in the pane: the shell already has the page's main landmark. */}
+      <Main className="@container flex-1 max-w-lg lg:max-w-[720px] mx-auto w-full">
+        <div className={`${inPane ? 'py-4' : 'p-4'} space-y-6`}>
           {/* Above the recipe body: it explains what the
               Branch this recipe button at the bottom of this page will do, so it
               needs to be read before the user gets there. */}
@@ -585,13 +605,23 @@ export function RecipeDetailPage() {
           {recipe && <BranchCarousel recipe={recipe} recipes={family} isLoading={treeLoading} />}
 
         </div>
-      </main>
+      </Main>
 
       {/* Not sticky. Branching or suggesting is a before/after action, and pinning
           it cost ~72px of the one screen people read while their hands are busy.
           At the end of the recipe is also where the decision actually happens. */}
-      <div className="bg-surface px-5 pt-3 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
-        <div className="max-w-lg mx-auto flex gap-2.5">
+      <div className={`bg-surface ${inPane ? '' : 'px-5 '}pt-3 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]`}>
+        {/* Wraps in the pane, where three nowrap buttons do not fit a 384px column. */}
+        <div className={`max-w-lg lg:max-w-[720px] mx-auto flex gap-2.5${inPane ? ' flex-wrap' : ''}`}>
+          {/* The inline wide-screen row (RL-116); below lg the family stays in the header and More sheet. */}
+          <button
+            type="button"
+            onClick={() => navigate(`/recipe/${recipe.id}/tree`)}
+            className={`${footerButton} hidden lg:inline-flex lg:flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
+          >
+            <Network className="h-4 w-4 shrink-0" />
+            Family
+          </button>
           {/* Owner: Edit. Someone else's cloud recipe: Suggest. Flex basis comes
               from content (auto) and free space is split 1:2, so a wide heading
               font cannot be squeezed to a fixed 90px/180px at 320px. The Suggest

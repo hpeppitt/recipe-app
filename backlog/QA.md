@@ -18,6 +18,21 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-116 Explore and Saved beside the recipe from 1024px
+
+- At 1280x800 in desktop Chrome and Safari: open a recipe from Explore (a row and a Branching tile) and from Saved. The list stays on the left at 420px with the open row tinted and ringed; the recipe sits on the right with its own scroll; the URL is `/recipe/<id>`.
+- Scroll the list down, select several recipes in turn: the list does not jump or reload, and each new recipe starts at its top. Browser Back steps back through the recipes, then to the list alone at the same scroll; Forward reopens them beside the list.
+- Reload on a recipe opened from a list: the two panes stay (the browser keeps the history state). Paste its URL in a new tab or open a shared link: the recipe shows alone, centred, with no list.
+- Resize across 1024px on a recipe opened from the list: below it the recipe shows full screen as before, above it the list comes back; nothing crashes.
+- At 390px: Explore, Saved and a recipe look and behave exactly as before (no list beside the recipe, no Family button, ingredients above the method).
+- Check the recipe pane at 1024px (narrow: mobile title and emoji sizes, footer buttons wrap, nothing scrolls sideways) and 1440px (44px title, 96px emoji, 36px 48px padding, ingredients beside the method), and the Family, Edit or Suggest, and Branch buttons in the footer. With VoiceOver, choosing a row reads "Showing <title>" and focus stays on the row.
+- Reviewer noted: the selected row uses `bg-accent-100` with themed text, which would be unreadable if the dark theme were enabled; RL-117 must remap or pair it.
+- Reviewer noted: the share, sent and saved toasts centre on the viewport, not the pane, and ignore the 220px rail.
+- Reviewer noted: the consent banner is in flow above an `h-dvh` pane, so the pane footer sits below the fold while the banner shows.
+- Reviewer noted: `@container` on the recipe page's main column contains fixed descendants; a trap for future code that puts a fixed element inside it.
+- Reviewer noted: the pane's Back icon steps through the recipes viewed (history push), and links from inside a recipe drop the pane; both logged in DECISIONS.md.
+- Reviewer noted: after a recipe fails in the pane, choosing another row recovers it; the error's "Back to library" still goes to `/`.
+
 ### RL-115 Left rail from 1024px
 
 - At 1280x800 and 1024x768 the 220px rail shows with the Recipe Lab wordmark, pill items, the active item highlighted, and the Activity badge (verified email) after the label. Create is a plain item, no terracotta circle.

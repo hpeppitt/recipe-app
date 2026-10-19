@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { matchPath, useLocation } from 'react-router-dom';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { paneMode, WIDE_QUERY } from '../../lib/paneMode';
 import { registerSW } from 'virtual:pwa-register';
 import { Button } from '../ui/Button';
 
@@ -16,8 +18,10 @@ let updateSW: ((reload?: boolean) => Promise<void>) | undefined;
  */
 export function UpdatePrompt() {
   const [needRefresh, setNeedRefresh] = useState(false);
-  const { pathname } = useLocation();
-  const beside = SHELL_PATHS.some((p) => matchPath(p, pathname));
+  const { pathname, state } = useLocation();
+  const wide = useMediaQuery(WIDE_QUERY);
+  // A recipe beside its list (RL-116) is in the shell too, so the prompt keeps clear of the rail and pane footer.
+  const beside = SHELL_PATHS.some((p) => matchPath(p, pathname)) || paneMode(pathname, state, wide) !== null;
 
   useEffect(() => {
     updateSW ??= registerSW({ onNeedRefresh: () => setNeedRefresh(true) });

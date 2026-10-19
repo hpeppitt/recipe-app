@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/layout/AppShell';
 import { ExplorePage } from './pages/ExplorePage';
@@ -9,6 +9,9 @@ import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { TermsGate } from './components/auth/TermsUpdateDialog';
 import { useTheme } from './hooks/useTheme';
 import { useOwnRecipesSync } from './hooks/useOwnRecipesSync';
+import { useMediaQuery } from './hooks/useMediaQuery';
+import { paneMode, WIDE_QUERY } from './lib/paneMode';
+import { RecipePaneContext } from './contexts/RecipePaneContext';
 
 // Explore stays eager so first paint is unchanged; every other page is its own chunk.
 const RecipeChatPage = lazy(() => import('./pages/RecipeChatPage').then(m => ({ default: m.RecipeChatPage })));
@@ -32,6 +35,52 @@ function OwnRecipesSync() {
   return null;
 }
 
+/**
+ * The route table. On a wide screen a recipe opened from Explore or Saved renders the
+ * shell against the list's location, so the list stays mounted and AppShell shows the
+ * recipe beside it (RL-116). Everywhere else, and always below lg, it is the plain table.
+ */
+export function AppRoutes() {
+  const location = useLocation();
+  const wide = useMediaQuery(WIDE_QUERY);
+  const pane = paneMode(location.pathname, location.state, wide);
+  return (
+    <RecipePaneContext.Provider value={pane?.recipeId ?? null}>
+      <Routes location={pane ? { ...location, pathname: pane.listPath } : location}>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<ExplorePage />} />
+          {/* Search (RL-124) keeps the Explore tab highlighted, so it stays in the shell. */}
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/saved" element={<SavedPage />} />
+          <Route path="/new" element={<CreatePage />} />
+          <Route path="/activity" element={<ActivityPage />} />
+          {/* Own profile is a top-level destination now that it has a nav tab;
+              without this the tab would lead somewhere with no way back to it.
+              Public profiles stay outside the shell: they are a detail view
+              reached from a recipe, and they carry their own back button. */}
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
+        {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/create" element={<RecipeChatPage />} />
+        <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+        <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
+        <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+        <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
+        {/* The reply thread on one suggestion (RL-106), with its own Back button. */}
+        <Route path="/recipe/:id/suggestion/:suggestionId" element={<SuggestionThreadPage />} />
+        <Route path="/terms" element={<LegalPage doc="terms" />} />
+        <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+        <Route path="/cookies" element={<LegalPage doc="cookies" />} />
+        <Route path="/shared" element={<SharedRecipePage />} />
+        <Route path="/shared/:id" element={<SharedRecipePage />} />
+        <Route path="/profile/:uid" element={<ProfilePage />} />
+      </Routes>
+    </RecipePaneContext.Provider>
+  );
+}
+
 export default function App() {
   useTheme();
 
@@ -40,37 +89,7 @@ export default function App() {
       <BrowserRouter>
         <RouteErrorBoundary>
         <Suspense fallback={<PageFallback />}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<ExplorePage />} />
-            {/* Search (RL-124) keeps the Explore tab highlighted, so it stays in the shell. */}
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/saved" element={<SavedPage />} />
-            <Route path="/new" element={<CreatePage />} />
-            <Route path="/activity" element={<ActivityPage />} />
-            {/* Own profile is a top-level destination now that it has a nav tab;
-                without this the tab would lead somewhere with no way back to it.
-                Public profiles stay outside the shell — they are a detail view
-                reached from a recipe, and they carry their own back button. */}
-            <Route path="/profile" element={<ProfilePage />} />
-          </Route>
-          {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/create" element={<RecipeChatPage />} />
-          <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
-          <Route path="/recipe/:id" element={<RecipeDetailPage />} />
-          <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
-          <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
-          <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
-          {/* The reply thread on one suggestion (RL-106), with its own Back button. */}
-          <Route path="/recipe/:id/suggestion/:suggestionId" element={<SuggestionThreadPage />} />
-          <Route path="/terms" element={<LegalPage doc="terms" />} />
-          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-          <Route path="/cookies" element={<LegalPage doc="cookies" />} />
-          <Route path="/shared" element={<SharedRecipePage />} />
-          <Route path="/shared/:id" element={<SharedRecipePage />} />
-          <Route path="/profile/:uid" element={<ProfilePage />} />
-        </Routes>
+        <AppRoutes />
         </Suspense>
         </RouteErrorBoundary>
         <UpdatePrompt />
