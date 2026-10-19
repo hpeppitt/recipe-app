@@ -11,6 +11,8 @@ import { scaleRecipe } from '../../lib/scale';
 interface RecipeContentProps {
   recipe: Recipe;
   compact?: boolean;
+  /** Omit the emoji, title and description; the recipe page renders them in RecipeHeader. */
+  hideHeader?: boolean;
 }
 
 /**
@@ -27,7 +29,7 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
@@ -44,17 +46,19 @@ function RecipeContentBody({ recipe, compact = false }: RecipeContentProps) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <div className="flex items-start gap-3">
-          <span className={compact ? 'text-2xl' : 'text-4xl'}>{recipe.emoji}</span>
-          <div>
-            <h2 className={compact ? 'text-lg font-semibold' : 'text-xl font-bold'}>
-              {recipe.title}
-            </h2>
-            <p className="text-sm text-text-secondary mt-1">{recipe.description}</p>
+      {!hideHeader && (
+        <div>
+          <div className="flex items-start gap-3">
+            <span className={compact ? 'text-2xl' : 'text-4xl'}>{recipe.emoji}</span>
+            <div>
+              <h2 className={compact ? 'text-lg font-semibold' : 'text-xl font-bold'}>
+                {recipe.title}
+              </h2>
+              <p className="text-sm text-text-secondary mt-1">{recipe.description}</p>
+            </div>
           </div>
         </div>
-      </div>
+        )}
 
       <MetadataPills
         prepTime={recipe.prepTime}

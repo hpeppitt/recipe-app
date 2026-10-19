@@ -18,6 +18,20 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-100 The recipe page header follows 2a and 2b, with the More menu as a sheet
+
+- Open an original recipe at 390x844 and 320px: title in the heading font beside a 76px emoji blob, description under it, buttons (back, version tree, heart, More) in a flat row. A very long title wraps and does not push the blob off screen.
+- Open a 2-deep branch at 390x844 and 320px: a 230px peach hero with a large emoji, the four buttons floating over it, the title, and a bold green "<root emoji> <root title> variation" label. The label appears only once the family has loaded (no wrong label while it loads). The description is not shown.
+- On an iPhone with a notch (or PWA mode), the floating buttons sit below the notch, readable over the peach hero.
+- More opens a bottom sheet. As owner: Edit recipe, Delete, See the family, Copy share link. As a non-owner on someone else's cloud recipe: Suggest a change, See the family, Copy share link. Each does what the old menu item did (Edit opens the editor, Delete asks to confirm, Copy share link shows "Link copied" or the manual-copy box, See the family opens the tree). The Version tree button in the header also opens the tree.
+- Close the sheet with Escape and by tapping outside: focus returns to the More button. The pending-suggestions count badge still shows on More, and a screen reader reads "More options, N suggestions pending".
+- Signed out, tap the heart: the sign-in prompt opens. Back still returns to where you came from.
+- Reviewer noted (med): index.html has no viewport-fit=cover, so env(safe-area-inset-top) is 0 and the floating branch buttons can sit under the status bar or notch in an installed PWA / standalone mode. Decide whether to add viewport-fit=cover (it needs safe-area handling elsewhere and changes the whole app, so it was not done here) and check in standalone mode.
+- Reviewer noted (med, author to confirm): the recipe header is no longer sticky, so back, heart and More scroll away on a long recipe. The ticket spec does not ask for sticky; system back still works. The footer "Suggest a Change" button remains until RL-104.
+- Reviewer noted (low): removing RecipeContent's h2 leaves a heading jump from h1 to h3 on the recipe page until later tickets add section headings.
+- Reviewer noted (low): EllipsisVertical in ui/icons.tsx is now unused.
+- Reviewer noted (low): 320px wrapping is untested (jsdom).
+
 ### RL-099 Explore opens with a row of newest-recipe tiles
 
 - Swipe the row sideways on iOS Safari and Android Chrome: tiles snap to the left edge, no scrollbar shows, and the page itself does not scroll sideways.
