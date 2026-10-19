@@ -375,7 +375,9 @@ describe('ExplorePage Branching fast this week', () => {
   it('shows neither row while the query is in flight, then falls back to Newest when it fails', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
     let reject!: (e: Error) => void;
-    getRecent.mockReturnValue(new Promise((_, rj) => (reject = rj)));
+    const inFlight = new Promise((_, rj) => (reject = rj));
+    inFlight.catch(() => {}); // mark handled: the hook may attach its handler after reject fires on a slow runner
+    getRecent.mockReturnValue(inFlight);
     renderWithProviders(<ExplorePage />);
     await screen.findByRole('link', { name: 'Alpha' });
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
