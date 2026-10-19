@@ -8,7 +8,7 @@ import { Bell, Bookmark, Compass, Plus, UserRound } from '../ui/icons';
 const tabs = [
   { to: '/', label: 'Explore', icon: Compass },
   { to: '/saved', label: 'Saved', icon: Bookmark },
-  { to: '/create', label: 'Create', icon: Plus },
+  { to: '/new', label: 'Create', icon: Plus },
   { to: '/activity', label: 'Activity', icon: Bell },
   { to: '/profile', label: 'You', icon: UserRound },
 ];
@@ -30,7 +30,7 @@ export function BottomNav() {
     >
       <div className="flex items-center h-12 max-w-lg mx-auto">
         {tabs.map(({ to, label, icon: Icon }) => {
-          const create = to === '/create';
+          const create = to === '/new';
           const badge = to === '/activity' && showBadge;
           const isActive = isCurrent(to);
           return (
@@ -41,8 +41,7 @@ export function BottomNav() {
               aria-label={badge ? `${label}, ${unreadCount} unread` : undefined}
               className={cn(
                 'flex-1 min-w-0 min-h-11 flex flex-col items-center justify-center gap-0.5 text-[11px] leading-[14px] font-semibold',
-                // Create opens the chat full screen, so it never shows as the current tab.
-                isActive && !create ? 'text-accent-700' : 'text-text-tertiary'
+                isActive ? 'text-accent-700' : 'text-text-tertiary'
               )}
             >
               <span

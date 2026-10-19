@@ -40,7 +40,7 @@ describe('BottomNav', () => {
   it('renders the five slots in order with their names and hrefs', () => {
     renderWithProviders(<BottomNav />);
     const links = screen.getAllByRole('link');
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/', '/saved', '/create', '/activity', '/profile']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/', '/saved', '/new', '/activity', '/profile']);
     for (const name of ['Explore', 'Saved', 'Create', 'Activity', 'You']) {
       expect(screen.getByRole('link', { name })).toBeTruthy();
     }
@@ -53,6 +53,7 @@ describe('BottomNav', () => {
     ['/search?q=walnut', 'Explore'],
     ['/saved', 'Saved'],
     ['/saved/', 'Saved'],
+    ['/new', 'Create'],
     ['/activity', 'Activity'],
     ['/profile', 'You'],
   ])('marks only the %s tab as the current page', (route, name) => {
@@ -65,6 +66,28 @@ describe('BottomNav', () => {
   it('marks no tab on a path nested under one', () => {
     renderWithProviders(<BottomNav />, { route: '/profile/ann' });
     expect(screen.getAllByRole('link').filter((a) => a.getAttribute('aria-current') === 'page')).toEqual([]);
+  });
+
+  it('gives only Create the 44px accent circle, current or not', () => {
+    for (const route of ['/', '/new']) {
+      const { unmount } = renderWithProviders(<BottomNav />, { route });
+      for (const a of screen.getAllByRole('link')) {
+        const circle = a.firstElementChild!.className;
+        if (a.getAttribute('href') === '/new') {
+          expect(circle).toContain('bg-accent');
+          expect(circle).toContain('w-11 h-11');
+        } else {
+          expect(circle).not.toContain('bg-accent');
+          expect(circle).toContain('w-[30px] h-[30px]');
+        }
+      }
+      unmount();
+    }
+  });
+
+  it('turns the Create label accent when current', () => {
+    renderWithProviders(<BottomNav />, { route: '/new' });
+    expect(screen.getByRole('link', { name: 'Create' }).className).toContain('text-accent-700');
   });
 
   it('does not mark Explore on another path', () => {

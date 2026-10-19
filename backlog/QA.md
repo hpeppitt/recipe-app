@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-125 The Create tab sentence builder
+
+- At 390x844 and 320px: the Create tab opens the sentence "I want something quick with chickpeas for two." and the nav shows Create active (terracotta label).
+- Tap each word through all three options and back to the first; the sentence wraps cleanly at 320px and the green circle stays clipped in the top right.
+- Write it opens the chat with the built text (for example "Something one-pan with salmon for a crowd") in the composer, unsent; as a verified user, send it and a recipe comes back. Signed out or anonymous, the chat shows the sign-up screen as before.
+- Describe it my own way opens Search with the keyboard up.
+- VoiceOver: each word reads as a button with the hint "Tap the underlined words"; after a tap the new sentence is announced. Tab to each word and check the focus ring.
+- RL-097's check "Create opens the chat full screen with no bar" now reads "Create opens the sentence builder, with the bar".
+- With the cookie consent banner showing (fresh browser profile), open Create: Write it and Describe it my own way stay above the nav without scrolling, on a solid background, and the sentence scrolls under them if it must.
+- The word buttons have 4px of extra tap height above and below; check the underline and focus ring still look right and lines do not spread apart.
+- Reviewer noted (low): the app is light only (RL-065), so the page has no `dark:` classes. If the dark theme is ever re-enabled, the decorative green circle (`bg-accent-2-200`) and the `text-accent-700` words need themed tokens.
+
 ### RL-124 The /search screen
 
 - At 390x844 and 320px, signed out and as a verified user: Explore's Search opens `/search` with the keyboard up. Typing an ingredient of a known recipe (for example "walnut") finds it; a branch shows "<original> variation" in green under its title.
@@ -397,7 +409,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-097 Five-slot bottom nav
 
 - On iOS Safari and Android Chrome at 390x844, and at 320px wide: the bar shows Explore, Saved, a raised terracotta Create circle, Activity and You, sits above the home indicator, and nothing on Explore, Saved, Activity or You is hidden behind it when scrolled to the bottom.
-- Each tab opens its page and only that tab turns terracotta (Explore only on /). Create opens the chat full screen with no bar.
+- Each tab opens its page and only that tab turns terracotta (Explore only on /). Create opens the chat full screen with no bar. (Superseded by RL-125: Create opens the sentence builder at `/new`, with the bar, and turns terracotta there.)
 - Signed in with a verified email and an unread notification: the Activity badge shows the count, and clears after Mark all read on Activity. No badge signed out, anonymous or unverified (even with unread items), or in a local-only build. With a screen reader the link reads "Activity, 3 unread".
 - Settings opens from the gear on You and Back returns to You. Settings has no bar now; check its last row (Sign out) clears the home indicator.
 - Tab with a keyboard: focus moves through the bar left to right.
@@ -406,7 +418,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): the always-mounted fixed role=status `UpdatePrompt` wrapper holds an 8px strip that can eat taps; `pointer-events-none` on the wrapper and `pointer-events-auto` on the card would fix it (pre-existing).
 - Reviewer noted (low): the nav links have no focus-visible style beyond the browser default.
 - Reviewer noted (low): `useNotifications` is now subscribed up to three times on / (nav, library bell, Activity page) until RL-098 removes the bell; a shared context would fix it.
-- Reviewer noted (low): nothing asserts Create is never `aria-current`.
+- Reviewer noted (low): nothing asserts Create is never `aria-current`. (Superseded by RL-125: Create is now current on `/new`, and that is tested.)
 
 ### RL-096 Another cook's profile (Organic 4a)
 
