@@ -47,6 +47,13 @@ describe('BottomNav', () => {
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
+  it('has one nav with the wordmark as plain text, not a link', () => {
+    renderWithProviders(<BottomNav />);
+    expect(screen.getAllByRole('navigation')).toHaveLength(1);
+    expect(screen.getByText('Recipe Lab').closest('a')).toBeNull();
+    expect(screen.getAllByRole('link')).toHaveLength(5);
+  });
+
   it.each([
     ['/', 'Explore'],
     ['/search', 'Explore'],

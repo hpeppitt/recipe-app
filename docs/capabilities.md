@@ -122,8 +122,8 @@ except view counts and error reports); **appcheck** additionally needs
 | `/privacy` | LegalPage | open, no sign-in needed; lazy, outside AppShell with its own back button; DRAFT pending RL-046 |
 | `/cookies` | LegalPage | open, no sign-in needed; lazy, outside AppShell with its own back button; DRAFT pending RL-046 |
 
-`/`, `/search`, `/saved`, `/new`, `/activity` and `/profile` render inside `AppShell`, above the five-slot bottom nav
+`/`, `/search`, `/saved`, `/new`, `/activity` and `/profile` render inside `AppShell`, above the five-slot nav (bottom bar below 1024px, left rail from 1024px)
 (RL-097): Explore `/`, Saved `/saved`, a raised terracotta Create circle linking to `/new` (RL-125),
 Activity `/activity` with an unread badge (verified email with Firebase only, "99+" above 99, link
 named "Activity, 3 unread"), and You `/profile`. Settings is not in the nav. The rest are detail
-views carrying their own back affordance; `/create` opens full screen with no nav.
+views carrying their own back affordance. From 1024px the bar becomes a 220px left rail with the Recipe Lab wordmark and pill items, Create as a normal item (RL-115); `/create` opens full screen with no nav.

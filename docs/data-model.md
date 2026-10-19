@@ -86,7 +86,7 @@ All live in `firestore.indexes.json`; each exists for exactly one query.
 |---|---|
 | `recipes`: `createdBy.uid` ASC, `createdAt` DESC | `getRecipesByUsers`, the Following filter (RL-021): `createdBy.uid in` a 30-uid chunk, `orderBy createdAt desc`, `limit 50` |
 | `recipes`: `tags` arrayConfig CONTAINS, `createdAt` DESC | `getPublishedRecipesPage` with a tag, the Explore tag chips (RL-009): `where tags array-contains`, `orderBy createdAt desc`, `limit 31`. The rule is `allow read: if true`, so the added where clause changes nothing there. Guarded by `src/lib/indexes.test.ts`. `tags` are stored trimmed, lower case and de-duplicated by `publishRecipe` (`normalizeTags`, RL-059); the Dexie copy keeps the case as generated |
-| `notifications`: `recipientUid` ASC, `createdAt` DESC | the `onSnapshot` subscription in `useNotifications` (the bottom nav's Activity badge and `ActivityPage`) |
+| `notifications`: `recipientUid` ASC, `createdAt` DESC | the `onSnapshot` subscription in `useNotifications` (the nav's Activity badge and `ActivityPage`) |
 | `suggestions`: `recipeId` ASC, `recipeOwnerId` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, owner query (RL-018) |
 | `suggestions`: `recipeId` ASC, `suggestedBy.uid` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, everyone else's query (RL-018) |
 | `suggestions`: `recipeId` ASC, `createdAt` DESC | the pre-RL-018 client's unfiltered query; kept until that client is gone, then removable |

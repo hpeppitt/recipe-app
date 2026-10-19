@@ -26,7 +26,7 @@ export function CreatePage() {
   );
 
   return (
-    <div className="relative flex flex-col overflow-clip px-6 pb-6 min-h-[calc(100dvh_-_78px_-_max(8px,env(safe-area-inset-bottom)))]">
+    <div className="relative flex flex-col overflow-clip px-6 pb-6 min-h-[calc(100dvh_-_78px_-_max(8px,env(safe-area-inset-bottom)))] lg:min-h-dvh">
       <div aria-hidden="true" className="absolute -right-[90px] -top-[60px] size-[260px] rounded-full bg-accent-2-200" />
       <p id={hintId} className="relative pt-6 text-[13px] text-text-tertiary">
         Tap the underlined words
@@ -42,7 +42,7 @@ export function CreatePage() {
           overflow-clip (not hidden) on the page, because hidden would make it the sticky scroller. */}
       <div
         data-testid="create-actions"
-        className="sticky bottom-[calc(78px_+_max(8px,env(safe-area-inset-bottom)))] z-10 flex flex-col gap-2 bg-surface pt-2"
+        className="sticky bottom-[calc(78px_+_max(8px,env(safe-area-inset-bottom)))] lg:bottom-0 z-10 flex flex-col gap-2 bg-surface pt-2"
       >
         <Button
           fullWidth
