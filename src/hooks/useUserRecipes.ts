@@ -5,7 +5,16 @@ import { getUserRecipes, getRecipesByUsers } from '../services/firestore';
 import { reportError } from '../services/telemetry';
 import type { SharedRecipe } from '../lib/share';
 
-type CloudRecipe = SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number };
+// parentId, rootId and prompt are on every published document; optional because older ones may predate them.
+type CloudRecipe = SharedRecipe & {
+  id: string;
+  favoriteCount: number;
+  viewCount: number;
+  createdAt: number;
+  parentId?: string | null;
+  rootId?: string;
+  prompt?: string;
+};
 const EMPTY_RECIPES: CloudRecipe[] = [];
 
 /** Own profile: local Dexie recipes enriched with Firestore stats */
