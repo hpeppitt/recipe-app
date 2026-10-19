@@ -202,7 +202,6 @@ describe('SuggestionThreadPage', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe("You've sent a lot of replies recently. Try again in a while.");
     expect(alert.className).toContain('text-danger-700');
-    expect(alert.className).toContain('dark:text-danger-300');
     expect(input().value).toBe('Why?');
   });
 

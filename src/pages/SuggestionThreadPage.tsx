@@ -242,7 +242,7 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
 
       <div className="flex shrink-0 flex-col gap-2.5 bg-surface px-4 pt-2.5 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
         {errors.map((e) => (
-          <p key={e} role="alert" className="text-xs text-danger-700 dark:text-danger-300">
+          <p key={e} role="alert" className="text-xs text-danger-700">
             {e}
           </p>
         ))}

@@ -18,6 +18,19 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-117 Dark Organic (Warm night 20a), Light / Dark / System in Settings
+
+- Settings, Appearance: the Theme segment reads Light, Dark, System, with System selected on a fresh profile. Each choice applies at once and survives a reload with no cream flash before the dark page appears.
+- In Dark, and again in System with the phone's OS set to dark, on a phone: walk Explore (the Branching fast carousel tints and the selected row at 1024px), a branch recipe (lineage strip, tile tints, the More menu's pending badge, footer buttons), the tree's three views (tree lines, timeline line colours and sheet chips, the map rings), What changed, the chat (user bubble, send button, typing dots), edit (photo badge, chips), the profile (pencil badge), Settings (toggles, segments), Activity (icon badges, Mark all read), the sign-in sheet and a confirm dialog (the scrim must darken the page, not wash it cream). Primary buttons are terracotta `#e8925a` with dark text; nothing is cream on pale or dark on dark.
+- In System, switch the OS between light and dark with the app open: the app follows without a reload, and the browser bar colour follows too. Then pick Light and confirm the OS no longer changes it.
+- Skeletons in dark pulse more strongly than in light (hand-set neutral-200 to flipped neutral-300); say if it is too much.
+- Switch back to Light at the end and confirm light looks as before; the only light change is the More badge and profile pencil text, now cream instead of white.
+- Reviewer noted (low): Avatar initials are `text-white` on `hsl(h, 55%, 50%)`, about 3:1 or less on some hues in both themes (aria-hidden, pre-existing).
+- Reviewer noted (low): Input and Chip borders use `border-border`, about 1.5:1, below the 3:1 non-text minimum in both themes (pre-existing).
+- Reviewer noted (low): SegmentedControl radios (now including Theme) have no roving tabindex or arrow keys.
+- Reviewer noted (low): check once in a real browser that the `dark:backdrop:bg-black/60` scrim on the sheet and confirm dialog darkens the page in dark.
+- Reviewer noted (low): the terms update dialog keeps Tailwind's built-in `shadow-xl` (black 10%), so in dark its shadow barely shows; left so light stays unchanged.
+
 ### RL-116 Explore and Saved beside the recipe from 1024px
 
 - At 1280x800 in desktop Chrome and Safari: open a recipe from Explore (a row and a Branching tile) and from Saved. The list stays on the left at 420px with the open row tinted and ringed; the recipe sits on the right with its own scroll; the URL is `/recipe/<id>`.

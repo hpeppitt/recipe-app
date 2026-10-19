@@ -53,7 +53,7 @@ export function Sheet({ open, onClose, labelledBy, describedBy, dismissible = tr
         if (dismissible && pressedOnBackdrop.current && e.target === e.currentTarget) onClose();
         pressedOnBackdrop.current = false;
       }}
-      className="backdrop:bg-neutral-900/45 bg-transparent p-0 m-0 mt-auto mx-auto w-full max-w-lg max-h-[90%] overflow-visible"
+      className="backdrop:bg-neutral-900/45 dark:backdrop:bg-black/60 bg-transparent p-0 m-0 mt-auto mx-auto w-full max-w-lg max-h-[90%] overflow-visible"
     >
       <div className="flex flex-col gap-4 bg-surface rounded-t-[36px] pt-3 px-[22px] pb-7 shadow-lg max-h-[90dvh] overflow-y-auto">
         <div aria-hidden="true" className="w-[44px] h-[5px] rounded-full bg-neutral-400 self-center shrink-0" />

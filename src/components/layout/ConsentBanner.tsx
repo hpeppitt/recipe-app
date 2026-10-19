@@ -22,7 +22,7 @@ export function ConsentBanner() {
           unless you allow it.{' '}
           <Link
             to="/cookies"
-            className="inline-flex items-center min-h-11 underline text-primary-600 dark:text-primary-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            className="inline-flex items-center min-h-11 underline text-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           >
             Cookie Policy
           </Link>

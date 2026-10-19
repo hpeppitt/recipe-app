@@ -584,7 +584,7 @@ export function RecipeDetailPage({ id: paneId, onShown }: PaneProps = {}) {
                 >
                   <Avatar uid={recipe.createdBy.uid} name={creatorName} size="sm" />
                   <p className="text-xs text-text-tertiary">
-                    Added by <span className="text-primary-600 dark:text-primary-400 font-medium">{creatorName}</span>
+                    Added by <span className="text-primary-600 font-medium">{creatorName}</span>
                   </p>
                 </button>
               )}

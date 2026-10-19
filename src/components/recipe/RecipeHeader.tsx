@@ -182,7 +182,7 @@ function MoreButton({ variant, pendingCount, onClick }: { variant: 'floating' | 
         <span className="relative flex">
           <Ellipsis className="h-5 w-5" />
           {pendingCount > 0 && (
-            <span className="absolute -right-3 -top-3 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-bold text-white">
+            <span className="absolute -right-3 -top-3 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary-600 px-1 text-[10px] font-bold text-on-accent">
               {pendingCount > 99 ? '99+' : pendingCount}
             </span>
           )}

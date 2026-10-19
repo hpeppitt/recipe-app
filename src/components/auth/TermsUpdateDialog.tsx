@@ -103,12 +103,12 @@ export function TermsUpdateDialog({
         <TermsCheckbox checked={accepted} onChange={setAccepted} disabled={busy} />
       </div>
       {failed && (
-        <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 mt-2">
+        <p role="alert" className="text-sm text-danger-700 mt-2">
           We couldn't save your acceptance. Check your connection and try again.
         </p>
       )}
       {declineFailed && (
-        <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 mt-2">
+        <p role="alert" className="text-sm text-danger-700 mt-2">
           We couldn't sign you out. Please try again.
         </p>
       )}

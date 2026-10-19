@@ -21,8 +21,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        // Both are the light --color-surface (#f5ead8, Organic cream). The app is light only (RL-065),
-        // and index.html carries the same single theme-color meta.
+        // Both are the light --color-surface (#f5ead8, Organic cream). A manifest takes one value; in
+        // the running app index.html and useTheme set theme-color to the applied theme (RL-117).
         theme_color: '#f5ead8',
         background_color: '#f5ead8',
         icons: [

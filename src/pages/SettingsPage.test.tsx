@@ -70,10 +70,30 @@ afterEach(() => {
 });
 
 describe('Settings: theme', () => {
-  it('has no Theme control (light only since RL-065)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) });
+    document.documentElement.classList.remove('dark');
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('offers Light, Dark and System in Appearance, System when nothing is stored', () => {
     render();
-    expect(screen.queryByText('Theme')).toBeNull();
-    expect(screen.queryByRole('radio', { name: 'Dark' })).toBeNull();
+    const group = screen.getByRole('radiogroup', { name: 'Theme' });
+    expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Light', 'Dark', 'System']);
+    expect(within(group).getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('applies and stores the chosen theme', async () => {
+    render();
+    const group = screen.getByRole('radiogroup', { name: 'Theme' });
+    await userEvent.click(within(group).getByRole('radio', { name: 'Dark' }));
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+    expect(store.get('recipe-app-theme')).toBe('dark');
+    await userEvent.click(within(group).getByRole('radio', { name: 'Light' }));
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
+    expect(within(group).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');
   });
 });
 

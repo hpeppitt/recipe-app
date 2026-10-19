@@ -36,7 +36,7 @@ export function LegalPage({ doc }: { doc: LegalDocKey }) {
         {/* Prominent on purpose: these are drafts until the author signs off (RL-046). */}
         <p
           role="note"
-          className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 text-sm font-medium text-warning-800 dark:text-warning-200"
+          className="border border-warning-200 bg-warning-50 rounded-2xl p-4 text-sm font-medium text-warning-800"
         >
           {document_.draftNotice}
         </p>
