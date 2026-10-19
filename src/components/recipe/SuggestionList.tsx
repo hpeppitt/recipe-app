@@ -1,9 +1,8 @@
-import { useId, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { MessageCircle } from '../ui/icons';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { UserPill } from '../ui/UserPill';
-import { SuggestionThread } from './SuggestionThread';
 import { pluralize, timeAgo } from '../../lib/utils';
 import type { Suggestion } from '../../types/social';
 
@@ -38,9 +37,7 @@ export function SuggestionList({
   onReview,
 }: SuggestionListProps) {
   const [declining, setDeclining] = useState<{ id: string; message: string } | null>(null);
-  // Until RL-106 adds a thread screen, Replies and closed rows expand the thread inline.
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const baseId = useId();
+  const navigate = useNavigate();
   if (suggestions.length === 0) return null;
 
   const open = suggestions.filter((s) => s.status === 'pending');
@@ -51,15 +48,8 @@ export function SuggestionList({
   ]
     .filter(Boolean)
     .join(' · ');
-  const toggle = (id: string) => setExpandedId((cur) => (cur === id ? null : id));
-  const threadId = (s: Suggestion) => `${baseId}-${s.id}`;
-  const thread = (s: Suggestion) =>
-    expandedId === s.id && (
-      <div id={threadId(s)}>
-        <SuggestionThread suggestion={s} />
-      </div>
-    );
-  const controls = (s: Suggestion) => (expandedId === s.id ? threadId(s) : undefined);
+  // Replies, Reply and closed rows open the thread screen (RL-106).
+  const openThread = (s: Suggestion) => navigate(`/recipe/${s.recipeId}/suggestion/${s.id}`);
 
   return (
     <section aria-label="Suggestions" className="!mt-[26px]">
@@ -107,9 +97,7 @@ export function SuggestionList({
               )}
               <button
                 type="button"
-                onClick={() => toggle(s.id)}
-                aria-expanded={expandedId === s.id}
-                aria-controls={controls(s)}
+                onClick={() => openThread(s)}
                 className={secondary}
               >
                 <MessageCircle className="h-4 w-4 shrink-0 max-[399px]:hidden" />
@@ -128,7 +116,6 @@ export function SuggestionList({
                 </button>
               )}
             </div>
-            {thread(s)}
           </div>
         ))}
       </div>
@@ -141,9 +128,7 @@ export function SuggestionList({
               <div key={s.id}>
                 <button
                   type="button"
-                  onClick={() => toggle(s.id)}
-                  aria-expanded={expandedId === s.id}
-                  aria-controls={controls(s)}
+                  onClick={() => openThread(s)}
                   aria-label={`${message}, ${tag.label}`}
                   className="flex min-h-11 w-full items-center gap-2.5 px-1 py-2.5 text-left text-sm"
                 >
@@ -156,22 +141,13 @@ export function SuggestionList({
                     {tag.label}
                   </span>
                 </button>
-                {thread(s)}
               </div>
             );
           })}
         </div>
       )}
-      <ConfirmDialog
-        open={declining !== null}
-        title="Decline this suggestion?"
-        message={
-          declining
-            ? `"${declining.message}" will be marked declined and the suggester will be notified. This can't be undone.`
-            : ''
-        }
-        confirmLabel="Decline"
-        confirmVariant="danger"
+      <DeclineSuggestionDialog
+        message={declining?.message ?? null}
         onConfirm={() => {
           const target = declining;
           setDeclining(null);
@@ -180,5 +156,32 @@ export function SuggestionList({
         onCancel={() => setDeclining(null)}
       />
     </section>
+  );
+}
+
+/** The Decline confirmation, shared with the thread page so both read the same. Open while `message` is set. */
+export function DeclineSuggestionDialog({
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  message: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <ConfirmDialog
+      open={message !== null}
+      title="Decline this suggestion?"
+      message={
+        message !== null
+          ? `"${message}" will be marked declined and the suggester will be notified. This can't be undone.`
+          : ''
+      }
+      confirmLabel="Decline"
+      confirmVariant="danger"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   );
 }

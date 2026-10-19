@@ -230,6 +230,8 @@ Explore, Saved, Create (a link to `/create`, never shown as current), Activity a
 reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. The bar is fixed, 78px plus the bottom safe area beyond
 8px; `AppShell`'s `<main>` padding and `UpdatePrompt`'s offset use the same sum. `/settings` sits
 outside the shell, reached from the You tab's gear, with its own Back button.
+`/recipe/:id/suggestion/:suggestionId` (`SuggestionThreadPage`, RL-106) is lazy and outside the
+shell too, with its own Back button; it is the reply thread on one suggestion.
 
 The three legal routes (`/terms`, `/privacy`, `/cookies`) are lazy `LegalPage` routes outside
 `AppShell` (`src/App.tsx`); their content comes from `src/content/legal/` via `lib/legal.ts`.
