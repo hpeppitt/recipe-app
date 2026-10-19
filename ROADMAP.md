@@ -48,8 +48,8 @@ notice and unused helpers) after RL-042. RL-054 after RL-053. Run `/loop /next-t
 
 **Candidates for `/groom` (noticed, not yet ticketed).** The Favorites filter does not list a
 favourite whose recipe a device has never loaded (fetch favourited recipes by id). Tags are
-free text, so Explore chips match only exact lower-case tags (normalise on publish). The edit
-form does not focus or scroll to its first error, and several field errors are not announced.
+free text, so Explore chips match only exact lower-case tags (normalise on publish). RL-110 made the edit
+form focus and scroll to its first error and announce its field errors.
 `markAllNotificationsRead` rejections are unhandled in `useNotifications`. The email-link flow
 in `services/firebase.ts` still uses raw `localStorage` and can fail with storage blocked.
 Whitespace-only search is inconsistent. Notifications have no delete or retention. Rate-limited
