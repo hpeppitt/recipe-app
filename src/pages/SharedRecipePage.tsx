@@ -290,10 +290,10 @@ export function SharedRecipePage() {
             difficulty={recipe.difficulty}
           />
 
-          <NutritionPanel nutrition={recipe.nutrition} servings={recipe.servings} />
-
           <IngredientList ingredients={recipe.ingredients} checkable />
           <InstructionList instructions={recipe.instructions} checkable />
+
+          <NutritionPanel nutrition={recipe.nutrition} />
 
           {recipe.notes.length > 0 && (
             <div className="space-y-2">

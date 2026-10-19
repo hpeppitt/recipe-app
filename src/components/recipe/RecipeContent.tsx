@@ -70,13 +70,6 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
         servings={compact ? scaled.servings : undefined}
       />
 
-      {/* Nutrition is per serving, so scaling leaves the figures alone; only the
-          "of N" count it reports follows the stepper. Renders nothing without
-          estimates. Placement is RL-103's. */}
-      {!compact && (
-        <NutritionPanel nutrition={recipe.nutrition} servings={scaled.servings} />
-      )}
-
       {/* The stepper sits in the Ingredients heading row, because ingredient
           amounts are the only thing it changes. Hidden in the compact preview,
           where the recipe is a proposal rather than something being cooked from;
@@ -105,6 +98,10 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
       ) : (
         <MissingSection name="instructions" />
       )}
+
+      {/* Nutrition is per serving, so scaling leaves the figures alone. Renders
+          nothing without estimates, and stays collapsed (keyed per recipe). */}
+      {!compact && <NutritionPanel nutrition={recipe.nutrition} />}
 
       {notes.length > 0 && (
         <div className="space-y-2">
