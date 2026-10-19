@@ -18,6 +18,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-088 Shared Organic pieces
+
+- Nothing visible yet. After RL-100, check at 390px that the blob on a recipe title is the soft organic shape, not a circle.
+- Reviewer noted (med): the user pill initial is white from Avatar's generated colour (`hsl(h,55%,50%)`), roughly 1.7 to 2.3:1 on yellow and green hues. The design's neutral-900 would only flip which hues fail. Not patched here; the initial is decorative and the name sits beside it. A separate ticket could pick the text colour from the background luminance.
+- Reviewer noted (low): Avatar `sm` text is 9px, the design says 10px. `UserPill` has no truncation, so a very long name can overflow at 320px unless the caller's parent has `min-w-0`. The new `Link` and `Image` icon exports collide with react-router's `Link` and the global `Image`, so alias them at import. `IconButton` has no test and no `disabled` prop; add `disabled` in the first ticket that uses it for an async action.
+
 ### RL-087 Organic text helpers
 
 - Nothing to check until RL-098/RL-101/RL-102.
