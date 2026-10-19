@@ -18,6 +18,22 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-095 Own profile (You tab layout)
+
+- As a verified user, anonymous, signed out, and in a local-only build, at 390x844 and 320px (no horizontal scroll): identity row (blob avatar, heading-font name, "Cooking since <Month YYYY>" or "Guest · this device only"), Settings icon top right going to /settings.
+- Anonymous: the guest card reads "Your bookmarks only live on this device" and "Add an email to keep them if you switch or lose this device." with the email form and Terms box inside it. Tapping the avatar or name still opens the sign-up prompt.
+- Four tiles (Originals, Branches, Followers, Following) fit at 320px; Followers and Following toggle their lists. The "<n> views · <n> favourites" line is hidden when both are 0.
+- Started and Grew grids: counts match the tiles, tints rotate, "<n> branches" or "No branches yet" under Started, the prompt in quotes under Grew. A branch you made of someone else's recipe appears under Grew only. Check a very long display name and recipe title at 320px.
+- Network off before the first sync: the "You're offline" line shows; a fresh sign-in shows two skeleton tiles for up to 6 seconds.
+- Signed out: "You're browsing" with Sign in. Local-only: "Your recipes" heading, tabs and grid, no identity or stats.
+- Public profile load error (turn the network off, open /profile/<uid>): terracotta error state with "Try again".
+- Reviewer noted (low): the following list has no error state, so a failed fetch reads "Not following anyone yet" (pre-existing), and both lists use a "Loading..." text line.
+- Reviewer noted (low): if `useLocalLibrary` never resolves the skeleton shows forever (the 6s cap only covers the sync wait).
+- Reviewer noted (low): `handleSaveName` has no in-flight guard or try/catch and the name Input has only a placeholder, no label (pre-existing).
+- Reviewer noted (low): the `EmailLinkingForm` `bare` branch has no direct test and its mis-indented `!bare &&` block is cosmetic.
+- The name edit field now stacks above Save and Cancel beside the avatar; check it at 320px. A branch with a blank prompt shows "Branched" under Grew.
+- The pencil badge on the avatar is kept from the old layout (not in the spec); say if it should go. Stat tiles now always show, even at zero.
+
 ### RL-094 Avatar sheet
 
 - As a verified user on the preview, tap the avatar on My Profile and the Account row in Settings: both open the "Edit avatar" bottom sheet (Photo, Initials, Emoji). An anonymous user still gets the sign-up prompt from the profile avatar, and the Settings row still goes to the profile.

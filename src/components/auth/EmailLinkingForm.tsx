@@ -39,6 +39,7 @@ export function EmailLinkingForm({
   description = 'Add an email to keep your recipes safe and access them from any device.',
   submitLabel = 'Add Email',
   icon,
+  bare = false,
 }: {
   tone?: Tone;
   title?: string;
@@ -46,6 +47,8 @@ export function EmailLinkingForm({
   submitLabel?: string;
   /** Replaces the warning triangle. An emoji reads as an offer; the triangle does not. */
   icon?: string;
+  /** Drops the card shell and heading, for a host that supplies its own (the profile's guest card). */
+  bare?: boolean;
 }) {
   const { user, linkEmail, sendEmailLink } = useAuth();
   const [email, setEmail] = useState('');
@@ -100,7 +103,8 @@ export function EmailLinkingForm({
   }
 
   return (
-    <div className={`border rounded-2xl p-4 space-y-3 ${styles.shell}`}>
+    <div className={bare ? 'space-y-3' : `border rounded-2xl p-4 space-y-3 ${styles.shell}`}>
+      {!bare && (
       <div className="flex items-start gap-3">
         {icon ? (
           <span className="text-xl leading-none mt-0.5 shrink-0" aria-hidden="true">
@@ -114,6 +118,7 @@ export function EmailLinkingForm({
           <p className={`text-xs mt-0.5 ${styles.body}`}>{description}</p>
         </div>
       </div>
+      )}
       <TermsCheckbox
         checked={accepted}
         onChange={(c) => {

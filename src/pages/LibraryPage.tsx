@@ -1,4 +1,4 @@
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile } from '../hooks/useProfile';
 import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
 import { useOwnRecipesWaiting } from '../hooks/useOwnRecipesWaiting';
+import { useOnline } from '../hooks/useOnline';
 import { RecipeCard, type RecipeCardRecipe } from '../components/recipe/RecipeCard';
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -23,15 +24,6 @@ import type { ScorableRecipe } from '../lib/search';
 import { buildFeed, filterFeed, type LibraryTab } from '../lib/library';
 import { getLibraryTab, setLibraryTab } from '../services/storage';
 import { Settings, User, X } from '../components/ui/icons';
-
-function subscribeOnline(cb: () => void) {
-  window.addEventListener('online', cb);
-  window.addEventListener('offline', cb);
-  return () => {
-    window.removeEventListener('online', cb);
-    window.removeEventListener('offline', cb);
-  };
-}
 
 type Filter = 'all' | 'favorites' | 'following';
 
@@ -102,7 +94,7 @@ export function LibraryPage() {
         : exploreFeed;
   const syncStatus = useOwnRecipesSyncStatus();
   const waitingForSync = useOwnRecipesWaiting();
-  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine !== false);
+  const online = useOnline();
   const showOfflineLine = tab === 'mine' && !online && syncStatus !== 'synced' && syncStatus !== 'off';
   // The skeleton replaces only an empty list, never recipes already in Dexie.
   const mineEmpty = !!localRecords && (source?.length ?? 0) === 0;

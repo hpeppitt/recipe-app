@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 import { screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
-import type { AppUser } from '../types/recipe';
+import type { AppUser, Recipe } from '../types/recipe';
+import { makeRecipe } from '../test/factories';
 
 const followUser = vi.fn();
 const updateAvatar = vi.fn();
@@ -19,7 +20,7 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({
-  useOwnProfile: () => ({ profile: null, updateAvatar, updateName: vi.fn() }),
+  useOwnProfile: () => ({ profile: ownProfile, updateAvatar, updateName: vi.fn() }),
   usePublicProfile: () => ({
     profile: { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 0 },
     isLoading: false,
@@ -28,10 +29,13 @@ vi.mock('../hooks/useProfile', () => ({
   }),
 }));
 let syncStatus = 'off';
-let ownRecipes: { id: string; title: string; emoji: string }[] = [];
+let rows: Recipe[] | undefined = [];
+let ownProfile: { createdAt: number; followerCount: number; followingCount: number } | null = null;
 vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
+let totals = { totalViews: 0, totalFavorites: 0 };
+vi.mock('../hooks/useRecipeLibrary', () => ({ useLocalLibrary: () => rows }));
 vi.mock('../hooks/useUserRecipes', () => ({
-  useOwnRecipes: () => ({ recipes: ownRecipes, stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
+  useOwnRecipes: () => ({ recipes: [], stats: totals, isLoading: false }),
   useUserRecipes: () => ({ recipes: [], stats: { totalViews: 0, totalFavorites: 0 }, isLoading: false }),
 }));
 
@@ -59,7 +63,9 @@ beforeAll(() => {
 beforeEach(() => {
   followUser.mockClear();
   syncStatus = 'off';
-  ownRecipes = [];
+  rows = [];
+  ownProfile = null;
+  totals = { totalViews: 0, totalFavorites: 0 };
 });
 
 describe('ProfilePage sign-up gates', () => {
@@ -138,36 +144,172 @@ describe('OwnProfile sync states (RL-079)', () => {
     syncStatus = 'waiting';
     const { container } = renderAt('/profile', fakeUser);
     expect(skeletons(container)).toBe(2);
-    expect(screen.queryByText('No published recipes yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nothing here yet.')).not.toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(6001);
     });
     expect(skeletons(container)).toBe(0);
-    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
   });
 
   it('shows recipes while waiting', () => {
     syncStatus = 'waiting';
-    ownRecipes = [{ id: 'r1', title: 'Local Lasagne', emoji: '🍝' }];
-    renderAt('/profile', fakeUser);
+    rows = [makeRecipe({ id: 'r1', title: 'Local Lasagne', createdBy: { uid: fakeUser.uid, displayName: null } })];
+    const { container } = renderWithProviders(<ProfilePage />, { route: '/profile' });
     expect(screen.getByText('Local Lasagne')).toBeInTheDocument();
+    expect(skeletons(container)).toBe(0);
   });
 
   it('shows the empty state when synced', () => {
     syncStatus = 'synced';
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
   });
 
   it('shows the empty state when waiting offline', () => {
     syncStatus = 'waiting';
     vi.stubGlobal('navigator', { onLine: false });
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
   });
 
   it('shows the empty state for status off', () => {
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('No published recipes yet')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
+  });
+});
+
+const mine = (o: Partial<Recipe>) => makeRecipe({ createdBy: { uid: fakeUser.uid, displayName: null }, ...o });
+
+describe('OwnProfile Organic layout (RL-095)', () => {
+  it('splits Started and Grew with counts, a branch of someone else under Grew, and the right meta', () => {
+    rows = [
+      mine({ id: 'root', title: 'Root Soup', createdAt: 5 }),
+      makeRecipe({ id: 'kid', rootId: 'root', parentId: 'root', title: 'Their Kid', createdBy: { uid: 'x', displayName: null }, createdAt: 6 }),
+      makeRecipe({ id: 'theirs', title: 'Their Stew', createdBy: { uid: 'x', displayName: null } }),
+      makeRecipe({ id: 'theirs-kid', rootId: 'theirs', parentId: 'theirs', title: 'My Take', prompt: 'less salt', createdBy: { uid: fakeUser.uid, displayName: null }, createdAt: 9 }),
+    ];
+    renderAt('/profile', fakeUser);
+    const tile = (label: string) => screen.getByText(label).parentElement!;
+    expect(tile('Originals')).toHaveTextContent(/^1Originals$/);
+    expect(tile('Branches')).toHaveTextContent(/^1Branches$/);
+    const started = screen.getByRole('link', { name: /Root Soup/ });
+    expect(started).toHaveTextContent('1 branch');
+    expect(screen.queryByText('My Take')).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    expect(screen.getByRole('link', { name: /My Take/ })).toHaveTextContent('"less salt"');
+    expect(screen.getByRole('link', { name: /My Take/ })).toHaveAttribute('href', '/recipe/theirs-kid');
+    expect(screen.queryByText('Root Soup')).toBeNull();
+    expect(screen.queryByText('Their Kid')).toBeNull();
+  });
+
+  it('shows No branches yet on a childless Started tile', () => {
+    rows = [mine({ id: 'solo', title: 'Solo' })];
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('link', { name: /Solo/ })).toHaveTextContent('No branches yet');
+  });
+
+  it('links the Settings icon to /settings and has no My Profile heading', () => {
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.queryByText('My Profile')).toBeNull();
+  });
+
+  it('shows the views and favourites line only when there are some', () => {
+    const { unmount } = renderAt('/profile', fakeUser);
+    expect(screen.queryByText(/views/)).toBeNull();
+    unmount();
+    totals = { totalViews: 3, totalFavorites: 1 };
+    renderAt('/profile', fakeUser);
+    expect(screen.getByText('3 views · 1 favourite')).toBeInTheDocument();
+  });
+
+  it('toggles the followers list from its stat tile', async () => {
+    renderAt('/profile', fakeUser);
+    const btn = screen.getByRole('button', { name: /Followers/ });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('No followers yet')).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(screen.queryByText('No followers yet')).toBeNull();
+  });
+
+  it('toggles the following list from its stat tile', async () => {
+    renderAt('/profile', fakeUser);
+    const btn = screen.getByRole('button', { name: /Following/ });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute('aria-expanded', 'true');
+    expect(await screen.findByText('Not following anyone yet')).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(screen.queryByText('Not following anyone yet')).toBeNull();
+  });
+
+  it('falls back to Branched when a branch has no prompt', () => {
+    rows = [mine({ id: 'b', parentId: 'p', rootId: 'p', title: 'Legacy Branch', prompt: '  ' })];
+    renderAt('/profile', fakeUser);
+    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    const link = screen.getByRole('link', { name: /Legacy Branch/ });
+    expect(link).toHaveTextContent('Branched');
+    expect(link).not.toHaveTextContent('""');
+  });
+
+  it('shows Cooking since for a verified account with a profile date', () => {
+    ownProfile = { createdAt: Date.UTC(2026, 2, 15), followerCount: 0, followingCount: 0 };
+    renderAt('/profile', verified);
+    expect(screen.getByText('Cooking since March 2026')).toBeInTheDocument();
+    expect(screen.queryByText(/Guest/)).toBeNull();
+  });
+
+  it('edits the display name inline for a verified account', async () => {
+    const updateDisplayName = vi.fn(async () => {});
+    renderWithProviders(<ProfilePage />, { route: '/profile', user: verified, auth: { updateDisplayName } });
+    fireEvent.click(screen.getByRole('button', { name: /Edit display name/ }));
+    fireEvent.change(screen.getByPlaceholderText('Display name'), { target: { value: 'New Name' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateDisplayName).toHaveBeenCalledWith('New Name'));
+  });
+
+  it('shows the guest line and card for an anonymous account only', () => {
+    const { unmount } = renderAt('/profile', anon);
+    expect(screen.getByText('Guest · this device only')).toBeInTheDocument();
+    expect(screen.getByText('Your bookmarks only live on this device')).toBeInTheDocument();
+    expect(screen.getByText('Add an email to keep them if you switch or lose this device.')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('your@email.com')).toBeInTheDocument();
+    unmount();
+    renderAt('/profile', verified);
+    expect(screen.queryByText('Your bookmarks only live on this device')).toBeNull();
+    expect(screen.queryByText(/Guest/)).toBeNull();
+  });
+
+  it('shows the offline line only while offline and not yet synced', () => {
+    vi.stubGlobal('navigator', { onLine: false });
+    syncStatus = 'waiting';
+    const { unmount } = renderAt('/profile', fakeUser);
+    expect(screen.getByRole('status')).toHaveTextContent("You're offline. Showing the recipes saved on this device.");
+    unmount();
+    syncStatus = 'synced';
+    renderAt('/profile', fakeUser);
+    expect(screen.queryByText(/You're offline/)).toBeNull();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('ProfilePage signed out, local-only and errors (RL-095)', () => {
+  it('signed out shows the browsing state and opens sign in', () => {
+    renderAt('/profile', null);
+    expect(screen.getByRole('heading', { name: "You're browsing" })).toBeInTheDocument();
+    expect(screen.getByText('Reading is free. Sign in to save recipes, branch them and follow cooks.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+  });
+
+  it('local-only lists every device row under Your recipes with no identity or stats', () => {
+    rows = [makeRecipe({ id: 'a', title: 'Local One' })];
+    renderWithProviders(<ProfilePage />, { route: '/profile', user: null, auth: { isConfigured: false } });
+    expect(screen.getByRole('heading', { name: 'Your recipes' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Local One/ })).toBeInTheDocument();
+    expect(screen.queryByText('Originals')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
   });
 });
