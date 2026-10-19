@@ -18,13 +18,21 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-122 The favourite heart is a Save bookmark
+
+- At 390x844 save and unsave from an original, a branch (floating control over the hero) and a `/shared/:id` link. The icon turns terracotta with a check when saved, and the recipe appears in and leaves the Saved tab. On `/shared/:id` the banner has no control; only the footer Save.
+- VoiceOver: the header and floating control read "Save, toggle button, selected" when on ("Save, toggle button" when off); the `/shared/:id` footer reads "Saved, toggle button, selected" when on. Signed out, Save opens the sign-in sheet.
+- Reviewer noted (low): the footer's accent check on its hover background is about 2.75:1 (the text "Saved" also shows, so the state is not icon only).
+- Reviewer noted (low): the Explore marker test checks only the sr-only "Saved" text, not the icon.
+- Explore rows for saved recipes show a small terracotta check bookmark after the title. The Favorites chip, profile counts and notification text still say "favourite" (left for the author, see the ticket Notes).
+
 ### RL-121 The Saved page also lists favourites, with offline, failed and deleted cases shown honestly
 
 - On the preview against the live project as a verified user at 390x844. On browser A favourite two recipes by someone else and save one shared link with "Save to my library". On browser B, same account, fresh profile, open Saved: all three show, newest kept first. Devtools Network shows one `recipes/{id}` read per favourite, and none on a second visit to Saved.
 - Go offline, reload, open Saved: the device's rows show and "<n> saved recipes need a connection to show." counts the rest.
 - Ask the other account to delete a favourited recipe: "1 saved recipe was deleted by their authors." shows and the row is gone; nothing else changes.
 - Anonymous account: bookmark a recipe, open Saved, it is listed. Your own favourited recipe is not in Saved.
-- The empty state now reads "Tap the bookmark on any recipe and it'll wait for you here." Failed reads and Try again are covered by tests only; the heart is still a heart until RL-122.
+- The empty state now reads "Tap the bookmark on any recipe and it'll wait for you here." Failed reads and Try again are covered by tests only; the control is the Save bookmark since RL-122.
 - Reviewer noted (low): the session cache is not keyed by uid or cleared on sign-out, so it holds memory and may show a stale recipe until reload; this matches "per session".
 - Reviewer noted (low): `withTimeout` swallows rejections, so `reportError` is attached to the read before wrapping.
 

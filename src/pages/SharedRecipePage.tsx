@@ -14,14 +14,13 @@ import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { EmptyState } from '../components/ui/EmptyState';
-import { IconButton } from '../components/ui/IconButton';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { UserPill } from '../components/ui/UserPill';
 import { incrementRecipeViews } from '../services/firestore';
 import { trackRecipeViewed } from '../services/analytics';
 import type { Collaborator, Recipe } from '../types/recipe';
-import { Bookmark, BookmarkCheck, GitBranch, GitBranchPlus, Heart, MessageCircle } from '../components/ui/icons';
+import { Bookmark, BookmarkCheck, GitBranch, GitBranchPlus, MessageCircle } from '../components/ui/icons';
 
 interface FullSharedRecipe extends SharedRecipe {
   id?: string;
@@ -293,14 +292,6 @@ function SharedRecipeView() {
             Open Recipe Lab
           </Link>
         </div>
-        {paramId && !isOwner && (
-          <IconButton
-            variant="flat"
-            label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-            onClick={handleFavoriteClick}
-            icon={<Heart className={`h-5 w-5 ${isFavorite ? 'text-red-500' : ''}`} filled={isFavorite} />}
-          />
-        )}
       </header>
 
       <main className="mx-auto w-full max-w-lg flex-1">
@@ -366,7 +357,7 @@ function SharedRecipeView() {
                     className={`${footerButton} flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
                   >
                     {isFavorite ? (
-                      <BookmarkCheck className="h-4 w-4 shrink-0 max-[359px]:hidden" />
+                      <BookmarkCheck className="h-4 w-4 shrink-0 text-accent max-[359px]:hidden" />
                     ) : (
                       <Bookmark className="h-4 w-4 shrink-0 max-[359px]:hidden" />
                     )}

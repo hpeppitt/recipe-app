@@ -8,9 +8,10 @@ interface IconButtonProps {
   onClick?: () => void;
   variant: 'floating' | 'flat';
   href?: string;
+  pressed?: boolean;
 }
 
-export function IconButton({ label, icon, onClick, variant, href }: IconButtonProps) {
+export function IconButton({ label, icon, onClick, variant, href, pressed }: IconButtonProps) {
   const className = cn(
     'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-text-primary transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
@@ -24,7 +25,7 @@ export function IconButton({ label, icon, onClick, variant, href }: IconButtonPr
     );
   }
   return (
-    <button type="button" aria-label={label} onClick={onClick} className={className}>
+    <button type="button" aria-label={label} aria-pressed={pressed} onClick={onClick} className={className}>
       {icon}
     </button>
   );

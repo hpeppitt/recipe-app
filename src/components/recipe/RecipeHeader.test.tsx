@@ -31,9 +31,22 @@ describe('RecipeHeader original', () => {
     expect(screen.queryByText(/variation$/)).toBeNull();
   });
 
-  it('hides the heart in local-only mode', () => {
+  it('shows Save off, then on with aria-pressed, and calls onFavorite once per click', () => {
+    const props = show();
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(save);
+    expect(props.onFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows Save pressed when favourited', () => {
+    show(original, undefined, { isFavorite: true });
+    expect(screen.getByRole('button', { name: 'Save' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('hides Save in local-only mode', () => {
     show(original, undefined, { showFavorite: false });
-    expect(screen.queryByRole('button', { name: 'Add to favorites' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   });
 });
 
@@ -47,6 +60,11 @@ describe('RecipeHeader branch', () => {
     show(branch, undefined);
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Chocolate chunk']);
     expect(screen.queryByText(/variation$/)).toBeNull();
+  });
+
+  it('shows Save in the floating variant too', () => {
+    show(branch, original, { isFavorite: true });
+    expect(screen.getByRole('button', { name: 'Save' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('omits the description', () => {

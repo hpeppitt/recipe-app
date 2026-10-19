@@ -74,10 +74,10 @@ Open the channel URL on your phone, then tap Reload on the app so you are not se
 ### RL-064 Every icon in the app is a Lucide icon at stroke width 2.75
 
 - [ ] At 390x844 walk Library, Recipe, Edit, Chat, Profile, Settings, Shared recipe, Version tree and What changed. Every icon should be the heavier Lucide style, none missing, none mis-sized.
-- [ ] Look closely at the 14 to 16 px icons (serving stepper plus and minus, profile pencils, search clear X, chat parent chevron, card heart). At stroke 2.75 these may look blobby. If so, drop the stroke width for small sizes.
-- [ ] Filled hearts (favourited) should still read as a filled heart with a slightly heavier outline.
+- [ ] Look closely at the 14 to 16 px icons (serving stepper plus and minus, profile pencils, search clear X, chat parent chevron, card bookmark marker). At stroke 2.75 these may look blobby. If so, drop the stroke width for small sizes.
+- [ ] The BookmarkCheck marker on favourited Explore rows (and the Save toggle) should still read clearly as a check bookmark at 14px with the heavier outline.
 - [ ] Icon-only buttons keep their 44 px target and focus ring (Tab through the Library header and recipe page header).
-- (reviewer note) Reviewer noted (med, needs your eyes): stroke 2.75 is about 40% heavier than a normal Lucide icon at 14 to 16 px (stepper plus and minus, search clear X, profile pencils, chat chevron, card heart); the 14 px profile badge pencil is most at risk of blobbing. If it looks heavy, the fix is a strokeWidth prop on Icon (about 2.25 for small ones); do not change it before this check.
+- (reviewer note) Reviewer noted (med, needs your eyes): stroke 2.75 is about 40% heavier than a normal Lucide icon at 14 to 16 px (stepper plus and minus, search clear X, profile pencils, chat chevron, card bookmark marker); the 14 px profile badge pencil is most at risk of blobbing. If it looks heavy, the fix is a strokeWidth prop on Icon (about 2.25 for small ones); do not change it before this check.
 - (reviewer note) Reviewer noted (low): the filled heart gains about 10 percent of size from the 2.75 outline; BottomNav active state is colour only and slightly weaker against the heavier inactive icons; the chat Send button is 40 px (w-10 h-10) rather than 44 px, probably pre-existing and worth a follow-up ticket.
 
 ### RL-065 The app is light only: the theme control is hidden and the dark class is never applied
