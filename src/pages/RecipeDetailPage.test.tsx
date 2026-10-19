@@ -9,6 +9,7 @@ import type { AppUser } from '../types/recipe';
 let recipe = makeRecipe({ id: 'r1', title: 'Soup' });
 let ancestors: ReturnType<typeof makeRecipe>[] = [];
 let canFavorite = true;
+let isFavorite = false;
 let source: 'local' | 'cloud' = 'local';
 let pending = 0;
 let suggestionRows: Record<string, unknown>[] | null = null;
@@ -55,7 +56,7 @@ vi.mock('../hooks/useRecipe', () => ({
   useRecipeLineage: () => ({ children: [], ancestors, descendantCount: 0, recipes: [], isLoading: false }),
 }));
 vi.mock('../hooks/useFavorites', () => ({
-  useFavorite: () => ({ isFavorite: false, toggleFavorite: vi.fn(), canFavorite }),
+  useFavorite: () => ({ isFavorite, toggleFavorite: vi.fn(), canFavorite }),
 }));
 vi.mock('../hooks/useSuggestions', () => ({
   useSuggestions: () => ({
@@ -78,6 +79,7 @@ beforeEach(() => {
   firebase.isFirebaseConfigured = true;
   ancestors = [];
   canFavorite = true;
+  isFavorite = false;
   source = 'local';
   pending = 0;
   suggestionRows = null;
@@ -291,12 +293,20 @@ describe('RecipeDetailPage header and More sheet', () => {
     expect(more.textContent).toBe('2');
   });
 
-  it('opens sign-in from the heart when signed out', () => {
+  it('opens sign-in from Save when signed out', () => {
     canFavorite = false;
     show(null);
-    fireEvent.click(screen.getByRole('button', { name: 'Add to favorites' }));
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(save);
     const sheet = screen.getByRole('dialog', { name: 'Sign in to save this recipe' });
     expect(within(sheet).getByRole('button', { name: 'Continue without an account' })).toBeInTheDocument();
+  });
+
+  it('shows Save pressed for a favourited recipe', () => {
+    isFavorite = true;
+    show();
+    expect(screen.getByRole('button', { name: 'Save' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('goes to the edit screen from the sheet', () => {

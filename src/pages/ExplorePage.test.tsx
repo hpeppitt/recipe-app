@@ -163,9 +163,9 @@ describe('ExplorePage rows', () => {
     await db.favorites.add({ uid: fakeUser.uid, recipeId: 'fav', createdAt: 1 });
     renderWithProviders(<ExplorePage />);
     const loved = (await screen.findByRole('link', { name: 'Loved Stew' })).closest('li')!;
-    expect(await within(loved).findByText('Favorited')).toBeInTheDocument();
+    expect(await within(loved).findByText('Saved')).toBeInTheDocument();
     const plain = screen.getByRole('link', { name: 'Plain Stew' }).closest('li')!;
-    expect(within(plain).queryByText('Favorited')).not.toBeInTheDocument();
+    expect(within(plain).queryByText('Saved')).not.toBeInTheDocument();
   });
 });
 

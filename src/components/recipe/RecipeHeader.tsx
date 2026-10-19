@@ -4,7 +4,7 @@ import type { Recipe } from '../../types/recipe';
 import { EmojiBlob } from '../ui/EmojiBlob';
 import { IconButton } from '../ui/IconButton';
 import { Sheet } from '../ui/Sheet';
-import { ChevronLeft, Ellipsis, Heart, Link, MessageCircle, Network, Pencil, X } from '../ui/icons';
+import { ChevronLeft, Bookmark, BookmarkCheck, Ellipsis, Link, MessageCircle, Network, Pencil, X } from '../ui/icons';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
@@ -85,9 +85,16 @@ export function RecipeHeader(props: RecipeHeaderProps) {
       {props.showFavorite && (
         <IconButton
           variant={variant}
-          label={props.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          label="Save"
+          pressed={props.isFavorite}
           onClick={props.onFavorite}
-          icon={<Heart className={`h-5 w-5 ${props.isFavorite ? 'text-red-500' : ''}`} filled={props.isFavorite} />}
+          icon={
+            props.isFavorite ? (
+              <BookmarkCheck className={`${isBranch ? 'size-[19px]' : 'size-5'} text-accent`} />
+            ) : (
+              <Bookmark className={`${isBranch ? 'size-[19px]' : 'size-5'} text-text-primary`} />
+            )
+          }
         />
       )}
       <span data-more="" className="contents">

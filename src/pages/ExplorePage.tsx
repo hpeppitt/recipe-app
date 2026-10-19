@@ -17,7 +17,7 @@ import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
-import { CloudOff, GitBranch, Heart, Search, X } from '../components/ui/icons';
+import { CloudOff, BookmarkCheck, GitBranch, Heart, Search, X } from '../components/ui/icons';
 
 type Filter = 'all' | 'favorites' | 'following';
 
@@ -319,7 +319,7 @@ export function ExplorePage() {
           description={
             showLoadMore
               ? `No favorites in the ${loadedCount} ${pluralize(loadedCount, 'recipe')} loaded so far. Load more to look further.`
-              : 'Tap the heart on any recipe to keep it here.'
+              : 'Tap Save on any recipe to keep it here.'
           }
           action={
             <div className="flex flex-col gap-2">
@@ -399,8 +399,8 @@ function ExploreRow({ recipe, isFavorite, showAuthor }: { recipe: ExploreRecipe;
           <h3 className="truncate text-[15px] font-bold text-text-primary">{title}</h3>
           {isFavorite && (
             <>
-              <Heart className="size-3.5 shrink-0 text-red-500" filled />
-              <span className="sr-only">Favorited</span>
+              <BookmarkCheck className="size-3.5 shrink-0 text-accent-700" />
+              <span className="sr-only">Saved</span>
             </>
           )}
         </div>

@@ -102,7 +102,8 @@ describe('SharedRecipePage /shared/:id', () => {
     expect(screen.getByText('Shared by')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Ada Lovelace' }).getAttribute('href')).toBe('/profile/ada');
     expect(screen.getByRole('link', { name: 'Open Recipe Lab' }).getAttribute('href')).toBe('/');
-    expect(screen.getByRole('button', { name: 'Add to favorites' })).toBeTruthy();
+    // The banner has no favourite control: the footer Save is the only one.
+    expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1);
   });
 
   it('footer: Save toggles the favourite (aria-pressed, Saved), Make it yours goes to /vary', async () => {
@@ -145,7 +146,7 @@ describe('SharedRecipePage /shared/:id', () => {
   it('the owner gets no heart, no Save and no Suggest, only Make it yours', async () => {
     open('/shared/r1', { ...fakeUser, uid: 'ada' });
     await screen.findByRole('heading', { level: 1, name: 'Soup' });
-    expect(screen.queryByRole('button', { name: 'Add to favorites' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /favorites/i })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggest a change' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Make it yours' })).toBeTruthy();
@@ -264,7 +265,7 @@ describe('SharedRecipePage hash link', () => {
     open(hashRoute());
     expect(await screen.findByRole('heading', { level: 1, name: 'Hash Soup' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Ada Lovelace' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Add to favorites' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /favorites/i })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Make it yours' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggest a change' })).toBeNull();
