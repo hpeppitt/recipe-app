@@ -6,6 +6,7 @@ import { assembleDataExport, VERIFY_NOTE } from '../lib/dataExport';
 import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
+import { useTheme } from '../hooks/useTheme';
 import { useConsent } from '../hooks/useConsent';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
@@ -50,6 +51,7 @@ export function SettingsPage() {
   const [dataStatus, setDataStatus] = useState<{ busy?: boolean; failed?: boolean; message: string } | null>(null);
   const downloading = useRef(false);
   const { unitSystem, setUnitSystem } = useUnitSystem();
+  const { theme, setTheme } = useTheme();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured, signOut } = useAuth();
   const { profile, updateAvatar } = useOwnProfile();
@@ -223,6 +225,19 @@ export function SettingsPage() {
         {/* A display preference: changes how recipes are rendered, never what is stored. */}
         <Group label="Appearance">
           <div className="rounded-[28px] bg-surface-secondary px-4 py-3.5">
+            <div className="mb-3.5 [&>div]:bg-surface">
+              <SegmentedControl
+                compact
+                label="Theme"
+                value={theme}
+                onChange={setTheme}
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'system', label: 'System' },
+                ]}
+              />
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span className="text-[15px] text-text-primary">Units</span>
               <div className="w-full [&_button]:px-1.5 [&>div]:bg-surface">

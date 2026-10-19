@@ -275,7 +275,8 @@ error fails it. Output lands in `dist/`, which Firebase Hosting serves with a ca
 rewrite to `index.html` (required for client-side routing). Tailwind v4 runs through the
 `@tailwindcss/vite` plugin with no separate config step. The theme is Organic: tokens live in the
 `@theme` block of `src/index.css`, with values from `docs/design/organic/tokens.css`, and the fonts
-(Caprasimo, Figtree) are self-hosted woff2 files in `public/fonts/`. `vite-plugin-pwa` (dev dependency) emits
+(Caprasimo, Figtree) are self-hosted woff2 files in `public/fonts/`. Dark Organic (20a) is a `.dark` block in the same file that
+overrides those variables; `useTheme` sets the class on `<html>`, and an inline script in `index.html` sets it before first paint. `vite-plugin-pwa` (dev dependency) emits
 `sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` (mounted in `App.tsx`, outside the routes) registers
 the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. Two workflows: `ci.yml` runs the
 gates, and `preview.yml` deploys `dist/` to the `qa` Hosting preview channel (not live).

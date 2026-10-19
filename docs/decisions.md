@@ -801,7 +801,16 @@ Note 2026-10-18: RL-063 also restyles shape and type inside the shared primitive
 
 ### Light only until a dark Organic exists (RL-065, 2026-10-18)
 
+Superseded 2026-10-19 by "Dark Organic is back, Warm night 20a (RL-117)" below.
+
 The app is light only. The Theme control is removed from Settings and `useTheme` always removes the `dark` class, so an OS in dark mode changes nothing; `index.html` keeps one `theme-color` of `#f5ead8` with no media query. The stored preference is kept (`getTheme`/`setTheme` unchanged) so restoring dark needs no migration, and the roughly 66 `dark:` classes stay as inert structure (the `dark` variant is class-based, `.dark, .dark *`, so with the class never applied none fire). New UI writes no `dark:` classes. Rejected: a temporary dark Organic mapping, which would be a second palette to design and test and then discard when the real dark design lands (brief ticket 8). The author's call.
+
+
+### Dark Organic is back, Warm night 20a (RL-117, 2026-10-19)
+
+Supersedes "Light only until a dark Organic exists" above. The condition it named is met: the design now has a dark Organic (20a, Warm night), and the author approved reversing RL-065 at the RL-117 `/groom` review on 2026-10-19, choosing 20a over 20b (olive dusk) and System as the default when nothing is stored. Settings' Appearance card has a Light / Dark / System segment again. The `dark` variant stays class based (`.dark` on `<html>`, set by `useTheme` and, before first paint, by an inline script in `index.html`) rather than switching to `[data-theme="dark"]`, because the variant and the old hook were already class based.
+
+The `.dark` block overrides the token variables: every 100 to 900 ramp, and the danger, success and warning scales, is reversed (step N takes step 10 minus N), so a tint fill with 800 text keeps working unchanged and the old `dark:` classes, which were the same flip done by hand, are removed. Departures from the 20a table, each measured: `primary-600` (fills) is the dark accent `#e8925a`, not flipped accent-700, with `on-accent` set to the dark ground `#1e1915` (the design draws accent buttons with `--color-bg` text); `text-tertiary` is `#bfb29d`, not 20a's muted `#b6a994`, which is 4.49:1 and 4.26:1 on the card tints; shadow colours moved to plain variables because Tailwind inlines `--shadow-*` values; the dialog and sheet scrims get `dark:backdrop:bg-black/60` because `neutral-900` flips to cream. Every measured pair is in `backlog/tickets/RL-117.md`.
 
 
 ### Suggestions section sits below the recipe body (RL-105, 2026-10-19)

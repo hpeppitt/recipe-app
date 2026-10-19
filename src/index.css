@@ -61,9 +61,6 @@
   --color-primary-700: var(--color-accent-800);
   --color-primary-800: var(--color-accent-900);
   --color-primary-900: var(--color-accent-900);
-  /* Dark-mode counterpart to the primary-50 tint. The primary scale is
-     deliberately not remapped in .dark, because tinted chips pair primary-50
-     with dark primary-700 text and would invert into illegibility. */
   --color-primary-950: var(--color-accent-900);
 
   --color-surface: #f5ead8;
@@ -97,9 +94,10 @@
   --text-h4: 20px;
   --text-h5: 16px;
   --text-h6: 13px;
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+  /* Colours via plain variables: Tailwind inlines shadow values, so .dark swaps these instead. */
+  --shadow-sm: 0 1px 2px var(--shadow-ink-sm);
+  --shadow-md: 0 3px 10px var(--shadow-ink-md);
+  --shadow-lg: 0 12px 32px var(--shadow-ink-lg);
   /* Organic radius-lg (28px) * 1.15. Tailwind's own radius and spacing are left alone. */
   --radius-card: 32px;
 
@@ -134,17 +132,97 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  --shadow-ink-sm: color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-ink-md: color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-ink-lg: color-mix(in srgb, #2e2b25 22%, transparent);
+}
+
+/*
+ * Dark Organic, Warm night (design 20a, RL-117). useTheme puts the class on <html>, the same
+ * element that holds the @theme variables, so aliases such as primary-* and border resolve to
+ * these values. Every 100 to 900 ramp is reversed (step N takes step 10 minus N), so a
+ * "tint fill + 800 text" pair keeps working with no dark: class. Contrast for every pair is
+ * listed in backlog/tickets/RL-117.md.
+ */
 .dark {
-  --color-surface: #111827;
-  --color-surface-secondary: #1f2937;
-  --color-surface-tertiary: #374151;
-  --color-text-primary: #f9fafb;
-  /* 11.95:1 and 8.79:1 on #111827; 9.89 and 7.27 on surface-secondary; 6.94 and
-     5.11 on surface-tertiary. See the light-theme note above. */
-  --color-text-secondary: #cbd5e1;
-  --color-text-tertiary: #b0b7c3;
-  --color-border: #374151;
-  --color-border-strong: #4b5563;
+  color-scheme: dark;
+  --color-accent: #e8925a;
+  --color-accent-2: #aebf92;
+  --color-divider: rgba(243, 232, 214, 0.14);
+  /* The design's ink-on-accent: cream on the light dark-mode fills would fail AA. */
+  --color-on-accent: #1e1915;
+  /* Set by hand, not flipped, so input fills sit just above the ground. */
+  --color-neutral-100: #2a2520;
+  --color-neutral-200: #332c25;
+  --color-neutral-300: #645c50;
+  --color-neutral-400: #82796a;
+  --color-neutral-500: #a19786;
+  --color-neutral-600: #c0b6a5;
+  --color-neutral-700: #dcd3c4;
+  --color-neutral-800: #eee7db;
+  --color-neutral-900: #f9f4ed;
+  --color-accent-100: #402310;
+  --color-accent-200: #643312;
+  --color-accent-300: #8c491a;
+  --color-accent-400: #b2622d;
+  --color-accent-500: #d67f48;
+  --color-accent-600: #f6a06b;
+  --color-accent-700: #ffc6a5;
+  --color-accent-800: #ffe1d0;
+  --color-accent-900: #fff2eb;
+  --color-accent-2-100: #272e1b;
+  --color-accent-2-200: #3d472b;
+  --color-accent-2-300: #56633f;
+  --color-accent-2-400: #728157;
+  --color-accent-2-500: #8fa073;
+  --color-accent-2-600: #aebf92;
+  --color-accent-2-700: #ccdbb2;
+  --color-accent-2-800: #e1eecc;
+  --color-accent-2-900: #f0fae1;
+
+  /* Fills follow the design's accent (#e8925a) rather than flipped accent-700; hover and
+     active step away from the ground, so they get lighter. On-accent ink: 7.21, 8.43, 11.51:1. */
+  --color-primary-600: var(--color-accent);
+  --color-primary-700: var(--color-accent-600);
+  --color-primary-800: var(--color-accent-700);
+
+  --color-surface: #1e1915;
+  --color-surface-secondary: #2b241e;
+  --color-surface-tertiary: #332c25;
+  --color-text-primary: #f3e8d6;
+  --color-text-secondary: #dcd3c4;
+  /* 20a's muted #b6a994 reaches only 4.49:1 on accent-200 and 4.26:1 on accent-2-200 (tile and
+     carousel tints); this is the nearest lift that clears 4.5 on every tint (4.98 and 4.72). */
+  --color-text-tertiary: #bfb29d;
+  --color-border-strong: #82796a;
+  --shadow-ink-sm: rgba(0, 0, 0, 0.4);
+  --shadow-ink-md: rgba(0, 0, 0, 0.45);
+  --shadow-ink-lg: rgba(0, 0, 0, 0.55);
+
+  /* Semantic scales flip by the same rule, using Tailwind's red, green and amber steps. */
+  --color-danger-50: #450a0a;
+  --color-danger-300: #b91c1c;
+  --color-danger-500: #ef4444;
+  --color-danger-600: #f87171;
+  --color-danger-700: #fca5a5;
+  --color-danger-950: #fef2f2;
+  --color-success-50: #052e16;
+  --color-success-200: #166534;
+  --color-success-300: #15803d;
+  --color-success-400: #16a34a;
+  --color-success-500: #22c55e;
+  --color-success-600: #4ade80;
+  --color-success-700: #86efac;
+  --color-success-800: #bbf7d0;
+  --color-success-950: #f0fdf4;
+  --color-warning-50: #451a03;
+  --color-warning-200: #92400e;
+  --color-warning-300: #b45309;
+  --color-warning-500: #f59e0b;
+  --color-warning-700: #fcd34d;
+  --color-warning-800: #fde68a;
+  --color-warning-950: #fffbeb;
 }
 
 body {

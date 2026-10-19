@@ -32,7 +32,7 @@ Why: every other ticket builds on the tokens.
 - Restyle shared primitives: `Button` (pill, primary/secondary/ghost), `Chip`/tags, `SegmentedControl`, `Input`, `ConfirmDialog`, `Skeleton`, `EmptyState`, `TopBar`.
 - Lucide icons at stroke-width 2.75 if not already used (check bundle size; tree-shaken `lucide-react`).
 - Focus ring: 2px accent `:focus-visible`.
-- OPEN QUESTION: Organic has no dark palette; the app supports light/dark/system (`useTheme`, about 53 `dark:` classes). (a) ship light-only and hide the toggle until a dark Organic exists, or (b) keep a temporary dark mapping.
+- RESOLVED (RL-065 went light only, then RL-117 shipped dark Organic 20a with Light / Dark / System): Organic has no dark palette; the app supports light/dark/system (`useTheme`, about 53 `dark:` classes). (a) ship light-only and hide the toggle until a dark Organic exists, or (b) keep a temporary dark mapping.
 - Done when: all screens render in Organic colours and type; AA contrast holds (accent text at body size uses accent-700); docs updated.
 
 ### 2. Branch diff logic (`src/lib/recipeDiff.ts`)
@@ -71,7 +71,7 @@ Why: every other ticket builds on the tokens.
 - `ui-reviewer` on changed pages. `/preflight`. Update `docs/capabilities.md`, `docs/architecture.md`, `docs/decisions.md` (Organic adoption, three tree views, client-side diff) and `CHANGELOG.md`.
 
 ### 8. Screens without an Organic design yet (follow-up in Claude Design, not code)
-Recipe edit, Settings (theme toggle, depends on the dark-mode decision), Shared recipe (`/shared` and `/shared/:id`), Suggest a change modal, Suggestion thread, Notifications and the Activity tab (new in the 5-slot nav, no screen design), Avatar editor, Tree intro (its diagram must be redrawn to match 3a; decisions.md 2026-08-07), Lineage breadcrumb, Nutrition panel / serving stepper / metadata pills (check against 2a to 2c), Email link status (the stranded identity notice was removed, RL-032), confirm dialog / empty / error / loading states, dark mode, and desktop or wide layout (designs are 390px mobile). These get the theme from ticket 1 automatically.
+Recipe edit, Settings (theme toggle, resolved by RL-117), Shared recipe (`/shared` and `/shared/:id`), Suggest a change modal, Suggestion thread, Notifications and the Activity tab (new in the 5-slot nav, no screen design), Avatar editor, Tree intro (its diagram must be redrawn to match 3a; decisions.md 2026-08-07), Lineage breadcrumb, Nutrition panel / serving stepper / metadata pills (check against 2a to 2c), Email link status (the stranded identity notice was removed, RL-032), confirm dialog / empty / error / loading states, dark mode, and desktop or wide layout (designs are 390px mobile). These get the theme from ticket 1 automatically.
 
 ## Not in the export but in the design project
 

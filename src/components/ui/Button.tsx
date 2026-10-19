@@ -17,6 +17,7 @@ type ButtonProps =
   | (ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button' })
   | (ButtonStyleProps & AnchorHTMLAttributes<HTMLAnchorElement> & { as: 'a' });
 
+// The danger fill flips in dark but white text does not: white on dark danger-600 is 2.77:1, ink is 6.30:1.
 function buttonClasses({
   variant = 'primary',
   size = 'md',
@@ -35,7 +36,7 @@ function buttonClasses({
     size === 'lg' && 'text-base px-6 py-3 min-h-11',
     variant === 'primary' && 'bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800',
     variant === 'secondary' && 'border border-border text-text-primary hover:bg-surface-secondary',
-    variant === 'danger' && 'bg-danger-600 text-white hover:bg-danger-500',
+    variant === 'danger' && 'bg-danger-600 text-white hover:bg-danger-500 dark:text-on-accent',
     variant === 'ghost' && 'text-primary-600 hover:bg-primary-50',
     fullWidth && 'w-full',
     className

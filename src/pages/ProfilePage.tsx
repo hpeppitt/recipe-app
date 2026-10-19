@@ -237,7 +237,7 @@ function OwnProfile() {
                 />
               </EmojiBlob>
               <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-primary-600 border-2 border-surface flex items-center justify-center">
-                <Pencil className="w-3.5 h-3.5 text-white" />
+                <Pencil className="w-3.5 h-3.5 text-on-accent" />
               </span>
             </button>
 

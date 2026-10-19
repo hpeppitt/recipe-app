@@ -1,6 +1,6 @@
 // inline-block with padding gives a touch target near 44px tall without a heavier look.
 export const LEGAL_LINK =
-  'inline-block py-2 px-1 underline text-primary-700 dark:text-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
+  'inline-block py-2 px-1 underline text-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 
 /** New tab so a half-finished sign-up survives. */
 export function LegalLink({ href, children }: { href: string; children: string }) {

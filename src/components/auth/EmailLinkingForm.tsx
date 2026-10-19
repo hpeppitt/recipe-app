@@ -21,15 +21,13 @@ type Tone = 'warning' | 'invite';
 
 const TONES: Record<Tone, { shell: string; title: string; body: string }> = {
   warning: {
-    shell:
-      'border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950',
-    title: 'text-warning-800 dark:text-warning-200',
-    body: 'text-warning-700 dark:text-warning-300',
+    shell: 'border-warning-200 bg-warning-50',
+    title: 'text-warning-800',
+    body: 'text-warning-700',
   },
   invite: {
-    shell:
-      'border-primary-200 bg-primary-50 dark:border-primary-800 dark:bg-primary-950',
-    title: 'text-primary-700 dark:text-primary-300',
+    shell: 'border-primary-200 bg-primary-50',
+    title: 'text-primary-700',
     body: 'text-text-secondary',
   },
 };
@@ -101,11 +99,11 @@ export function EmailLinkingForm({
 
   if (sent) {
     return (
-      <div className="border border-success-200 bg-success-50 dark:border-success-800 dark:bg-success-950 rounded-2xl p-4 text-center space-y-2">
-        <p className="text-sm font-medium text-success-700 dark:text-success-300">
+      <div className="border border-success-200 bg-success-50 rounded-2xl p-4 text-center space-y-2">
+        <p className="text-sm font-medium text-success-700">
           Check your email!
         </p>
-        <p className="text-xs text-success-700 dark:text-success-400">
+        <p className="text-xs text-success-700">
           We sent a link to <strong>{email}</strong>. Click it to secure your account.
         </p>
       </div>
@@ -177,7 +175,7 @@ export function EmailLinkingForm({
       </div>
       )}
       {!accepted && <TermsHint id={hintId} />}
-      {error && <p role="alert" className="text-xs text-danger-700 dark:text-danger-300">{error}</p>}
+      {error && <p role="alert" className="text-xs text-danger-700">{error}</p>}
       {/* Only in the sheet: the older card gates already say the same in their own description. */}
       {tone === 'invite' && onSent && <EmailStepNotes />}
     </div>
