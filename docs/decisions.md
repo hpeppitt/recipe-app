@@ -780,6 +780,8 @@ to overrule.
 
 *2026-10-18: own recipes use a live listener, see 1b.*
 
+*2026-10-19: the Saved page lists hydrated favourites (RL-121), reading each one not on the device from the cloud once per session, read only and never cached in Dexie.*
+
 
 ### Policy sign-off for solo testing (RL-046, 2026-10-18)
 
