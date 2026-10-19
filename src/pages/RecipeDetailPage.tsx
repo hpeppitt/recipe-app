@@ -21,6 +21,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
+import { GitBranchPlus, MessageCircle, Pencil } from '../components/ui/icons';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
@@ -40,6 +41,9 @@ import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboard
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 /** How long Delete waits on the cloud before telling the user copies may remain. */
 const CLOUD_DELETE_TIMEOUT_MS = 10000;
+
+const footerButton =
+  'inline-flex h-[52px] min-w-0 items-center justify-center gap-1.5 rounded-full px-1.5 font-heading text-[15px] whitespace-nowrap transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -612,7 +616,7 @@ export function RecipeDetailPage() {
           )}
 
           {/* Above the recipe body, below the suggestions: it explains what the
-              Create Variation button at the bottom of this page will do, so it
+              Branch this recipe button at the bottom of this page will do, so it
               needs to be read before the user gets there. */}
           {shouldShowTreeIntro(introState, recipe) && (
             <TreeIntro
@@ -676,32 +680,34 @@ export function RecipeDetailPage() {
       {/* Not sticky. Branching or suggesting is a before/after action, and pinning
           it cost ~72px of the one screen people read while their hands are busy.
           At the end of the recipe is also where the decision actually happens. */}
-      <div className="p-4 border-t border-border">
-        <div className="max-w-lg mx-auto space-y-2">
-          {/* Suggesting a change used to exist only on /shared/:id, so anyone who
-              reached another user's recipe through the library never saw it.
-
-              On someone else's recipe, suggesting is the contextually right
-              action and now takes the primary slot; branching drops to secondary.
-              On your own, branching stays primary — there is nobody to suggest to. */}
-          {canSuggest ? (
-            <>
-              <Button fullWidth onClick={handleSuggestClick}>
-                Suggest a Change
-              </Button>
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={() => navigate(`/recipe/${recipe.id}/vary`)}
-              >
-                Create Variation
-              </Button>
-            </>
-          ) : (
-            <Button fullWidth onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
-              Create Variation
-            </Button>
+      <div className="bg-surface px-5 pt-3 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
+        <div className="max-w-lg mx-auto flex gap-2.5">
+          {/* Owner: Edit. Someone else's cloud recipe: Suggest. Flex basis comes
+              from content (auto) and free space is split 1:2, so a wide heading
+              font cannot be squeezed to a fixed 90px/180px at 320px. The Suggest
+              and Edit icon is hidden under 360px for the same reason. Not
+              measured: jsdom cannot lay out, so check on a device. */}
+          {/* Currently always true (local is owned, every other cloud recipe can
+              be suggested to). Kept so an empty slot cannot appear if the
+              ownership or suggest rules tighten. */}
+          {(isOwner || canSuggest) && (
+            <button
+              type="button"
+              onClick={isOwner ? () => navigate(`/recipe/${recipe.id}/edit`) : handleSuggestClick}
+              className={`${footerButton} flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
+            >
+              {isOwner ? <Pencil className="h-4 w-4 shrink-0 max-[359px]:hidden" /> : <MessageCircle className="h-4 w-4 shrink-0 max-[359px]:hidden" />}
+              {isOwner ? 'Edit' : 'Suggest'}
+            </button>
           )}
+          <button
+            type="button"
+            onClick={() => navigate(`/recipe/${recipe.id}/vary`)}
+            className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
+          >
+            <GitBranchPlus className="h-4 w-4 shrink-0" />
+            Branch this recipe
+          </button>
         </div>
       </div>
 

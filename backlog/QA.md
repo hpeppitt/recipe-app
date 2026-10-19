@@ -18,6 +18,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-104 The recipe page footer shows Edit or Suggest beside a wider Branch this recipe button
+
+- At 390px and 320px check three cases. Your own recipe: "Edit" (pencil) beside "Branch this recipe". Someone else's cloud recipe: "Suggest" beside "Branch this recipe". A recipe saved on this device: "Edit" plus "Branch this recipe", as before (pre-existing behaviour). A Branch-only footer cannot occur today.
+- At 320px every label sits on one line, nothing clips (widths come from the content, split about 1:2; the icon on Edit and Suggest is hidden under 360px; this is reasoned, not measured, so look closely at Suggest and Branch this recipe). The footer stays at the end of the page and scrolls with it, with clear space under it on an iPhone home indicator.
+- Edit opens the editor, Suggest opens the "Suggest a Change" dialog, Branch opens the variation screen; signed out, Branch shows the existing sign-up screen on /vary.
+
 ### RL-103 Method steps get numbered discs and nutrition is a collapsed card under the method
 
 - On a recipe with nutrition, find the "Nutrition per serving" card below the method (before notes and tags). It is closed on load. Open and close it by tap, then with the keyboard (Tab to it, Enter or Space); the chevron flips. Open shows Calories, Carbs, Fat, Protein tiles (g units, no unit on calories) and "Estimated from ingredients. Changes with each branch." Moving to another recipe shows it closed again.
@@ -73,7 +79,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Close the sheet with Escape and by tapping outside: focus returns to the More button. The pending-suggestions count badge still shows on More, and a screen reader reads "More options, N suggestions pending".
 - Signed out, tap the heart: the sign-in prompt opens. Back still returns to where you came from.
 - Reviewer noted (med): index.html has no viewport-fit=cover, so env(safe-area-inset-top) is 0 and the floating branch buttons can sit under the status bar or notch in an installed PWA / standalone mode. Decide whether to add viewport-fit=cover (it needs safe-area handling elsewhere and changes the whole app, so it was not done here) and check in standalone mode.
-- Reviewer noted (med, author to confirm): the recipe header is no longer sticky, so back, heart and More scroll away on a long recipe. The ticket spec does not ask for sticky; system back still works. The footer "Suggest a Change" button remains until RL-104.
+- Reviewer noted (med, author to confirm): the recipe header is no longer sticky, so back, heart and More scroll away on a long recipe. The ticket spec does not ask for sticky; system back still works.
 - Reviewer noted (low): removing RecipeContent's h2 leaves a heading jump from h1 to h3 on the recipe page until later tickets add section headings.
 - Reviewer noted (low): EllipsisVertical in ui/icons.tsx is now unused.
 - Reviewer noted (low): 320px wrapping is untested (jsdom).
