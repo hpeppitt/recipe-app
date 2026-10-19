@@ -1,13 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { screen, fireEvent, within } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { SuggestionList } from './SuggestionList';
 import type { Suggestion } from '../../types/social';
-
-vi.mock('../../hooks/useSuggestions', () => ({
-  useSuggestionThread: () => ({ messages: [], error: null, send: vi.fn() }),
-}));
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -91,17 +88,33 @@ describe('SuggestionList', () => {
     expect(screen.getByText('(No message)')).toBeInTheDocument();
   });
 
-  it('Replies and a closed row expand the thread, and collapse again', () => {
-    show([one, closed[0]]);
-    expect(screen.queryByText('No replies yet.')).not.toBeInTheDocument();
-    const replies = screen.getByRole('button', { name: 'Replies' });
-    fireEvent.click(replies);
-    expect(replies).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('No replies yet.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Add lime, Approved' }));
-    expect(screen.getAllByText('No replies yet.')).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Add lime, Approved' }));
-    expect(screen.queryByText('No replies yet.')).not.toBeInTheDocument();
+  it('Replies, Reply and a closed row open the thread screen (RL-106)', () => {
+    function Where() {
+      return <p data-testid="path">{useLocation().pathname}</p>;
+    }
+    const cases: Array<[Suggestion[], boolean, string, string]> = [
+      [[one], true, 'Replies', '/recipe/r/suggestion/a'],
+      [[one], false, 'Reply', '/recipe/r/suggestion/a'],
+      [[closed[0]], true, 'Add lime, Approved', '/recipe/r/suggestion/b'],
+    ];
+    for (const [items, isOwner, name, path] of cases) {
+      const view = renderWithProviders(
+        <Routes>
+          <Route
+            path="/"
+            element={<SuggestionList suggestions={items} isOwner={isOwner} reviewingId={null} reviewError={null} onReview={vi.fn()} />}
+          />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      );
+      const button = screen.getByRole('button', { name });
+      // Navigates now; nothing expands inline any more.
+      expect(button).not.toHaveAttribute('aria-expanded');
+      fireEvent.click(button);
+      expect(screen.getByTestId('path')).toHaveTextContent(path);
+      expect(screen.queryByText('No replies yet.')).not.toBeInTheDocument();
+      view.unmount();
+    }
   });
 
   it('Approve calls onReview straight away', () => {

@@ -21,6 +21,7 @@ const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m =>
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
+const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -56,6 +57,8 @@ export default function App() {
           <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
           <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
           <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
+          {/* The reply thread on one suggestion (RL-106), with its own Back button. */}
+          <Route path="/recipe/:id/suggestion/:suggestionId" element={<SuggestionThreadPage />} />
           <Route path="/terms" element={<LegalPage doc="terms" />} />
           <Route path="/privacy" element={<LegalPage doc="privacy" />} />
           <Route path="/cookies" element={<LegalPage doc="cookies" />} />

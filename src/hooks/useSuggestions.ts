@@ -41,7 +41,8 @@ export function useSuggestions(recipeId: string | undefined, recipeOwnerUid: str
   }, [isConfigured, key, recipeId, uid, isOwner]);
 
   // A result for a different recipe or a different account is not this one's answer.
-  const suggestions = fetched.key === key && key ? fetched.items : [];
+  const loaded = !!key && fetched.key === key;
+  const suggestions = loaded ? fetched.items : [];
 
   // The reviewer is passed through so the suggester can be told the outcome;
   // Firestore rules require the notification's fromUid to be the writer.
@@ -67,7 +68,8 @@ export function useSuggestions(recipeId: string | undefined, recipeOwnerUid: str
     trackSuggestionReviewed(id, 'rejected');
   }, [reviewer]);
 
-  return { suggestions, approve, reject };
+  // `loaded` tells the thread page "not found" apart from "still listening".
+  return { suggestions, loaded, approve, reject };
 }
 
 /**

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
+import { useSuggestionReview } from '../hooks/useSuggestionReview';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree, getSubtreeIds } from '../db/recipes';
 import {
@@ -99,11 +100,7 @@ export function RecipeDetailPage() {
   const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
   const savedOutcome = savedState?.saved;
   const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
-  // Which suggestion is mid-review. Decline and Approve on every card disable
-  // while one is in flight: a slow link previously allowed a double-tap, or
-  // approving one suggestion while declining another.
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [reviewError, setReviewError] = useState<string | null>(null);
+  const { reviewingId, reviewError, review: handleReview } = useSuggestionReview(id, approve, reject);
   const [introState, setIntroState] = useState(getIntroState);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
@@ -298,37 +295,6 @@ export function RecipeDetailPage() {
       recipeEmoji: recipe.emoji,
       message,
     });
-  };
-
-  const handleReview = async (
-    suggestionId: string,
-    action: 'approve' | 'reject',
-    message: string
-  ) => {
-    if (reviewingId) return;
-    setReviewingId(suggestionId);
-    setReviewError(null);
-    try {
-      if (action === 'approve') {
-        // null means nothing was approved (no Firestore, or the suggestion is
-        // gone), so it is a failure, not a reason to open the variation flow.
-        if (!(await approve(suggestionId))) throw new Error('Approval returned no collaborator');
-        navigate(`/recipe/${id}/vary`, { state: { suggestion: message } });
-        return;
-      }
-      await reject(suggestionId);
-    } catch (err) {
-      console.error(`Reviewing the suggestion (${action}) failed`, err);
-      setReviewError(
-        action === 'approve'
-          ? "Couldn't approve that suggestion. Please try again."
-          : "Couldn't decline that suggestion. Please try again."
-      );
-    } finally {
-      // Left set on the approve path only if navigation did not happen; the
-      // early return above means a successful approve unmounts this anyway.
-      setReviewingId(null);
-    }
   };
 
   const handleFavoriteToggle = () => {
