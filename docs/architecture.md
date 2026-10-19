@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -218,6 +218,8 @@ Places designed to be replaced, worth knowing before you change them:
   edits into the existing free-text suggestion message, so the write path has no new fields.
 - **`components/recipe/SuggestMode.tsx`** (RL-107): the recipe page and the shared page as the suggest form; composes with
   `lib/suggestion.ts` and sends through the page's existing submit.
+- **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, RL-125): the Create tab's three
+  cycling words and the prompt they build for the chat, so the options or the sentence change in one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 
@@ -251,8 +253,8 @@ shell route loads and a failed chunk load lands in the error fallback. Firebase 
 start and is split only for caching.
 
 `AppShell` wraps `/` (`ExplorePage`, eager, RL-098), `/search` (`SearchPage`, RL-124), `/saved`
-(`SavedPage`) and `/activity` (`ActivityPage`), all three lazy, and `/profile`. Its `BottomNav`
-(RL-097) is five `Link`s: Explore, Saved, Create (a link to `/create`, never shown as current),
+(`SavedPage`), `/new` (`CreatePage`, RL-125) and `/activity` (`ActivityPage`), all four lazy, and `/profile`. Its `BottomNav`
+(RL-097) is five `Link`s: Explore, Saved, Create (a link to `/new`, the sentence builder, which hands its prompt to `/create`),
 Activity and You. Each sets `aria-current="page"` from `matchPath` on the current path, and
 Explore is also current on `/search` (a `NavLink` could not do that). The Activity badge reads `useNotifications()`, which
 reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. The bar is fixed, 78px plus the bottom safe area beyond

@@ -815,3 +815,7 @@ The owner's suggestions section moved from above the recipe body to below it (af
 ### Explore search moved to the /search screen (RL-124, 2026-10-19)
 
 Explore's inline search pill (RL-098) was replaced by a link to `/search`, so there is one search. The Organic 1a design draws search as its own screen; it searches ingredient names across the device's recipes and the loaded shared pages, branches included; a query with no match turns into a new recipe through Write it; and the query and chip live in the URL (`?q=`, `?f=`), so Back from a result restores them. Still no index or Firestore query (see "Full-text search" above).
+
+### The Create tab opens the /new sentence builder (RL-125, 2026-10-19)
+
+The nav's Create slot now links to `/new`, the Organic 6c sentence builder inside `AppShell`, and is shown as the current tab there. This reverses RL-097's "Create is never current", which held only because Create opened the chat full screen. Write it hands the built sentence to `/create` unsent, so `/create` stays the one place that generates.
