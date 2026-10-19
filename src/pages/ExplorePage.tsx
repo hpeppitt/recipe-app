@@ -6,6 +6,7 @@ import { useFollowingList } from '../hooks/useFollow';
 import { useFollowingRecipes } from '../hooks/useUserRecipes';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnline } from '../hooks/useOnline';
+import { useBranchingThisWeek } from '../hooks/useBranchingThisWeek';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
@@ -18,6 +19,8 @@ import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
 import { CloudOff, BookmarkCheck, GitBranch, Heart, Search } from '../components/ui/icons';
+
+const NO_ROWS: never[] = [];
 
 type Filter = 'all' | 'favorites' | 'following';
 
@@ -94,10 +97,13 @@ export function ExplorePage() {
   const loadedCount = exploreFeed?.length ?? 0;
   const showOfflineBanner = isConfigured && !online && !isLoading && (source?.length ?? 0) > 0;
 
-  // The newest roots of the unfiltered feed. Nothing to show while a filter or tag
-  // narrows the list, while loading or failed, or in local-only mode (no shared feed).
+  // Both rows show only on the unfiltered feed: not under a filter or tag, while loading or failed,
+  // or in local-only mode (no shared feed).
+  const rowsAllowed = pagedExplore && !isLoading && filter === 'all' && !tag;
+  const branching = useBranchingThisWeek(rowsAllowed, exploreFeed ?? NO_ROWS);
+  // Newest is the fallback when the week has nothing; while the query runs neither row shows.
   const tileRecipes =
-    pagedExplore && !isLoading && filter === 'all' && !tag ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
+    rowsAllowed && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
   return (
     <div>
@@ -116,6 +122,9 @@ export function ExplorePage() {
         </Link>
       </header>
 
+      {rowsAllowed && branching.status === 'ready' && (
+        <RecipeTileRow title="Branching fast this week" recipes={branching.tiles} />
+      )}
       {tileRecipes.length > 0 && (
         <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} />
       )}

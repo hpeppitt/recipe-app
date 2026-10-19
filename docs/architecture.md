@@ -92,7 +92,7 @@ cursor-paged `getPublishedRecipesPage` feed, behind Explore at `/`, read on firs
 pure list logic, roots only, dedup by id, newest first, variation counts across both stores, and
 the search, favourites and following filters, is `lib/library.ts`. Until RL-098 `/` was a
 Library with My Recipes and Explore tabs; own recipes now live on the You tab and other people's
-kept copies on Saved. One source per list replaced a merged feed whose union of a live query and
+kept copies on Saved. Explore also fires one `getRecentPublishedRecipes` week query per session through `hooks/useBranchingThisWeek.ts` (RL-126). One source per list replaced a merged feed whose union of a live query and
 a paged window had no stable cursor.
 
 Favourites flow both ways for a verified account. Writes go Dexie first, then
@@ -209,7 +209,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
   fallback shape can change without touching the share UI. The decode path validates with Zod
   and returns null on failure.
-- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`): the list logic behind Explore, Saved and the own profile, so
+- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`, `tileRowTitle`, `branchingThisWeek`, `WEEK_MS`): the list logic behind Explore, Saved and the own profile, so
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens

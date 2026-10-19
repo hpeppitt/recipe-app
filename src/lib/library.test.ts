@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
+import { buildFeed, branchingThisWeek, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -284,5 +284,40 @@ describe('searchLibrary', () => {
     const out = searchLibrary(all, { query: 'pasta', filter: 'all' });
     expect(out.map((r) => r.id)).toEqual(['b', 'r']);
     expect(out[1].childCount).toBe(1);
+  });
+});
+
+describe('branchingThisWeek', () => {
+  const NOW = 1_000_000_000_000;
+  const DAY = 24 * 60 * 60 * 1000;
+  const b = (id: string, rootId: string, ago: number, parentId: string | null = rootId) => ({ id, rootId, parentId, createdAt: NOW - ago });
+
+  it('groups branches by root across depths and ignores originals', () => {
+    const out = branchingThisWeek([b('a', 'r1', 1), b('b', 'r1', 2, 'a'), b('c', 'r2', 3), b('r3', 'r3', 0, null)], NOW);
+    expect(out).toEqual([
+      { rootId: 'r1', weekCount: 2, newestAt: NOW - 1 },
+      { rootId: 'r2', weekCount: 1, newestAt: NOW - 3 },
+    ]);
+  });
+
+  it('counts exactly 7 days in and one millisecond out', () => {
+    expect(branchingThisWeek([b('a', 'r1', 7 * DAY)], NOW)).toHaveLength(1);
+    expect(branchingThisWeek([b('a', 'r1', 7 * DAY + 1)], NOW)).toEqual([]);
+  });
+
+  it('falls back to id when rootId is absent', () => {
+    expect(branchingThisWeek([{ id: 'x', parentId: 'p', createdAt: NOW }], NOW)[0].rootId).toBe('x');
+  });
+
+  it('sorts by count, then the newest branch', () => {
+    const out = branchingThisWeek([b('a', 'r1', 5), b('b', 'r2', 1), b('c', 'r3', 9), b('d', 'r3', 8)], NOW);
+    expect(out.map((f) => f.rootId)).toEqual(['r3', 'r2', 'r1']);
+  });
+
+  it('cuts to max and handles empty input', () => {
+    const many = Array.from({ length: 12 }, (_, i) => b(`k${i}`, `r${i}`, i));
+    expect(branchingThisWeek(many, NOW)).toHaveLength(8);
+    expect(branchingThisWeek(many, NOW, 3)).toHaveLength(3);
+    expect(branchingThisWeek([], NOW)).toEqual([]);
   });
 });

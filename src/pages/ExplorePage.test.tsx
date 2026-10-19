@@ -8,8 +8,12 @@ import { EXPLORE_TAGS } from '../lib/constants';
 import type { AppUser, Recipe } from '../types/recipe';
 
 const getPage = vi.fn();
+const getRecent = vi.fn();
+const getOne = vi.fn();
 vi.mock('../services/firestore', () => ({
   getPublishedRecipesPage: (...a: unknown[]) => getPage(...a),
+  getRecentPublishedRecipes: (...a: unknown[]) => getRecent(...a),
+  getPublishedRecipe: (...a: unknown[]) => getOne(...a),
   getRecipesByUsers: vi.fn(async () => []),
   getCloudFavorites: vi.fn(async () => []),
 }));
@@ -24,6 +28,7 @@ vi.mock('../hooks/useFollow', () => ({
 }));
 
 import { ExplorePage } from './ExplorePage';
+import { clearBranchingThisWeekCache } from '../hooks/useBranchingThisWeek';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
 const cloud = (over: Partial<Recipe> = {}) => ({ ...makeRecipe(over), favoriteCount: 0, viewCount: 0 });
@@ -33,6 +38,10 @@ beforeEach(async () => {
   await db.recipes.clear();
   await db.favorites.clear();
   getPage.mockReset();
+  getRecent.mockReset();
+  getRecent.mockResolvedValue([]);
+  getOne.mockReset();
+  clearBranchingThisWeekCache();
   getPage.mockResolvedValue({ recipes: [], cursor: null, hasMore: false });
 });
 
@@ -344,6 +353,68 @@ describe('ExplorePage tile row', () => {
     renderWithProviders(<ExplorePage />, localOnly);
     expect(await screen.findByRole('link', { name: 'Local Loaf' })).toBeInTheDocument();
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+});
+
+describe('ExplorePage Branching fast this week', () => {
+  const NOW = Date.now();
+  const kid = (id: string, rootId: string) => cloud({ id, rootId, parentId: rootId, depth: 1, title: id, createdAt: NOW - 1000 });
+  const region = (name: string) => screen.queryByRole('region', { name });
+
+  it('shows the row, busiest family first with a +N badge, instead of Newest', async () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW }), cloud({ id: 'b', title: 'Beta', createdAt: NOW })], cursor: null, hasMore: false });
+    getRecent.mockResolvedValue([kid('k1', 'b'), kid('k2', 'b'), kid('k3', 'a')]);
+    renderWithProviders(<ExplorePage />);
+    const row = await screen.findByRole('region', { name: 'Branching fast this week' });
+    expect(within(row).getAllByRole('link', { name: /^Open / }).map((a) => a.textContent || a.getAttribute('aria-label'))).toEqual(['Open Beta', 'Open Alpha']);
+    expect(within(row).getByText('2 new branches this week')).toBeInTheDocument();
+    expect(within(row).getByText('+2 this week')).toBeInTheDocument();
+    expect(region('New this week')).not.toBeInTheDocument();
+  });
+
+  it('shows neither row while the query is in flight, then falls back to Newest when it fails', async () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
+    let reject!: (e: Error) => void;
+    const inFlight = new Promise((_, rj) => (reject = rj));
+    inFlight.catch(() => {}); // mark handled: the hook may attach its handler after reject fires on a slow runner
+    getRecent.mockReturnValue(inFlight);
+    renderWithProviders(<ExplorePage />);
+    await screen.findByRole('link', { name: 'Alpha' });
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    await act(async () => reject(new Error('x')));
+    expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+  });
+
+  it('hides under Favorites and a tag with a non-empty week', async () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
+    getRecent.mockResolvedValue([kid('k1', 'a')]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Favorites' }));
+    expect(region('Branching fast this week')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
+    expect(region('Branching fast this week')).not.toBeInTheDocument();
+  });
+
+  it('is absent while the feed loads and when it fails, with a non-empty week', async () => {
+    getRecent.mockResolvedValue([kid('k1', 'a')]);
+    getPage.mockReturnValue(new Promise(() => {}));
+    const first = renderWithProviders(<ExplorePage />);
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    first.unmount();
+    getPage.mockRejectedValue(new Error('offline'));
+    renderWithProviders(<ExplorePage />);
+    await screen.findByText('Could not load');
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+  });
+
+  it('makes no query in local-only mode', async () => {
+    await db.recipes.add(makeRecipe({ id: 'l1', title: 'Local Loaf' }));
+    renderWithProviders(<ExplorePage />, localOnly);
+    await screen.findByRole('link', { name: 'Local Loaf' });
+    expect(getRecent).not.toHaveBeenCalled();
   });
 });
 

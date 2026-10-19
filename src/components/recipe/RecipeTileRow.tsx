@@ -10,6 +10,8 @@ export type TileRecipe = {
   title: string;
   totalTime: number;
   childCount?: number;
+  /** New branches in the last 7 days (RL-126); shows the "+N this week" badge instead of the branch tag. */
+  weekCount?: number;
   createdBy?: { uid: string; displayName: string | null };
 };
 
@@ -38,7 +40,9 @@ export function RecipeTileRow({ title, recipes }: { title: string; recipes: read
 function Tile({ recipe, tint }: { recipe: TileRecipe; tint: string }) {
   const title = recipe.title.trim() || 'Untitled recipe';
   const author = recipe.createdBy?.displayName?.trim() || 'Anonymous';
-  const count = recipe.childCount ?? 0;
+  const week = recipe.weekCount ?? 0;
+  const weekId = useId();
+  const count = week > 0 ? 0 : (recipe.childCount ?? 0);
   return (
     // The stretched-link pattern of the Explore rows: the tile link and the author link are siblings.
     <li className="relative flex w-[200px] shrink-0 snap-start flex-col gap-2">
@@ -46,12 +50,23 @@ function Tile({ recipe, tint }: { recipe: TileRecipe; tint: string }) {
         to={`/recipe/${recipe.id}`}
         // "Open" keeps it distinct from the list row's link to the same recipe.
         aria-label={`Open ${title}`}
-        className="absolute inset-0 rounded-[30px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500"
+        aria-describedby={week > 0 ? weekId : undefined}
+        // z-[5]: above the tile div (relative, later in the DOM), below the author link (z-10).
+        className="absolute inset-0 z-[5] rounded-[30px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500"
       />
       <div className={`relative flex size-[200px] items-center justify-center rounded-[30px] ${tint}`}>
         <span aria-hidden="true" className="text-[76px] leading-none">
           {recipe.emoji}
         </span>
+        {week > 0 && (
+          <span className="absolute top-3 left-3 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-accent-2-700 px-2.5 py-[3px] text-[11px] font-semibold text-accent-2-100">
+            <GitBranch className="size-3" />
+            <span aria-hidden="true">+{week} this week</span>
+            <span id={weekId} className="sr-only">
+              {week} new {pluralize(week, 'branch', 'branches')} this week
+            </span>
+          </span>
+        )}
         {count > 0 && (
           <span className="absolute top-3 left-3 inline-flex items-center gap-1 rounded-full bg-accent-2-700 px-2.5 py-[3px] text-[11px] font-semibold text-accent-2-100">
             <GitBranch className="size-3" />

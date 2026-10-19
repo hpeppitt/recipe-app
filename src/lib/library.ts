@@ -185,11 +185,33 @@ export function filterFeed<T extends Parameters<typeof recipeHaystack>[0] & {
   return result;
 }
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** "New this week" when every recipe is at most 7 days old, else "Newest". */
 export function tileRowTitle(recipes: readonly { createdAt: number }[], now: number): string {
   return recipes.every((r) => now - r.createdAt <= WEEK_MS) ? 'New this week' : 'Newest';
+}
+
+/**
+ * Families that gained the most branches in the last 7 days (RL-126). Only rows with a parent
+ * count, at any depth; an original counts nothing. Most branches first, ties by the newest branch.
+ */
+export function branchingThisWeek(
+  recent: readonly { id: string; parentId?: string | null; rootId?: string; createdAt?: number }[],
+  now: number,
+  max = 8
+): { rootId: string; weekCount: number; newestAt: number }[] {
+  const byRoot = new Map<string, { rootId: string; weekCount: number; newestAt: number }>();
+  for (const r of recent) {
+    const at = r.createdAt ?? 0;
+    if (!r.parentId || at < now - WEEK_MS) continue;
+    const rootId = r.rootId ?? r.id;
+    const f = byRoot.get(rootId) ?? { rootId, weekCount: 0, newestAt: 0 };
+    f.weekCount += 1;
+    f.newestAt = Math.max(f.newestAt, at);
+    byRoot.set(rootId, f);
+  }
+  return [...byRoot.values()].sort((a, b) => b.weekCount - a.weekCount || b.newestAt - a.newestAt).slice(0, max);
 }
 
 export type SearchFilter = 'all' | 'under30' | 'easy' | 'branches';
