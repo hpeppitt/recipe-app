@@ -28,6 +28,9 @@ export const SUGGESTION_CHIPS = [
   'Homemade pizza dough',
 ] as const;
 
+/** Fixed refinements offered once a recipe exists; each is sent as if typed. */
+export const REFINEMENT_CHIPS = ['Make it spicier', 'Fewer dishes', 'No dairy'] as const;
+
 export const DIFFICULTY_LABELS: Record<string, string> = {
   easy: 'Easy',
   medium: 'Medium',

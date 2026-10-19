@@ -3,24 +3,24 @@ import { useRecipe } from '../hooks/useRecipe';
 import { useRecipeChat } from '../hooks/useRecipeChat';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { useAuth } from '../contexts/AuthContext';
-import { TopBar } from '../components/layout/TopBar';
+import { IconButton } from '../components/ui/IconButton';
+import { EmptyState } from '../components/ui/EmptyState';
 import { ChatMessageBubble } from '../components/chat/ChatMessage';
 import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
-import { Chip } from '../components/ui/Chip';
 import { Button } from '../components/ui/Button';
 import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { SUGGESTION_CHIPS } from '../lib/constants';
+import { REFINEMENT_CHIPS, SUGGESTION_CHIPS } from '../lib/constants';
 import { queryWords } from '../lib/search';
 import { canGenerate } from '../lib/generation';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
-import { ChevronDown } from '../components/ui/icons';
+import { ChevronDown, GitBranch, Sparkles, X } from '../components/ui/icons';
 
 /**
  * The query words this match actually shares, so the panel can say why it is
@@ -47,6 +47,31 @@ function promptFor(messages: ChatMessage[], index: number): string {
     if (messages[i].role === 'user') return messages[i].content;
   }
   return '';
+}
+
+/** The 6a header: Close (runs the discard guard) and the page title. */
+function ChatHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <header className="flex items-center gap-1 px-3 pt-3 pb-2">
+      <IconButton variant="flat" label="Close" icon={<X className="size-5" />} onClick={onClose} />
+      <h1 className="min-w-0 flex-1 break-words font-heading text-lg text-text-primary">{title}</h1>
+    </header>
+  );
+}
+
+/** A 36px pill inside a 44px row, so the target is 44px without clipping in a scrolling row. */
+function PillChip({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-11 flex-shrink-0 items-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
+    >
+      <span className="flex h-9 items-center whitespace-nowrap rounded-full bg-accent-200 px-3.5 text-[13px] text-accent-900">
+        {label}
+      </span>
+    </button>
+  );
 }
 
 export function RecipeChatPage() {
@@ -80,6 +105,11 @@ export function RecipeChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+  // Cards the user has opened or closed by hand, by message index (the list is
+  // append-only, so an index is a stable id). Any card not in here follows the
+  // default: the newest is open, every older one is closed. A new card therefore
+  // opens and the previous one closes, unless the user touched the previous one.
+  const [toggled, setToggled] = useState<Record<number, boolean>>({});
   // Set when the owner arrives here by approving a suggestion, so the composer
   // opens with the suggestion already written out.
   const location = useLocation();
@@ -96,12 +126,16 @@ export function RecipeChatPage() {
     setShowDiscard(true)
   );
 
+  // Close on a cold load or deep link has no history to pop, so go home instead
+  // of doing nothing. location.key is 'default' for the first entry.
+  const goBack = () => (location.key === 'default' ? navigate('/') : navigate(-1));
+
   const handleBack = () => {
     if (hasUnsavedRecipe) {
       setShowDiscard(true);
       return;
     }
-    navigate(-1);
+    goBack();
   };
 
   useEffect(() => {
@@ -112,6 +146,15 @@ export function RecipeChatPage() {
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
     -1
   );
+
+  // "Ready" only while the newest message is the assistant's and nothing failed:
+  // latestRecipe still holds the previous recipe after a failed refinement or
+  // save, so it cannot say whether something new just arrived.
+  const lastMsg = messages[messages.length - 1];
+  const readyTitle =
+    !isLoading && !error && lastMsg?.role === 'assistant' ? (lastMsg.recipe?.title ?? '') : null;
+
+  const title = isVarying ? 'New variation' : 'New recipe';
 
   // The contribute gate, and the one place it cannot be a rule.
   //
@@ -139,41 +182,32 @@ export function RecipeChatPage() {
   if (!authLoading && !canGenerate({ isConfigured, user })) {
     return (
       <div className="min-h-dvh flex flex-col bg-surface">
-        <TopBar
-          title={isVarying ? 'New Variation' : 'New Recipe'}
-          showBack
-          onBack={() => navigate(-1)}
-        />
+        <ChatHeader title={title} onClose={goBack} />
         <main className="flex-1 overflow-y-auto">
-          <div className="max-w-lg mx-auto p-4 space-y-4">
-            <div className="text-center pt-6 pb-2 space-y-2">
-              <p className="text-4xl" aria-hidden="true">
-                👩‍🍳
-              </p>
-              <h2 className="text-lg font-semibold text-text-primary">
-                Sign up to start cooking up recipes
-              </h2>
-              <p className="text-sm text-text-secondary">
-                Recipe Lab writes recipes with AI and keeps them in one shared library.
-                Add your email to create your own, suggest changes to other people's, and
-                keep everything you make across devices.
-              </p>
-            </div>
+          <div className="mx-auto max-w-lg min-w-0">
+            <EmptyState
+              icon={<Sparkles />}
+              title="Sign up to start cooking up recipes"
+              description="Recipe Lab writes recipes with AI and keeps them in one shared library. Add your email to create your own, suggest changes to other people's, and keep everything you make across devices."
+              action={
+                <div className="w-[calc(100vw-3rem)] max-w-sm min-w-0 space-y-4">
+                  <EmailLinkingForm
+                    tone="invite"
+                    icon="✉️"
+                    title="No password needed"
+                    description="We'll email you a link. Tap it and you're in, on this device or any other."
+                    submitLabel="Sign up"
+                  />
 
-            <EmailLinkingForm
-              tone="invite"
-              icon="✉️"
-              title="No password needed"
-              description="We'll email you a link. Tap it and you're in, on this device or any other."
-              submitLabel="Sign up"
+                  <p className="text-xs text-text-tertiary text-center">
+                    You can keep browsing and bookmarking on this device without signing up.
+                  </p>
+                  <Button variant="secondary" fullWidth onClick={() => navigate('/')}>
+                    Back to recipes
+                  </Button>
+                </div>
+              }
             />
-
-            <p className="text-xs text-text-tertiary text-center">
-              You can keep browsing and bookmarking on this device without signing up.
-            </p>
-            <Button variant="secondary" fullWidth onClick={() => navigate('/')}>
-              Back to recipes
-            </Button>
           </div>
         </main>
       </div>
@@ -182,22 +216,30 @@ export function RecipeChatPage() {
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar
-        title={isVarying ? 'New Variation' : 'New Recipe'}
-        showBack
-        onBack={handleBack}
-      />
+      <ChatHeader title={title} onClose={handleBack} />
 
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto p-4 space-y-4">
+        <div className="mx-auto flex max-w-lg min-w-0 flex-col gap-3 px-[18px] pt-1 pb-3">
+          {/* The one live region: the typing label while working, then the new
+              recipe's title. Visible copies of both are aria-hidden or inert. */}
+          <p aria-live="polite" role="status" className="sr-only">
+            {isLoading
+              ? loadingPhase === 'checking'
+                ? 'Checking for similar recipes...'
+                : 'Generating recipe...'
+              : readyTitle !== null
+                ? `${readyTitle || 'Your recipe'} is ready`
+                : ''}
+          </p>
+
           {/* Surfaced before composing rather than after. There is nothing the user
               can do about this one — no key to paste any more — so it links nowhere. */}
           {generationUnavailable && (
-            <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-2">
-              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+            <div className="rounded-[22px] bg-surface-secondary p-4 space-y-2">
+              <p className="text-sm font-medium text-text-primary">
                 Recipe generation is unavailable
               </p>
-              <p className="text-xs text-warning-700 dark:text-warning-300">
+              <p className="text-sm text-text-secondary">
                 This build has no Firebase configuration, so it can't reach the recipe
                 generator. Your saved recipes are unaffected.
               </p>
@@ -207,18 +249,18 @@ export function RecipeChatPage() {
           {/* Why the composer is inert. Each of these three is a distinct
               situation and only one of them is worth retrying. */}
           {isVarying && !parentRecipe && parentLoading && (
-            <div className="flex items-center gap-3 border border-border rounded-2xl p-4">
+            <div className="flex items-center gap-3 rounded-[22px] bg-surface-secondary p-4">
               <Spinner size="sm" />
               <p className="text-sm text-text-secondary">Loading the original recipe...</p>
             </div>
           )}
 
           {isVarying && !parentRecipe && !parentLoading && parentCloudError && (
-            <div className="border border-warning-200 bg-warning-50 dark:border-warning-800 dark:bg-warning-950 rounded-2xl p-4 space-y-2">
-              <p className="text-sm font-medium text-warning-800 dark:text-warning-200">
+            <div className="rounded-[22px] bg-surface-secondary p-4 space-y-2">
+              <p className="text-sm font-medium text-text-primary">
                 Couldn't load the original recipe
               </p>
-              <p className="text-xs text-warning-700 dark:text-warning-300">
+              <p className="text-sm text-text-secondary">
                 A variation needs it as a starting point, so this can't continue until it
                 loads. Your connection may be the problem.
               </p>
@@ -229,11 +271,11 @@ export function RecipeChatPage() {
           )}
 
           {isVarying && !parentRecipe && !parentLoading && !parentCloudError && (
-            <div className="border border-border bg-surface-secondary rounded-2xl p-4 space-y-2">
+            <div className="rounded-[22px] bg-surface-secondary p-4 space-y-2">
               <p className="text-sm font-medium text-text-primary">
                 That recipe no longer exists
               </p>
-              <p className="text-xs text-text-secondary">
+              <p className="text-sm text-text-secondary">
                 It may have been deleted. You can still start a brand-new recipe instead.
               </p>
               <Button size="sm" variant="secondary" onClick={() => navigate('/create')}>
@@ -269,10 +311,10 @@ export function RecipeChatPage() {
           {/* Suggestion chips when chat is empty */}
           {messages.length === 0 && !isVarying && (
             <div className="py-8 text-center space-y-4">
-              <p className="text-text-secondary text-sm">What would you like to cook?</p>
-              <div className="flex flex-wrap gap-2 justify-center">
+              <p className="text-[15px] text-text-secondary">What would you like to cook?</p>
+              <div className="flex flex-wrap justify-center gap-x-2">
                 {SUGGESTION_CHIPS.map((chip) => (
-                  <Chip key={chip} label={chip} onClick={() => sendMessage(chip)} />
+                  <PillChip key={chip} label={chip} onClick={() => sendMessage(chip)} />
                 ))}
               </div>
             </div>
@@ -288,7 +330,7 @@ export function RecipeChatPage() {
 
           {/* Chat messages */}
           {messages.map((msg, i) => (
-            <div key={i}>
+            <div key={i} className="min-w-0">
               {msg.role === 'user' ? (
                 <ChatMessageBubble message={msg} />
               ) : (
@@ -314,6 +356,10 @@ export function RecipeChatPage() {
                     })
                   }
                   saving={isSaving}
+                  expanded={toggled[i] ?? i === lastAssistantIdx}
+                  onToggle={() =>
+                    setToggled((t) => ({ ...t, [i]: !(t[i] ?? i === lastAssistantIdx) }))
+                  }
                 />
               )}
             </div>
@@ -321,14 +367,15 @@ export function RecipeChatPage() {
 
           {/* Similar recipes found */}
           {similarRecipes.length > 0 && !isLoading && (
-            <div className="bg-surface-secondary border border-border rounded-2xl p-4 space-y-3">
+            <div className="rounded-[24px] bg-accent-2-100 px-3.5 py-3 text-[13px] text-accent-2-900 space-y-3">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-text-primary">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  <GitBranch className="size-4 flex-shrink-0" />
                   {isVarying
                     ? 'Similar variations already exist'
                     : 'Similar recipes already exist'}
                 </p>
-                <p className="text-xs text-text-tertiary">
+                <p>
                   Open one, branch a new version from it, or carry on with yours.
                 </p>
               </div>
@@ -338,7 +385,7 @@ export function RecipeChatPage() {
                   return (
                     <div
                       key={r.id}
-                      className="bg-surface rounded-xl border border-border p-3 space-y-2"
+                      className="bg-surface text-text-primary rounded-[20px] p-3 space-y-2"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl" aria-hidden="true">{r.emoji}</span>
@@ -416,7 +463,7 @@ export function RecipeChatPage() {
           )}
 
           {error && (
-            <div className="bg-danger-50 dark:bg-danger-950 text-danger-700 dark:text-danger-300 text-sm px-4 py-3 rounded-xl space-y-2">
+            <div role="alert" className="rounded-[18px] bg-accent-100 px-4 py-3 text-sm text-accent-900 space-y-2">
               <p>{error.message}</p>
               {/* The prompt is sitting in the transcript directly above, so
                   recovery used to mean retyping something already on screen.
@@ -430,7 +477,7 @@ export function RecipeChatPage() {
               {error.action === 'settings' && (
                 <Link
                   to="/settings"
-                  className="inline-block font-medium underline underline-offset-2"
+                  className="inline-flex min-h-11 items-center font-medium underline underline-offset-2"
                 >
                   Open Settings
                 </Link>
@@ -442,30 +489,42 @@ export function RecipeChatPage() {
         </div>
       </main>
 
-      <ChatInput
-        // Keyed on the seed so a seed arriving with a new route actually reaches
-        // the composer. Navigating /create -> /recipe/:id/vary keeps this page
-        // mounted, so without the remount `initialValue` was read once at mount
-        // and the carried-over prompt was silently dropped.
-        key={suggestionSeed}
-        onSend={sendMessage}
-        initialValue={suggestionSeed}
-        disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
-        placeholder={
-          generationUnavailable
-            ? 'Recipe generation is unavailable'
-            : // A disabled composer inviting you to "describe the modification"
-              // is the part that made this look functional while doing nothing.
-              isVarying && !parentRecipe
-              ? parentLoading
-                ? 'Loading the original recipe...'
-                : 'The original recipe is unavailable'
-              : isVarying
-                ? 'Describe the modification...'
-                : 'Describe what you want to cook...'
-        }
-      />
-
+      <div className="sticky bottom-0 bg-surface pt-1">
+        {/* Refinements need a recipe to refine and a free composer, so they are
+            hidden before the first result and while one is being generated. */}
+        {latestRecipe && !isLoading && (
+          <div className="mx-auto flex max-w-lg min-w-0 gap-2 overflow-x-auto px-4 scrollbar-none">
+            {REFINEMENT_CHIPS.map((chip) => (
+              <PillChip key={chip} label={chip} onClick={() => sendMessage(chip)} />
+            ))}
+          </div>
+        )}
+        <ChatInput
+          // Keyed on the seed so a seed arriving with a new route actually reaches
+          // the composer. Navigating /create -> /recipe/:id/vary keeps this page
+          // mounted, so without the remount `initialValue` was read once at mount
+          // and the carried-over prompt was silently dropped.
+          key={suggestionSeed}
+          onSend={sendMessage}
+          initialValue={suggestionSeed}
+          disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
+          placeholder={
+            generationUnavailable
+              ? 'Recipe generation is unavailable'
+              : // A disabled composer inviting you to "describe the modification"
+                // is the part that made this look functional while doing nothing.
+                isVarying && !parentRecipe
+                ? parentLoading
+                  ? 'Loading the original recipe...'
+                  : 'The original recipe is unavailable'
+                : latestRecipe
+                  ? 'Ask for a change…'
+                  : isVarying
+                  ? 'Describe the modification...'
+                  : 'Describe what you want to cook...'
+          }
+        />
+      </div>
 
       <ConfirmDialog
         open={showDiscard}
