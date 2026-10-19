@@ -158,10 +158,27 @@ describe('Settings: Download my data', () => {
     user = member;
     fetchCloud.mockResolvedValue(allOk);
     render();
-    fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
-    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x'), { timeout: 2000 });
+    // Capture only the page's 1000ms revoke timer (RTL's waitFor also uses 1000) instead of scheduling it, so slow runners cannot race it.
+    const realSetTimeout = globalThis.setTimeout;
+    const captured: Array<() => void> = [];
+    const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+      if (ms === 1000 && typeof fn === 'function' && String(fn).includes('revokeObjectURL')) {
+        captured.push(fn as () => void);
+        return 0 as unknown as ReturnType<typeof setTimeout>;
+      }
+      return realSetTimeout(fn, ms, ...args);
+    }) as typeof setTimeout);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
+      await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+      expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+      expect(captured).toHaveLength(1);
+      captured[0]();
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('explains how it differs from Export my recipes', () => {
