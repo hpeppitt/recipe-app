@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-091 Saved page component
+
+- No route yet (RL-097 adds `/saved`), so nothing is visible in the app. Check it with RL-097's entry: save a shared link with "Save to my library", open Saved, and confirm the row (emoji circle, title, author pill, time, chevron) opens the recipe.
+- Empty copy deliberately differs from the design ("Tap the bookmark" would be false: hearts do not fill Saved). Revert if you decide favourites belong here.
+- Local-only mode: Saved is always empty.
+- Reviewer noted (med): a very long author name is clipped hard at the pill's edge with no ellipsis, because `UserPill` is an inline-flex box that `text-overflow` cannot cut inside. The row does not break and the chevron stays visible. A proper fix is a truncating name span inside `UserPill` with `min-w-0 max-w-full`; do it in the first ticket that shows long names (RL-092 or RL-096), or file one. Check a long name at 320px with RL-097.
+- Reviewer noted (low): `useLocalLibrary` returning `undefined` is the only loading signal, so a Dexie failure would leave the skeleton up (not verified that the hook can throw). The `min-h-[44px]` on the row is redundant. The full-page empty state is `min-h-[70dvh]` under the header, so the page may scroll slightly above the bottom nav; check with RL-097.
+
 ### RL-090 Soft dialogs, empty, error and skeleton states
 
 - At 390x844: delete a recipe. The dialog is centred, has two equal-width buttons, and Delete is dark terracotta (check its contrast, cream on accent-700).
