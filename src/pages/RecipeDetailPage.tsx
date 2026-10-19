@@ -16,6 +16,7 @@ import { pickShareUrl } from '../lib/share';
 import { withTimeout, timeAgo, pluralize } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
+import { RecipeHeader } from '../components/recipe/RecipeHeader';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { LineageBreadcrumb } from '../components/recipe/LineageBreadcrumb';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
@@ -34,7 +35,6 @@ import { SavedToast } from '../components/recipe/SavedToast';
 import { TreeIntro } from '../components/recipe/TreeIntro';
 import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
 import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
-import { EllipsisVertical, Heart } from '../components/ui/icons';
 
 /** How long Share waits on the cloud before falling back to a self-contained link. */
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
@@ -75,7 +75,6 @@ export function RecipeDetailPage() {
       mountedRef.current = false;
     };
   }, []);
-  const [showMenu, setShowMenu] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareMode, setShareMode] = useState<'cloud' | 'self-contained'>('cloud');
   // Why the share fell back to a self-contained link, when known (RL-049 daily limit).
@@ -488,114 +487,27 @@ export function RecipeDetailPage() {
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar
-        title={recipe.title}
-        showBack
+      <RecipeHeader
+        recipe={recipe}
+        familyRoot={ancestors[0]}
         onBack={handleBack}
-        right={
-          // Two visible controls and a menu, never four. The old row put four
-          // 44px buttons in an h-14 header with no flex direction set, so they
-          // stacked: 176px centred in 56px pushed the first two to y=-60 and
-          // y=-16, off-screen and unreachable (UX-36). `flex` fixes the stacking;
-          // moving Share and Version tree into the menu is what stops the title
-          // being crushed to ~55px at 320px (UX-19).
-          <div className="relative flex items-center gap-1 flex-shrink-0">
-            {/* Hidden entirely in local-only mode: favourites need a uid and no
-                account can be created without Firebase, so the control could
-                never do anything (FUN-16). When Firebase is available but the
-                user is signed out, it stays and prompts sign-in. */}
-            {isConfigured && (
-              <button
-                onClick={handleFavoriteToggle}
-                className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors flex-shrink-0"
-                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                {isFavorite ? (
-                  <Heart className="w-5 h-5 text-red-500" filled />
-                ) : (
-                  <Heart className="w-5 h-5" />
-                )}
-              </button>
-            )}
-
-            {/* The menu is no longer owner-only, since Share and Version tree
-                live in it and everyone needs those. */}
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="w-11 h-11 flex items-center justify-center rounded-lg hover:bg-surface-tertiary transition-colors relative flex-shrink-0"
-              aria-label={
-                pendingSuggestions.length > 0
-                  ? `More options, ${pendingSuggestions.length} suggestions pending`
-                  : 'More options'
-              }
-              aria-expanded={showMenu}
-              aria-haspopup="menu"
-            >
-              <EllipsisVertical className="w-5 h-5" />
-              {pendingSuggestions.length > 0 && (
-                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-primary-600 text-white text-[10px] font-bold px-1">
-                  {pendingSuggestions.length > 99 ? '99+' : pendingSuggestions.length}
-                </span>
-              )}
-            </button>
-
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 z-50 bg-surface border border-border rounded-xl shadow-lg py-1 min-w-[180px]">
-                  <button
-                    onClick={() => {
-                      setShowMenu(false);
-                      handleShare();
-                    }}
-                    disabled={isSharing || authLoading}
-                    className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary disabled:opacity-50"
-                  >
-                    {isSharing ? 'Preparing link...' : 'Share'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowMenu(false);
-                      navigate(`/recipe/${recipe.id}/tree`);
-                    }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary"
-                  >
-                    Version tree
-                  </button>
-                  {isOwner && (
-                    <>
-                      {/* Editing was the app's largest gap: a recipe could only
-                          be changed by generating a variation, which billed a
-                          Gemini call and forked the tree to fix a typo. */}
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          navigate(`/recipe/${recipe.id}/edit`);
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-sm text-text-primary hover:bg-surface-secondary"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          setShowDelete(
-                            descendantCount > 0
-                              ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
-                              : `Delete "${recipe.title}"? This cannot be undone.`
-                          );
-                        }}
-                        className="w-full px-4 py-2.5 text-left text-sm text-danger-600 hover:bg-surface-secondary"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+        showFavorite={isConfigured}
+        isFavorite={isFavorite}
+        onFavorite={handleFavoriteToggle}
+        pendingCount={pendingSuggestions.length}
+        isOwner={isOwner}
+        canSuggest={canSuggest}
+        isSharing={isSharing}
+        shareDisabled={authLoading}
+        onShare={handleShare}
+        onDelete={() =>
+          setShowDelete(
+            descendantCount > 0
+              ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
+              : `Delete "${recipe.title}"? This cannot be undone.`
+          )
         }
+        onSuggest={handleSuggestClick}
       />
 
       <main className="flex-1 max-w-lg mx-auto w-full">
@@ -724,7 +636,7 @@ export function RecipeDetailPage() {
             />
           )}
 
-          <RecipeContent recipe={recipe} />
+          <RecipeContent recipe={recipe} hideHeader />
 
           {/* The count existed on the document and was never shown anywhere, so a
               recipe others had favourited looked exactly like one nobody had.
