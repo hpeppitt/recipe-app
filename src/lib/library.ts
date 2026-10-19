@@ -1,12 +1,10 @@
 /**
- * Pure list logic behind the Library's two tabs, My Recipes (local Dexie) and
- * Explore (the paged cloud feed). Extracted from `useRecipeLibrary` when it was
- * split in two (RL-008); no imports from services or hooks, so it tests in node.
+ * Pure list logic behind Explore (the paged cloud feed, or the device's recipes
+ * in local-only mode) and the Saved and You lists. Extracted from
+ * `useRecipeLibrary` (RL-008); no imports from services or hooks, so it tests in node.
  */
 import { countDescendantsByRoot } from './tree';
 import { recipeHaystack } from './search';
-
-export type LibraryTab = 'mine' | 'explore';
 
 /**
  * Trimmed, lower-case, de-duplicated tags in first-seen order, for the published
@@ -15,11 +13,6 @@ export type LibraryTab = 'mine' | 'explore';
  */
 export function normalizeTags(tags: string[] | undefined): string[] {
   return [...new Set((tags ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))];
-}
-
-/** Validates a stored tab value; anything unknown falls back to My Recipes. */
-export function parseLibraryTab(raw: string | null | undefined): LibraryTab {
-  return raw === 'explore' ? 'explore' : 'mine';
 }
 
 export interface FeedRecipe {

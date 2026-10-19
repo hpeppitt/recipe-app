@@ -51,7 +51,6 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
   it('returns every documented default', () => {
     expect(storage.getTheme()).toBe('system');
     expect(storage.getUnitSystem()).toBe('original');
-    expect(storage.getLibraryTab()).toBe('mine');
     expect(storage.getAnonymousUid()).toBeNull();
     expect(storage.getPreviousUids()).toEqual([]);
     expect(storage.getIntroState()).toEqual(parseIntroState(null));
@@ -62,7 +61,6 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
     expect(() => {
       storage.setTheme('dark');
       storage.setUnitSystem('metric');
-      storage.setLibraryTab('explore');
       storage.setAnonymousUid('u1');
       storage.clearAnonymousUid();
       storage.addPreviousUid('u2');
@@ -196,8 +194,6 @@ describe('round trip on a working store', () => {
     expect(storage.getTheme()).toBe('dark');
     storage.setUnitSystem('imperial');
     expect(storage.getUnitSystem()).toBe('imperial');
-    storage.setLibraryTab('explore');
-    expect(storage.getLibraryTab()).toBe('explore');
     storage.setAnonymousUid('u1');
     expect(storage.getAnonymousUid()).toBe('u1');
     storage.setAnonymousUid('u1');

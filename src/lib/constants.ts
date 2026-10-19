@@ -14,7 +14,6 @@ export const STORAGE_KEYS = {
   PREVIOUS_UIDS: 'recipe-app-previous-uids',
   EMAIL_FOR_LINKING: 'recipe-app-email-for-linking',
   INTRO_STATE: 'recipe-app-intro-state',
-  LIBRARY_TAB: 'recipe-app-library-tab',
   TERMS_ACCEPTANCE: 'recipe-app-terms-acceptance',
   ANALYTICS_CONSENT: 'recipe-app-analytics-consent',
   GA_COOKIES_CLEARED: 'recipe-app-ga-cookies-cleared',

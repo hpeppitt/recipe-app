@@ -2,7 +2,6 @@ import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
 import { parseConsent, serialiseConsent, type ConsentChoice } from '../lib/consent';
-import { parseLibraryTab, type LibraryTab } from '../lib/library';
 
 // Storage can throw on access (blocked cookies raise SecurityError from merely
 // touching `localStorage`), on read, and on write (quota, private modes). Nothing
@@ -55,18 +54,6 @@ export function getUnitSystem(): UnitSystem {
 
 export function setUnitSystem(system: UnitSystem): void {
   safeSet(STORAGE_KEYS.UNIT_SYSTEM, system);
-}
-
-/**
- * The Library tab last selected. Wrapped because storage can throw (private
- * modes, quota, blocked cookies) and a remembered tab is not worth a crash.
- */
-export function getLibraryTab(): LibraryTab {
-  return parseLibraryTab(safeGet(STORAGE_KEYS.LIBRARY_TAB));
-}
-
-export function setLibraryTab(tab: LibraryTab): void {
-  safeSet(STORAGE_KEYS.LIBRARY_TAB, tab);
 }
 
 // --- Device + Anonymous Identity Persistence ---

@@ -193,6 +193,14 @@ body {
 }
 
 
+/* Horizontal chip rows scroll without a visible bar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Skeleton pulse between neutral-200 and neutral-300; no animation under reduced motion. */
 @keyframes skeleton-pulse {
   50% {

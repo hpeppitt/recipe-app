@@ -39,7 +39,7 @@ through `src/services/storage.ts`. None is cleared by "Delete recipes on this de
 |---|---|---|---|
 | `recipe-app-theme` | `system`, `light` or `dark` | Until changed or browser data cleared | `setTheme`, from `hooks/useTheme.ts` |
 | `recipe-lab-unit-system` | `original`, `metric` or `imperial` | Same | `setUnitSystem`, from Settings |
-| `recipe-app-library-tab` | The last Library tab chosen | Same | `setLibraryTab` |
+| `recipe-app-library-tab` | The last Library tab chosen | Same. **No longer written or read since RL-098** (2026-10-19), which removed the tabs; a value already on a device stays until browser data is cleared | (was `setLibraryTab`) |
 | `recipe-app-intro-state` | Which one-time explainers were dismissed and how many recipes were opened (`lib/onboarding.ts`) | Same | `setIntroState` |
 | `recipe-app-device-id` | A random id generated on first load when Firebase is configured | Same. **Never read for any purpose and never sent anywhere** (only call: `getDeviceId()` in `AuthContext`, result unused) | `getDeviceId` |
 | `recipe-app-anonymous-uid` | The anonymous account's Firebase uid | Removed on sign-out and when an email account signs in | `setAnonymousUid`, from `AuthContext` |
@@ -136,8 +136,8 @@ email-for-link keys kept when a link is never opened.
 
 The ticket's starting inventory was checked line by line. What changed:
 
-1. **localStorage keys.** `STORAGE_KEYS` also holds `LIBRARY_TAB` (`recipe-app-library-tab`),
-   which the list omitted. The rest of the list is right.
+1. **localStorage keys.** `STORAGE_KEYS` also held `LIBRARY_TAB` (`recipe-app-library-tab`),
+   which the list omitted. RL-098 removed that key (see the table above). The rest of the list is right.
 2. **Device id.** Listed as stored, which is true, but it is never read for a purpose and never
    leaves the device. Stated so the policy does not overstate it.
 3. **Previous uids.** Never cleared by the app, including on sign-out. Not stated before.

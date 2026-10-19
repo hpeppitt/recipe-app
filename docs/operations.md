@@ -30,7 +30,7 @@ first line (that pragma is what selects jsdom; without it the file runs in node 
 for the URL, `auth` to override any context field), and registers testing-library cleanup.
 Use `userEvent` for interaction. If a page pulls in `services/firebase`, mock that module
 with `vi.mock`; do not add env vars. Examples: `src/components/ui/EmptyState.test.tsx`,
-`src/components/recipe/RecipeCard.test.tsx`. Fixtures are
+`src/components/ui/UserPill.test.tsx`. Fixtures are
 `src/test/factories.ts` (`makeRecipe`, `makeIngredient`). New pure logic in `src/db` or
 `src/lib` should come with tests — that is where the suite lives and where it is cheap.
 
