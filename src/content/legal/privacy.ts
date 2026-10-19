@@ -6,7 +6,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  lastUpdated: '2026-10-18',
+  lastUpdated: '2026-10-19',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -23,7 +23,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Recipes you save with a verified account are published automatically and anyone can read them, along with your display name and the prompt you typed. Your profile is public too.',
         'Your email address is used only to sign you in. It is not shown to other users.',
-        'What you type to generate a recipe is sent to Google\'s Gemini AI.',
+        'What you type, and any photos you add, to generate a recipe is sent to Google\'s Gemini AI. We do not keep the photos.',
         'We do not sell your information and we show no advertising.',
         'Optional analytics only run if you allow them.',
         `To see, export, correct or delete your information, email ${SUPPORT_EMAIL}. Some of it you can also change in the app.`,
@@ -120,11 +120,11 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'AI recipe generation',
       paragraphs: [
-        'What: everything you type into the recipe chat, the conversation so far, and for a variation the content of the recipe you are varying. The app does not add your email, name or account id to what it sends.',
+        'What: everything you type into the recipe chat, any photos you add to it, the conversation so far, and for a variation the content of the recipe you are varying. Photos are made smaller on your device before they are sent, which also removes the location and camera details stored in the photo file, and they are sent again with each later message in the same chat. The app does not add your email, name or account id to what it sends.',
         'Why: to generate the recipe you asked for.',
         'Where: Google, through Firebase AI Logic and the Gemini Developer API.',
-        'Who sees it: Google processes it to produce the answer. We use the free tier of the Gemini API. Under Google\'s terms for the free tier, Google may use what you type and the answers to improve its products and machine learning, and human reviewers may read it after it is disconnected from your Google account, API key and project. Do not put sensitive or personal information into the recipe chat. Google\'s terms for the free tier allow it only for people outside the European Economic Area, Switzerland and the United Kingdom, so we invite testers from other places only.',
-        'How long: we keep the prompt that started a recipe with the recipe (see above), and the full conversation only on your device.',
+        'Who sees it: Google processes it to produce the answer. We use the free tier of the Gemini API. Under Google\'s terms for the free tier, Google may use what you type, the photos you add and the answers to improve its products and machine learning, and human reviewers may read it after it is disconnected from your Google account, API key and project. Do not put sensitive or personal information into the recipe chat, and do not photograph people, addresses, or documents with personal details such as letters, labels or ID cards. Google\'s terms for the free tier allow it only for people outside the European Economic Area, Switzerland and the United Kingdom, so we invite testers from other places only.',
+        'How long: we keep the prompt that started a recipe with the recipe (see above), and the full conversation only on your device. We do not store photos. They stay in the app\'s memory until you leave the chat and are not saved with the recipe, on your device or in the cloud.',
       ],
     },
     {
