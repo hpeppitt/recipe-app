@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { withTimeout, timeAgo } from './utils';
+import { withTimeout, timeAgo, dayPartLabel } from './utils';
 
 describe('withTimeout', () => {
   it('returns the resolved value when it beats the deadline', async () => {
@@ -71,5 +71,24 @@ describe('timeAgo', () => {
   it('does not render a negative age when the stamp is ahead of this clock', () => {
     // Clock skew between devices is normal; "in -3 seconds" would be worse.
     expect(timeAgo(NOW + 5_000, NOW)).toBe('just now');
+  });
+});
+
+describe('dayPartLabel', () => {
+  // 2026-10-20 is a Tuesday
+  const at = (h: number, m = 0) => dayPartLabel(new Date(2026, 9, 20, h, m));
+  it('covers each boundary', () => {
+    expect(at(4, 59)).toBe('Tuesday night');
+    expect(at(5)).toBe('Tuesday morning');
+    expect(at(11, 59)).toBe('Tuesday morning');
+    expect(at(12)).toBe('Tuesday afternoon');
+    expect(at(16, 59)).toBe('Tuesday afternoon');
+    expect(at(17)).toBe('Tuesday evening');
+    expect(at(21, 59)).toBe('Tuesday evening');
+    expect(at(22)).toBe('Tuesday night');
+  });
+  it('reads night after midnight with the new weekday', () => {
+    expect(at(2)).toBe('Tuesday night');
+    expect(dayPartLabel(new Date(2026, 9, 21, 0, 30))).toBe('Wednesday night');
   });
 });
