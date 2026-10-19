@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+import { useContext, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSavedFavorites } from '../hooks/useSavedFavorites';
 import { formatTime, pluralize } from '../lib/utils';
+import { listOriginState } from '../lib/paneMode';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
@@ -14,6 +16,9 @@ export function SavedPage() {
   const navigate = useNavigate();
   const { isLoading, rows: saved, deletedCount, failedCount, offlineCount, retrying, retry } = useSavedFavorites();
   const statusRef = useRef<HTMLDivElement>(null);
+  // The recipe open beside this list on a wide screen (RL-116); its title is then the page's h1.
+  const paneId = useContext(RecipePaneContext);
+  const Heading = paneId ? 'h2' : 'h1';
   const noun = (n: number) => `${n} saved ${pluralize(n, 'recipe')}`;
   const note = offlineCount > 0
     ? `${noun(offlineCount)} need${offlineCount === 1 ? 's' : ''} a connection to show.`
@@ -25,7 +30,7 @@ export function SavedPage() {
 
   return (
     <div>
-      <h1 className="px-5 pt-4 font-heading text-[30px] leading-tight text-text-primary">Saved</h1>
+      <Heading className="px-5 pt-4 font-heading text-[30px] leading-tight text-text-primary">Saved</Heading>
       {isLoading ? (
         <div className="flex flex-col gap-3 px-5 pt-3.5" role="status" aria-label="Loading saved recipes">
           {[0, 1, 2].map((i) => (
@@ -45,9 +50,11 @@ export function SavedPage() {
             <li key={r.id}>
               <Link
                 to={`/recipe/${r.id}`}
+                state={listOriginState('/saved')}
+                aria-current={r.id === paneId ? 'true' : undefined}
                 aria-labelledby={`saved-title-${r.id}`}
                 aria-describedby={`saved-meta-${r.id}`}
-                className="flex items-center gap-3.5 rounded-[28px] bg-surface-secondary p-3.5 min-h-[44px]"
+                className={`flex items-center gap-3.5 rounded-[28px] p-3.5 min-h-[44px] ${r.id === paneId ? 'bg-accent-100 shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'bg-surface-secondary'}`}
               >
                 <EmojiBlob emoji={r.emoji} size={52} tint="bg-neutral-100" className="!rounded-full" />
                 <div className="min-w-0 flex-1">

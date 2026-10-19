@@ -12,8 +12,8 @@ undeployed.
 ```mermaid
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
-    Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt]
+    Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useMediaQuery...]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt, paneMode]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -169,7 +169,7 @@ it is two regexes on a string already in memory.
 
 ## Auth and ownership
 
-`AuthProvider` (`contexts/AuthContext.tsx`) wraps the app and exposes `useAuth()`. It holds
+`contexts/RecipePaneContext.ts` holds the wide-screen pane's recipe id (RL-116; see Routing). `AuthProvider` (`contexts/AuthContext.tsx`) wraps the app and exposes `useAuth()`. It holds
 `AppUser`, a plain object extracted from the Firebase `User` so no Firebase class instance
 travels through React state. It also holds the Terms prompt state (RL-047) in a separate
 `TermsContext`. `AuthProvider` sits outside the router, so `TermsGate`
@@ -262,6 +262,8 @@ reports 0 when signed out or local-only, and also needs a verified email, as Act
 outside the shell, reached from the You tab's gear, with its own Back button.
 `/recipe/:id/suggestion/:suggestionId` (`SuggestionThreadPage`, RL-106) is lazy and outside the
 shell too, with its own Back button; it is the reply thread on one suggestion.
+
+Wide-screen pane mode (RL-116). `AppRoutes` (in `App.tsx`) asks `lib/paneMode.ts` whether to pair a recipe with a list: only `/recipe/:id`, only when `useMediaQuery(WIDE_QUERY)` (Tailwind's `lg`, 1024px) is true, and only when navigation state carries `listOrigin` `/` or `/saved`. Explore rows, the Explore tiles and Saved rows set that state with `listOriginState`. In pane mode `<Routes>` is given a location whose pathname is the list's, so the shell and the list page render exactly as on `/` or `/saved` and are never remounted by selecting, swapping or Back; `RecipePaneContext` carries the recipe id to `AppShell`, which renders `RecipeDetailPage id={...}` (lazy, with its own `Suspense` and an error boundary reset on the recipe id) in a sticky, own-scroll `@container` pane beside a 420px list column (the two named regions "Recipe list" and "Recipe", with a polite "Showing <title>" status), and to the list pages, which demote their `h1` to `h2` and mark the open row `aria-current`. The list scrolls with the window, which is what keeps its place across Back. A direct visit or shared link has no state, so it shows the recipe alone; so does a recipe reached from a link inside the pane. A reload keeps the two panes, because the browser keeps `history.state`. In the pane `RecipeDetailPage` pads itself once (16px, 36px 48px from a 36rem pane), renders a `div` instead of its own `main`, sizes its title and emoji on the pane's width, and wraps its footer row. `UpdatePrompt` uses the same helper so it sits beside the rail in pane mode. Below lg the helper always returns null and the route table renders as before. A resize across 1024px switches modes by remounting the recipe page (local state such as an open suggestion draft is lost); the URL and history are untouched. Pages inside the pane see the list's pathname from `useLocation`, but the real key and state.
 
 The three legal routes (`/terms`, `/privacy`, `/cookies`) are lazy `LegalPage` routes outside
 `AppShell` (`src/App.tsx`); their content comes from `src/content/legal/` via `lib/legal.ts`.

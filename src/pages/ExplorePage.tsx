@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -18,6 +18,8 @@ import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
+import { listOriginState } from '../lib/paneMode';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { CloudOff, BookmarkCheck, GitBranch, Search } from '../components/ui/icons';
 
 const NO_ROWS: never[] = [];
@@ -44,6 +46,9 @@ export function ExplorePage() {
   const { followingIds, followingProfiles } = useFollowingList();
   const navigate = useNavigate();
   const online = useOnline();
+  // The recipe open beside this list on a wide screen (RL-116); its title is then the page's h1.
+  const paneId = useContext(RecipePaneContext);
+  const Heading = paneId ? 'h2' : 'h1';
 
   // The Clear tag button unmounts, so hand focus back to the chip it cleared.
   const clearTag = () => {
@@ -103,7 +108,7 @@ export function ExplorePage() {
       <header className="flex items-end gap-2.5 px-5 pt-4">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] text-text-tertiary">{dayPartLabel(new Date())}</p>
-          <h1 className="font-heading text-[30px] leading-[1.05] text-text-primary">What's growing</h1>
+          <Heading className="font-heading text-[30px] leading-[1.05] text-text-primary">What's growing</Heading>
         </div>
         {/* One search screen (RL-124); Explore keeps its chips, tags and Load more. */}
         <Link
@@ -203,6 +208,7 @@ export function ExplorePage() {
                 recipe={recipe}
                 isFavorite={favoriteIds.has(recipe.id)}
                 showAuthor={isConfigured}
+                selected={recipe.id === paneId}
               />
             ))}
           </ul>
@@ -263,16 +269,18 @@ export function ExplorePage() {
   );
 }
 
-function ExploreRow({ recipe, isFavorite, showAuthor }: { recipe: ExploreRecipe; isFavorite: boolean; showAuthor: boolean }) {
+function ExploreRow({ recipe, isFavorite, showAuthor, selected }: { recipe: ExploreRecipe; isFavorite: boolean; showAuthor: boolean; selected: boolean }) {
   const title = recipe.title.trim() || 'Untitled recipe';
   const author = recipe.createdBy?.displayName?.trim() || 'Anonymous';
   return (
     // One stretched link for the row, and the author link lifted above it, so
     // neither link is nested in the other and both are keyboard reachable.
-    <li className="relative flex items-center gap-3 py-2">
+    <li className={`relative flex items-center gap-3 py-2${selected ? ' -mx-2 rounded-[20px] bg-accent-100 px-2 shadow-[inset_0_0_0_2px_var(--color-accent)]' : ''}`}>
       <Link
         to={`/recipe/${recipe.id}`}
+        state={listOriginState('/')}
         aria-label={title}
+        aria-current={selected ? 'true' : undefined}
         className="absolute inset-0 rounded-[20px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
       />
       <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface-secondary text-2xl leading-none">
