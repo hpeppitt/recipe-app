@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-089 Sheet primitive
+
+- Nothing visible yet: no screen uses `Sheet`. RL-108 and RL-094 carry the visual checks (36px top radius, grabber, 45% backdrop, tap-to-close, Escape).
+- No slide-up animation was added (optional in the ticket), so reduced motion needs no handling.
+- Reviewer noted (med): the panel bottom padding is a fixed `pb-7`, with no safe-area term. `index.html` has no `viewport-fit=cover`, so `env(safe-area-inset-bottom)` is 0 today and the sheet should not sit under the iOS home indicator. If cover mode is ever turned on, change it to `pb-[max(1.75rem,env(safe-area-inset-bottom))]`. Check on a real iPhone when RL-108 lands.
+- Reviewer noted (low): the dialog uses `max-h-[90%]` and the panel `max-h-[90dvh]`, so they can differ by a few pixels while browser chrome collapses. There is no `onClose` handler on the dialog, so closing must always go through `open` (no `<form method="dialog">` inside a sheet, RL-094/RL-108/RL-109). Dialog text defaults to `CanvasText`, so children set their own colour. The tests fire a synthetic `cancel`, so real Escape is unverified until a screen uses the sheet.
+
 ### RL-088 Shared Organic pieces
 
 - Nothing visible yet. After RL-100, check at 390px that the blob on a recipe title is the soft organic shape, not a circle.
