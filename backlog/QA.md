@@ -18,6 +18,27 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-107 Suggesting a change turns the recipe page into a form (9b)
+
+- Needs a verified non-owner account and a cloud recipe: use the preview or `npm run dev:emulated` (suggestions cannot be deleted on live). Footer Suggest and More, Suggest a change both enter the mode; an anonymous or unverified account gets the sign-up dialog and the page stays put.
+- In the mode: sage banner "Tap any line to suggest a change" with Cancel replaces the header; title and "by <author> · <time> · <n> servings"; the pills, stepper, nutrition, suggestions and carousel are gone, and the footer is Send. Scale was reset to the stored servings.
+- Change two amounts with a why on one, add a note, Send. Toast "Sent to <author>"; then, as the owner, open the thread and read the composed message ("Change 2 cloves garlic to 4 cloves. <why>", one line per change, blank line, then the note).
+- Cancel with edits asks "Discard your suggestion?" (Keep editing / Discard); Cancel with none just leaves. Undo (X) closes an editor; Escape in an editor does the same.
+- At 320px the editor fits: old amount, arrow, 84px input and Undo may wrap to a second line (reasoned, not measured), nothing clips. Check the Send button and the "n changes to suggest" text at 320px too.
+- Keyboard: Tab to an ingredient, Enter opens it with focus in "New amount"; Undo or Escape returns focus to the row.
+- Failure: go offline and Send, expect "That didn't send. Check your connection and try again." above the footer with the edits kept.
+- Decision for you: Escape discards that row's edit (same as Undo); an opened but unchanged row counts as no change. The suggestion message has no length limit in the rules, so none is enforced here.
+- Caps: the why input stops at 200 characters and the note at 1000; if the composed message passes 2000 characters Send is disabled and a line above the footer says so. Cancel is disabled while a send is in flight. A row with a why but no changed amount shows a hint line.
+- Not done: IngredientList.tsx was not touched (suggest mode renders its own rows), so the tick-off rows are unaffected.
+- Thread page: the pinned message now keeps its line breaks (`whitespace-pre-line`) so the composed lines read as lines.
+- Reviewer noted (low): Escape in an editor discards that row's typed amount and why without a confirm (spec).
+- Reviewer noted (low): the amount input is h-11 visible rather than 38px visible with a 44px hit area.
+- Reviewer noted (low): the row button's aria-label replaces its content, so the current amount is not announced and duplicate ingredient names give identical row names.
+- Reviewer noted (low): the unchanged check is a plain string compare ("1  cup" vs "1 cup" counts as a change).
+- Reviewer noted (low): the "Sent to" toast is ad hoc markup, not a shared component.
+- Reviewer noted (low): suggest mode shows amounts as stored by the author (not converted to the viewer's unit setting, not scaled), so a metric viewer sees "1 cup" and may reply in grams; the recorded old amount is always the author's stored value.
+- Reviewer noted (low): the SuggestMode send-button helper uses a regex name for /^Send to/ (the page test uses the exact name), and there is no test for the More sheet path for unverified users; the sendingRef guard is belt and braces (the disabled button already prevents a second send).
+
 ### RL-106 A suggestion opens as a full thread screen
 
 - Setup: two verified accounts (preview or `npm run dev:emulated`), one owning a recipe and one who has suggested a change on it. Check at 390px and 320px.
@@ -62,7 +83,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - At 390px and 320px check three cases. Your own recipe: "Edit" (pencil) beside "Branch this recipe". Someone else's cloud recipe: "Suggest" beside "Branch this recipe". A recipe saved on this device: "Edit" plus "Branch this recipe", as before (pre-existing behaviour). A Branch-only footer cannot occur today.
 - At 320px every label sits on one line, nothing clips (widths come from the content, split about 1:2; the icon on Edit and Suggest is hidden under 360px; this is reasoned, not measured, so look closely at Suggest and Branch this recipe). The footer stays at the end of the page and scrolls with it, with clear space under it on an iPhone home indicator.
-- Edit opens the editor, Suggest opens the "Suggest a Change" dialog, Branch opens the variation screen; signed out, Branch shows the existing sign-up screen on /vary.
+- Edit opens the editor, Suggest turns the page into suggest mode (RL-107; verified accounts, others get the sign-up dialog), Branch opens the variation screen; signed out, Branch shows the existing sign-up screen on /vary.
 
 ### RL-103 Method steps get numbered discs and nutrition is a collapsed card under the method
 
@@ -115,7 +136,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Open an original recipe at 390x844 and 320px: title in the heading font beside a 76px emoji blob, description under it, buttons (back, version tree, heart, More) in a flat row. A very long title wraps and does not push the blob off screen.
 - Open a 2-deep branch at 390x844 and 320px: a 230px peach hero with a large emoji, the four buttons floating over it, the title, and a bold green "<root emoji> <root title> variation" label. The label appears only once the family has loaded (no wrong label while it loads). The description is not shown.
 - On an iPhone with a notch (or PWA mode), the floating buttons sit below the notch, readable over the peach hero.
-- More opens a bottom sheet. As owner: Edit recipe, Delete, See the family, Copy share link. As a non-owner on someone else's cloud recipe: Suggest a change, See the family, Copy share link. Each does what the old menu item did (Edit opens the editor, Delete asks to confirm, Copy share link shows "Link copied" or the manual-copy box, See the family opens the tree). The Version tree button in the header also opens the tree.
+- More opens a bottom sheet. As owner: Edit recipe, Delete, See the family, Copy share link. As a non-owner on someone else's cloud recipe: Suggest a change, See the family, Copy share link. Each does what the old menu item did, except Suggest a change, which now enters suggest mode (RL-107) (Edit opens the editor, Delete asks to confirm, Copy share link shows "Link copied" or the manual-copy box, See the family opens the tree). The Version tree button in the header also opens the tree.
 - Close the sheet with Escape and by tapping outside: focus returns to the More button. The pending-suggestions count badge still shows on More, and a screen reader reads "More options, N suggestions pending".
 - Signed out, tap the heart: the sign-in prompt opens. Back still returns to where you came from.
 - Reviewer noted (med): index.html has no viewport-fit=cover, so env(safe-area-inset-top) is 0 and the floating branch buttons can sit under the status bar or notch in an installed PWA / standalone mode. Decide whether to add viewport-fit=cover (it needs safe-area handling elsewhere and changes the whole app, so it was not done here) and check in standalone mode.
@@ -606,7 +627,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Needs a browser against `npm run emulators` plus `npm run dev:emulated` (no agent ran this walk). Temporarily lower the reply cap to 3 in BOTH `REPLY_CAP` (`src/lib/rateLimit.ts`) and `replyCap()` (`firestore.rules`); `npm test` fails if they differ. Then:
   - Send replies quickly on one suggestion: the first three send; the fourth shows "You've sent a lot of replies recently. Try again in a while." under the reply box (readable in light and dark), and the draft stays in the box. In the emulator UI, `writeWindows/{uid}_reply` has `count` 3 and `last` naming the third message's path, and no fourth message exists.
   - In `clientErrors`, one entry with context `rate-limited-reply` and your uid for that attempt.
-  - Suggestions still work normally below their cap: send one, see "Suggestion sent", and `writeWindows/{uid}_suggestion` has `count` 1. Optionally lower the suggestion cap the same way and confirm "You've sent a lot of suggestions recently. Try again in a while." in the dialog.
+  - Suggestions still work normally below their cap: send one, see "Suggestion sent" (a dialog on the shared page; on the recipe page it is the toast "Sent to <author>"), and `writeWindows/{uid}_suggestion` has `count` 1. Optionally lower the suggestion cap the same way and confirm "You've sent a lot of suggestions recently. Try again in a while." in the dialog.
   - Offline: stop the Firestore emulator and send a reply and a suggestion. Within about 5 seconds each shows the generic message ("Couldn't send that reply. Please try again." / "That didn't send. Check your connection and try again."), not the rate-limit message. They no longer queue and send later, which is a behaviour change.
   - Put both caps back and confirm `npm test` passes, so the numbers in the rules and `rateLimit.ts` match (10 and 30).
 - On the preview build, after RL-051 deploys the rules: send replies quickly past 30 in an hour (or lower the cap on a preview only) and confirm the message, then confirm the `rate-limited-reply` entry in `clientErrors` in the console.

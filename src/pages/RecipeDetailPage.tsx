@@ -26,7 +26,7 @@ import { GitBranchPlus, MessageCircle, Pencil } from '../components/ui/icons';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
-import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
+import { SuggestMode } from '../components/recipe/SuggestMode';
 import { SuggestionList } from '../components/recipe/SuggestionList';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
@@ -93,7 +93,16 @@ export function RecipeDetailPage() {
   } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showShareSignUp, setShowShareSignUp] = useState(false);
-  const [showSuggest, setShowSuggest] = useState(false);
+  // The recipe id suggest mode is open for, so it closes by itself when the
+  // route moves to another recipe (this page stays mounted across ids).
+  const [suggestingFor, setSuggestingFor] = useState<string | null>(null);
+  const [showSuggestSignUp, setShowSuggestSignUp] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  // Latest route id, so a send that lands after navigating away cannot toast on another recipe.
+  const idRef = useRef(id);
+  useEffect(() => {
+    idRef.current = id;
+  }, [id]);
   // Set by the save flow via navigation state. 'local' means the recipe is on
   // this device but the cloud publish did not land, which the user previously
   // had no way of knowing — it was a console.error and nothing else.
@@ -273,17 +282,14 @@ export function RecipeDetailPage() {
   const canSuggest = isConfigured && !isOwner && source === 'cloud';
 
   const handleSuggestClick = () => {
-    // Straight to the dialog, whoever you are. It shows the sign-up call to
-    // action for anyone who cannot suggest yet, signed out or anonymous alike.
-    //
-    // This used to open the sign-in modal first when there was no user, which
-    // became a three-tap detour once suggesting required a verified email: sign
-    // in modal, pick "Continue Anonymously", modal closes without reopening
-    // this one, tap Suggest again, and only then get asked for an email. Worse,
-    // the option it pushed hardest was the one account type that still cannot
-    // suggest. Anonymous accounts are offered where they actually work, which
-    // is favouriting and following, not here.
-    setShowSuggest(true);
+    // Suggesting needs a verified email (firestore.rules). Anyone else gets the
+    // sign-up prompt and the page stays as it is; signed-out and anonymous are
+    // both offered the email, since neither can suggest yet.
+    if (isConfigured && !user?.emailVerified) {
+      setShowSuggestSignUp(true);
+      return;
+    }
+    setSuggestingFor(id ?? null);
   };
 
   const handleSubmitSuggestion = async (message: string) => {
@@ -319,6 +325,12 @@ export function RecipeDetailPage() {
   // Firestore project, that inflated live view counts. The ref survives the
   // remount because React reuses the same component instance, so it is the
   // standard guard for a genuinely one-shot side effect.
+  useEffect(() => {
+    if (!sentTo) return;
+    const timer = setTimeout(() => setSentTo(null), 3000);
+    return () => clearTimeout(timer);
+  }, [sentTo]);
+
   // Auto-dismiss the save confirmation. Kept longer for the local-only case:
   // that one carries a consequence the user needs time to actually read.
   useEffect(() => {
@@ -451,6 +463,22 @@ export function RecipeDetailPage() {
           {cloudError && <Button onClick={retry}>Try again</Button>}
         </div>
       </div>
+    );
+  }
+
+  if (suggestingFor !== null && suggestingFor === id) {
+    return (
+      <SuggestMode
+        key={recipe.id}
+        recipe={recipe}
+        onSend={handleSubmitSuggestion}
+        onCancel={() => setSuggestingFor(null)}
+        onSent={() => {
+          if (idRef.current !== recipe.id) return;
+          setSuggestingFor(null);
+          setSentTo(recipe.createdBy?.displayName?.trim() || 'the author');
+        }}
+      />
     );
   }
 
@@ -608,12 +636,21 @@ export function RecipeDetailPage() {
         onClose={() => setShowShareSignUp(false)}
       />
 
-      <SuggestChangeModal
-        open={showSuggest}
-        recipeTitle={recipe.title}
-        onSubmit={handleSubmitSuggestion}
-        onClose={() => setShowSuggest(false)}
+      <SignUpDialog
+        open={showSuggestSignUp}
+        title="Sign up to suggest a change"
+        body={`Suggestions go to the person who wrote ${recipe.title}, so they come from a name rather than an anonymous account. Add your email and you can suggest, reply, and publish recipes of your own.`}
+        onClose={() => setShowSuggestSignUp(false)}
       />
+
+      {sentTo && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="break-words text-sm font-medium text-text-primary">Sent to {sentTo}</p>
+        </div>
+      )}
 
       {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
 

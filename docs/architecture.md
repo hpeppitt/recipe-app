@@ -191,6 +191,10 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens
   (no stored data).
+- **`lib/suggestion.ts`** (`composeSuggestionMessage`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): turns suggest-mode
+  edits into the existing free-text suggestion message, so the write path has no new fields.
+- **`components/recipe/SuggestMode.tsx`** (RL-107): the recipe page as the suggest form; composes with
+  `lib/suggestion.ts` and sends through the page's existing submit.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 

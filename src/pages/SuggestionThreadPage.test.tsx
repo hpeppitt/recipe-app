@@ -136,6 +136,15 @@ describe('SuggestionThreadPage', () => {
     expect(screen.getByText('Open')).toBeInTheDocument();
   });
 
+  it('keeps the line breaks of a composed suggestion message', () => {
+    const text = 'Change 2 clove garlic to 4 cloves.\nChange 1 tsp salt to 2 tsp.\n\nBake longer';
+    suggestions = [sug({ message: text })];
+    open();
+    const p = within(screen.getByRole('region', { name: 'Suggestion' })).getByText(/Change 2 clove garlic/);
+    expect(p.textContent).toBe(text);
+    expect(p.className).toContain('whitespace-pre-line');
+  });
+
   it('shows own replies right-aligned and the other person on the left, oldest first', () => {
     open();
     const items = within(screen.getByRole('list', { name: 'Replies' })).getAllByRole('listitem');

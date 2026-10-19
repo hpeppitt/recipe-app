@@ -23,6 +23,7 @@ const deletePublishedRecipeTree = vi.fn();
 const deleteRecipeTree = vi.fn();
 const getSubtreeIds = vi.fn();
 const navigateSpy = vi.fn();
+const submitMock = vi.fn();
 
 vi.mock('../services/firestore', () => ({
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
@@ -59,7 +60,7 @@ vi.mock('../hooks/useFavorites', () => ({
 vi.mock('../hooks/useSuggestions', () => ({
   useSuggestions: () => ({
     suggestions: suggestionRows ?? Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), approve: approveMock, reject: rejectMock }),
-  useSubmitSuggestion: () => ({ submit: vi.fn() }),
+  useSubmitSuggestion: () => ({ submit: (...a: unknown[]) => submitMock(...a) }),
   useSuggestionThread: () => ({ messages: [], error: null, send: vi.fn() }),
 }));
 
@@ -357,7 +358,8 @@ describe('RecipeDetailPage footer', () => {
     show();
     expect(footerNames()).toEqual(['Suggest', 'Branch this recipe']);
     fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
-    expect(screen.getByRole('dialog', { name: 'Suggest a Change' })).toBeInTheDocument();
+    expect(screen.getByText('Tap any line to suggest a change')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Suggest a Change' })).toBeNull();
   });
 
   it('a recipe on this device is yours: Edit and Branch, never Suggest', () => {
@@ -376,6 +378,63 @@ describe('RecipeDetailPage footer', () => {
     expect(screen.queryByRole('button', { name: 'Create Variation' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggest a Change' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Suggest' })).toBeInTheDocument();
+  });
+});
+
+describe('RecipeDetailPage suggest mode', () => {
+  const show = (user: AppUser | null = fakeUser) =>
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user }
+    );
+  beforeEach(() => {
+    source = 'cloud';
+    recipe = makeRecipe({
+      id: 'r1',
+      title: 'Soup',
+      createdBy: { uid: 'owner', displayName: 'Ada Lovelace' },
+      ingredients: [{ amount: 2, unit: 'clove', name: 'garlic', notes: null, group: null }],
+    });
+  });
+
+  it('swaps to the form from the footer and the sheet, hides the page chrome, and Cancel swaps back', () => {
+    show();
+    expect(screen.getByRole('button', { name: 'Branch this recipe' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
+    expect(screen.queryByRole('button', { name: 'Branch this recipe' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More options' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Branch this recipe' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change' }));
+    expect(screen.getByText('Tap any line to suggest a change')).toBeInTheDocument();
+  });
+
+  it('asks anyone without a verified email to sign up and stays on the page', () => {
+    show(anon);
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
+    expect(screen.getByRole('dialog', { name: 'Sign up to suggest a change' })).toBeInTheDocument();
+    expect(screen.queryByText('Tap any line to suggest a change')).toBeNull();
+  });
+
+  it('sends through the existing submit, then shows Sent to the author on the page', async () => {
+    submitMock.mockResolvedValue(undefined);
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to garlic' }));
+    fireEvent.change(screen.getByLabelText('New amount'), { target: { value: '4 cloves' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to Ada' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Sent to Ada Lovelace'));
+    expect(submitMock).toHaveBeenCalledWith({
+      recipeId: 'r1',
+      recipeOwnerId: 'owner',
+      recipeTitle: 'Soup',
+      recipeEmoji: '🍳',
+      message: 'Change 2 clove garlic to 4 cloves.',
+    });
+    expect(screen.getByRole('button', { name: 'Branch this recipe' })).toBeInTheDocument();
   });
 });
 

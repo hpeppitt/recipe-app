@@ -202,7 +202,7 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
             </p>
             <span className="shrink-0 text-text-tertiary">{timeAgo(suggestion.createdAt)}</span>
           </div>
-          <p className="break-words text-sm leading-normal text-text-primary">{message}</p>
+          <p className="whitespace-pre-line break-words text-sm leading-normal text-text-primary">{message}</p>
         </section>
 
         {messages.length === 0 && !threadError && (
