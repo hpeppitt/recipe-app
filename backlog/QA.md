@@ -18,6 +18,25 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-110 The edit page follows 8a, with a sticky footer that says how many branches keep their own copy
+
+- Edit an original that has three branches and a leaf, at 390px and again at 320px (no horizontal scroll at either):
+  - Header: Cancel on the left, "Editing" centred. There is no Cancel at the bottom any more. The title has a dashed terracotta underline (accent-600, darker than the design's accent-400 so it reads as a field; say if you want the lighter one) beside a 72px emoji blob with a pencil badge. Tap the blob: focus goes to the Emoji field below it.
+  - Pills: Servings, Prep and Cook are pill fields with icons and short labels; Difficulty is still the three-way control with a gauge icon (not a select).
+  - Ingredient rows: Amount (76px), Unit and Name pills with a remove X and a Notes pill under each. At 320px the Name and X wrap onto a second line instead of being squeezed. Add and remove an ingredient and a step with the dashed buttons; the step numbers renumber.
+  - Footer stays pinned to the bottom while scrolling, above the home indicator. On the original with three children it reads "3 branches below this keep their own copy."; on a recipe with one child "1 branch below this keeps its own copy."; on a leaf there is no line. Edit a branch that has children of its own: only direct children are counted.
+  - Type -2 in an ingredient amount and clear nothing else, then tap Save changes: the page scrolls so that amount is in view, clear of the header and the footer, with focus in it and "Amounts can't be negative." above the list. Try the same with an empty title, a bad Servings ("abc") and with no steps.
+  - Tap Cancel after changing something: "Discard changes?" appears; Discard leaves, the dialog's Cancel stays. With no changes Cancel leaves at once.
+- Reviewer noted (low): the pill borders (neutral-400 on neutral-100, the spec's value) are about 1.7:1 against the 3:1 non-text minimum, while the title underline was bumped to accent-600; the rationale is inconsistent, revisit.
+- Reviewer noted (low): the ingredient pills use placeholders as their only visible labels, which disappear once a value is typed (aria-labels exist); consider a visually hidden column header or a one-time visible Amount/Unit/Name legend.
+- Reviewer noted (low): with the keyboard open neither iOS nor Android resizes the layout viewport (index.html has no interactive-widget), so the sticky footer sits behind the keyboard and Save is only reachable after dismissing it or scrolling to the end.
+- Reviewer noted (low): the ingredient row wraps below a 360px viewport (360px phones wrap, 375 and 390 do not) and the remove X then sits on the second line.
+- Reviewer noted (low): the heading jumps from h1 "Editing" to h3 for Ingredients, Instructions and Notes (the ticket specified h3); the disabled label "No Changes" is title case next to "Save changes".
+- Reviewer noted (low): opening the edit page now runs one extra lineage lookup (a Dexie live query plus one cloud tree read) for the footer note; it cannot block Save.
+- iOS Safari only: tap into the Notes or a step with the keyboard up and check Save changes is still reachable by scrolling and is not stuck behind the keyboard in a way you cannot get past. The footer is sticky inside the page (not a fixed or vh-sized bar), so this is the expected-to-work case but jsdom cannot test it.
+- The footer's save-failure message and the "no longer in your account" state are unchanged and now sit in the sticky footer above the branch note.
+- Reviewer-style note: the ingredient remove button is now named "Remove ingredient N, <name>" (or "Remove ingredient N" while the name is empty). Only the offending ingredient inputs are marked invalid after a failed Save, and the title and number-field errors are announced as alerts.
+
 ### RL-109 Email-link outcomes show as one sheet over the page the link opened
 
 - On the preview at 390x844 and 320px (no horizontal scroll, headlines and bodies wrap, nothing hidden under the home indicator). jsdom cannot open a real Firebase link, so this walk is the only check of the real flow:
@@ -502,11 +521,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-083 Editing a recipe is cloud first for a verified owner
 
 - On the preview as a verified user, edit a recipe and tap Save. The recipe page opens with the save toast, and the edit shows on its `/shared/<id>` link.
-- Edit again, set DevTools to offline, and tap Save. Within about 5 seconds the form shows "Couldn't save your changes. Check your connection and try again." above Save, the draft is still there, and Save works again.
+- Edit again, set DevTools to offline, and tap Save. Within about 5 seconds the form shows "Couldn't save your changes. Check your connection and try again." above the footer's Save changes button, the draft is still there, and Save changes works again.
 - Go back online and tap Save. The recipe page opens and the edit is on the `/shared/<id>` link.
-- Check the error at 390 px in both themes: readable, red, directly above the Save button.
+- Check the error at 390 px in both themes: readable, red, in the sticky footer above the branch note and the Save changes button.
 - Reviewer noted (med, UI): the save error uses `text-danger-600`, about 3.7:1 on the dark surface; use `danger-500` or `dark:text-danger-300` (`RecipeEditPage.tsx:518`).
-- Reviewer noted (med, UI): the TopBar back arrow is not guarded while a save is in flight, so a user can leave mid-save and never see a failure, or be pulled back by a late success (`RecipeEditPage.tsx` about 168-181 and 261). Try it during the offline save.
+- Reviewer noted (med, UI): (fixed by RL-110: the page's own header Cancel is now disabled while saving) the TopBar back arrow was not guarded while a save is in flight, so a user could leave mid-save and never see a failure, or be pulled back by a late success (`RecipeEditPage.tsx` about 168-181 and 261). During the offline save, check that Cancel is disabled.
 - Reviewer noted (med, UI): a save that times out at 5 s may still land, so "Couldn't save" can be wrong; the edit then appears once the sync arrives.
 - Reviewer noted (med, data): the page pre-checks the cloud copy and then `publishRecipe` does its own `getDoc`, so a delete on another device between the two reads would let an edit take the create path (daily window used, `recipeCount` bumped, recipe resurrected); an update-only publish would close it (`RecipeEditPage.tsx` 208-211, `firestore.ts` 73-99).
 - Reviewer noted (med, data): a timed-out publish keeps running; if the user retries and succeeds, the stale first write can land later and revert the cloud to the older edit while Dexie holds the newer until the sync arrives.
@@ -601,7 +620,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - On the edit page type `-1` as an ingredient amount and press Save. "Amounts can't be negative." should appear under Ingredients, Save should be blocked, and a screen reader should announce it.
 - Paste a title over 200 characters: "Titles can be at most 200 characters." appears by the title and Save is blocked.
 - Add more than 100 ingredient rows or 100 step rows (blank rows do not count): the matching "at most 100" error appears and Save is blocked.
-- Reviewer noted (not fixed, page is outside this ticket's files): (med) Save on RecipeEditPage does not scroll or focus to the first error, and Save sits in a non-sticky footer, so on a long recipe the title or ingredients error can be off-screen; (med) the title, servings, prep and cook errors rendered by Input.tsx have no role=alert, aria-describedby or aria-invalid, so they are not announced; (low) 'Amounts can't be negative.' does not name the row; error text uses text-danger-500 (about 3.8:1 on a light surface); the 100-item caps are only reachable on Save and the message does not say how many to remove; the rules-sync test checks only the three numbers, not that hasBoundedContent is still wired into create and update. Worth one follow-up ticket for the edit form's error focus and announcements.
+- Reviewer noted (not fixed, page is outside this ticket's files): (med, fixed by RL-110: Save now focuses and scrolls to the first invalid field and the footer is sticky) Save on RecipeEditPage did not scroll or focus to the first error; (med) the title, servings, prep and cook errors rendered by Input.tsx have no role=alert, aria-describedby or aria-invalid, so they are not announced; (low) 'Amounts can't be negative.' does not name the row; error text uses text-danger-500 (about 3.8:1 on a light surface); the 100-item caps are only reachable on Save and the message does not say how many to remove; the rules-sync test checks only the three numbers, not that hasBoundedContent is still wired into create and update. Worth one follow-up ticket for the edit form's error focus and announcements.
 
 
 ### RL-035 Unit abbreviations are never pluralised
@@ -1070,7 +1089,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Not run by the agent: the `npm run dev:emulated` publish, edit and re-publish walk. The rules
   were probed over REST on a demo-project emulator (19 of 19 as expected; the same script against
   the previous rules allowed all 9 of the cases that should now be denied).
-- Reviewer noted (med, for RL-036): the editor (`lib/recipeEdit.ts`, `RecipeEditPage.tsx`) has no
+- Reviewer noted (med, for RL-036): (fixed since by RL-036: `lib/recipeEdit.ts` now has title 200, ingredient 100 and step 100 caps matching the rules) the editor had no
   title or list cap matching the rules. A recipe saved over a cap writes Dexie, then the cloud
   update is denied and the user gets the local-only toast, so the owner sees the edit while everyone
   else sees the old version. Over-cap content on a new recipe falls back to a local-only link.

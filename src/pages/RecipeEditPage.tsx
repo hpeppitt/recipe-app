@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Recipe } from '../types/recipe';
-import { useRecipe } from '../hooks/useRecipe';
+import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useAuth } from '../contexts/AuthContext';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { cacheRecipe, updateRecipe } from '../db/recipes';
@@ -22,12 +22,12 @@ import {
   type DraftErrors,
 } from '../lib/recipeEdit';
 import { TopBar } from '../components/layout/TopBar';
+import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { X } from '../components/ui/icons';
+import { Clock, Gauge, GitBranch, Pencil, Plus, UserRound, X } from '../components/ui/icons';
 
 /** How long a verified owner's save waits for the cloud check and publish. */
 const CLOUD_SAVE_TIMEOUT_MS = 5000;
@@ -42,30 +42,125 @@ const DIFFICULTIES = [
 ];
 
 /**
- * The Input primitive's own styling, minus its width and its label/error wrapper.
- *
- * Width is deliberately absent: it is set per field below. Baking `w-full` in here
- * silently defeated `w-16` and `w-20` on the ingredient row — Tailwind resolves by
- * stylesheet order, not by order within the class string, so the narrow widths lost
- * and the ingredient name field was pushed out of view entirely.
+ * Pill field styling. Width is deliberately absent: it is set per field, because
+ * Tailwind resolves by stylesheet order, so a baked-in `w-full` once defeated the
+ * narrow widths on the ingredient row and pushed the name field out of view.
  */
-const fieldBase =
-  'px-3 py-2.5 rounded-xl border border-border bg-surface text-text-primary ' +
+const pill =
+  'h-11 rounded-full border border-neutral-400 bg-neutral-100 px-3 text-text-primary ' +
   'placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 ' +
   'focus:border-transparent transition-shadow';
 
-const textareaClasses = `${fieldBase} w-full`;
+const textareaClasses =
+  'w-full rounded-[22px] border border-neutral-400 bg-neutral-100 px-4 py-3 text-[15px] text-text-primary ' +
+  'placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 ' +
+  'focus:border-transparent transition-shadow';
 
-/** A 44px-target remove button for repeatable rows. */
+/** Keeps a focused or scrolled-to field clear of the header and the sticky footer. */
+const FOCUS_SCROLL = 'scroll-mt-20 scroll-mb-44';
+
+/**
+ * The ingredient rows validateDraft is complaining about, so only those inputs are marked
+ * invalid. Keep in step with the ingredient rules in `validateDraft` (lib/recipeEdit.ts):
+ * an unnamed non-blank row wins, then a non-numeric or negative amount.
+ */
+function badIngredientRows(rows: RecipeDraft['ingredients']): { field: 'name' | 'amount'; indexes: number[] } | null {
+  const blank = (r: RecipeDraft['ingredients'][number]) =>
+    !r.name.trim() && !r.amount.trim() && !r.unit.trim() && !r.notes.trim();
+  const unnamed = rows.flatMap((r, i) => (!blank(r) && !r.name.trim() ? [i] : []));
+  if (unnamed.length) return { field: 'name', indexes: unnamed };
+  const badAmount = rows.flatMap((r, i) => {
+    const n = Number(r.amount.trim());
+    return r.amount.trim() !== '' && (!Number.isFinite(n) || n < 0) ? [i] : [];
+  });
+  return badAmount.length ? { field: 'amount', indexes: badAmount } : null;
+}
+
+/** The first field a failed Save should land on, in page order (same order as validateDraft's rules). */
+function firstInvalidId(errors: DraftErrors, draft: RecipeDraft): string | null {
+  if (errors.title) return 'edit-title';
+  if (errors.servings) return 'edit-servings';
+  if (errors.prepTime) return 'edit-prep';
+  if (errors.cookTime) return 'edit-cook';
+  if (errors.ingredients) {
+    const rows = draft.ingredients;
+    const bad = badIngredientRows(rows);
+    if (bad) return `ingredient-${bad.indexes[0]}-${bad.field}`;
+    return rows.length > 0 ? 'ingredient-0-name' : 'add-ingredient';
+  }
+  if (errors.instructions) return draft.instructions.length > 0 ? 'step-0' : 'add-step';
+  return null;
+}
+
+/** A labelled pill holding a number input: icon, short visible label, input. */
+function FactPill({
+  id,
+  label,
+  icon,
+  value,
+  onChange,
+  error,
+}: {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <label
+        htmlFor={id}
+        className={`flex min-h-11 items-center gap-1.5 rounded-full border bg-neutral-100 px-3 py-1.5 text-[13px] text-text-secondary focus-within:ring-2 focus-within:ring-primary-500 ${FOCUS_SCROLL} ${error ? 'border-danger-500' : 'border-neutral-400'}`}
+      >
+        {icon}
+        <span>{label}</span>
+        <input
+          id={id}
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className="w-12 min-w-0 bg-transparent text-center text-[13px] font-bold text-text-primary focus:outline-none"
+        />
+      </label>
+      {error && (
+        <p id={`${id}-error`} role="alert" className="mt-1 px-3 text-sm text-danger-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function DashedAddButton({ id, onClick, children }: { id?: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      id={id}
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border-[1.5px] border-dashed border-neutral-500 px-3.5 py-[7px] text-sm text-text-secondary hover:bg-surface-secondary"
+    >
+      <Plus className="h-4 w-4" />
+      {children}
+    </button>
+  );
+}
+
+/** A 44px-target remove button for repeatable rows, with a 32px visual. */
 function RemoveRowButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="w-11 h-11 shrink-0 flex items-center justify-center rounded-lg text-text-tertiary hover:bg-surface-tertiary hover:text-danger-600 transition-colors"
+      className="group flex h-11 w-11 shrink-0 items-center justify-center text-text-tertiary hover:text-danger-600"
     >
-      <X className="w-5 h-5" />
+      <span className="flex h-8 w-8 items-center justify-center rounded-full group-hover:bg-surface-tertiary">
+        <X className="h-4 w-4" />
+      </span>
     </button>
   );
 }
@@ -163,6 +258,9 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
+  const emojiRef = useRef<HTMLInputElement>(null);
+  // Direct children only. While the tree loads nothing is shown, never a wrong count.
+  const lineage = useRecipeLineage(recipe);
 
   const isDirty = isDraftDirty(draft, recipe) && !isSaving;
   const { leave } = useUnsavedGuard(isDirty, () => setShowDiscard(true));
@@ -186,6 +284,11 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
     setErrors(found);
     if (Object.keys(found).length > 0) {
       setSaveError(null);
+      // The ids are static, so the field exists before the error text renders. Centred so
+      // neither the header nor the sticky footer covers it; jsdom has no scrollIntoView.
+      const target = document.getElementById(firstInvalidId(found, draft) ?? '');
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView?.({ block: 'center' });
       return;
     }
 
@@ -257,77 +360,97 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <TopBar title="Edit Recipe" showBack onBack={handleBack} />
+      <header className="mx-auto flex w-full max-w-lg items-center gap-1.5 px-3 pt-[calc(12px+env(safe-area-inset-top))]">
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={isSaving}
+          className="min-h-11 shrink-0 rounded-full px-2.5 text-[15px] text-text-primary hover:bg-surface-secondary disabled:opacity-45"
+        >
+          Cancel
+        </button>
+        <h1 className="min-w-0 flex-1 text-center text-sm font-bold text-text-tertiary">Editing</h1>
+        <span aria-hidden="true" className="w-[76px] shrink-0" />
+      </header>
 
-      <main className="flex-1 max-w-lg mx-auto w-full">
+      <main className="mx-auto w-full max-w-lg flex-1">
         {/* No <form>: an implicit submit from any of the many text inputs would
             save a half-edited recipe. Saving is the explicit button below. */}
-        <div className="p-4 space-y-6">
-          <div className="space-y-3">
-            <div className="flex gap-2 items-end">
-              <div className="w-20 shrink-0">
-                <Input
-                  label="Emoji"
-                  value={draft.emoji}
-                  onChange={(e) => update('emoji', e.target.value)}
-                  className="text-center text-xl"
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  label="Title"
-                  value={draft.title}
-                  onChange={(e) => update('title', e.target.value)}
-                  error={errors.title}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="description" className="block text-sm font-medium text-text-primary">
-                Description
-              </label>
-              <textarea
-                id="description"
-                rows={2}
-                value={draft.description}
-                onChange={(e) => update('description', e.target.value)}
-                className={textareaClasses}
+        <div className="flex flex-col gap-3.5 px-[22px] pt-2.5 pb-5">
+          <div className="flex items-start gap-3.5">
+            <div className="min-w-0 flex-1">
+              <input
+                id="edit-title"
+                aria-label="Title"
+                value={draft.title}
+                onChange={(e) => update('title', e.target.value)}
+                aria-invalid={errors.title ? true : undefined}
+                aria-describedby={errors.title ? 'edit-title-error' : undefined}
+                // accent-600, not the spec's accent-400: 400 is about 1.8:1 on the page and
+                // the underline is the only thing that says this is a field.
+                className={`${FOCUS_SCROLL} w-full border-b-2 border-dashed bg-transparent pb-1.5 font-heading text-[30px] leading-[1.08] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-solid ${errors.title ? 'border-danger-500 focus:border-danger-700' : 'border-accent-600 focus:border-accent-800'}`}
               />
+              {errors.title && (
+                <p id="edit-title-error" role="alert" className="mt-1.5 text-sm text-danger-700">
+                  {errors.title}
+                </p>
+              )}
             </div>
+            <button
+              type="button"
+              aria-label="Change emoji"
+              onClick={() => emojiRef.current?.focus()}
+              className="relative shrink-0 rounded-full"
+            >
+              <EmojiBlob size={72} emoji={draft.emoji} />
+              <span
+                aria-hidden="true"
+                className="absolute -right-1 -bottom-1 flex h-7 w-7 items-center justify-center rounded-full bg-text-primary text-on-accent"
+              >
+                <Pencil className="h-[13px] w-[13px]" />
+              </span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <Input
-              label="Servings"
-              inputMode="numeric"
-              value={draft.servings}
-              onChange={(e) => update('servings', e.target.value)}
-              error={errors.servings}
+          <label className="flex items-center gap-2 text-sm font-medium text-text-primary">
+            Emoji
+            <input
+              ref={emojiRef}
+              value={draft.emoji}
+              onChange={(e) => update('emoji', e.target.value)}
+              className={`${pill} w-20 text-center text-xl`}
             />
-            <Input
-              label="Prep (min)"
-              inputMode="numeric"
-              value={draft.prepTime}
-              onChange={(e) => update('prepTime', e.target.value)}
-              error={errors.prepTime}
+          </label>
+
+          <div className="space-y-1.5">
+            <label htmlFor="description" className="block text-sm font-medium text-text-primary">
+              Description
+            </label>
+            <textarea
+              id="description"
+              rows={2}
+              value={draft.description}
+              onChange={(e) => update('description', e.target.value)}
+              className={textareaClasses}
             />
-            <Input
-              label="Cook (min)"
-              inputMode="numeric"
-              value={draft.cookTime}
-              onChange={(e) => update('cookTime', e.target.value)}
-              error={errors.cookTime}
-            />
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            <FactPill id="edit-servings" label="Servings" icon={<UserRound className="h-4 w-4" />} value={draft.servings} onChange={(v) => update('servings', v)} error={errors.servings} />
+            <FactPill id="edit-prep" label="Prep (min)" icon={<Clock className="h-4 w-4" />} value={draft.prepTime} onChange={(v) => update('prepTime', v)} error={errors.prepTime} />
+            <FactPill id="edit-cook" label="Cook (min)" icon={<Clock className="h-4 w-4" />} value={draft.cookTime} onChange={(v) => update('cookTime', v)} error={errors.cookTime} />
           </div>
           {/* Total is derived, so it is stated rather than editable: three
               independently editable time fields can disagree with each other. */}
-          <p className="text-xs text-text-tertiary -mt-4">
+          <p className="-mt-2 text-xs text-text-tertiary">
             Total time is prep plus cook, worked out for you.
           </p>
 
           <div className="space-y-1.5">
-            <span className="block text-sm font-medium text-text-primary">Difficulty</span>
+            <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
+              <Gauge className="h-4 w-4" />
+              Difficulty
+            </span>
             <SegmentedControl
               label="Difficulty"
               options={DIFFICULTIES}
@@ -337,103 +460,103 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
           </div>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-text-primary">Ingredients</h2>
+            <h3 className="mt-1.5 font-heading text-xl text-text-primary">Ingredients</h3>
             {errors.ingredients && (
-              <p role="alert" className="text-sm text-danger-500">
+              <p id="edit-ingredients-error" role="alert" className="text-sm text-danger-700">
                 {errors.ingredients}
               </p>
             )}
-            {draft.ingredients.map((row, index) => (
-              <div key={index} className="flex gap-2 items-start">
-                {/* Name first and full width, amount/unit/notes beneath. Three
-                    fields abreast is unusable at 390px, which is the viewport this
-                    app is designed for. */}
-                <div className="flex-1 min-w-0 space-y-2">
-                  <input
-                    aria-label={`Ingredient ${index + 1} name`}
-                    placeholder="flour"
-                    value={row.name}
-                    onChange={(e) => {
-                      const next = [...draft.ingredients];
-                      next[index] = { ...row, name: e.target.value };
-                      update('ingredients', next);
-                    }}
-                    className={`${fieldBase} w-full`}
-                  />
-                  <div className="flex gap-2">
+            {draft.ingredients.map((row, index) => {
+              const setField = (field: 'name' | 'amount' | 'unit' | 'notes', value: string) => {
+                const next = [...draft.ingredients];
+                next[index] = { ...row, [field]: value };
+                update('ingredients', next);
+              };
+              const bad = errors.ingredients ? badIngredientRows(draft.ingredients) : null;
+              const flag = (field: 'name' | 'amount') =>
+                bad?.field === field && bad.indexes.includes(index)
+                  ? { 'aria-invalid': true as const, 'aria-describedby': 'edit-ingredients-error' }
+                  : {};
+              return (
+                <div key={index} className="space-y-2">
+                  {/* Wraps instead of squeezing: at 320px the name and remove button
+                      drop to a second line rather than leaving a 68px name field. */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <input
+                      id={`ingredient-${index}-amount`}
                       aria-label={`Ingredient ${index + 1} amount`}
                       inputMode="decimal"
-                      placeholder="2"
+                      placeholder="Amount"
                       value={row.amount}
-                      onChange={(e) => {
-                        const next = [...draft.ingredients];
-                        next[index] = { ...row, amount: e.target.value };
-                        update('ingredients', next);
-                      }}
-                      className={`${fieldBase} w-16 shrink-0 text-sm`}
+                      onChange={(e) => setField('amount', e.target.value)}
+                      {...flag('amount')}
+                      className={`${pill} ${FOCUS_SCROLL} w-[76px] shrink-0 text-sm font-bold`}
                     />
                     <input
                       aria-label={`Ingredient ${index + 1} unit`}
-                      placeholder="cups"
+                      placeholder="Unit"
                       value={row.unit}
-                      onChange={(e) => {
-                        const next = [...draft.ingredients];
-                        next[index] = { ...row, unit: e.target.value };
-                        update('ingredients', next);
-                      }}
-                      className={`${fieldBase} w-20 shrink-0 text-sm`}
+                      onChange={(e) => setField('unit', e.target.value)}
+                      className={`${pill} w-16 shrink-0 text-sm`}
                     />
-                    <input
-                      aria-label={`Ingredient ${index + 1} notes`}
-                      placeholder="notes, e.g. sifted"
-                      value={row.notes}
-                      onChange={(e) => {
-                        const next = [...draft.ingredients];
-                        next[index] = { ...row, notes: e.target.value };
-                        update('ingredients', next);
-                      }}
-                      className={`${fieldBase} flex-1 min-w-0 text-sm`}
-                    />
+                    <div className="flex min-w-40 flex-1 items-center gap-2">
+                      <input
+                        id={`ingredient-${index}-name`}
+                        aria-label={`Ingredient ${index + 1} name`}
+                        placeholder="Name"
+                        value={row.name}
+                        onChange={(e) => setField('name', e.target.value)}
+                        {...flag('name')}
+                        className={`${pill} ${FOCUS_SCROLL} min-w-0 flex-1 text-sm`}
+                      />
+                      <RemoveRowButton
+                        label={`Remove ingredient ${index + 1}${row.name.trim() ? `, ${row.name.trim()}` : ''}`}
+                        onClick={() =>
+                          update(
+                            'ingredients',
+                            draft.ingredients.filter((_, i) => i !== index)
+                          )
+                        }
+                      />
+                    </div>
                   </div>
+                  <input
+                    aria-label={`Ingredient ${index + 1} notes`}
+                    placeholder="Notes (optional)"
+                    value={row.notes}
+                    onChange={(e) => setField('notes', e.target.value)}
+                    className={`${pill} w-full text-sm`}
+                  />
                 </div>
-                <RemoveRowButton
-                  label={`Remove ingredient ${index + 1}`}
-                  onClick={() =>
-                    update(
-                      'ingredients',
-                      draft.ingredients.filter((_, i) => i !== index)
-                    )
-                  }
-                />
-              </div>
-            ))}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                update('ingredients', [...draft.ingredients, { ...EMPTY_INGREDIENT }])
-              }
+              );
+            })}
+            <DashedAddButton
+              id="add-ingredient"
+              onClick={() => update('ingredients', [...draft.ingredients, { ...EMPTY_INGREDIENT }])}
             >
               Add ingredient
-            </Button>
+            </DashedAddButton>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-text-primary">Instructions</h2>
+            <h3 className="mt-1.5 font-heading text-xl text-text-primary">Instructions</h3>
             {errors.instructions && (
-              <p role="alert" className="text-sm text-danger-500">
+              <p id="edit-instructions-error" role="alert" className="text-sm text-danger-700">
                 {errors.instructions}
               </p>
             )}
             {draft.instructions.map((row, index) => (
-              <div key={index} className="flex gap-2 items-start">
+              <div key={index} className="flex items-start gap-2">
                 {/* Numbers shown but not editable: they are renumbered on save,
                     so an editable one would be a field that lies. */}
-                <span className="w-6 shrink-0 pt-3 text-sm text-text-tertiary tabular-nums">
-                  {index + 1}.
+                <span
+                  aria-hidden="true"
+                  className="mt-2.5 flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-surface-secondary font-heading text-sm text-text-primary tabular-nums"
+                >
+                  {index + 1}
                 </span>
                 <textarea
+                  id={`step-${index}`}
                   aria-label={`Step ${index + 1}`}
                   rows={2}
                   value={row.text}
@@ -442,7 +565,9 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                     next[index] = { ...row, text: e.target.value };
                     update('instructions', next);
                   }}
-                  className={`${textareaClasses} flex-1`}
+                  aria-invalid={errors.instructions ? true : undefined}
+                  aria-describedby={errors.instructions ? 'edit-instructions-error' : undefined}
+                  className={`${textareaClasses} ${FOCUS_SCROLL} min-w-0 flex-1`}
                 />
                 <RemoveRowButton
                   label={`Remove step ${index + 1}`}
@@ -455,21 +580,18 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                 />
               </div>
             ))}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() =>
-                update('instructions', [...draft.instructions, { ...EMPTY_INSTRUCTION }])
-              }
+            <DashedAddButton
+              id="add-step"
+              onClick={() => update('instructions', [...draft.instructions, { ...EMPTY_INSTRUCTION }])}
             >
               Add step
-            </Button>
+            </DashedAddButton>
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-medium text-text-primary">Notes</h2>
+            <h3 className="mt-1.5 font-heading text-xl text-text-primary">Notes</h3>
             {draft.notes.map((note, index) => (
-              <div key={index} className="flex gap-2 items-start">
+              <div key={index} className="flex items-start gap-2">
                 <textarea
                   aria-label={`Note ${index + 1}`}
                   rows={2}
@@ -479,7 +601,7 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                     next[index] = e.target.value;
                     update('notes', next);
                   }}
-                  className={`${textareaClasses} flex-1`}
+                  className={`${textareaClasses} min-w-0 flex-1`}
                 />
                 <RemoveRowButton
                   label={`Remove note ${index + 1}`}
@@ -492,44 +614,52 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                 />
               </div>
             ))}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => update('notes', [...draft.notes, ''])}
-            >
+            <DashedAddButton onClick={() => update('notes', [...draft.notes, ''])}>
               Add note
-            </Button>
+            </DashedAddButton>
           </section>
 
-          <Input
-            label="Tags"
-            value={draft.tags}
-            onChange={(e) => update('tags', e.target.value)}
-            placeholder="bread, baking, weekend"
-          />
-          <p className="text-xs text-text-tertiary -mt-4">Separate tags with commas.</p>
+          <div className="space-y-1.5">
+            <label htmlFor="tags" className="block text-sm font-medium text-text-primary">
+              Tags
+            </label>
+            <input
+              id="tags"
+              value={draft.tags}
+              onChange={(e) => update('tags', e.target.value)}
+              placeholder="bread, baking, weekend"
+              className={`${pill} w-full`}
+            />
+            <p className="text-xs text-text-tertiary">Separate tags with commas.</p>
+          </div>
         </div>
       </main>
 
-      <div className="p-4 border-t border-border">
-        <div className="max-w-lg mx-auto space-y-2">
+      <footer className="sticky bottom-0 z-10 border-t border-border bg-surface px-5 pt-3 pb-[calc(28px+env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex max-w-lg flex-col gap-2">
           {saveError && (
-            <p role="alert" className="text-sm text-danger-600">
+            <p role="alert" className="text-sm text-danger-700">
               {saveError}
+            </p>
+          )}
+          {!lineage.isLoading && lineage.children.length > 0 && (
+            <p className="flex items-center gap-1.5 text-xs text-text-tertiary">
+              <GitBranch className="h-3.5 w-3.5 shrink-0" />
+              {lineage.children.length === 1
+                ? '1 branch below this keeps its own copy.'
+                : `${lineage.children.length} branches below this keep their own copy.`}
             </p>
           )}
           <Button
             fullWidth
+            className="min-h-[52px]"
             onClick={handleSave}
             disabled={isSaving || !isDirty || saveError === GONE_MESSAGE}
           >
-            {isSaving ? 'Saving…' : isDirty ? 'Save Changes' : 'No Changes'}
-          </Button>
-          <Button variant="ghost" fullWidth onClick={handleBack} disabled={isSaving}>
-            Cancel
+            {isSaving ? 'Saving…' : isDirty ? 'Save changes' : 'No Changes'}
           </Button>
         </div>
-      </div>
+      </footer>
 
       <ConfirmDialog
         open={showDiscard}
