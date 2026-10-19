@@ -71,3 +71,12 @@ export function timeAgo(timestamp: number, now: number = Date.now()): string {
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
 }
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** "Tuesday evening" in local time, for the Explore kicker. */
+export function dayPartLabel(date: Date): string {
+  const h = date.getHours();
+  const part = h >= 5 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'afternoon' : h >= 17 && h < 22 ? 'evening' : 'night';
+  return `${DAY_NAMES[date.getDay()]} ${part}`;
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { scaleIngredients, scaleRecipe, scaleFactor } from './scale';
+import { scaleIngredients, scaleRecipe, scaleFactor, scaleNote } from './scale';
 import { makeRecipe } from '../test/factories';
 import type { Ingredient } from '../types/recipe';
 
@@ -147,5 +147,17 @@ describe('scaleRecipe', () => {
     scaleRecipe(recipe, 8);
     expect(recipe.ingredients[0].amount).toBe(400);
     expect(recipe.servings).toBe(4);
+  });
+});
+
+describe('scaleNote', () => {
+  it('describes the factor', () => {
+    expect(scaleNote(12, 8)).toBe('Scaled ×1½ from 8.');
+    expect(scaleNote(4, 8)).toBe('Scaled ×½ from 8.');
+    expect(scaleNote(10, 8)).toBe('Scaled ×1¼ from 8.');
+  });
+  it('is null when unscaled or original is not positive', () => {
+    expect(scaleNote(8, 8)).toBeNull();
+    expect(scaleNote(4, 0)).toBeNull();
   });
 });

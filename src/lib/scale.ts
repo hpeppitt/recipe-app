@@ -1,4 +1,5 @@
 import type { Ingredient, Recipe } from '../types/recipe';
+import { formatAmount } from './amount';
 
 /**
  * Scaling a recipe to a different number of servings.
@@ -81,4 +82,11 @@ export function scaleRecipe(recipe: Recipe, targetServings: number): Recipe {
     servings: targetServings,
     ingredients: scaleIngredients(recipe.ingredients, factor),
   };
+}
+
+/** The "Scaled ×1½ from 8." strip text, or null when not scaled. */
+export function scaleNote(servings: number, original: number): string | null {
+  if (servings === original || !(original > 0)) return null;
+  const factor = Math.round((servings / original) * 100) / 100;
+  return `Scaled ×${formatAmount(factor)} from ${original}.`;
 }

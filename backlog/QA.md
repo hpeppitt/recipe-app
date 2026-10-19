@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-087 Organic text helpers
+
+- Nothing to check until RL-098/RL-101/RL-102.
+
 ### RL-075 Branch carousel on the recipe page
 
 - On a recipe with 3 or more children, swipe the carousel on iOS Safari and Android Chrome: cards snap and the dots follow. Tab through with a keyboard (focus rings visible, every Open reachable). With VoiceOver, cards announce "1 of 3". Open opens the branch; the network button opens the tree; "The original" row shows on a variation and not on a root.
