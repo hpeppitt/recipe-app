@@ -53,7 +53,7 @@ through `src/services/storage.ts`. None is cleared by "Delete recipes on this de
 | Item | Where | Contents | Notes |
 |---|---|---|---|
 | Offline app shell | Cache Storage (Workbox precache, `vite.config.ts`) | The app's own HTML, JS, CSS, icons and fonts | No user data. No runtime caching of Firestore, Auth or AI calls |
-| Photos attached to a generation | Memory only (React state for previews, a ref for retry, the AI Logic SDK chat history) | Up to 6 downscaled JPEGs (at most 1024px, 600 KB each) per chat, as base64 | Since RL-118 (UI in RL-119). Sent to Gemini with the message; never written to IndexedDB, localStorage, Firestore, `chatHistory`, `prompt`, analytics or error reports. Gone when the chat page is left or the tab closes. A photo can show people, addresses or handwriting |
+| Photos attached to a generation | Memory only (React state for previews, a ref for retry, the AI Logic SDK chat history) | Up to 6 downscaled JPEGs (at most 1024px, 600 KB each) per chat, as base64 | Since RL-118 (UI from RL-119). Sent to Gemini with the message; never written to IndexedDB, localStorage, Firestore, `chatHistory`, `prompt`, analytics or error reports. Gone when the chat page is left or the tab closes. A photo can show people, addresses or handwriting |
 | Cookies | none set by the app | none | No `document.cookie` anywhere in `src/`. Third-party scripts can set their own: reCAPTCHA (Google). GA4 cookies may remain from before RL-058. Their names and lifetimes are not in this repo |
 
 ### In the cloud: Firebase Authentication

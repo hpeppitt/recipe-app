@@ -292,6 +292,15 @@ export const Hourglass = ({ className }: P) => (
     <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
   </Icon>
 );
+export const ImagePlus = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M16 5h6" />
+    <path d="M19 2v6" />
+    <path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" />
+    <path d="m21 15-3.092-3.092a2 2 0 0 0-2.816 0L6 21" />
+    <circle cx="9" cy="9" r="2" />
+  </Icon>
+);
 export const Image = ({ className }: P) => (
   <Icon className={className}>
     <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />

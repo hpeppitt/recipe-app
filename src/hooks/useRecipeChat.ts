@@ -415,6 +415,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     /** The prompt that produced the current matches, so the UI can carry it forward. */
     pendingQuery,
     attachmentPreviews,
+    /** Photos in turns that generated: what counts towards the per-chat limit. */
+    sentImageCount: chatImageCountRef.current,
     sendMessage,
     retryGeneration,
     dismissSimilar,
