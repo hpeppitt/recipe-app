@@ -1,9 +1,9 @@
 import { pluralize } from '../../lib/utils';
-import { Minus, Plus } from '../ui/icons';
+import { scaleNote } from '../../lib/scale';
+import { Minus, Plus, Scale } from '../ui/icons';
 
 interface ServingStepperProps {
   servings: number;
-  original: number;
   onChange: (servings: number) => void;
 }
 
@@ -11,58 +11,61 @@ interface ServingStepperProps {
 const MIN_SERVINGS = 1;
 const MAX_SERVINGS = 99;
 
+// 34px visible, 44px target: the pseudo-element extends the hit area without clipping (no overflow here).
+const STEP_BUTTON =
+  'relative flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-surface text-text-primary before:absolute before:-inset-[5px] before:content-[""] disabled:pointer-events-none disabled:opacity-40';
+
 /**
- * Adjusts the serving count a recipe is displayed at.
- *
- * Display only — nothing is written. The Reset affordance appears once the count
- * differs from the stored one, because a scaled view that looks permanent is the
- * failure mode here: someone should always be able to see, and get back to, what
- * the recipe actually says.
+ * Adjusts the serving count a recipe is displayed at. Display only, nothing is written.
+ * The Scaled strip (below) is what lets someone see, and get back to, what the recipe says.
  */
-export function ServingStepper({ servings, original, onChange }: ServingStepperProps) {
+export function ServingStepper({ servings, onChange }: ServingStepperProps) {
   const step = (delta: number) =>
     onChange(Math.min(MAX_SERVINGS, Math.max(MIN_SERVINGS, servings + delta)));
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-sm text-text-secondary">Scale to</span>
-      <div className="flex items-center rounded-xl border border-border overflow-hidden">
-        <button
-          type="button"
-          onClick={() => step(-1)}
-          disabled={servings <= MIN_SERVINGS}
-          aria-label="One fewer serving"
-          className="w-11 h-11 flex items-center justify-center text-text-primary hover:bg-surface-tertiary disabled:opacity-40 disabled:pointer-events-none transition-colors"
-        >
-          <Minus className="w-4 h-4" />
-        </button>
-        {/* aria-live so a screen reader hears the new count, which is the only
-            thing that changed on the page from its point of view. */}
-        <span
-          aria-live="polite"
-          className="min-w-[5.5rem] text-center text-sm font-medium text-text-primary tabular-nums px-1"
-        >
-          {servings} {pluralize(servings, 'serving')}
-        </span>
-        <button
-          type="button"
-          onClick={() => step(1)}
-          disabled={servings >= MAX_SERVINGS}
-          aria-label="One more serving"
-          className="w-11 h-11 flex items-center justify-center text-text-primary hover:bg-surface-tertiary disabled:opacity-40 disabled:pointer-events-none transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </div>
-      {servings !== original && (
-        <button
-          type="button"
-          onClick={() => onChange(original)}
-          className="min-h-11 px-2 text-sm text-primary-600 dark:text-primary-400 hover:underline"
-        >
-          Reset to {original}
-        </button>
-      )}
+    <div className="flex flex-shrink-0 items-center gap-1 rounded-full bg-surface-secondary p-[3px]">
+      <button
+        type="button"
+        onClick={() => step(-1)}
+        disabled={servings <= MIN_SERVINGS}
+        aria-label="One fewer serving"
+        className={STEP_BUTTON}
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      {/* aria-live so a screen reader hears the new count. */}
+      <span aria-live="polite" className="min-w-16 text-center text-[13px] font-semibold tabular-nums text-text-primary">
+        {servings} {pluralize(servings, 'serving')}
+      </span>
+      <button
+        type="button"
+        onClick={() => step(1)}
+        disabled={servings >= MAX_SERVINGS}
+        aria-label="One more serving"
+        className={STEP_BUTTON}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/** Shown only while the count differs from the stored one; Reset restores it. */
+export function ScaledStrip({ servings, original, onReset }: { servings: number; original: number; onReset: () => void }) {
+  const note = scaleNote(servings, original);
+  if (!note) return null;
+  return (
+    <div className="mt-2.5 flex items-center gap-2.5 rounded-[18px] bg-accent-100 px-3.5 py-2.5 text-[13px] text-accent-900">
+      <Scale className="h-4 w-4 flex-shrink-0" />
+      <span className="min-w-0 flex-1 break-words">{note}</span>
+      <button
+        type="button"
+        onClick={onReset}
+        className="relative flex-shrink-0 leading-5 underline before:absolute before:-inset-x-2 before:-inset-y-3 before:content-['']"
+      >
+        Reset
+      </button>
     </div>
   );
 }

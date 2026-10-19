@@ -5,7 +5,7 @@ import { IngredientList } from './IngredientList';
 import { InstructionList } from './InstructionList';
 import { NutritionPanel } from './NutritionPanel';
 import { TagList } from './TagList';
-import { ServingStepper } from './ServingStepper';
+import { ServingStepper, ScaledStrip } from './ServingStepper';
 import { scaleRecipe } from '../../lib/scale';
 
 interface RecipeContentProps {
@@ -64,34 +64,39 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
         prepTime={recipe.prepTime}
         cookTime={recipe.cookTime}
         totalTime={recipe.totalTime}
-        servings={scaled.servings}
         difficulty={recipe.difficulty}
+        author={compact ? null : recipe.createdBy}
+        nutrition={recipe.nutrition}
+        servings={compact ? scaled.servings : undefined}
       />
 
-      {/* Above the ingredients, because that is the only thing it changes.
-          Hidden in the compact preview, where the recipe is a proposal rather
-          than something being cooked from. */}
-      {!compact && (
-        <ServingStepper
-          servings={scaled.servings}
-          original={recipe.servings}
-          onChange={setServings}
-        />
-      )}
-
-      {/* Cook-along ticks only on the full view. In the collapsed parent-recipe
-          preview the recipe is context, not something being cooked. */}
-      {/* Above the ingredients: someone deciding whether to cook this wants the
-          macros before the shopping list, not after the method. Renders nothing
-          when the recipe has no estimates. */}
       {/* Nutrition is per serving, so scaling leaves the figures alone; only the
-          "of N" count it reports follows the stepper. */}
+          "of N" count it reports follows the stepper. Renders nothing without
+          estimates. Placement is RL-103's. */}
       {!compact && (
         <NutritionPanel nutrition={recipe.nutrition} servings={scaled.servings} />
       )}
 
+      {/* The stepper sits in the Ingredients heading row, because ingredient
+          amounts are the only thing it changes. Hidden in the compact preview,
+          where the recipe is a proposal rather than something being cooked from;
+          ticks are likewise full-view only. */}
       {ingredients ? (
-        <IngredientList ingredients={scaled.ingredients} checkable={!compact} />
+        <IngredientList
+          ingredients={scaled.ingredients}
+          checkable={!compact}
+          scaled={servings !== recipe.servings && recipe.servings > 0}
+          headingAside={!compact && <ServingStepper servings={scaled.servings} onChange={setServings} />}
+          belowHeading={
+            !compact && (
+              <ScaledStrip
+                servings={scaled.servings}
+                original={recipe.servings}
+                onReset={() => setServings(recipe.servings)}
+              />
+            )
+          }
+        />
       ) : (
         <MissingSection name="ingredients" />
       )}
