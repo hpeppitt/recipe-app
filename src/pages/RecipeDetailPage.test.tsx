@@ -11,6 +11,9 @@ let ancestors: ReturnType<typeof makeRecipe>[] = [];
 let canFavorite = true;
 let source: 'local' | 'cloud' = 'local';
 let pending = 0;
+let suggestionRows: Record<string, unknown>[] | null = null;
+const approveMock = vi.fn();
+const rejectMock = vi.fn();
 const getPublishedRecipe = vi.fn();
 const publishRecipe = vi.fn();
 const trackRecipeShared = vi.fn();
@@ -55,7 +58,7 @@ vi.mock('../hooks/useFavorites', () => ({
 }));
 vi.mock('../hooks/useSuggestions', () => ({
   useSuggestions: () => ({
-    suggestions: Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), approve: vi.fn(), reject: vi.fn() }),
+    suggestions: suggestionRows ?? Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), approve: approveMock, reject: rejectMock }),
   useSubmitSuggestion: () => ({ submit: vi.fn() }),
   useSuggestionThread: () => ({ messages: [], error: null, send: vi.fn() }),
 }));
@@ -76,6 +79,7 @@ beforeEach(() => {
   canFavorite = true;
   source = 'local';
   pending = 0;
+  suggestionRows = null;
   recipe = makeRecipe({ id: 'r1', title: 'Soup' });
   writeText.mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
@@ -372,5 +376,85 @@ describe('RecipeDetailPage footer', () => {
     expect(screen.queryByRole('button', { name: 'Create Variation' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggest a Change' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Suggest' })).toBeInTheDocument();
+  });
+});
+
+describe('RecipeDetailPage suggestions', () => {
+  const row = (id: string, uid: string, message: string, status = 'pending') => ({
+    id, status, message, createdAt: 0, recipeOwnerId: 'test-user', suggestedBy: { uid, displayName: uid },
+  });
+  function open(over: { source?: 'local' | 'cloud' } = {}) {
+    source = over.source ?? 'local';
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1' }
+    );
+  }
+
+  it('owner sees every suggestion', () => {
+    suggestionRows = [row('a', 'u1', 'More garlic'), row('b', 'u2', 'Add lime')];
+    open();
+    expect(screen.getByRole('heading', { name: 'Suggestions' })).toBeInTheDocument();
+    expect(screen.getByText('More garlic')).toBeInTheDocument();
+    expect(screen.getByText('Add lime')).toBeInTheDocument();
+  });
+
+  it('someone else sees only their own suggestion', () => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup', createdBy: { uid: 'chef', displayName: 'Chef' } });
+    suggestionRows = [row('a', 'test-user', 'Mine'), row('b', 'u2', 'Theirs')];
+    open({ source: 'cloud' });
+    expect(screen.getByRole('heading', { name: 'Your suggestion' })).toBeInTheDocument();
+    expect(screen.getByText('Mine')).toBeInTheDocument();
+    expect(screen.queryByText('Theirs')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+  });
+
+  it('has no section without suggestions', () => {
+    open();
+    expect(screen.queryByRole('region', { name: 'Suggestions' })).not.toBeInTheDocument();
+  });
+
+  it('sits after the recipe body', () => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup', instructions: [{ step: 1, text: 'Boil.' }] as never });
+    suggestionRows = [row('a', 'u1', 'More garlic')];
+    open();
+    const section = screen.getByRole('region', { name: 'Suggestions' });
+    const method = screen.getByRole('heading', { name: 'Method' });
+    expect(method.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('Approve opens the variation composer seeded with the message', async () => {
+    approveMock.mockResolvedValue({ uid: 'u1' });
+    suggestionRows = [row('a', 'u1', 'More garlic')];
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/vary', { state: { suggestion: 'More garlic' } })
+    );
+    expect(approveMock).toHaveBeenCalledWith('a');
+  });
+
+  it('a failed approve shows the approve error and does not navigate', async () => {
+    approveMock.mockRejectedValue(new Error('denied'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    suggestionRows = [row('a', 'u1', 'More garlic')];
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't approve that suggestion. Please try again.");
+    expect(navigateSpy).not.toHaveBeenCalledWith('/recipe/r1/vary', expect.anything());
+  });
+
+  it('Decline confirms, then a failed reject shows the decline error', async () => {
+    rejectMock.mockRejectedValue(new Error('denied'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    suggestionRows = [row('a', 'u1', 'More garlic')];
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    expect(rejectMock).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Decline this suggestion?' })).getByRole('button', { name: 'Decline' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't decline that suggestion. Please try again.");
+    expect(rejectMock).toHaveBeenCalledWith('a');
   });
 });

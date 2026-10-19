@@ -26,7 +26,7 @@ Around that core, the app is a small social library:
 - **Favourite** anyone's recipe, and they get a notification.
 - **Suggest a change** to someone else's recipe. If they approve it, you are added as a
   collaborator and the suggestion opens the variation composer prefilled. Either way there is
-  a reply thread, because a rejected suggestion is exactly when you want to ask why.
+  a reply thread, because a declined suggestion is exactly when you want to ask why.
 - **Follow** people and filter the library down to them.
 
 ## What it does

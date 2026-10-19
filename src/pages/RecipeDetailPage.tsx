@@ -13,7 +13,7 @@ import {
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
 import { pickShareUrl } from '../lib/share';
-import { withTimeout, timeAgo, pluralize } from '../lib/utils';
+import { withTimeout, pluralize } from '../lib/utils';
 import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../services/analytics';
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeHeader } from '../components/recipe/RecipeHeader';
@@ -26,7 +26,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestChangeModal } from '../components/recipe/SuggestChangeModal';
-import { SuggestionThread } from '../components/recipe/SuggestionThread';
+import { SuggestionList } from '../components/recipe/SuggestionList';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
@@ -99,12 +99,11 @@ export function RecipeDetailPage() {
   const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
   const savedOutcome = savedState?.saved;
   const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
-  // Which suggestion is mid-review. Both buttons on every row disable while one
-  // is in flight: a slow link previously allowed a double-tap, or approving one
-  // suggestion while rejecting another.
+  // Which suggestion is mid-review. Decline and Approve on every card disable
+  // while one is in flight: a slow link previously allowed a double-tap, or
+  // approving one suggestion while declining another.
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState<{ id: string; message: string } | null>(null);
   const [introState, setIntroState] = useState(getIntroState);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
@@ -323,7 +322,7 @@ export function RecipeDetailPage() {
       setReviewError(
         action === 'approve'
           ? "Couldn't approve that suggestion. Please try again."
-          : "Couldn't reject that suggestion. Please try again."
+          : "Couldn't decline that suggestion. Please try again."
       );
     } finally {
       // Left set on the approve path only if navigation did not happen; the
@@ -522,100 +521,7 @@ export function RecipeDetailPage() {
 
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="p-4 space-y-6">
-          {/* Pending review sits above the recipe body. This is the owner's
-              action item on their own page; it was previously below ingredients,
-              instructions, notes, tags, credits, collaborators and variations. */}
-          {/* Suggestions section (owner only) */}
-          {visibleSuggestions.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-text-primary">
-                {isOwner
-                  ? `Suggestions (${pendingSuggestions.length} pending)`
-                  : 'Your suggestion'}
-              </h3>
-              {/* A failed review used to be entirely silent: the row stayed
-                  pending and the owner had no idea the write had been rejected. */}
-              {reviewError && (
-                <p role="alert" className="text-xs text-danger-600">
-                  {reviewError}
-                </p>
-              )}
-              <div className="space-y-2">
-                {visibleSuggestions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`border rounded-xl p-3 ${
-                      s.status === 'pending'
-                        ? 'border-primary-200 bg-primary-50/30 dark:border-primary-800 dark:bg-primary-950/30'
-                        : 'border-border bg-surface-secondary'
-                    }`}
-                  >
-                    <p className="text-sm text-text-primary">"{s.message}"</p>
-                    <p className="text-xs text-text-tertiary mt-1">
-                      from{' '}
-                      {/* Deciding on a suggestion means knowing who sent it.
-                          The name was plain text with nowhere to go. */}
-                      <button
-                        onClick={() => navigate(`/profile/${s.suggestedBy.uid}`)}
-                        className="underline hover:text-text-secondary"
-                      >
-                        {s.suggestedBy.displayName ?? 'Anonymous'}
-                      </button>
-                      {' · '}
-                      {/* Age matters: a suggestion from an hour ago and one from
-                          last March are not the same decision. */}
-                      <span>{timeAgo(s.createdAt)}</span>
-                      {s.status !== 'pending' && (
-                        <span
-                          className={`ml-2 font-medium ${
-                            s.status === 'approved'
-                              ? 'text-success-600'
-                              : 'text-text-tertiary'
-                          }`}
-                        >
-                          {s.status === 'approved' ? 'Approved' : 'Rejected'}
-                        </span>
-                      )}
-                    </p>
-                    {/* `isOwner` is checked here, not on the section: the section
-                        now also renders for the suggester so they can reach the
-                        reply thread, and only the owner reviews. */}
-                    {isOwner && s.status === 'pending' && (
-                      // Padded to a 44px target. The -ml-3 offsets the first
-                      // button's padding so its label stays flush with the text
-                      // above rather than looking indented.
-                      <div className="flex gap-1 mt-1 -ml-3">
-                        <button
-                          // Approving used to end here: status flipped, and that
-                          // was all. It now carries the owner into the variation
-                          // composer with the suggestion prefilled, which is the
-                          // action the approval was implicitly promising.
-                          onClick={() => handleReview(s.id, 'approve', s.message)}
-                          disabled={reviewingId !== null}
-                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-success-700 dark:text-success-400 hover:underline hover:bg-surface-tertiary transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          {reviewingId === s.id ? 'Working…' : 'Approve'}
-                        </button>
-                        <button
-                          // Rejection is one-way and now notifies the suggester,
-                          // so it gets a confirm. Approve does not: it navigates
-                          // to a composer the owner can simply back out of.
-                          onClick={() => setRejecting({ id: s.id, message: s.message })}
-                          disabled={reviewingId !== null}
-                          className="min-h-11 px-3 inline-flex items-center rounded-lg text-xs font-medium text-text-secondary hover:underline hover:bg-surface-tertiary transition-colors disabled:opacity-50 disabled:pointer-events-none"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                    <SuggestionThread suggestion={s} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Above the recipe body, below the suggestions: it explains what the
+          {/* Above the recipe body: it explains what the
               Branch this recipe button at the bottom of this page will do, so it
               needs to be read before the user gets there. */}
           {shouldShowTreeIntro(introState, recipe) && (
@@ -632,6 +538,16 @@ export function RecipeDetailPage() {
           )}
 
           <RecipeContent recipe={recipe} hideHeader />
+
+          {/* Moved below the body (RL-105); it used to sit above it as the owner's
+              action item. The pending badge on More (RL-100) keeps that attention. */}
+          <SuggestionList
+            suggestions={visibleSuggestions}
+            isOwner={isOwner}
+            reviewingId={reviewingId}
+            reviewError={reviewError}
+            onReview={handleReview}
+          />
 
           {/* The count existed on the document and was never shown anywhere, so a
               recipe others had favourited looked exactly like one nobody had.
@@ -717,27 +633,6 @@ export function RecipeDetailPage() {
         open={showAuth}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
-      />
-
-      {/* Rejection cannot be undone and now sends the suggester a notification,
-          so it asks first. The suggestion text is echoed because the list can
-          hold several and the buttons are small. */}
-      <ConfirmDialog
-        open={rejecting !== null}
-        title="Reject this suggestion?"
-        message={
-          rejecting
-            ? `"${rejecting.message}" will be marked rejected and the suggester will be notified. This can't be undone.`
-            : ''
-        }
-        confirmLabel="Reject"
-        confirmVariant="danger"
-        onConfirm={() => {
-          const target = rejecting;
-          setRejecting(null);
-          if (target) handleReview(target.id, 'reject', target.message);
-        }}
-        onCancel={() => setRejecting(null)}
       />
 
       <SignUpDialog

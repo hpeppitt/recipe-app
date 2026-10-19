@@ -789,3 +789,8 @@ Note 2026-10-18: RL-063 also restyles shape and type inside the shared primitive
 ### Light only until a dark Organic exists (RL-065, 2026-10-18)
 
 The app is light only. The Theme control is removed from Settings and `useTheme` always removes the `dark` class, so an OS in dark mode changes nothing; `index.html` keeps one `theme-color` of `#f5ead8` with no media query. The stored preference is kept (`getTheme`/`setTheme` unchanged) so restoring dark needs no migration, and the roughly 66 `dark:` classes stay as inert structure (the `dark` variant is class-based, `.dark, .dark *`, so with the class never applied none fire). New UI writes no `dark:` classes. Rejected: a temporary dark Organic mapping, which would be a second palette to design and test and then discard when the real dark design lands (brief ticket 8). The author's call.
+
+
+### Suggestions section sits below the recipe body (RL-105, 2026-10-19)
+
+The owner's suggestions section moved from above the recipe body to below it (after nutrition, notes and credits, before the branch carousel). The owner is still alerted by the pending-suggestions badge on More and by the Activity tab, and the recipe itself is what people read while cooking.
