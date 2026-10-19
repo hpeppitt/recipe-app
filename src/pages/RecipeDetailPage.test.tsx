@@ -97,7 +97,7 @@ function share(user: AppUser | null) {
   fireEvent.click(screen.getByRole('button', { name: 'Copy share link' }));
 }
 
-const dialog = () => screen.queryByRole('heading', { name: 'Sign up to share this recipe' });
+const dialog = () => screen.queryByRole('heading', { name: 'Sign in to share this recipe' });
 
 describe('RecipeDetailPage Share', () => {
   it.each([
@@ -106,7 +106,7 @@ describe('RecipeDetailPage Share', () => {
   ])('opens the sign-up dialog for a %s user on an unpublished recipe', async (_l, user) => {
     getPublishedRecipe.mockResolvedValue(null);
     share(user);
-    expect(await screen.findByRole('heading', { name: 'Sign up to share this recipe' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in to share this recipe' })).toBeInTheDocument();
     expect(publishRecipe).not.toHaveBeenCalled();
     expect(writeText).not.toHaveBeenCalled();
     expect(trackRecipeShared).not.toHaveBeenCalled();
@@ -124,7 +124,7 @@ describe('RecipeDetailPage Share', () => {
   it('opens the dialog, not a self-contained link, when the published check rejects', async () => {
     getPublishedRecipe.mockRejectedValue(new Error('offline'));
     share(anon);
-    expect(await screen.findByRole('heading', { name: 'Sign up to share this recipe' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Sign in to share this recipe' })).toBeInTheDocument();
     expect(writeText).not.toHaveBeenCalled();
   });
 
@@ -295,7 +295,8 @@ describe('RecipeDetailPage header and More sheet', () => {
     canFavorite = false;
     show(null);
     fireEvent.click(screen.getByRole('button', { name: 'Add to favorites' }));
-    expect(screen.getByRole('dialog', { name: 'Sign in to continue' })).toBeInTheDocument();
+    const sheet = screen.getByRole('dialog', { name: 'Sign in to save this recipe' });
+    expect(within(sheet).getByRole('button', { name: 'Continue without an account' })).toBeInTheDocument();
   });
 
   it('goes to the edit screen from the sheet', () => {
@@ -415,7 +416,7 @@ describe('RecipeDetailPage suggest mode', () => {
   it('asks anyone without a verified email to sign up and stays on the page', () => {
     show(anon);
     fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
-    expect(screen.getByRole('dialog', { name: 'Sign up to suggest a change' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Sign in to suggest a change' })).toBeInTheDocument();
     expect(screen.queryByText('Tap any line to suggest a change')).toBeNull();
   });
 

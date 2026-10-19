@@ -1,59 +1,81 @@
-import { useEffect, useId, useRef } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '../ui/Button';
+import { Sheet } from '../ui/Sheet';
+import { Mail } from '../ui/icons';
 import { EmailLinkingForm } from './EmailLinkingForm';
+import { ActionIntro, EmailStepHeading, SentStep, type AuthAction } from './AuthSheetParts';
 
 /**
- * The one-tap sign-up gate from SuggestChangeModal, for actions with no dialog
- * of their own (follow, profile editing). Anonymous and signed-out users cannot
- * write to the cloud (decision 1a), so these open this instead of writing.
- * EmailLinkingForm picks linkEmail or sendEmailLink by account type.
+ * The sign-up gate for actions that need a verified email (share an unpublished
+ * recipe, suggest, follow, profile editing). Anonymous and signed-out users cannot
+ * write to the cloud (decision 1a), so these open this instead of writing. No guest
+ * option: an anonymous account cannot do any of these. EmailLinkingForm picks
+ * linkEmail or sendEmailLink by account type.
  */
 export function SignUpDialog({
   open,
-  title,
+  action,
   body,
   onClose,
 }: {
   open: boolean;
-  title: string;
+  /** Names the headline and icon: "Sign in to <action>". */
+  action: AuthAction;
   body: string;
   onClose: () => void;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
+  const [sentTo, setSentTo] = useState('');
+  // Back would unmount the form mid-send and lose its error and its Terms clear.
+  const [sending, setSending] = useState(false);
+  const [wasOpen, setWasOpen] = useState(open);
   const titleId = useId();
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+  // Each opening starts fresh; the email step remounts the form, clearing it.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setStep('choose');
+  }
 
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      aria-labelledby={titleId}
-      className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
-    >
-      {open && (
-        <>
-          <h2 id={titleId} className="text-lg font-semibold text-text-primary">
-            {title}
-          </h2>
-          <p className="text-sm text-text-secondary mt-1 mb-4">{body}</p>
-          <EmailLinkingForm
-            tone="invite"
-            icon="✉️"
-            title="No password needed"
-            description="We'll email you a link. Tap it and you're in."
-            submitLabel="Sign up"
-          />
-          <Button fullWidth variant="secondary" onClick={onClose} className="mt-4">
-            Not now
-          </Button>
-        </>
-      )}
-    </dialog>
+    <Sheet open={open} onClose={onClose} labelledBy={titleId}>
+      <div className="flex min-w-0 flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
+        {step === 'choose' && (
+          <>
+            <ActionIntro action={action} titleId={titleId} body={body} />
+            <Button fullWidth size="lg" className="h-[52px] gap-2" autoFocus onClick={() => setStep('email')}>
+              <Mail className="h-5 w-5 shrink-0" />
+              Continue with email
+            </Button>
+            <Button fullWidth variant="ghost" onClick={onClose}>
+              Not now
+            </Button>
+          </>
+        )}
+
+        {step === 'email' && (
+          <>
+            <EmailStepHeading titleId={titleId} />
+            <EmailLinkingForm
+              tone="invite"
+              bare
+              submitLabel="Send me a link"
+              onBusyChange={setSending}
+              onSent={(email) => {
+                setSentTo(email);
+                setStep('sent');
+              }}
+            />
+            <Button fullWidth variant="ghost" disabled={sending} onClick={() => setStep('choose')}>
+              Back
+            </Button>
+          </>
+        )}
+
+        {step === 'sent' && (
+          <SentStep titleId={titleId} email={sentTo} onDifferentEmail={() => setStep('email')} onClose={onClose} />
+        )}
+      </div>
+    </Sheet>
   );
 }

@@ -362,6 +362,7 @@ export function SharedRecipePage() {
 
       <AuthModal
         open={showAuth}
+        action={{ kind: 'save' }}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
       />

@@ -18,6 +18,27 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-108 Sign-in is a contextual sheet whose headline names the action
+
+- On the preview, signed out, at 390x844 and 320px (no horizontal scroll, the 26px headline and the 34px "Check your inbox" wrap cleanly, the sheet clears the home indicator):
+  - Tap the heart on a recipe and on a `/shared/:id` link: a bottom sheet "Sign in to save this recipe" with a heart icon, "Continue with email", and the text link "Continue without an account" with "Bookmarks stay on this device only. You can add an email later." under it. The guest link signs in anonymously and closes the sheet.
+  - Open someone's profile and tap Follow: "Sign in to follow <name>" with the person icon, "Continue with email" and "Not now", and no guest link. Same for Share on an unpublished recipe ("Sign in to share this recipe"), Suggest as an anonymous account ("Sign in to suggest a change") and the avatar or name on your own profile as anonymous ("Sign in to edit your profile"). The plain Sign in buttons on Profile, Activity and a suggestion you cannot open say "Sign in to continue".
+  - Continue with email: the heading "Continue with email", the Terms box, the "Email" pill field with the keyboard up, "Send me a link", the footnote and the sage "New here?" note, and Back. Try to send with the box unticked (button disabled; Enter shows the tick-the-box error), then ticked.
+  - After sending: "Check your inbox" with the address in a grey pill (try a very long address at 320px), "Use a different email" back to the field, and Close. The copy says the link brings you back to Recipe Lab, not to this page.
+  - Open the link on the same device, then request another and open it on a different device (the cross-device email prompt). Either way you land on the app, not the page you started from, and nothing you were doing runs on its own: tap it again.
+  - No Apple, Google or password option anywhere.
+- VoiceOver on iOS: opening each sheet reads its title ("Sign in to save this recipe", then "Continue with email" on the next step, "Check your inbox" after sending), focus stays in the sheet, and closing returns focus to the button that opened it.
+- The chat gate (`/create` as anonymous) and the shared page's suggest gate use the same field look under their existing card, without the sheet's footnote and sage note, and do not move focus. In the sign-up sheets (Follow, Share, Suggest, edit profile) Continue with email puts focus and the keyboard in the Email field, and Back is disabled while a link is sending.
+- Reviewer noted (low): the sent step's 280px `bg-accent-200` circle sits behind themed text colours, so it would be illegible if dark mode returned; pin the colours then.
+- Reviewer noted (low): the email pill (`bg-neutral-100`) has almost no contrast with the `bg-surface` sheet, and it uses `break-all`.
+- Reviewer noted (low): the invite tone shows "Sending..." text while AuthModal shows a Spinner.
+- Reviewer noted (low): AuthModal's body copy "Sign in to save recipes and get credited as the creator." is the same for every caller, including the plain continue callers on Activity, the suggestion thread and the profile (the ticket said keep the existing reason copy).
+- Reviewer noted (low): `index.html` has no `viewport-fit=cover`, so the `env(safe-area-inset-bottom)` padding in the two auth sheets does nothing today, and `Sheet` itself has none. Follow-up if cover mode is ever enabled: put `pb-[max(1.75rem,env(safe-area-inset-bottom))]` in `Sheet.tsx`.
+- Reviewer noted (low): `onAuthenticated` can fire more than once (the auto-dismiss effect and the guest handler both call it). Every caller's handler is idempotent; this predates the ticket.
+- Reviewer noted (low): closing the sheet mid-send and reopening it can show a stale sent step.
+- Reviewer noted (low, product call): AuthModal shows the guest link for the plain Sign in callers (Activity, suggestion thread, profile) as before. Decide whether the guest option should be offered there.
+- Reviewer noted (low): the copy "Sign up to suggest a change" (SuggestChangeModal) and "Sign up to start cooking up recipes" (RecipeChatPage) stays until RL-113 and RL-111 replace those screens.
+
 ### RL-107 Suggesting a change turns the recipe page into a form (9b)
 
 - Needs a verified non-owner account and a cloud recipe: use the preview or `npm run dev:emulated` (suggestions cannot be deleted on live). Footer Suggest and More, Suggest a change both enter the mode; an anonymous or unverified account gets the sign-up dialog and the page stays put.
@@ -191,7 +212,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-096 Another cook's profile (Organic 4a)
 
 - Open /profile/<uid> of another cook signed out, anonymous and verified, at 390x844 and 320px (no horizontal scroll): Back icon top left (goes back, or home on a deep link), blob avatar, heading-font name, full-width "Follow <name>" button. Check a very long display name.
-- Follow and Unfollow as verified: label flips to "Following" (secondary). Signed out and anonymous: the button opens "Sign up to follow <name>". Turn the network off and tap Follow: the error line shows under the button.
+- Follow and Unfollow as verified: label flips to "Following" (secondary). Signed out and anonymous: the button opens "Sign in to follow <name>" (RL-108). Turn the network off and tap Follow: the error line shows under the button.
 - Four tiles (Originals, Branches, Followers, Following) fit at 320px and are not tappable. The views and favourites line is hidden when both are 0.
 - Started and Grew tabs: Started has recipes with no parent and "<n> branches" or "No branches yet"; Grew has recipes with a parent and the prompt in quotes, or "Branched" when there is none.
 - Another cook's Started tiles show "<n> branches" only when n is above 0 and never "No branches yet" (only that author's own recipes are fetched, so a root other people branched could be wrongly labelled). Originals and Branches show "–" until recipes load.
@@ -665,7 +686,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - **LOUD: do not release before RL-046 signs off the policies. Deploy in the combined order in `docs/operations.md` ("The pending release order"): the client carrying RL-047 goes live before ANY rules deploy, because `firestore.rules` deploys as one unit and now includes the RL-047 guards.** Rules first would stop every verified user on the old client from creating recipes, suggestions or messages until they reload.
 - **Author decision needed: RL-051 asks for your own `termsAcceptance/{uid}` to exist before the rules go live, but the client cannot write it until the rules are live** (no rule matches before then). Either accept on the live app straight after the rules deploy, or create the document by hand in the console beforehand. Both are written up in `docs/operations.md`; RL-051's wording should be adjusted to whichever you choose.
 - Needs a browser, against `npm run emulators` plus `npm run dev:emulated` (no agent ran this walk). At 390 px and 320 px, light and dark:
-  - Sign-in modal, email step: with the box unticked the Send Link button is disabled and "Tick the box above to continue." shows under it; Enter shows "Tick the box..." with the box outlined; tick it and the hint goes and the link sends. Same on Profile's "Add Email" banner and the sign-up dialog (follow, or `/create` as anonymous), where the box now sits above the email field.
+  - Sign-in sheet, email step: with the box unticked the "Send me a link" button is disabled and "Tick the box above to continue." shows under it; Enter shows "Tick the box..." with the box outlined; tick it and the hint goes and the link sends. Same on Profile's "Add Email" banner, the sign-up sheet (Follow, then Continue with email) and `/create` as anonymous, where the box sits above the email field.
   - Open the link from the Auth emulator in the same browser. In the Firestore emulator UI, `termsAcceptance/{uid}` has exactly `version` (today's TERMS_VERSION), `acceptedAt` (a number) and `recordedAt` (a timestamp). No dialog appears. Signed in as another account, reading that document is denied.
   - Cross-device: open the link in a private window. The "Confirm the email address" prompt has the box above the field, Continue stays disabled with the hint, and Enter while unticked shows the error; after it completes, the document exists and no dialog appears.
   - Account binding: tick the box and request a link for address A, then sign in as a different verified account B on the same browser. B gets the dialog; A's tick is not recorded for B.
@@ -704,7 +725,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - **LOUD: these pages carry DRAFT text. The release that carries them waits for the author's sign-off in RL-046.** Note that once the Preview deploy secret is set, the preview channel from RL-013 publishes main at a public link, draft pages included.
 - Open Settings, scroll to Legal, open each of the three pages at 390 px in light and dark, signed out and in local-only mode. Check the draft notice at the top is prominent, the last-updated date reads well, bracketed placeholders ([STATE], [AUTHOR TO CONFIRM: ...]) show exactly as written, nothing scrolls sideways, and the back button returns to Settings. Also try 320 px.
-- Open the sign-in modal (email step) and the email form on Profile or the chat gate: since RL-047 the "Read our ..." line is gone and the Terms box carries the two links instead. Each opens in a new tab and the half-typed email is still there. Check this in the installed PWA too (unverified from code: in an installed PWA a target=_blank link may open in an in-app browser view).
+- Open the sign-in sheet (Continue with email) and the email form on Profile or the chat gate: since RL-047 the "Read our ..." line is gone and the Terms box carries the two links instead. Each opens in a new tab and the half-typed email is still there. Check this in the installed PWA too (unverified from code: in an installed PWA a target=_blank link may open in an in-app browser view).
 - Reviewer notes (low): focus is not moved and there is no skip link when arriving at a legal page from Settings in the same SPA instance, so screen-reader and keyboard users get no announcement (focusing the h1 or main on document change would fix it); the new-tab path loads fresh so it is fine. The TopBar back button has no focus-visible style (pre-existing). Nothing in Settings marks the three pages as drafts (the on-page notice is prominent). The [DEPENDS ON RL-047] text in terms.ts says users must accept the terms while the forms only pointed at the policies; RL-047 has since replaced that pointer with a required acceptance box, so re-check the wording in RL-046. Draft notice contrast is estimated at about 7:1 light and 12:1 dark, not measured.
 - NOT verified: whether target=_blank in an installed standalone PWA opens an in-app browser or hands off to Safari or Chrome (on iOS that could take the user out of the app context). Test on a device.
 - Back on a legal page goes back in the app, or to Settings when the page was opened in a fresh tab.
@@ -936,18 +957,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Release ordering: RL-041 must ship in the same release as RL-040's rules, and be live before
   RL-022 deploys them. With the rules live and an older client, anonymous favourites, follows and
   the first-sign-in profile write all fail with `permission-denied`.
-- On the preview build, as an anonymous account (Continue Anonymously), with the console open:
-  - The sign-in prompt's anonymous option says it only saves bookmarks on this device.
+- On the preview build, as an anonymous account (Continue without an account), with the console open:
+  - The sign-in sheet's guest link says bookmarks stay on this device only.
   - Bookmark a recipe from its detail page and from a `/shared/:id` link, then open the
     Favorites filter: both appear.
-  - Open someone's profile and tap Follow: "Sign up to follow ..." opens with the email form,
+  - Open someone's profile and tap Follow: "Sign in to follow ..." opens, with the email form behind Continue with email,
     and nothing is followed.
-  - Open your own profile and tap the avatar, then the name: each opens "Sign up to edit your
+  - Open your own profile and tap the avatar, then the name: each opens "Sign in to edit your
     profile" rather than the editor.
   - Share a local recipe: you get a self-contained link, with no publish attempt.
   - Console clean throughout: no `permission-denied`, and no `clientErrors` reports.
-- Signed out: Follow on a profile opens the same sign-up dialog; the heart opens the sign-in
-  prompt.
+- Signed out: Follow on a profile opens the same sign-up sheet; the heart opens the sign-in
+  sheet.
 - Verified upgrade: as an anonymous account, add an email from your profile and open the link in
   the same browser. Afterwards your profile shows your email (no reload needed), and a
   `profiles/{uid}` document exists for the same uid with the generated name. Then follow someone

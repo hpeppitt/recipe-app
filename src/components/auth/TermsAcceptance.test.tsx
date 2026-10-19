@@ -46,13 +46,13 @@ const forms = [
   {
     name: 'AuthModal email step',
     send: 'sendEmailLink' as const,
-    button: 'Send Link',
+    button: 'Send me a link',
     mount: (spy: () => Promise<void>) => {
-      renderWithProviders(<AuthModal open onAuthenticated={() => {}} onDismiss={() => {}} />, {
+      renderWithProviders(<AuthModal open action={{ kind: 'continue' }} onAuthenticated={() => {}} onDismiss={() => {}} />, {
         user: null,
         auth: { sendEmailLink: spy },
       });
-      fireEvent.click(screen.getByRole('button', { name: 'Sign in with Email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
     },
   },
   {
@@ -71,6 +71,16 @@ const forms = [
     button: 'Sign up',
     mount: (spy: () => Promise<void>) =>
       renderWithProviders(<EmailLinkingForm tone="invite" submitLabel="Sign up" />, {
+        user: null,
+        auth: { sendEmailLink: spy },
+      }),
+  },
+  {
+    name: 'EmailLinkingForm (invite, bare, onSent: the sign-up sheet)',
+    send: 'sendEmailLink' as const,
+    button: 'Send me a link',
+    mount: (spy: () => Promise<void>) =>
+      renderWithProviders(<EmailLinkingForm tone="invite" bare submitLabel="Send me a link" onSent={() => {}} />, {
         user: null,
         auth: { sendEmailLink: spy },
       }),

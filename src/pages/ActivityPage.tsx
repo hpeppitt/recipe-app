@@ -132,7 +132,7 @@ export function ActivityPage() {
             description="Sign in and this is where suggestions on your recipes, replies and new followers show up."
             action={isConfigured ? <Button onClick={() => setShowAuth(true)}>Sign in</Button> : undefined}
           />
-          <AuthModal open={showAuth} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
+          <AuthModal open={showAuth} action={{ kind: 'continue' }} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
         </>
       ) : isLoading ? (
         <div className="flex flex-col gap-3 px-5 pt-4" role="status" aria-label="Loading notifications">
