@@ -625,20 +625,21 @@ export function RecipeDetailPage() {
 
       <AuthModal
         open={showAuth}
+        action={{ kind: 'save' }}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
       />
 
       <SignUpDialog
         open={showShareSignUp}
-        title="Sign up to share this recipe"
+        action={{ kind: 'share' }}
         body="Share links open from the shared library, so the recipe needs an account with an email. Once you're signed in, tap Share again."
         onClose={() => setShowShareSignUp(false)}
       />
 
       <SignUpDialog
         open={showSuggestSignUp}
-        title="Sign up to suggest a change"
+        action={{ kind: 'suggest' }}
         body={`Suggestions go to the person who wrote ${recipe.title}, so they come from a name rather than an anonymous account. Add your email and you can suggest, reply, and publish recipes of your own.`}
         onClose={() => setShowSuggestSignUp(false)}
       />

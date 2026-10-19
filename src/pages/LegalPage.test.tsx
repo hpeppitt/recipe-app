@@ -86,8 +86,8 @@ describe('legal links', () => {
   });
 
   it('the sign-in email step links Terms and Privacy in a new tab', () => {
-    renderWithProviders(<AuthModal open onAuthenticated={() => {}} onDismiss={() => {}} />, { user: null });
-    fireEvent.click(screen.getByRole('button', { name: 'Sign in with Email' }));
+    renderWithProviders(<AuthModal open action={{ kind: 'continue' }} onAuthenticated={() => {}} onDismiss={() => {}} />, { user: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
     const terms = screen.getByRole('link', { name: 'Terms of Service' });
     expect(terms.getAttribute('href')).toBe('/terms');
     expect(terms.getAttribute('target')).toBe('_blank');

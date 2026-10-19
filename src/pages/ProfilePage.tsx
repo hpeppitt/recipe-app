@@ -388,7 +388,7 @@ function OwnProfile() {
 
       <SignUpDialog
         open={showSignUp}
-        title="Sign up to edit your profile"
+        action={{ kind: 'edit-profile' }}
         body="Your name and avatar are shown to other cooks, so they belong to an account with an email. Your bookmarks stay on this device either way."
         onClose={() => setShowSignUp(false)}
       />
@@ -570,7 +570,7 @@ function PublicProfile({ uid }: { uid: string }) {
 
       <SignUpDialog
         open={showSignUp}
-        title={`Sign up to follow ${profile.displayName ?? 'this cook'}`}
+        action={{ kind: 'follow', name: profile.displayName }}
         body="Following shows their new recipes in your feed and lets them see who follows them, so it needs an account with an email."
         onClose={() => setShowSignUp(false)}
       />
@@ -610,6 +610,7 @@ export function ProfilePage() {
         />
         <AuthModal
           open={showAuth}
+          action={{ kind: 'continue' }}
           onAuthenticated={() => setShowAuth(false)}
           onDismiss={() => setShowAuth(false)}
         />

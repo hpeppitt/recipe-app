@@ -146,7 +146,7 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
           />
         )}
         {signedOut && (
-          <AuthModal open={showAuth} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
+          <AuthModal open={showAuth} action={{ kind: 'continue' }} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
         )}
       </>
     );

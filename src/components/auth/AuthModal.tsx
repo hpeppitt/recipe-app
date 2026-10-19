@@ -1,30 +1,50 @@
-import { useState, useEffect, useId, useRef } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TermsCheckbox, TermsHint } from './TermsCheckbox';
 import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
 import { TERMS_VERSION } from '../../lib/legal';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
+import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
+import { Mail } from '../ui/icons';
+import { ActionIntro, EmailField, EmailStepHeading, EmailStepNotes, SentStep, type AuthAction } from './AuthSheetParts';
 
 interface AuthModalProps {
   open: boolean;
+  /** Names the headline and icon: "Sign in to <action>". */
+  action: AuthAction;
   onAuthenticated: () => void;
   onDismiss: () => void;
 }
 
-export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) {
+/**
+ * The sign-in sheet (5a, 5b, 5c). The only one with the guest option: an anonymous
+ * account can keep local bookmarks and nothing else (decision 1a), so callers are the
+ * places where that is enough.
+ */
+export function AuthModal({ open, action, onAuthenticated, onDismiss }: AuthModalProps) {
   const { user, signInAnonymously, sendEmailLink } = useAuth();
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  // Exactly one step renders at a time, so a single id can label the dialog and
+  const [wasOpen, setWasOpen] = useState(open);
+  // Exactly one step renders at a time, so a single id can label the sheet and
   // follow the heading from step to step.
   const titleId = useId();
   const hintId = useId();
+
+  // Each opening starts fresh.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setStep('choose');
+      setEmail('');
+      setAccepted(false);
+      setError(null);
+    }
+  }
 
   // Auto-dismiss if user is already authenticated (including anonymous)
   useEffect(() => {
@@ -33,20 +53,8 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
     }
   }, [open, user, onAuthenticated]);
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open && !user) {
-      dialog.showModal();
-      setStep('choose');
-      setEmail('');
-      setAccepted(false);
-      setError(null);
-    }
-    if ((!open || user) && dialog.open) dialog.close();
-  }, [open, user]);
-
   const handleAnonymous = async () => {
+    if (loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -83,69 +91,47 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onDismiss}
-      aria-labelledby={titleId}
-      className="backdrop:bg-black/50 bg-surface rounded-2xl p-6 max-w-sm w-[calc(100%-2rem)] shadow-xl"
-    >
-      {step === 'choose' && (
-        <>
-          <h2 id={titleId} className="text-lg font-semibold text-text-primary">Sign in to continue</h2>
-          <p className="text-sm text-text-secondary mt-1 mb-5">
-            Sign in to save recipes and get credited as the creator.
-          </p>
-          {/*
-            Email leads because it is the option that keeps the user's work.
-            Anonymous was the primary-styled default, which nudged people toward
-            the lossy path without telling them it was lossy.
+    <Sheet open={open && !user} onClose={onDismiss} labelledBy={titleId}>
+      <div className="flex min-w-0 flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
+        {step === 'choose' && (
+          <>
+            <ActionIntro
+              action={action}
+              titleId={titleId}
+              body="Sign in to save recipes and get credited as the creator."
+            />
+            {/*
+              Email leads because it is the option that keeps the user's work. The
+              guest option is a text link with its trade-off stated, not a peer button.
+            */}
+            <Button
+              fullWidth
+              size="lg"
+              className="h-[52px] gap-2"
+              // Back from the email step remounts this, so focus lands here, not on <body>.
+              autoFocus
+              onClick={() => {
+                setStep('email');
+                setError(null);
+              }}
+              disabled={loading}
+            >
+              <Mail className="h-5 w-5 shrink-0" />
+              Continue with email
+            </Button>
+            <Button fullWidth variant="ghost" onClick={handleAnonymous} disabled={loading}>
+              {loading ? <Spinner size="sm" /> : 'Continue without an account'}
+            </Button>
+            <p className="mx-auto max-w-[290px] text-center text-xs text-text-tertiary">
+              Bookmarks stay on this device only. You can add an email later.
+            </p>
+            {error && <p role="alert" className="text-sm text-danger-700">{error}</p>}
+          </>
+        )}
 
-            The old footnote claimed email "lets your name appear on recipes you
-            share" — untrue. Anonymous accounts are auto-assigned a generated
-            display name (see generateDisplayName) that is credited identically.
-            The differences below are the ones that actually exist.
-          */}
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Button
-                fullWidth
-                onClick={() => setStep('email')}
-                disabled={loading}
-              >
-                Sign in with Email
-              </Button>
-              <p className="text-xs text-text-tertiary">
-                Keeps your recipes if you clear your browser, and lets you use them on
-                your other devices.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Button
-                fullWidth
-                variant="secondary"
-                onClick={handleAnonymous}
-                disabled={loading}
-              >
-                {loading ? <Spinner size="sm" /> : 'Continue Anonymously'}
-              </Button>
-              <p className="text-xs text-text-tertiary">
-                Bookmark on this device only. An anonymous account just saves bookmarks in
-                this browser: clearing site data deletes them, and to follow, suggest or
-                create recipes you add an email later from your profile.
-              </p>
-            </div>
-          </div>
-          {error && <p className="text-sm text-danger-600 mt-3">{error}</p>}
-        </>
-      )}
-
-      {step === 'email' && (
-        <>
-          <h2 id={titleId} className="text-lg font-semibold text-text-primary">Sign in with Email</h2>
-          <p className="text-sm text-text-secondary mt-1 mb-4">
-            We'll send you a magic link — no password needed.
-          </p>
-          <div className="mb-2">
+        {step === 'email' && (
+          <>
+            <EmailStepHeading titleId={titleId} />
             <TermsCheckbox
               checked={accepted}
               onChange={(c) => {
@@ -156,24 +142,24 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
               invalid={!!error && !accepted}
               describedBy={accepted ? undefined : hintId}
             />
-          </div>
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            // Focused deliberately, unlike the composer in UX-29: the user has
-            // just chosen "Sign in with Email" and typing an address is the only
-            // thing left to do, so the keyboard appearing is the desired outcome
-            // rather than something covering content they still need to read.
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSendEmail();
-            }}
-          />
-          <div className="flex gap-3 mt-2">
+            <EmailField value={email} onChange={setEmail} onEnter={handleSendEmail} autoFocus />
             <Button
-              variant="secondary"
+              fullWidth
+              size="lg"
+              className="h-[54px]"
+              onClick={handleSendEmail}
+              disabled={loading || !email.trim() || !accepted}
+              aria-describedby={accepted ? undefined : hintId}
+            >
+              {loading ? <Spinner size="sm" /> : 'Send me a link'}
+            </Button>
+            {!accepted && <TermsHint id={hintId} />}
+            {error && <p role="alert" className="text-sm text-danger-700">{error}</p>}
+            <EmailStepNotes />
+            <Button
+              fullWidth
+              variant="ghost"
+              disabled={loading}
               onClick={() => {
                 setStep('choose');
                 setError(null);
@@ -181,37 +167,18 @@ export function AuthModal({ open, onAuthenticated, onDismiss }: AuthModalProps) 
             >
               Back
             </Button>
-            <Button
-              onClick={handleSendEmail}
-              disabled={loading || !email.trim() || !accepted}
-              aria-describedby={accepted ? undefined : hintId}
-            >
-              {loading ? <Spinner size="sm" /> : 'Send Link'}
-            </Button>
-          </div>
-          {!accepted && (
-            <div className="mt-2">
-              <TermsHint id={hintId} />
-            </div>
-          )}
-          {error && <p role="alert" className="text-sm text-danger-700 dark:text-danger-300 mt-3">{error}</p>}
-        </>
-      )}
+          </>
+        )}
 
-      {step === 'sent' && (
-        <>
-          <div className="text-center py-4">
-            <p className="text-3xl mb-3">📧</p>
-            <h2 id={titleId} className="text-lg font-semibold text-text-primary">Check your email</h2>
-            <p className="text-sm text-text-secondary mt-2">
-              We sent a sign-in link to <strong>{email}</strong>. Click the link to sign in.
-            </p>
-          </div>
-          <Button fullWidth variant="secondary" onClick={onDismiss} className="mt-4">
-            Close
-          </Button>
-        </>
-      )}
-    </dialog>
+        {step === 'sent' && (
+          <SentStep
+            titleId={titleId}
+            email={email.trim()}
+            onDifferentEmail={() => setStep('email')}
+            onClose={onDismiss}
+          />
+        )}
+      </div>
+    </Sheet>
   );
 }

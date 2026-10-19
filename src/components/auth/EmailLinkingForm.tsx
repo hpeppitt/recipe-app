@@ -6,6 +6,7 @@ import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage
 import { TERMS_VERSION } from '../../lib/legal';
 import { Input } from '../ui/Input';
 import { TriangleAlert } from '../ui/icons';
+import { EmailField, EmailStepNotes } from './AuthSheetParts';
 
 /**
  * Two readings of the same action, so one implementation with two tones.
@@ -40,6 +41,8 @@ export function EmailLinkingForm({
   submitLabel = 'Add Email',
   icon,
   bare = false,
+  onSent,
+  onBusyChange,
 }: {
   tone?: Tone;
   title?: string;
@@ -49,6 +52,10 @@ export function EmailLinkingForm({
   icon?: string;
   /** Drops the card shell and heading, for a host that supplies its own (the profile's guest card). */
   bare?: boolean;
+  /** Called with the address instead of showing the inline sent card, for a host with its own sent step (SignUpDialog). */
+  onSent?: (email: string) => void;
+  /** True while a send is in flight, so the host can hold its own controls (SignUpDialog's Back). */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const { user, linkEmail, sendEmailLink } = useAuth();
   const [email, setEmail] = useState('');
@@ -67,6 +74,7 @@ export function EmailLinkingForm({
       return;
     }
     setLoading(true);
+    onBusyChange?.(true);
     setError(null);
     try {
       // Two different Firebase calls behind one button, because the right one
@@ -79,13 +87,15 @@ export function EmailLinkingForm({
       // Stored first: the link can be opened before this promise settles.
       setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: email.trim() });
       await send(email.trim());
-      setSent(true);
+      if (onSent) onSent(email.trim());
+      else setSent(true);
     } catch {
       // No link went out, so nothing may later record this tick.
       clearTermsAcceptance();
       setError('Failed to send link. Please try again.');
     } finally {
       setLoading(false);
+      onBusyChange?.(false);
     }
   };
 
@@ -129,6 +139,23 @@ export function EmailLinkingForm({
         invalid={!!error && !accepted}
         describedBy={accepted ? undefined : hintId}
       />
+      {tone === 'invite' ? (
+        // The 5b look (RL-108): labelled pill field, full-width send, then the notes.
+        <>
+          {/* Hosted in the sheet (onSent), the user just chose email, so focus the field; inline gates do not grab focus. */}
+          <EmailField value={email} onChange={setEmail} onEnter={handleSubmit} autoFocus={!!onSent} />
+          <Button
+            fullWidth
+            size="lg"
+            className="h-[54px]"
+            onClick={handleSubmit}
+            disabled={loading || !email.trim() || !accepted}
+            aria-describedby={accepted ? undefined : hintId}
+          >
+            {loading ? 'Sending...' : submitLabel}
+          </Button>
+        </>
+      ) : (
       <div className="flex gap-2">
         <Input
           type="email"
@@ -148,8 +175,11 @@ export function EmailLinkingForm({
           {loading ? 'Sending...' : submitLabel}
         </Button>
       </div>
+      )}
       {!accepted && <TermsHint id={hintId} />}
       {error && <p role="alert" className="text-xs text-danger-700 dark:text-danger-300">{error}</p>}
+      {/* Only in the sheet: the older card gates already say the same in their own description. */}
+      {tone === 'invite' && onSent && <EmailStepNotes />}
     </div>
   );
 }

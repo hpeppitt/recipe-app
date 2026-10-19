@@ -84,7 +84,9 @@ describe('ProfilePage sign-up gates', () => {
   ])('Follow opens the sign-up call to action for a %s visitor', (_label, user) => {
     renderAt('/profile/chef', user);
     fireEvent.click(screen.getByRole('button', { name: 'Follow Chef' }));
-    expect(screen.getByRole('heading', { name: 'Sign up to follow Chef' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sign in to follow Chef' })).toBeInTheDocument();
+    // The guest option exists only in AuthModal; an anonymous account cannot follow.
+    expect(screen.queryByRole('button', { name: 'Continue without an account' })).toBeNull();
     expect(followUser).not.toHaveBeenCalled();
   });
 
@@ -107,7 +109,7 @@ describe('ProfilePage sign-up gates', () => {
   it('routes an anonymous account editing its avatar or name to sign-up', () => {
     renderAt('/profile', anon);
     fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
-    expect(screen.getByRole('heading', { name: 'Sign up to edit your profile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sign in to edit your profile' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Edit display name/ }));
     expect(screen.queryByPlaceholderText('Display name')).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull();
