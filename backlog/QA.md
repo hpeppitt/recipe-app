@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-126 Branching fast this week
+
+- On the preview against the live project, at 390x844 and 320px: with two branches published this week on one family and one on another, Explore shows "Branching fast this week", the busier family first with "+2 this week". Tiles swipe and snap; Tab reaches each tile. VoiceOver reads a tile as its title and "2 new branches this week".
+- Console: no Firestore "requires an index" error (proves no deploy is needed). Network: one `runQuery` for the week, none after switching tabs and coming back.
+- With no branches this week (use `npm run dev:emulated`), the "New this week" or "Newest" row shows instead, with nothing flashing between the two.
+- Tap the emoji area of a tile (not the title): it opens the recipe. VoiceOver reads the title plus "N new branches this week" as one stop.
+- Reviewer noted (low): a failure is cached for the page session, so Newest stays until reload.
+- Reviewer noted (low): the 7-day `since` is fixed at first call, so it goes stale in a long-open tab.
+- Reviewer noted (low): the author's clock can back-date a branch out of the window.
+- Reviewer noted (low): badge contrast computed at 6.0:1.
+- Check the badge text (accent-2-100 on accent-2-700) is legible on all three tile tints and does not wrap at 320px.
+
 ### RL-125 The Create tab sentence builder
 
 - At 390x844 and 320px: the Create tab opens the sentence "I want something quick with chickpeas for two." and the nav shows Create active (terracotta label).

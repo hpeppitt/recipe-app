@@ -225,6 +225,23 @@ export async function getAllPublishedRecipes(limitTo = 200): Promise<PublishedRe
 }
 
 /**
+ * Published recipes created at or after `sinceMs`, newest first (RL-126). One range filter and
+ * `orderBy` on the same field, so the automatic single-field `createdAt` index serves it and
+ * no composite index is needed. Read only.
+ *
+ * shortcut: a week with more than `max` new recipes counts only the newest `max`. Originals share
+ * that cap with branches, so counts run low in a week with many originals; upgrade to a
+ * server-side counter.
+ */
+export async function getRecentPublishedRecipes(sinceMs: number, max = 100): Promise<PublishedRecipe[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'recipes'), where('createdAt', '>=', sinceMs), orderBy('createdAt', 'desc'), limit(max))
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+}
+
+/**
  * Dedup check against the shared cloud library.
  *
  * Firestore has no full-text search, so this scores the most recent published

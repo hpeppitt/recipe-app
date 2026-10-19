@@ -95,6 +95,14 @@ The Following filter queries newest-first: each 30-uid chunk returns its own new
 client merges the chunks and re-sorts by `createdAt` descending. The merged list is not capped
 overall, so it can reach 50 per chunk.
 
+`getRecentPublishedRecipes` (RL-126, Explore's Branching fast this week) needs no entry above:
+`where createdAt >= since`, `orderBy createdAt desc`, `limit 100` is a range and sort on one
+field, served by the automatic single-field `createdAt` index that `getAllPublishedRecipes`
+already uses. Branches are told from originals on the device (`parentId`), because filtering on
+it in the query would need a composite index. Cost: one read per document returned (at most 100)
+per session, plus at most 8 `getDoc` reads for family roots not already loaded. A week with more
+than 100 new recipes counts only the newest 100.
+
 Missing an index shows up as a Firestore error containing a console link that creates it —
 but create it *here* and deploy, not in the console, or it exists in production and not in
 the repo.

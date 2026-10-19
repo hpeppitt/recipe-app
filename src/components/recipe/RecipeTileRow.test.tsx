@@ -89,4 +89,19 @@ describe('RecipeTileRow', () => {
     expect(screen.getByRole('link', { name: "View Anonymous's profile, from Untitled recipe" })).toBeInTheDocument();
     expect(within(items()[0]).getByText('30 min')).toBeInTheDocument();
   });
+
+  it('shows the +N this week badge in place of the branch tag, with singular and plural hidden text', () => {
+    renderWithProviders(
+      <RecipeTileRow title="Branching fast this week" recipes={[tile(0, { weekCount: 2, childCount: 5 }), tile(1, { weekCount: 1 })]} />
+    );
+    const [a, b] = items();
+    expect(within(a).getByText('+2 this week')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(a).getByText('2 new branches this week')).toHaveClass('sr-only');
+    expect(within(a).queryByText(/5 branches/)).not.toBeInTheDocument();
+    expect(within(a).queryByText('5 branches')).toBeNull();
+    const open = within(a).getByRole('link', { name: 'Open Dish 0' });
+    expect(open).toHaveClass('z-[5]');
+    expect(open.getAttribute('aria-describedby')).toBe(within(a).getByText('2 new branches this week').id);
+    expect(within(b).getByText('1 new branch this week')).toBeInTheDocument();
+  });
 });

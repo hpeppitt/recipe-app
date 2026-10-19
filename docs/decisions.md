@@ -819,3 +819,7 @@ Explore's inline search pill (RL-098) was replaced by a link to `/search`, so th
 ### The Create tab opens the /new sentence builder (RL-125, 2026-10-19)
 
 The nav's Create slot now links to `/new`, the Organic 6c sentence builder inside `AppShell`, and is shown as the current tab there. This reverses RL-097's "Create is never current", which held only because Create opened the chat full screen. Write it hands the built sentence to `/create` unsent, so `/create` stays the one place that generates.
+
+### Branching fast this week uses one bounded createdAt query (RL-126, 2026-10-19)
+
+Explore's "Branching fast this week" runs one query, `where createdAt >= 7 days ago`, `orderBy createdAt desc`, `limit 100`, and tells branches from originals on the device by `parentId`. Filtering on `parentId` in the query would need a composite index and a human deploy, and the single-field `createdAt` index already exists. The result, failures and timeouts included, is cached for the page session so a broken query is not retried on every visit; the row then stays on the Newest fallback until reload. The cost is a hard cap: originals share the 100 rows with branches, so a busy week undercounts. A server-side counter is the upgrade.
