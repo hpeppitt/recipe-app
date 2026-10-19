@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-099 Explore opens with a row of newest-recipe tiles
+
+- Swipe the row sideways on iOS Safari and Android Chrome: tiles snap to the left edge, no scrollbar shows, and the page itself does not scroll sideways.
+- Check the 200px tiles at 320px wide: a long title wraps to two lines, a long author name clips inside its pill, nothing overflows.
+- Tab through it: each tile, then its author pill, in order, with a visible focus ring. The tile link reads "Open <title>" to a screen reader; the author link is easy to hit (44px).
+- The heading says "New this week" when every tile is under 7 days old, otherwise "Newest". Tiles with variations show a sage "n branches" tag (singular for 1).
+- Open the search pill and type, pick Favorites or a tag chip: the row disappears; clear it and the row returns. It is also absent in local-only mode and while loading.
+- No vertical wobble in the row; the author focus ring is not cut off at the bottom; a tap on the lower title line opens the recipe, not the profile.
+- Reviewer noted (low): the same recipe appears twice on the page (tile "Open X" and row "X") and each title is an h3 twice in the headings list.
+- Reviewer noted (low): the tile link's focus ring outlines the whole li (title and meta) rather than just the square.
+- Reviewer noted (low): the local-only absence test is vacuous with respect to the guard (the feed is undefined there anyway) and only protects against local records ever being fed to the tile source.
+
 ### RL-098 Explore replaces the Library at /
 
 - Check signed out, anonymous and verified, at 390x844 and at 320px wide (no horizontal page scroll; only the chips row scrolls sideways).

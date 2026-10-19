@@ -143,3 +143,10 @@ export function filterFeed<T extends Parameters<typeof recipeHaystack>[0] & {
   if (q) result = result.filter((r) => recipeHaystack(r).toLowerCase().includes(q));
   return result;
 }
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** "New this week" when every recipe is at most 7 days old, else "Newest". */
+export function tileRowTitle(recipes: readonly { createdAt: number }[], now: number): string {
+  return recipes.every((r) => now - r.createdAt <= WEEK_MS) ? 'New this week' : 'Newest';
+}
