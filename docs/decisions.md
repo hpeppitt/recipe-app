@@ -231,11 +231,13 @@ Three timing rules, each chosen against a plausible alternative:
 - **Once, with no "remind me later".** Either the idea landed or it did not; re-showing it is
   nagging. Rejected a persistent help affordance for the same reason the app has no tour.
 
-The diagram reuses the real version tree's own borders (`border-l-2 border-border`, `ml-3 pl-3`)
-so that recognising it later on `/recipe/:id/tree` is the point rather than a coincidence. It shows
-a grandchild, because depth is exactly the part prose fails to convey.
+The diagram mirrors the real version tree so that recognising it later on `/recipe/:id/tree` is the
+point rather than a coincidence. It shows a grandchild, because depth is exactly the part prose
+fails to convey.
 
-Since RL-068 the TreeIntro diagram no longer matches the tree (the tree now draws 3px rounded-elbow connectors, not `border-l-2`); the redraw is pending design (brief ticket 8).
+2026-10-19: the diagram was redrawn to the 3a language by RL-114 (same 3px lines and colours as the tree, a smaller 14px elbow and
+36px indent so it fits a narrow card, a terracotta path to the "Here" node, three numbered steps). The timing rules above are
+unchanged; it is still an inline card on the recipe page, not a sheet.
 
 Rejected an interactive tour and a modal: a modal on arrival is the thing everyone dismisses
 unread, and a tour is a lot of machinery for one idea.

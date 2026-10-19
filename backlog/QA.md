@@ -18,6 +18,19 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-114 The tree explainer is redrawn in the 16a language
+
+- Clear the intro state in local storage, open two root recipes: the card appears on the second, above the recipe, with the heading "Every recipe can grow branches", a mini tree, three numbered steps, a full-width Got it and (only if the recipe has variations) See the tree.
+- Compare the mini tree with the real tree page: same 3px lines, rounded terracotta elbows, a neutral line for the branch not taken, "Here" tag in dark terracotta. Check the terracotta path reads to "extra banana".
+- Got it hides the card for good (reload and open another root recipe) and focus lands on the recipe area, not the top of the page. See the tree hides it and opens the tree.
+- At 320px: nothing scrolls sideways, "extra banana" and the Here tag fit (the node wraps if it must). jsdom cannot check layout, so this and the 52px Got it height are unverified by tests.
+- Decision (mine): the heading is an h2 (the page has an h1 title and the recipe body hides its own h2). Got it moves focus to the page's main region (a temporary tabindex of -1 that is removed on blur).
+- At 320px check that "extra banana" with the Here tag may wrap to two lines and the terracotta elbow should still join the middle of the node. jsdom cannot verify this.
+- Reviewer noted (low): ROADMAP.md:41, backlog/QA-CHECKLIST.md:350 and backlog/LAUNCH-DECISIONS.md:34 say to look at TreeIntro in a browser for the first time (RL-012, needs a human); the card is now the redrawn one, so confirm it against this card.
+- Reviewer noted (low): the diagram elbow is 14px with a 36px indent where the live tree uses 28px and 44px (design spec); logged in DECISIONS.md.
+- Reviewer noted (low): the sheet-on-tree-page variant from the design remains the author's open question (it conflicts with the "Teaching the tree" timing rules).
+- Unchanged by design: timing (second root recipe, once), inline placement. The design's sheet on first tree visit is an open author question.
+
 ### RL-113 A shared recipe opens straight to the recipe layout with a "Shared by" banner, Save and Make it yours
 
 - Open a `/shared/:id` link signed out, as an anonymous account and as a verified account (not the author):
@@ -433,7 +446,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - On families of depth 0, 2 and 6, open the tree from different versions. Check the terracotta path runs from the original to the "Here" node and stops there, rails stop at the last sibling, and tapping a node opens it.
 - At 320 px, a deep chain scrolls sideways inside the tree area while the page header and the Branch bar stay put. Tab to the tree area to scroll it with the arrow keys; node focus rings should be visible on both card colours.
-- TreeIntro (the first-variation explainer) now looks different from the tree. Expected until it is redesigned.
+- TreeIntro looked different from the tree after this ticket; RL-114 redrew it to match.
 - Reviewer noted (med, design call for the author): the terracotta path differs from the neutral lines by hue only (about 1.8:1 by luminance), so colour-blind users cannot trace it. A thicker path line or a darker accent would fix it.
 - Reviewer noted (low): the `"prompt" · author` line truncates the author when the prompt is long. `setView` uses replace, so the Timeline and Map tickets must keep that in mind.
 
