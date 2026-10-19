@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
@@ -32,6 +32,11 @@ const ok = { data: null };
 const allOk = { profile: ok, recipes: { data: [] }, favorites: { data: [] }, follows: { data: [] }, suggestions: { data: [] }, notifications: { data: [] }, termsAcceptance: ok, writeWindows: { data: [] } };
 
 let blobs: Blob[];
+// Real timer captured before any spy, so the stall check can wait in real time.
+const realSetTimeout = globalThis.setTimeout;
+// The page's 1000ms revoke timers, held back so none can fire into a later test's fresh revokeObjectURL mock.
+let revokeTimers: Array<() => void>;
+let timeoutSpy: ReturnType<typeof vi.spyOn>;
 let downloadName: string | undefined;
 beforeEach(() => {
   fetchCloud.mockReset();
@@ -43,12 +48,25 @@ beforeEach(() => {
   exportRecipes.mockClear();
   blobs = [];
   downloadName = undefined;
+  revokeTimers = [];
+  // RTL's waitFor also uses 1000, so match on the callback source and pass everything else through.
+  timeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+    if (ms === 1000 && typeof fn === 'function' && String(fn).includes('revokeObjectURL')) {
+      revokeTimers.push(fn as () => void);
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }
+    return realSetTimeout(fn, ms, ...args);
+  }) as typeof setTimeout);
   window.matchMedia = (() => ({ matches: false, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
   URL.createObjectURL = (b: Blob) => (blobs.push(b), 'blob:x');
   URL.revokeObjectURL = vi.fn();
   vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
     downloadName = this.download;
   });
+});
+
+afterEach(() => {
+  timeoutSpy.mockRestore();
 });
 
 describe('Settings: theme', () => {
@@ -158,27 +176,13 @@ describe('Settings: Download my data', () => {
     user = member;
     fetchCloud.mockResolvedValue(allOk);
     render();
-    // Capture only the page's 1000ms revoke timer (RTL's waitFor also uses 1000) instead of scheduling it, so slow runners cannot race it.
-    const realSetTimeout = globalThis.setTimeout;
-    const captured: Array<() => void> = [];
-    const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
-      if (ms === 1000 && typeof fn === 'function' && String(fn).includes('revokeObjectURL')) {
-        captured.push(fn as () => void);
-        return 0 as unknown as ReturnType<typeof setTimeout>;
-      }
-      return realSetTimeout(fn, ms, ...args);
-    }) as typeof setTimeout);
-    try {
-      fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-      await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
-      expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-      expect(captured).toHaveLength(1);
-      captured[0]();
-      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x');
-    } finally {
-      spy.mockRestore();
-    }
+    fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+    expect(revokeTimers).toHaveLength(1);
+    revokeTimers[0]();
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x');
   });
 
   it('explains how it differs from Export my recipes', () => {
