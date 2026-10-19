@@ -13,7 +13,6 @@ import { RecipeCard, type RecipeCardRecipe } from '../components/recipe/RecipeCa
 import { NotificationBell } from '../components/notifications/NotificationBell';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { FAB } from '../components/ui/FAB';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
@@ -390,8 +389,6 @@ export function LibraryPage() {
           </Button>
         )}
       </div>
-
-      <FAB onClick={() => navigate('/create')} />
     </div>
   );
 }

@@ -19,6 +19,8 @@ const RecipeChangesPage = lazy(() => import('./pages/RecipeChangesPage').then(m 
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
+const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
+const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -38,13 +40,16 @@ export default function App() {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<LibraryPage />} />
+            <Route path="/saved" element={<SavedPage />} />
+            <Route path="/activity" element={<ActivityPage />} />
             {/* Own profile is a top-level destination now that it has a nav tab;
                 without this the tab would lead somewhere with no way back to it.
                 Public profiles stay outside the shell — they are a detail view
                 reached from a recipe, and they carry their own back button. */}
             <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
           </Route>
+          {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/create" element={<RecipeChatPage />} />
           <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
           <Route path="/recipe/:id" element={<RecipeDetailPage />} />

@@ -1,35 +1,69 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../lib/utils';
-import { BookOpen, Settings, User } from '../ui/icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/useNotifications';
+import { Bell, Bookmark, Compass, Plus, UserRound } from '../ui/icons';
 
-// Profile was reachable only through a 20px avatar in the library header, which
-// made the account-recovery prompt living there effectively hidden.
-const navItems = [
-  { to: '/', label: 'Library', icon: BookOpen },
-  { to: '/profile', label: 'Profile', icon: User },
-  { to: '/settings', label: 'Settings', icon: Settings },
+/** Bar height without the safe area is 78px; AppShell and UpdatePrompt use the same sum to clear it. */
+const tabs = [
+  { to: '/', label: 'Explore', icon: Compass },
+  { to: '/saved', label: 'Saved', icon: Bookmark },
+  { to: '/create', label: 'Create', icon: Plus },
+  { to: '/activity', label: 'Activity', icon: Bell },
+  { to: '/profile', label: 'You', icon: UserRound },
 ];
 
+/** Five-slot Organic tab bar (RL-097). Settings is reached from the You tab's gear. */
 export function BottomNav() {
+  const { user, isConfigured } = useAuth();
+  const { unreadCount } = useNotifications();
+  // ActivityPage lists nothing without a verified email, so a badge there would lead nowhere.
+  const showBadge = isConfigured && !!user?.emailVerified && unreadCount > 0;
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-surface border-t border-border z-40">
-      <div className="flex justify-around items-center h-14 max-w-lg mx-auto">
-        {navItems.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              cn(
-                'flex flex-col items-center gap-0.5 px-4 py-1.5 text-xs transition-colors',
-                isActive ? 'text-primary-600 dark:text-primary-400' : 'text-text-secondary'
-              )
-            }
-          >
-            <Icon className="w-5 h-5" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+    <nav
+      aria-label="Main"
+      className="fixed bottom-0 inset-x-0 z-40 bg-surface shadow-[0_-1px_0_var(--color-border)] px-3.5 pt-2 pb-[calc(max(8px,env(safe-area-inset-bottom))_+_14px)]"
+    >
+      <div className="flex items-center h-12 max-w-lg mx-auto">
+        {tabs.map(({ to, label, icon: Icon }) => {
+          const create = to === '/create';
+          const badge = to === '/activity' && showBadge;
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end
+              aria-label={badge ? `${label}, ${unreadCount} unread` : undefined}
+              className={({ isActive }) =>
+                cn(
+                  'flex-1 min-w-0 min-h-11 flex flex-col items-center justify-center gap-0.5 text-[11px] leading-[14px] font-semibold',
+                  // Create opens the chat full screen, so it never shows as the current tab.
+                  isActive && !create ? 'text-accent-700' : 'text-text-tertiary'
+                )
+              }
+            >
+              <span
+                className={cn(
+                  'relative grid place-items-center rounded-full',
+                  create ? 'w-11 h-11 bg-accent text-on-accent' : 'w-[30px] h-[30px]'
+                )}
+              >
+                <Icon className="w-[21px] h-[21px]" />
+                {badge && (
+                  <span
+                    aria-hidden="true"
+                    data-testid="activity-badge"
+                    className="absolute -top-[3px] -right-2 min-w-[18px] h-[18px] px-[5px] grid place-items-center rounded-full bg-primary-600 text-on-accent text-[10px] font-bold leading-none shadow-[0_0_0_2px_var(--color-surface)]"
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </span>
+              <span>{label}</span>
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );

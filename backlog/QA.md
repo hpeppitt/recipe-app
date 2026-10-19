@@ -18,6 +18,20 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-097 Five-slot bottom nav
+
+- On iOS Safari and Android Chrome at 390x844, and at 320px wide: the bar shows Explore, Saved, a raised terracotta Create circle, Activity and You, sits above the home indicator, and nothing on Explore, Saved, Activity or You is hidden behind it when scrolled to the bottom.
+- Each tab opens its page and only that tab turns terracotta (Explore only on /). Create opens the chat full screen with no bar.
+- Signed in with a verified email and an unread notification: the Activity badge shows the count, and clears after Mark all read on Activity. No badge signed out, anonymous or unverified (even with unread items), or in a local-only build. With a screen reader the link reads "Activity, 3 unread".
+- Settings opens from the gear on You and Back returns to You. Settings has no bar now; check its last row (Sign out) clears the home indicator.
+- Tab with a keyboard: focus moves through the bar left to right.
+- The update bar ("Update available") now sits above the nav; on pages without the nav it floats about 22px higher than before.
+- The New recipe button (FAB) on the library is gone; Create in the bar replaces it. The library header still has its own bell, profile and settings buttons until RL-098.
+- Reviewer noted (low): the always-mounted fixed role=status `UpdatePrompt` wrapper holds an 8px strip that can eat taps; `pointer-events-none` on the wrapper and `pointer-events-auto` on the card would fix it (pre-existing).
+- Reviewer noted (low): the nav links have no focus-visible style beyond the browser default.
+- Reviewer noted (low): `useNotifications` is now subscribed up to three times on / (nav, library bell, Activity page) until RL-098 removes the bell; a shared context would fix it.
+- Reviewer noted (low): nothing asserts Create is never `aria-current`.
+
 ### RL-096 Another cook's profile (Organic 4a)
 
 - Open /profile/<uid> of another cook signed out, anonymous and verified, at 390x844 and 320px (no horizontal scroll): Back icon top left (goes back, or home on a deep link), blob avatar, heading-font name, full-width "Follow <name>" button. Check a very long display name.
