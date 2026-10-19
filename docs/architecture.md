@@ -178,7 +178,7 @@ Places designed to be replaced, worth knowing before you change them:
   which turn a write-limit hit into the suggestion, reply or daily-publish message (a limited
   notification is skipped in `services/firestore.ts` and never reaches a message). New failure modes get mapped here, not at the call site.
 - **`components/ui/ErrorBoundary.tsx`**: wraps the routes and the shell outlet; render errors
-  show an EmptyState with "Back to library", report via `reportError`, and clear on route change.
+  show an error-tone EmptyState (`CloudOff` icon, secondary "Back to library" button), report via `reportError`, and clear on route change.
 - **`console.error` call sites in hooks and services** — the intended hook points for the
   first-party error beacon (roadmap 1.2).
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the

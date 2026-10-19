@@ -319,7 +319,7 @@ describe('Explore tag chips', () => {
 });
 
 describe('LibraryPage own-recipe sync states (RL-079)', () => {
-  const skeletons = (c: HTMLElement) => c.querySelectorAll('.animate-pulse').length;
+  const skeletons = (c: HTMLElement) => c.querySelectorAll('.skeleton-pulse').length;
   const EMPTY = "You haven't created a recipe yet";
   const OFFLINE = "You're offline. Showing the recipes saved on this device.";
   afterEach(() => {

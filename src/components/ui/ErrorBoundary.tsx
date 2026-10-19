@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { reportError } from '../../services/telemetry';
 import { EmptyState } from './EmptyState';
 import { Button } from './Button';
+import { CloudOff } from './icons';
 
 interface Props {
   children: ReactNode;
@@ -38,11 +39,13 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!this.state.failed) return this.props.children;
     return (
       <EmptyState
-        icon="😵"
+        tone="error"
+        icon={<CloudOff />}
         title="Something went wrong"
         description="This page failed to load. Your recipes are safe."
         action={
           <Button
+            variant="secondary"
             onClick={() => {
               this.setState({ failed: false });
               this.props.onBack();
