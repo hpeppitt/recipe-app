@@ -65,7 +65,6 @@ describe('SuggestionThread reply error slot (RL-048)', () => {
   async function replyWith(err: unknown) {
     send.mockRejectedValueOnce(err);
     renderWithProviders(<SuggestionThread suggestion={suggestion} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
     fireEvent.change(screen.getByLabelText('Reply to this suggestion'), { target: { value: 'Why?' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     return screen.findByRole('alert');

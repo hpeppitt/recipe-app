@@ -18,6 +18,22 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-105 Suggestions are a section under the recipe body, with open cards and closed rows
+
+- Setup: needs two verified accounts (preview or `npm run dev:emulated`). As the owner of a recipe with one pending and two closed (one approved, one declined) suggestions, open it at 390px. Then repeat as the suggester, and at 320px.
+- The section sits after the method, nutrition, notes and credits, and before the branch carousel (it used to be above the recipe body). Owner heading "Suggestions" with "1 open · 2 closed" beside it; the suggester sees "Your suggestion" and only their own. With nothing to show there is no section.
+- Open suggestion: a raised card with the suggester pill (taps to their profile), the age, an "Open" tag, the message, then Decline, Replies and Approve at 44px. At 320px the three labels must stay on one line (the Replies icon hides under 360px; reasoned, not measured). The suggester sees one "Reply" button instead.
+- Replies, Reply and a closed row expand the existing reply thread under them and collapse it on a second tap. Closed rows show "Approved" or "Declined" tags and the message on one line, cut with an ellipsis.
+- Decline (was Reject) still asks "Decline this suggestion?", then notifies the suggester. Approve still adds them as a collaborator and opens the variation composer with the message.
+- Pending suggestions are no longer the first thing on the page; the owner is nudged by the badge on More and by the Activity tab. Say if that is too quiet.
+- A failed Decline shows "Couldn't decline that suggestion. Please try again." (a failed Approve is unchanged).
+- Reviewer noted (low): `SuggestionList` hand-rolls its button classes instead of using `ui/Button`, so it drops the active scale and uses `opacity-50` where Button uses 45.
+- Reviewer noted (low): the danger alert is `text-danger-600`, about 3.7:1 on a dark surface; the project pattern for alerts is `text-danger-700 dark:text-danger-300`, which conflicts with the no-`dark:` rule. Revisit when RL-117 brings dark back.
+- Reviewer noted (low): the open card's `bg-surface shadow-md` is nearly invisible in dark mode (design note).
+- Reviewer noted (low): the non-owner button reads "Reply", not "<n> replies · join the chat".
+- Reviewer noted (low): focus does not move into the thread when it expands.
+- The Replies icon is hidden under 400px so the three labels fit; "Working…" on the approving card gets less padding. Reasoned, not measured.
+
 ### RL-104 The recipe page footer shows Edit or Suggest beside a wider Branch this recipe button
 
 - At 390px and 320px check three cases. Your own recipe: "Edit" (pencil) beside "Branch this recipe". Someone else's cloud recipe: "Suggest" beside "Branch this recipe". A recipe saved on this device: "Edit" plus "Branch this recipe", as before (pre-existing behaviour). A Branch-only footer cannot occur today.
@@ -952,7 +968,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   verified user hits an uncaught listener error in the console and the list silently shows nothing.
   Add an error callback that calls `reportError`.
 - Reviewer noted (low): the page-level `isOwner` is still `canManageRecipe`, true for any local copy.
-  A non-creator with a local copy sees approve and reject buttons on their own suggestion, and
+  A non-creator with a local copy sees approve and decline buttons on their own suggestion, and
   pressing approve is now denied at the `getDoc` in `updateSuggestionStatus` instead of at the
   update. Check the approve and reject handlers surface the rejection and do not leave an unhandled
   rejection.
@@ -1101,7 +1117,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (med): approve now needs the recipe update to succeed, so it can fail for good on
   legacy data (suggestion whose cloud recipe was deleted, or a wrong `recipeOwnerId` that matches
   the reviewer but not the recipe's `createdBy`). The "Please try again" text will mislead there.
-  Reject still works. Cleanup is deferred to RL-042.
+  Decline still works. Cleanup is deferred to RL-042.
 - Reviewer noted (med): `recipeOwnerId` comes from the local Dexie `createdBy.uid` but the rule
   checks the cloud recipe's. A local copy whose uid differs (for example after the blocked uid
   migration) is denied, and the modal says "That didn't send. Check your connection", which
