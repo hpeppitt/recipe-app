@@ -1,12 +1,18 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 
 let user: typeof fakeUser | null = null;
 const anon = { ...fakeUser, uid: 'u1', isAnonymous: true, emailVerified: false };
 const member = { ...fakeUser, uid: 'u1' };
-const render = () => renderWithProviders(<SettingsPage />, { user });
+const signOut = vi.fn();
+const render = (route = '/') => renderWithProviders(<SettingsPage />, { user, route, auth: { signOut } });
+let consent = { configured: false, granted: false };
+const setConsent = vi.fn();
+vi.mock('../hooks/useConsent', () => ({ useConsent: () => ({ ...consent, setConsent }) }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 const fetchCloud = vi.fn();
 vi.mock('../services/firestore', () => ({ fetchCloudDataForExport: (...a: unknown[]) => fetchCloud(...a) }));
@@ -27,6 +33,11 @@ let blobs: Blob[];
 let downloadName: string | undefined;
 beforeEach(() => {
   fetchCloud.mockReset();
+  signOut.mockClear();
+  setConsent.mockClear();
+  consent = { configured: false, granted: false };
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open'); };
   exportRecipes.mockClear();
   blobs = [];
   downloadName = undefined;
@@ -151,14 +162,14 @@ describe('Settings: Download my data', () => {
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:x'), { timeout: 2000 });
   });
 
-  it('explains how it differs from Export All Recipes', () => {
+  it('explains how it differs from Export my recipes', () => {
     user = member;
     render();
-    expect(screen.getByText(/To move recipes between devices, use Export All Recipes/)).toBeTruthy();
+    expect(screen.getByText(/To move recipes between devices, use Export my recipes/)).toBeTruthy();
   });
 });
 
-describe('Settings: Delete Recipes on This Device copy', () => {
+describe('Settings: Delete recipes on this device copy', () => {
   const reloadText = /stay there and load again the next time you open the app/;
   it.each([
     ['verified', member, true],
@@ -170,9 +181,143 @@ describe('Settings: Delete Recipes on This Device copy', () => {
     user = u;
     render();
     expect(reloadText.test(screen.getByText(/^Recipes (saved to your account|you've shared)/).textContent ?? '')).toBe(verified);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Recipes on This Device' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete recipes on this device' }));
     const dialog = screen.getByRole('dialog');
     expect(reloadText.test(dialog.textContent ?? '')).toBe(verified);
     expect(/cannot be undone/.test(dialog.textContent ?? '')).toBe(!verified);
+  });
+});
+
+describe('Settings: layout (RL-093)', () => {
+  it('has no Sign-in methods, Weigh or notification rows', () => {
+    user = member;
+    render();
+    expect(screen.queryByText(/sign-in methods/i)).toBeNull();
+    expect(screen.queryByText(/weigh/i)).toBeNull();
+    expect(screen.queryByText(/notify me/i)).toBeNull();
+  });
+
+  it('orders the groups Account, Appearance, Your data, Legal and ends with Sign out', () => {
+    user = member;
+    render();
+    const labels = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
+    expect(labels).toEqual(['Account', 'Appearance', 'Your data', 'Legal']);
+    const buttons = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(buttons[buttons.length - 1]).toBe('Sign out');
+  });
+
+  it.each([
+    ['verified', member, 'cook@example.com'],
+    ['anonymous', anon, 'Guest · this device only'],
+  ])('Account row shows the %s sub line', (_n, u, sub) => {
+    user = u;
+    render();
+    expect(screen.getByRole('button', { name: `Test Cook, ${sub}` })).toBeTruthy();
+  });
+
+  it('shows the add-an-email help line for an anonymous account only', () => {
+    user = anon;
+    const { unmount } = render();
+    expect(screen.getByText('Add an email to keep your recipes.')).toBeTruthy();
+    unmount();
+    user = member;
+    render();
+    expect(screen.queryByText('Add an email to keep your recipes.')).toBeNull();
+  });
+
+  it('keeps a row\'s status text in the same wrapper as the row, so rules fall between rows only', async () => {
+    user = member;
+    exportRecipes.mockResolvedValue([]);
+    render();
+    fireEvent.click(screen.getByRole('button', { name: 'Export my recipes' }));
+    const status = await screen.findByRole('status');
+    const wrapper = screen.getByRole('button', { name: 'Export my recipes' }).parentElement;
+    expect(status.parentElement).toBe(wrapper);
+    expect(wrapper?.className).toContain('last:border-b-0');
+  });
+
+  it('signed out: Account row says Not signed in and there is no Sign out', () => {
+    user = null;
+    render();
+    expect(screen.getByRole('button', { name: 'Sign in, Not signed in' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+  });
+
+  it('Back goes to the profile when there is no history', async () => {
+    user = member;
+    renderWithProviders(
+      <Routes>
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<p>profile page</p>} />
+      </Routes>,
+      { user, route: '/settings' }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('profile page')).toBeTruthy();
+  });
+
+  it('every row is at least 44px tall (min-h-11)', () => {
+    user = member;
+    render();
+    for (const name of ['Export my recipes', 'Import recipes', 'Delete recipes on this device', 'Sign out']) {
+      expect(screen.getByRole('button', { name }).className).toContain('min-h-11');
+    }
+    expect(screen.getByRole('link', { name: 'Terms of Service' }).className).toContain('min-h-11');
+  });
+});
+
+describe('Settings: Sign out (moved from the profile, RL-093)', () => {
+  it('signs a verified account out at once', () => {
+    user = member;
+    render();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('asks first for an anonymous account, and cancel does not sign out', () => {
+    user = anon;
+    render();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    expect(signOut).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toMatch(/Sign out of this anonymous account\?/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(signOut).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sign Out' }));
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Settings: analytics switch', () => {
+  it('is hidden when PostHog is not configured', () => {
+    render();
+    expect(screen.queryByRole('switch')).toBeNull();
+  });
+
+  it('is a switch named for the setting, sized 44x26, and Space toggles it', async () => {
+    consent = { configured: true, granted: false };
+    render();
+    const sw = screen.getByRole('switch', { name: 'Privacy: allow analytics' });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    const track = sw.querySelector('span[aria-hidden]') as HTMLElement;
+    expect(track.className).toContain('w-11');
+    expect(track.className).toContain('h-[26px]');
+    expect(track.className).toContain('bg-neutral-400');
+    expect(sw.className).toContain('min-h-11');
+    sw.focus();
+    await userEvent.keyboard(' ');
+    expect(setConsent).toHaveBeenCalledWith(true);
+  });
+
+  it('shows on with the accent track, and toggling off sends false', async () => {
+    consent = { configured: true, granted: true };
+    render();
+    const sw = screen.getByRole('switch', { name: 'Privacy: allow analytics' });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    expect((sw.querySelector('span[aria-hidden]') as HTMLElement).className).toContain('bg-accent-2-600');
+    fireEvent.click(sw);
+    expect(setConsent).toHaveBeenCalledWith(false);
   });
 });

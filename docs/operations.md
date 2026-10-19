@@ -611,7 +611,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
   anonymous uid cannot prove ownership by email, so match it by what the requester can name.
 
 - Recipe Lab data in the browser on the person's own devices (Dexie recipes and bookmarks,
-  localStorage). Tell them to use "Delete Recipes on This Device" or clear the site's data.
+  localStorage). Tell them to use "Delete recipes on this device" or clear the site's data.
 - Other users' local libraries: anyone who opened a recipe, shared link or suggestion may
   hold a copy in their own browser. Share links also carry `createdBy` in the URL itself.
 - Backups: any Firestore backup, scheduled export or point-in-time recovery window keeps

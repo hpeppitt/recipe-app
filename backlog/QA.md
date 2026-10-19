@@ -18,6 +18,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-093 Settings grouped list
+
+- Settings is now Account, Appearance, Your data, Legal, then a Sign out card. At 390x844 and again at 320px (no horizontal scroll, long email truncates, Units segments wrap under the label) walk every row.
+- Export my recipes: the "Exported N recipes" line shows under the row. Download my data: Preparing, then the status line. Import recipes: pick a file, status line shows. Delete recipes on this device: confirm copy is unchanged for verified and for anonymous or signed-out.
+- Terms, Privacy and Cookie rows open their pages. With PostHog configured, the analytics switch toggles by tap and by keyboard (Tab to it, Space); track is green on, grey off.
+- Sign out as a verified account signs out at once; as an anonymous account the "Sign out of this anonymous account?" confirm shows. The profile no longer has a Sign Out button.
+- Back returns to the previous page, or to the profile when Settings was opened directly.
+- Account row: the Avatar is forced to 40px with a child selector, as on the Activity page. The row only goes to `/profile` for now (RL-094 adds the avatar sheet). The old "Add an email to keep your recipes" line is gone from Settings; the profile still carries it.
+- Legal text still quotes the old labels: `terms.ts:84` says 'Use "Export All Recipes" in Settings', and `privacy.ts`, `cookies.ts` and `terms.ts` quote "Delete Recipes on This Device". It is legal text, so it needs the author's decision.
+- Reviewer noted (low): the second-round fixes (Units control sized to fit the card, whole-row analytics switch, rules between rows only, restored anonymous help line) were not re-reviewed or measured at 320px, and nothing asserts the Units track fill, so check those on the 320px walk. Export, import and delete-on-device have no try/catch or in-flight guard (unchanged from before this ticket; for /groom). A verified user with no display name shows as "Anonymous" in the Account row, as on the profile. The history case of the Back button (navigate(-1)) is untested.
+
 ### RL-092 Activity page component
 
 - No route yet (RL-097 adds `/activity`), so nothing is visible in the app. Check it with RL-097's entry: with unread notifications, open Activity and confirm Today and Earlier groups, the type badges on the avatars, the unread dots, and that a row marks read and opens the recipe (or the profile for a follow).
