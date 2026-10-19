@@ -9,8 +9,17 @@ import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
+let parent: ReturnType<typeof makeRecipe> | undefined;
+let parentLoading = false;
+let parentError: Error | null = null;
+const retryParent = vi.fn();
 vi.mock('../hooks/useRecipe', () => ({
-  useRecipe: () => ({ recipe: undefined, isLoading: false, cloudError: null, retry: vi.fn() }),
+  useRecipe: () => ({
+    recipe: parent,
+    isLoading: parentLoading,
+    cloudError: parentError,
+    retry: retryParent,
+  }),
 }));
 
 const sendMessage = vi.fn();
@@ -76,6 +85,10 @@ const toggles = () =>
 
 beforeEach(() => {
   sendMessage.mockReset();
+  parent = undefined;
+  parentLoading = false;
+  parentError = null;
+  retryParent.mockReset();
   saveRecipe.mockReset();
   chat = { messages: [], isLoading: false, latestRecipe: null };
   Element.prototype.scrollIntoView = vi.fn();
@@ -263,5 +276,135 @@ describe('RecipeChatPage announcements', () => {
     view();
     expect(live()).toBe('');
     expect(screen.getByRole('alert')).toBeTruthy();
+  });
+});
+
+describe('RecipeChatPage branch composer (/recipe/:id/vary)', () => {
+  const vary = () =>
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
+        <Route path="*" element={<p>elsewhere</p>} />
+      </Routes>,
+      { route: '/recipe/r1/vary' }
+    );
+
+  it('the suggestion seed prefills the instruction', async () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
+        <Route
+          path="*"
+          element={
+            <Link to="/recipe/r1/vary" state={{ suggestion: 'less sugar, add walnuts' }}>
+              approve
+            </Link>
+          }
+        />
+      </Routes>,
+      { route: '/other' }
+    );
+    await userEvent.setup().click(screen.getByRole('link', { name: 'approve' }));
+    expect(
+      (screen.getByRole('textbox', { name: 'What would you change?' }) as HTMLTextAreaElement).value
+    ).toBe('less sugar, add walnuts');
+    expect((screen.getByRole('button', { name: 'Grow this branch' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows the composer first, not the old prompt or chat input, and Grow sends through sendMessage', async () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    vary();
+    expect(screen.getByRole('heading', { name: 'What would you change?' })).toBeTruthy();
+    expect(screen.queryByText('How would you like to modify this recipe?')).toBeNull();
+    expect(screen.queryByPlaceholderText('Describe the modification...')).toBeNull();
+    const u = userEvent.setup();
+    await u.click(screen.getByRole('button', { name: 'Vegan' }));
+    await u.click(screen.getByRole('button', { name: 'Grow this branch' }));
+    expect(sendMessage).toHaveBeenCalledWith('vegan');
+  });
+
+  it('/create has no composer', () => {
+    parent = makeRecipe({ title: 'Banana bread' }); // the mocked hook returns it even without an id
+    view();
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+  });
+
+  it('the page keeps one always-mounted live region: idle, growing, ready', () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    const { container } = vary();
+    const region = screen.getByRole('status');
+    expect(region.textContent).toBe('');
+    act(() => setChat({ messages: [user('vegan')], isLoading: true, latestRecipe: null }));
+    // the same node, so a screen reader sees its text change rather than a new region
+    expect(screen.getByRole('status')).toBe(region);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(region.textContent).toBe('Growing your branch…');
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+    expect(container.querySelectorAll('[aria-live]')).toHaveLength(1);
+    // the visible card says it too, but is hidden from assistive tech
+    const card = screen.getAllByText('Growing your branch…').find((n) => n !== region);
+    expect(card?.closest('[aria-hidden="true"]')).toBeTruthy();
+    expect(container.querySelector('.motion-safe\\:animate-bounce')).toBeNull();
+    act(() => setChat(withRecipes('Vegan banana bread')));
+    expect(screen.getByRole('status')).toBe(region);
+    expect(region.textContent).toBe('Vegan banana bread is ready');
+    expect(screen.getByRole('button', { name: 'Save Variation' })).toBeTruthy();
+  });
+
+  it('a failed first turn falls to the chat: bubble, alert, Try again, empty input, silent region', () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    chat = {
+      messages: [user('vegan')],
+      isLoading: false,
+      latestRecipe: null,
+      error: { message: 'Something went wrong', retryable: true },
+    };
+    vary();
+    expect(screen.getByText('vegan')).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('Something went wrong');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    const input = screen.getByPlaceholderText('Describe the modification...') as HTMLTextAreaElement;
+    expect(input.value).toBe('');
+    expect(screen.getByRole('status').textContent).toBe('');
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+  });
+
+  it('while the parent loads, a spinner notice replaces the composer', () => {
+    parentLoading = true;
+    vary();
+    expect(screen.getByText('Loading the original recipe...')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+  });
+
+  it('a parent that failed to load shows the retry notice, not the composer', async () => {
+    parentError = new Error('offline');
+    vary();
+    expect(screen.getByText("Couldn't load the original recipe")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retryParent).toHaveBeenCalledTimes(1);
+  });
+
+  it('a missing parent shows the not-found notice, not the composer', () => {
+    vary();
+    expect(screen.getByText('That recipe no longer exists')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Grow this branch' })).toBeNull();
+  });
+
+  it('a later turn uses the typing indicator, not the growing card', () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    chat = { ...withRecipes('Vegan banana bread'), isLoading: true };
+    vary();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.queryByText('Growing your branch…')).toBeNull();
+  });
+
+  it('Close still guards an unsaved variation', async () => {
+    parent = makeRecipe({ title: 'Banana bread' });
+    chat = withRecipes('Vegan banana bread');
+    vary();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.getByRole('dialog', { name: 'Discard this variation?' })).toBeTruthy();
   });
 });

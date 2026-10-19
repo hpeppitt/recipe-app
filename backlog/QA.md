@@ -18,6 +18,27 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-112 Branching a recipe opens the 6b composer: one instruction, quick-change chips, a promise, Grow this branch
+
+- On the preview as a verified user, open a recipe and choose Branch this recipe (or approve a suggestion as the owner):
+  - Header "New variation" with Close. A cream pill "Branching <title>" with the recipe emoji; tap it to open and close the parent preview (a screen reader says expanded or collapsed).
+  - Heading "What would you change?" over a terracotta-outlined box with "e.g. less sugar, and add walnuts". Grow this branch is greyed until there is text, and stays greyed for spaces only.
+  - Tap "Less sugar" then "Gluten-free": the box reads "less sugar, gluten-free" and the caret stays at the end of the box. Type a trailing comma first and check there is no double comma.
+  - The line "<title> stays exactly as it is. Yours becomes a new version in its family, credited to you." sits above Grow.
+  - Tap Grow this branch: the page becomes the chat with your text as the bubble and a "Growing your branch…" card (three grey bars) in place of the dots; then the recipe card arrives with Save Variation. Save it: the recipe page opens as before. Close with the unsaved variation still asks "Discard this variation?".
+  - Approve a suggestion on your recipe: the composer opens with the suggestion already in the box, ready to Grow.
+  - A signed-out or anonymous visitor still sees the sign-up screen, not the composer.
+- At 320px: chips wrap to more rows, a long recipe title is cut with an ellipsis inside the pill, nothing scrolls sideways. 16px text means iOS does not zoom.
+- Screen reader: after Grow it says "Growing your branch…" once (not also "Generating recipe..."), then "<title> is ready".
+- iOS Safari and Android Chrome: with the keyboard open, check Grow this branch stays reachable (the footer is sticky inside the page, not fixed or vh-sized; Android Chrome 108+ may leave it behind the keyboard until the page pans, see RL-111). On a touch device the box is not auto-focused, so the keyboard does not open over the chips; on desktop it is focused on open.
+- Decision (mine): the old parent preview row stays above the chat after the first message; only the first screen changed. The chips are generic and static, as the ticket says.
+- The page has one hidden live region that is always mounted; it says "Growing your branch…" on the first turn and the visible card is hidden from assistive tech (the ticket asked for role=status on the card; changed so the text change is announced, see DECISIONS).
+- On a touch device a chip tap does not put focus back in the box, so the keyboard does not open over the other chips and Grow; tap the box to type. On a mouse the box keeps focus with the caret at the end (ticket asked for refocus everywhere; see DECISIONS).
+- Reviewer noted (low): the textarea border is primary-600 (accent-700), not the ticket's accent, so it is valid in both themes.
+- Reviewer noted (low): the old "Describe the modification..." placeholder is still reachable on the first turn after a failure (the chat input shows empty, the instruction is the user bubble above).
+- Reviewer noted (low): the screen-reader announcements (Growing your branch… then "<title> is ready") need a real VoiceOver and NVDA check; jsdom only proves the DOM.
+- Reviewer noted (low): check the 16px textarea and the keyboard on Android Chrome (no interactive-widget in the viewport meta, so the sticky Grow button may sit behind the keyboard).
+
 ### RL-111 The new-recipe chat follows 6a: Close header, Organic bubbles, a collapsible recipe card, refinement chips and a pill composer
 
 - On the preview as a verified user at 390px (and 320px, no horizontal scroll), open Create:
@@ -32,7 +53,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
   - Signed out (or anonymous) at /create: the Sparkles sign-up screen with the email form under it, "You can keep browsing..." and Back to recipes.
 - iOS Safari and Android Chrome: tap the composer and check the pill and the chips stay above the keyboard (the bar is sticky inside the page, not a fixed or vh-sized bar). index.html has no interactive-widget setting, so on Android Chrome 108+ the layout viewport does not resize for the keyboard and the sticky composer may sit behind it until the browser pans; the viewport meta is not changed here because it affects the whole app. The composer text is 16px, not the design's 15px, so iOS does not zoom on focus (see DECISIONS).
 - Send is a 40px circle with a 44px hit area; the card toggle is 36px with a 44px hit area. Screen reader: a new recipe is announced once as "<title> is ready", and the typing label is announced once.
-- The variation parent preview ("(original)" row) is unchanged, RL-112 restyles it.
+- The variation chat keeps the old parent preview row ("(original)") once the first message is sent; the first screen is now the RL-112 composer.
 - Close goes back one entry; with no history (cold load or a deep link to /create) it goes to the library instead of doing nothing. A failed reply or save shows the error box, announced as an alert, and the screen reader does not say "<title> is ready".
 - Reviewer noted (low): the chip row scrolls horizontally with the scrollbar hidden and no fade or peek cue, so "No dairy" may be off-screen at 320px.
 - Reviewer noted (low, for RL-112): the parent preview toggle has no aria-expanded and its chevron is not aria-hidden.

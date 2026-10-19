@@ -31,6 +31,16 @@ export const SUGGESTION_CHIPS = [
 /** Fixed refinements offered once a recipe exists; each is sent as if typed. */
 export const REFINEMENT_CHIPS = ['Make it spicier', 'Fewer dishes', 'No dairy'] as const;
 
+/** Generic quick changes on the branch composer (6b); tapping appends the lower-case label. */
+export const BRANCH_CHIPS = [
+  'Less sugar',
+  'Vegetarian',
+  'Vegan',
+  'Gluten-free',
+  'Quicker',
+  'Spicier',
+] as const;
+
 export const DIFFICULTY_LABELS: Record<string, string> = {
   easy: 'Easy',
   medium: 'Medium',
