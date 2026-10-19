@@ -5,26 +5,7 @@ import { Avatar } from '../ui/Avatar';
 import { Spinner } from '../ui/Spinner';
 import { timeAgo } from '../../lib/utils';
 import { Bell } from '../ui/icons';
-
-// A keyed map rather than a growing ternary chain: four types made the inline
-// conditional unreadable, and an unknown type now falls back instead of
-// silently rendering as a suggestion.
-//
-// There was a parallel NOTIF_ICONS map, removed as dead code: it rendered only
-// when a notification had no `fromUid`, and `fromUid` has been written by every
-// notification since the collection was introduced (d0497f5) and is required by
-// the Firestore rules, so the avatar branch always won. The type says as much —
-// `fromUid: string`, not optional, unlike `recipeId?`.
-const NOTIF_VERBS: Record<string, string> = {
-  favorite: 'favorited your recipe',
-  suggestion: 'suggested a change to',
-  suggestion_approved: 'approved your suggestion on',
-  suggestion_rejected: 'passed on your suggestion for',
-  // Works in both directions: the owner and the suggester each receive this when
-  // the other replies, so the verb cannot assume which side is reading.
-  suggestion_reply: 'replied about',
-  follow: 'started following you',
-};
+import { NOTIF_VERBS } from '../../lib/notifications';
 
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, error, markRead, markAllRead } =
