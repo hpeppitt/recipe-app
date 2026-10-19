@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-115 Left rail from 1024px
+
+- At 1280x800 and 1024x768 the 220px rail shows with the Recipe Lab wordmark, pill items, the active item highlighted, and the Activity badge (verified email) after the label. Create is a plain item, no terracotta circle.
+- At 1023px the bottom bar returns unchanged.
+- Reviewer noted: the Activity badge stays on the icon at lg, not after the label as 21a draws it; acceptable (inside the rail, aria-label unchanged, one markup path).
+- Tab order runs top to bottom through the five links. On /new at 1280 the Create actions sit at the bottom of the viewport. The update prompt, if shown, sits beside the rail, not under it.
+
 ### RL-127 Saved wording, no Explore Favourites chip
 
 - Explore as a verified user: no Favourites chip; All, Following and a tag chip still filter; a saved recipe shows the bookmark marker.

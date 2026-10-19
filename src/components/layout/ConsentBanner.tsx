@@ -14,7 +14,7 @@ export function ConsentBanner() {
     <section
       role="region"
       aria-label="Analytics consent"
-      className="border-b border-border bg-surface-secondary"
+      className="border-b border-border bg-surface-secondary lg:ml-[220px]"
     >
       <div className="max-w-lg mx-auto p-4 space-y-3">
         <p className="text-sm text-text-primary">

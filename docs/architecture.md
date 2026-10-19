@@ -55,7 +55,7 @@ state (parsed by pure `lib/consent.ts`, stored through `services/storage.ts`). `
 current uid when consent is granted after sign-in. `setAnalyticsConsent(granted)` persists, updates the state and calls
 every `onConsentChange` listener: RL-054's single hook for opting PostHog in or out, so no
 provider reads consent itself. `hooks/useConsent.ts` (`useSyncExternalStore`) keeps
-`ConsentBanner` (mounted in `AppShell` in normal flow above `<main>`, never fixed, so it cannot cover the bottom nav, update prompt or toasts) and the Settings switch in sync. Both appear only when
+`ConsentBanner` (mounted in `AppShell` in normal flow above `<main>`, never fixed, so it cannot cover the nav (at lg it takes `lg:ml-[220px]` to clear the rail), update prompt or toasts) and the Settings switch in sync. Both appear only when
 `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` are set. Bumping `CONSENT_VERSION` makes every stored choice parse as not
 chosen, so the banner asks again. `AppShell` also runs `clearLeftoverGaCookies` once per browser.
 
@@ -257,7 +257,7 @@ start and is split only for caching.
 (RL-097) is five `Link`s: Explore, Saved, Create (a link to `/new`, the sentence builder, which hands its prompt to `/create`),
 Activity and You. Each sets `aria-current="page"` from `matchPath` on the current path, and
 Explore is also current on `/search` (a `NavLink` could not do that). The Activity badge reads `useNotifications()`, which
-reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. The bar is fixed, 78px plus the bottom safe area beyond
+reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. From `lg` (1024px) the same single `nav` is a fixed 220px left rail (CSS only, RL-115): `AppShell` main takes `lg:ml-[220px] lg:pb-0`, `UpdatePrompt` moves to `lg:left-[220px] lg:bottom-4` on shell routes only, and `CreatePage` drops its nav-height sticky offset (`lg:bottom-0`, `lg:min-h-dvh`). The bar is fixed, 78px plus the safe area, below lg; beyond
 8px; `AppShell`'s `<main>` padding and `UpdatePrompt`'s offset use the same sum. `/settings` sits
 outside the shell, reached from the You tab's gear, with its own Back button.
 `/recipe/:id/suggestion/:suggestionId` (`SuggestionThreadPage`, RL-106) is lazy and outside the
