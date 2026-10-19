@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/layout/AppShell';
-import { LibraryPage } from './pages/LibraryPage';
+import { ExplorePage } from './pages/ExplorePage';
 import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageFallback } from './components/ui/PageFallback';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
@@ -10,7 +10,7 @@ import { TermsGate } from './components/auth/TermsUpdateDialog';
 import { useTheme } from './hooks/useTheme';
 import { useOwnRecipesSync } from './hooks/useOwnRecipesSync';
 
-// Library stays eager so first paint is unchanged; every other page is its own chunk.
+// Explore stays eager so first paint is unchanged; every other page is its own chunk.
 const RecipeChatPage = lazy(() => import('./pages/RecipeChatPage').then(m => ({ default: m.RecipeChatPage })));
 const RecipeDetailPage = lazy(() => import('./pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })));
 const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ default: m.RecipeEditPage })));
@@ -39,7 +39,7 @@ export default function App() {
         <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route element={<AppShell />}>
-            <Route path="/" element={<LibraryPage />} />
+            <Route path="/" element={<ExplorePage />} />
             <Route path="/saved" element={<SavedPage />} />
             <Route path="/activity" element={<ActivityPage />} />
             {/* Own profile is a top-level destination now that it has a nav tab;

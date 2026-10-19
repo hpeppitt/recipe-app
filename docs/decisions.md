@@ -119,6 +119,8 @@ reads the paged cloud feed.
 
 *2026-10-18: see 1b. My Recipes still reads Dexie, now filled from the cloud, and RL-084 splits it.*
 
+*2026-10-19 (RL-098): the Library and its tabs are gone. `/` is Explore, still one source (the paged cloud feed, or Dexie in local-only mode). My Recipes now lives on the You tab (own recipes, RL-095) and the Saved tab (other people's kept copies, RL-091).*
+
 Consequence: it proceeds regardless of audience size, because the 200-document read ceiling
 is a correctness bug, not a scale concern.
 

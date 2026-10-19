@@ -9,7 +9,7 @@ into `CHANGELOG.md` and clears this file.
 
 Things no agent can verify here, so every QA pass covers them at a 390x844 viewport:
 
-- Library loads, cards render, search and the favourites filter work.
+- Explore loads, rows render, search and the favourites filter work.
 - A recipe detail page: action row, breadcrumb, branch carousel, the version tree.
 - `/create` shows the composer for a verified account and the sign-up call to action otherwise.
 - A `/shared/:id` link opened signed out, in a fresh browser profile.
@@ -17,6 +17,23 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - `TreeIntro` renders legibly on the second root recipe opened (AUDIT UI-16, never yet seen in a browser).
 
 ## Since the last release
+
+### RL-098 Explore replaces the Library at /
+
+- Check signed out, anonymous and verified, at 390x844 and at 320px wide (no horizontal page scroll; only the chips row scrolls sideways).
+- The kicker above "What's growing" matches the day and time of day (morning 5 to 12, afternoon 12 to 17, evening 17 to 22, night otherwise).
+- The old header bell, profile and settings buttons and the My Recipes / Explore tabs are gone. Your own recipes are on You, other people's kept copies on Saved.
+- Tap the Search button: a pill opens and the keyboard focus is in it. Type a word: the list filters, the "N results" line shows, and with more pages "Searching the N recipes loaded so far" shows with Load more. Escape (hardware keyboard), the X, or the Search button again clears the search, closes the pill and puts focus back on the Search button.
+- Chips: All, Favorites (not signed out), Following and the people you follow (verified accounts that follow someone), then the tags. Tap a tag: the list refetches; tap it again or Clear tag to clear. Check the row scrolls sideways at 320px.
+- Rows: emoji circle, title (a long title truncates), the author pill and time, a heart when favourited, a sage branch count when it has variations. The row opens the recipe; the author pill opens the author's profile and is easy to hit. With a screen reader the row reads as just the title.
+- Load more appends the next page.
+- Load the page, then turn the network off and return to it (or reload from cache): the terracotta "You're offline. Showing what was loaded before." banner shows above the list.
+- Turn the network off and load / fresh: "Could not load" in the terracotta error layout with the offline copy and Try again.
+- A local-only build (no Firebase env) lists the device's recipes under the same header with only the All chip and no author pill, and "You haven't created a recipe yet" when empty.
+- Reviewer noted (low): the row link has `aria-label={title}` while the h3 title is a separate heading, so screen readers hear the title twice, and the link name leaves out the Favorited and branch text. This matches the ticket's "named exactly the title"; `aria-hidden` on the h3 would remove the repeat.
+- Reviewer noted (low): a very long author name at 320px is cut off hard with no ellipsis, because the pill is an inline-flex box (the same UserPill limit as RL-091).
+- Reviewer noted (low): no tests cover the Following filter listing recipes, the "No recipes from followed users" empty state, a followed-person chip opening their profile, or the local-only loading skeleton. The old LibraryPage tests had none of these either, so nothing was dropped.
+- Reviewer noted (low): the Privacy and Cookie Policy text still says "last Library tab", which the app no longer stores. The author needs to reword it.
 
 ### RL-097 Five-slot bottom nav
 

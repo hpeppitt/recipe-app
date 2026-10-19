@@ -77,7 +77,7 @@ with `applyOwnRecipeSync` (`db/recipes.ts`), which runs the pure `planOwnRecipeS
 (`lib/recipeSync.ts`) in one transaction. Snapshots from the cache or with pending writes are
 skipped, because the plan treats a snapshot as the complete list. Edits from two devices are
 last write wins. The sync only reads Firestore. `useOwnRecipesSyncStatus` exposes `off`,
-`waiting`, `synced` or `error` for the UI. Every Dexie reader (My Recipes, the own profile,
+`waiting`, `synced` or `error` for the UI. Every Dexie reader (the own profile, Saved,
 the detail and edit pages, the tree) then shows the cloud state with no change of its own,
 and the last copy when offline. Signing out of a verified account runs `clearOwnRecipes`
 (`db/recipes.ts`) after `signOut()` resolves, so the account's own rows leave the device and the
@@ -86,12 +86,14 @@ listener reloads them on the next sign-in (RL-085).
 Anonymous, signed-out and local-only users are Dexie only: their saved copies of other
 people's recipes never reach the cloud.
 
-The Library reads each store separately. `hooks/useRecipeLibrary.ts` exports `useLocalLibrary`
-(a Dexie live query, behind My Recipes) and `useCloudLibrary` (the cursor-paged
-`getPublishedRecipesPage` feed, behind Explore, which reads nothing until the tab is first
-opened). The pure list logic, roots only, dedup by id, newest first, variation counts across
-both stores, and the search, favourites and following filters, is `lib/library.ts`. The tabs
-replaced a merged feed whose union of a live query and a paged window had no stable cursor.
+Each list reads one store. `hooks/useRecipeLibrary.ts` exports `useLocalLibrary` (a Dexie live
+query, behind Saved, the own profile and local-only Explore) and `useCloudLibrary` (the
+cursor-paged `getPublishedRecipesPage` feed, behind Explore at `/`, read on first render). The
+pure list logic, roots only, dedup by id, newest first, variation counts across both stores, and
+the search, favourites and following filters, is `lib/library.ts`. Until RL-098 `/` was a
+Library with My Recipes and Explore tabs; own recipes now live on the You tab and other people's
+kept copies on Saved. One source per list replaced a merged feed whose union of a live query and
+a paged window had no stable cursor.
 
 Favourites flow both ways for a verified account. Writes go Dexie first, then
 `favorites/{uid}_{recipeId}`. Reads come only from Dexie, which is filled from the cloud once
@@ -184,7 +186,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
   fallback shape can change without touching the share UI. The decode path validates with Zod
   and returns null on failure.
-- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`): the Library's list logic for both tabs, so
+- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`): the list logic behind Explore, Saved and the own profile, so
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens
@@ -214,14 +216,14 @@ attempted and reverted: `useBlocker` did not block POP navigation in react-route
 The shipped unsaved-work guard is a sentinel history entry instead. See
 [decisions.md](decisions.md) before re-litigating.
 
-Every page except `LibraryPage` is `React.lazy` in `App.tsx`, so each is its own chunk and the
-Library keeps first paint. A `Suspense` with `PageFallback` (the shared `Spinner`) sits inside
+Every page except `ExplorePage` is `React.lazy` in `App.tsx`, so each is its own chunk and the
+landing page keeps first paint. A `Suspense` with `PageFallback` (the shared `Spinner`) sits inside
 the `RouteErrorBoundary` in both `App.tsx` and `AppShell.tsx`, so the shell stays mounted while a
 shell route loads and a failed chunk load lands in the error fallback. Firebase is a manual
 `firebase` chunk in `vite.config.ts`; `services/` imports it statically, so it still loads at
 start and is split only for caching.
 
-`AppShell` wraps `/` (`LibraryPage`, eager), `/saved` (`SavedPage`) and `/activity`
+`AppShell` wraps `/` (`ExplorePage`, eager, RL-098), `/saved` (`SavedPage`) and `/activity`
 (`ActivityPage`), both lazy, and `/profile`. Its `BottomNav` (RL-097) is five `NavLink`s:
 Explore, Saved, Create (a link to `/create`, never shown as current), Activity and You, so
 `aria-current="page"` comes from the router. The Activity badge reads `useNotifications()`, which

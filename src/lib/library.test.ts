@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, filterFeed, splitLibrary, normalizeTags, parseLibraryTab } from './library';
+import { buildFeed, filterFeed, splitLibrary, normalizeTags } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -22,19 +22,6 @@ describe('normalizeTags', () => {
   it('returns [] for a missing array', () => {
     expect(normalizeTags(undefined)).toEqual([]);
   });
-});
-
-describe('parseLibraryTab', () => {
-  it('restores Explore', () => {
-    expect(parseLibraryTab('explore')).toBe('explore');
-  });
-
-  it.each([null, undefined, '', 'mine', 'Explore', 'garbage'])(
-    'defaults %s to My Recipes',
-    (raw) => {
-      expect(parseLibraryTab(raw)).toBe('mine');
-    }
-  );
 });
 
 describe('buildFeed', () => {
