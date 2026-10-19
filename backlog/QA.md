@@ -18,6 +18,23 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-102 The recipe body shows pills, an inline servings stepper, the Scaled strip and tick-off rows
+
+- Open a recipe with nutrition and one without, at 390px and 320px: the pills wrap cleanly (author, time, difficulty, kcal, and prep and cook when both are set). The kcal pill appears only with nutrition. Tap the author pill: their profile opens. A local-only recipe has no author pill.
+- The servings stepper sits at the right of the Ingredients heading and does not overflow at 320px (also try a long group name and long ingredient names and notes, which should wrap).
+- Scale up and down with the stepper: a terracotta "Scaled ×n from N." strip appears, amounts turn terracotta, and Reset (underlined) restores the stored count and removes the strip. Moving to another recipe starts unscaled. The minus and plus buttons and Reset feel like 44px targets on a phone (jsdom cannot check this).
+- Tap rows to tick and untick (whole row is the target); ticked rows get a sage circle with a check and a struck name. With a keyboard, Tab to a row and press Space: it toggles and a focus ring shows on the circle. Ticks vanish on reload.
+- Switch units in Settings and confirm amounts on the recipe page still convert.
+- The chat recipe card and the parent preview in the chat still read well: same row layout without the circle, servings as a pill, no author pill, no stepper.
+- Shared recipe page (/shared/:id) also picks up the new pills and rows; check it renders (its own author chip is unchanged, servings stay a pill).
+- Left as is: the nutrition card keeps its place above the ingredients (RL-103 moves it).
+- Reviewer noted (med, follow-up ticket): RecipeDetailPage.tsx still renders its old "Added by" avatar button below the content, so every recipe with a named author now shows the author twice (the new pill and Added by). Remove one in a follow-up.
+- Reviewer noted (med, one-line follow-up): SharedRecipePage passes neither nutrition nor author to MetadataPills, so it shows no kcal pill even when the NutritionPanel shows calories, and it keeps its own Added by button.
+- Reviewer noted (low): the unticked circle border-neutral-400 on bg-surface is probably under 3:1 non-text contrast (ticket-specified value). Check at QA; use neutral-500 or 600 if it fails.
+- Reviewer noted (low): UserPill is 12px while the other pills are 13px (RL-088 component).
+- A one-serving recipe now reads "1 serving" in the servings pill, not "1 servings".
+- A very long author name is clipped inside the pill at 320px (the author link is "Open author, <name>").
+
 ### RL-101 A branch shows the sage lineage strip
 
 - Open branches at depth 1, 2 and 4 or more, at 390px and 320px: a sage rounded strip under the title and family label. Depth 1 reads root, current. Depth 2 reads root, parent, current. Depth 4+ reads root, "+N", parent, current. Nothing overflows sideways at 320px, with long titles or long author names (the crumbs wrap).

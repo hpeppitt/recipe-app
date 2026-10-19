@@ -38,6 +38,7 @@ export function RecipeCardMessage({
         totalTime={recipe.totalTime}
         servings={recipe.servings}
         difficulty={recipe.difficulty}
+        nutrition={(recipe as { nutrition?: Nutrition | null }).nutrition}
       />
 
       {/* Shown before saving: macros are part of deciding whether this is the
