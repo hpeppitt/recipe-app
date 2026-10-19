@@ -14,7 +14,7 @@ Open the channel URL on your phone, then tap Reload on the app so you are not se
 
 ## Standing checks
 
-- [ ] Explore loads, rows render, the favourites filter works, and search at `/search` (Explore's Search button) finds recipes.
+- [ ] Explore loads, rows render, and search at `/search` (Explore's Search button) finds recipes.
 - [ ] A recipe detail page: action row, breadcrumb, branch carousel, the version tree.
 - [ ] `/create` shows the composer for a verified account and the sign-up call to action otherwise.
 - [ ] A `/shared/:id` link opened signed out, in a fresh browser profile.

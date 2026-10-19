@@ -81,9 +81,9 @@ describe('ActivityPage', () => {
       notif({ id: 'r', read: true, recipeTitle: 'Stew' }),
     ]);
     renderWithProviders(<ActivityPage />);
-    const unread = screen.getByRole('button', { name: 'Ann favorited your recipe 🍲 Soup unread' });
+    const unread = screen.getByRole('button', { name: 'Ann saved your recipe 🍲 Soup unread' });
     expect(unread).toHaveAccessibleDescription(/less salt/);
-    expect(screen.getByRole('button', { name: 'Ann favorited your recipe 🍲 Stew' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ann saved your recipe 🍲 Stew' })).toBeInTheDocument();
     expect(screen.getAllByText('unread')).toHaveLength(1);
   });
 
@@ -95,7 +95,7 @@ describe('ActivityPage', () => {
         <Route path="/recipe/:id" element={<p>Recipe page</p>} />
       </Routes>
     );
-    fireEvent.click(screen.getByRole('button', { name: /Ann favorited/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Ann saved/ }));
     expect(await screen.findByText('Recipe page')).toBeInTheDocument();
     expect(markRead).toHaveBeenCalledWith('u');
   });
