@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { Button } from '../ui/Button';
+import { Sheet } from '../ui/Sheet';
+import { Image } from '../ui/icons';
 
 const FOOD_EMOJIS = [
   '🍕', '🍔', '🌮', '🍣', '🍜', '🍰', '🧁', '🍩', '🍪', '🍫',
@@ -10,13 +12,19 @@ const FOOD_EMOJIS = [
   '👨‍🍳', '👩‍🍳', '🔪', '🥄', '🍽️', '🧑‍🍳', '☕', '🍵', '🧈', '🥨',
 ];
 
-const BG_COLORS = [
-  '#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E',
-  '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899',
-  '#78716C', '#64748B',
+// Organic palette. Avatars saved with an older hex keep rendering it; none of these is pressed then.
+const SWATCHES = [
+  { name: 'Peach', hex: '#ffe1d0' },
+  { name: 'Apricot', hex: '#ffc6a5' },
+  { name: 'Sage', hex: '#e1eecc' },
+  { name: 'Moss', hex: '#ccdbb2' },
+  { name: 'Sand', hex: '#dcd3c4' },
+  { name: 'Tangerine', hex: '#f6a06b' },
 ];
 
 interface AvatarEditorProps {
+  open: boolean;
+  onClose: () => void;
   uid: string;
   name: string | null;
   currentPhotoType: 'generated' | 'emoji' | 'uploaded';
@@ -31,9 +39,20 @@ interface AvatarEditorProps {
   }) => Promise<void>;
 }
 
-type Tab = 'generated' | 'emoji' | 'upload';
+type Mode = 'uploaded' | 'generated' | 'emoji';
 
-export function AvatarEditor({
+export function AvatarEditor({ open, onClose, ...rest }: AvatarEditorProps) {
+  const titleId = useId();
+  // The form mounts per open, so a cancelled draft never survives into the next one.
+  return (
+    <Sheet open={open} onClose={onClose} labelledBy={titleId}>
+      {open && <AvatarForm titleId={titleId} {...rest} />}
+    </Sheet>
+  );
+}
+
+function AvatarForm({
+  titleId,
   uid,
   name,
   currentPhotoType,
@@ -41,12 +60,13 @@ export function AvatarEditor({
   currentPhotoBgColor,
   currentPhotoURL,
   onSave,
-}: AvatarEditorProps) {
-  const [tab, setTab] = useState<Tab>(currentPhotoType === 'uploaded' ? 'upload' : currentPhotoType);
+}: Omit<AvatarEditorProps, 'open' | 'onClose'> & { titleId: string }) {
+  const [mode, setMode] = useState<Mode>(currentPhotoType);
   const [emoji, setEmoji] = useState(currentPhotoEmoji ?? '👨‍🍳');
-  const [bgColor, setBgColor] = useState(currentPhotoBgColor ?? BG_COLORS[0]);
+  const [bgColor, setBgColor] = useState(currentPhotoBgColor ?? SWATCHES[0].hex);
   const [imageURL, setImageURL] = useState<string | null>(currentPhotoURL);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,7 +77,7 @@ export function AvatarEditor({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const img = new Image();
+    const img = new window.Image();
     img.onload = () => {
       canvas.width = 128;
       canvas.height = 128;
@@ -73,87 +93,100 @@ export function AvatarEditor({
 
   const handleSave = async () => {
     setSaving(true);
+    setError(false);
     try {
-      if (tab === 'generated') {
+      if (mode === 'generated') {
         await onSave({ photoType: 'generated', photoEmoji: null, photoBgColor: null, photoURL: null });
-      } else if (tab === 'emoji') {
+      } else if (mode === 'emoji') {
         await onSave({ photoType: 'emoji', photoEmoji: emoji, photoBgColor: bgColor, photoURL: null });
-      } else if (tab === 'upload' && imageURL) {
+      } else if (imageURL) {
         await onSave({ photoType: 'uploaded', photoEmoji: null, photoBgColor: null, photoURL: imageURL });
       }
+    } catch {
+      // The caller closes the sheet only after onSave resolves, so a failure leaves it open.
+      setError(true);
     } finally {
       setSaving(false);
     }
   };
 
-  const previewType = tab === 'generated' ? 'generated' : tab === 'emoji' ? 'emoji' : 'uploaded';
-
   return (
-    <div className="space-y-4">
-      {/* Preview */}
-      <div className="flex justify-center">
+    <div className="flex flex-col gap-[18px] min-w-0">
+      <h2 id={titleId} className="font-heading text-[22px] text-text-primary text-center">
+        Edit avatar
+      </h2>
+
+      <div className="flex justify-center [&>div]:h-[120px] [&>div]:w-[120px] [&>div]:font-heading [&>div]:text-[52px]">
         <Avatar
           uid={uid}
           name={name}
           size="xl"
-          photoType={previewType}
-          photoEmoji={tab === 'emoji' ? emoji : null}
-          photoBgColor={tab === 'emoji' ? bgColor : null}
-          photoURL={tab === 'upload' ? imageURL : null}
+          photoType={mode}
+          photoEmoji={mode === 'emoji' ? emoji : null}
+          photoBgColor={mode === 'emoji' ? bgColor : null}
+          photoURL={mode === 'uploaded' ? imageURL : null}
         />
       </div>
 
-      {/* Tabs */}
       <SegmentedControl
-        compact
         label="Avatar type"
-        value={tab}
-        onChange={setTab}
+        value={mode}
+        onChange={setMode}
         options={[
-          { value: 'generated', label: 'Auto' },
+          { value: 'uploaded', label: 'Photo' },
+          { value: 'generated', label: 'Initials' },
           { value: 'emoji', label: 'Emoji' },
-          { value: 'upload', label: 'Upload' },
         ]}
       />
 
-      {/* Tab content */}
-      {tab === 'generated' && (
-        <p className="text-xs text-text-tertiary text-center">
-          Auto-generated from your username
-        </p>
+      {mode === 'generated' && (
+        <p className="text-xs text-text-tertiary text-center">Made from your name</p>
       )}
 
-      {tab === 'emoji' && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-10 gap-1">
+      {mode === 'emoji' && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="mb-2.5 text-xs font-semibold text-text-tertiary">Colour</div>
+            <div className="flex justify-between">
+              {SWATCHES.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  aria-label={`Background ${c.name}`}
+                  aria-pressed={bgColor === c.hex}
+                  onClick={() => setBgColor(c.hex)}
+                  className="h-11 w-11 shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-500"
+                  // Ring reaches 2px: six 44px swatches leave 2.4px between them at 320px, so a bigger ring would touch its neighbour.
+                  style={{
+                    backgroundColor: c.hex,
+                    boxShadow:
+                      bgColor === c.hex
+                        ? '0 0 0 1px var(--color-surface), 0 0 0 2px var(--color-text-primary)'
+                        : undefined,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
             {FOOD_EMOJIS.map((e) => (
               <button
                 key={e}
+                type="button"
+                aria-pressed={emoji === e}
                 onClick={() => setEmoji(e)}
-                className={`w-11 h-11 flex items-center justify-center rounded-lg text-xl transition-colors ${
-                  emoji === e ? 'bg-primary-100 dark:bg-primary-950 ring-2 ring-primary-500' : 'hover:bg-surface-secondary'
+                className={`aspect-square min-h-11 flex items-center justify-center rounded-full text-[28px] leading-none ${
+                  emoji === e ? 'bg-accent-200 ring-2 ring-primary-600' : 'bg-surface-secondary'
                 }`}
               >
                 {e}
               </button>
             ))}
           </div>
-          <div className="flex gap-1.5 flex-wrap">
-            {BG_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setBgColor(c)}
-                className={`w-11 h-11 rounded-full transition-transform ${
-                  bgColor === c ? 'ring-2 ring-offset-2 ring-primary-500 scale-110' : ''
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
         </div>
       )}
 
-      {tab === 'upload' && (
+      {mode === 'uploaded' && (
         <div className="space-y-2">
           <input
             ref={fileInputRef}
@@ -163,7 +196,8 @@ export function AvatarEditor({
             className="hidden"
           />
           <Button variant="secondary" fullWidth onClick={() => fileInputRef.current?.click()}>
-            {imageURL ? 'Choose Different Image' : 'Choose Image'}
+            <Image className="mr-2 h-5 w-5" />
+            Upload a photo
           </Button>
           {!imageURL && (
             <p className="text-xs text-text-tertiary text-center">
@@ -173,13 +207,19 @@ export function AvatarEditor({
         </div>
       )}
 
-      {/* Save */}
+      {error && (
+        <p role="alert" className="text-sm text-danger-600 text-center">
+          Couldn't save your avatar. Try again.
+        </p>
+      )}
+
       <Button
         fullWidth
+        style={{ minHeight: 52 }}
         onClick={handleSave}
-        disabled={saving || (tab === 'upload' && !imageURL)}
+        disabled={saving || (mode === 'uploaded' && !imageURL)}
       >
-        {saving ? 'Saving...' : 'Save Avatar'}
+        {saving ? 'Saving...' : 'Save'}
       </Button>
     </div>
   );

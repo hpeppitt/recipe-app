@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '../../lib/constants';
 import { reloadConsent } from '../../services/analytics';
 
 vi.mock('../../services/firebase', () => ({ isFirebaseConfigured: false }));
+vi.mock('../../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null, updateAvatar: vi.fn() }) }));
 
 import { ConsentBanner } from './ConsentBanner';
 import { SettingsPage } from '../../pages/SettingsPage';

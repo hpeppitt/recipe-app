@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-094 Avatar sheet
+
+- As a verified user on the preview, tap the avatar on My Profile and the Account row in Settings: both open the "Edit avatar" bottom sheet (Photo, Initials, Emoji). An anonymous user still gets the sign-up prompt from the profile avatar, and the Settings row still goes to the profile.
+- Emoji: save an avatar on each of the six swatches (selected one is ringed), pick a few emoji, Save closes the sheet and the profile and Settings row show it. Switch to Initials and save. Photo: Upload a photo, check the crop preview, save.
+- Tap the backdrop or press Escape: the sheet closes without saving, and reopening starts from the saved avatar.
+- At 320px check six swatches fit on one row with no horizontal scroll, and the emoji grid stays 5 columns. Camera capture ("Take photo") and a colour for Initials are out of scope.
+- Failure: with the network off, Save shows "Couldn't save your avatar. Try again." and keeps the sheet open (a Firestore write may queue offline instead of failing, so this may not trigger).
+- Reviewer noted: Emoji mode is tall (about 980px against a 90dvh panel), so Save sits below the fold on a phone and the preview scrolls away (consider a sticky Save footer).
+- Reviewer noted: Escape or a backdrop tap is allowed while Save is in flight, so a failed save's alert can be lost (needs `dismissible={!saving}` with the saving state lifted).
+- Reviewer noted: the selected emoji ring is primary-600 (accent-700) rather than the ticket's accent, and the emoji preview also gets the 52px heading font.
+- Swatch ring is 1px ground then 2px text (not the ticket's 3px and 5px) because only 2.4px separates swatches at 320px; check it reads as selected.
+
 ### RL-093 Settings grouped list
 
 - Settings is now Account, Appearance, Your data, Legal, then a Sign out card. At 390x844 and again at 320px (no horizontal scroll, long email truncates, Units segments wrap under the label) walk every row.
