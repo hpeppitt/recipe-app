@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { ArrowUp, ImagePlus } from '../ui/icons';
 import {
   ACCEPTED_IMAGE_TYPES,
@@ -31,6 +31,8 @@ interface ChatInputProps {
    * for.
    */
   initialValue?: string;
+  /** Rendered at the start of the composer row, left of the input pill. */
+  leading?: ReactNode;
 }
 
 export function ChatInput({
@@ -40,6 +42,7 @@ export function ChatInput({
   initialValue = '',
   sentImageCount = 0,
   onLayoutChange,
+  leading,
 }: ChatInputProps) {
   const [value, setValue] = useState(initialValue);
   const {
@@ -149,7 +152,9 @@ export function ChatInput({
         onChange={handlePick}
         className="hidden"
       />
-      <div className="mx-auto flex min-h-[52px] max-w-lg min-w-0 items-center gap-2 rounded-[26px] bg-neutral-100 py-1.5 pr-1.5 pl-1.5 shadow-sm">
+      <div className="mx-auto flex max-w-lg min-w-0 items-center gap-2">
+      {leading}
+      <div className="flex min-h-[52px] min-w-0 flex-1 items-center gap-2 rounded-[26px] bg-neutral-100 py-1.5 pr-1.5 pl-1.5 shadow-sm">
         <button
           ref={attachRef}
           type="button"
@@ -192,6 +197,7 @@ export function ChatInput({
         >
           <ArrowUp className="size-5" />
         </button>
+      </div>
       </div>
     </div>
   );

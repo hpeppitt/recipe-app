@@ -1788,3 +1788,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Prompt something that matches someone else's published recipe: the similar panel reads "Shared library, by [pill]". Your own match still reads "Your recipe, not on this device".
 - Reviewer noted: check 320px in all three places (long names: carousel wraps, chat wraps, composer truncates with an ellipsis); the pill now has a border so it shows in dark mode, so glance at the other pill sites (Explore, Saved, Search) too.
 - Branch someone else's recipe: the composer card reads "Branching **Title** [pill]" on one line at 44px, title truncating first. Your own local recipe shows no pill.
+
+### RL-137 Compact Save in the composer while the newest card is collapsed
+- Generate a recipe, then collapse the newest card ("Hide full recipe"): a "Save" pill with a bookmark sits left of the input. Tap it and you land on the saved recipe. Expand the card again and the pill goes; while a reply is generating it is absent.
+- At 320 and 390px (320px with the keyboard open): the input pill stays usable beside the Save pill. On a variation the pill's accessible name is "Save Variation".
+- Reviewer noted: below 640px the pill is icon-only (44px circle) so the input keeps its width; from 640px it reads "Save". The pill stays active beside a disabled composer, matching the card's Save.
