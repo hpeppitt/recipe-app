@@ -1557,3 +1557,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Visiting /recipe/:id/vary directly while signed out still shows the full-page sign-up screen.
 - Reviewer noted: after Not now on a Timeline Branch here, the stop sheet stays open with no hint why Branch did nothing (intentional).
 - Reviewer noted: the Timeline view mounts two SignUpDialog instances (one in TimelineView, one on the page); harmless.
+
+### RL-135 A sign-in link returns to the page it was asked from and remembers the action
+
+- Emulators (`npm run emulators`, `npm run dev:emulated`), 390 px, signed out: open `/recipe/<id>`, tap Save, Continue with email, send a link. The sent sheet says "The link brings you back to this page." Open the link in the same browser: you land on `/recipe/<id>` signed in, and the link sheets behave as before (nothing shows after a plain sign-in). Nothing runs the Save yet (RL-136).
+- In devtools, Application > Local Storage: after that send `recipe-app-pending-action` holds `{"kind":"save","recipeId":"<id>","at":...}`. Repeat for Suggest and Branch on the recipe page, Save, Suggest and Make it yours on a shared link (kinds save, suggest, branch), and Follow on `/profile/<uid>` (kind follow, uid). A plain Sign in (Activity, the You tab) sends with the key removed. Continue without an account removes it.
+- Open a link sent from `/profile/<uid>` in another browser (needs email): the "Finish signing in here" sheet shows over the profile page, which used to show no sheet because it sits outside the shell. Check one sheet only, never two, on `/` as well.
+- Below 1024px, a recipe opened from Explore now also shows a link sheet if one is due (it used to be hidden there).
+- On a self-contained `/shared#r=...` link, signed out: Save, send a link, open it. You land on the same shared recipe (the hash is kept on `/shared` only), not on not-found, and the address bar keeps the `#r=...` after the sign-in parameters are cleared. Check a very long recipe too: the whole hash rides in the link's continue URL.
+- Reviewer noted: a link to a local-only recipe, opened on another device, lands on not-found (that recipe is not on the other device).
+- Reviewer noted: the link completion's `replaceState` drops `history.state`, so a link opened in the same tab on a recipe shown beside the list at lg loses the list and shows the recipe alone.
+- Reviewer noted: `TermsGate` and `EmailLinkStatus` can open together after a link; check their stacking in the emulator walk.
+- Reviewer noted: `src/content/legal/cookies.ts` and `privacy.ts` do not yet list the `recipe-app-pending-action` key (author reviews policies before go-live).

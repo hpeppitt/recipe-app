@@ -1,7 +1,8 @@
 import { useState, useEffect, useId } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TermsCheckbox, TermsHint } from './TermsCheckbox';
-import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
+import { setTermsAcceptance, clearTermsAcceptance, setPendingAction, clearPendingAction } from '../../services/storage';
+import type { PendingIntent } from '../../lib/pendingAction';
 import { TERMS_VERSION } from '../../lib/legal';
 import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
@@ -15,6 +16,8 @@ interface AuthModalProps {
   action: AuthAction;
   onAuthenticated: () => void;
   onDismiss: () => void;
+  /** What the link is for, kept on this device so the app can pick it up after sign-in (RL-135). */
+  pending?: PendingIntent;
 }
 
 /**
@@ -22,7 +25,7 @@ interface AuthModalProps {
  * account can keep local bookmarks and nothing else (decision 1a), so callers are the
  * places where that is enough.
  */
-export function AuthModal({ open, action, onAuthenticated, onDismiss }: AuthModalProps) {
+export function AuthModal({ open, action, onAuthenticated, onDismiss, pending }: AuthModalProps) {
   const { user, signInAnonymously, sendEmailLink } = useAuth();
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [email, setEmail] = useState('');
@@ -59,6 +62,8 @@ export function AuthModal({ open, action, onAuthenticated, onDismiss }: AuthModa
     setError(null);
     try {
       await signInAnonymously();
+      // A guest cannot contribute (decision 1a); they save by tapping Save again.
+      clearPendingAction();
       onAuthenticated();
     } catch {
       setError('Failed to continue. Please try again.');
@@ -79,11 +84,15 @@ export function AuthModal({ open, action, onAuthenticated, onDismiss }: AuthModa
     try {
       // Stored first: the link can be opened before this promise settles.
       setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: email.trim() });
+      if (pending) setPendingAction(pending);
+      else clearPendingAction();
       await sendEmailLink(email.trim());
       setStep('sent');
     } catch {
       // No link went out, so nothing may later record this tick.
       clearTermsAcceptance();
+      // Only an intent this send wrote: with none, the clear above already ran.
+      if (pending) clearPendingAction();
       setError('Failed to send sign-in link. Please try again.');
     } finally {
       setLoading(false);

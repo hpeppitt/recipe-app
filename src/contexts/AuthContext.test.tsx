@@ -23,7 +23,13 @@ vi.mock('../services/firebase', () => ({
   sendEmailLinkForLinking: vi.fn(),
   completeEmailSignIn: (...a: unknown[]) => completeEmailSignIn(...a),
   isEmailLinkLanding: () => false,
-  EmailLinkError: class extends Error {},
+  EmailLinkError: class extends Error {
+    failure: unknown;
+    constructor(failure?: unknown) {
+      super('link');
+      this.failure = failure;
+    }
+  },
   setDisplayName: vi.fn(async () => {}),
   signOut: () => fbSignOut(),
 }));
@@ -55,7 +61,9 @@ vi.mock('../services/storage', () => ({
   clearTermsAcceptance: () => {
     storedTerms = null;
   },
+  clearPendingAction: () => clearPendingAction(),
 }));
+const clearPendingAction = vi.fn();
 let storedTerms: { version: string; acceptedAt: number; email: string } | null = null;
 const setAnalyticsUserId = vi.fn();
 let consentListener: (granted: boolean) => void = () => {};
@@ -80,6 +88,35 @@ vi.mock('../db/favorites', () => ({
 }));
 
 import { AuthProvider, useAuth } from './AuthContext';
+import { EmailLinkError } from '../services/firebase';
+
+describe('AuthProvider failed link clears the pending action (RL-135)', () => {
+  beforeEach(() => {
+    clearPendingAction.mockClear();
+    completeEmailSignIn.mockReset();
+  });
+
+  it.each(['expired', 'email-taken', 'failed'] as const)('clears it when the link is %s', async (reason) => {
+    completeEmailSignIn.mockRejectedValue(new EmailLinkError({ reason }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'error', reason }));
+    expect(clearPendingAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears it on an unknown failure', async () => {
+    completeEmailSignIn.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'error', reason: 'failed' }));
+    expect(clearPendingAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps it when the link only needs the email, since the retry can still succeed', async () => {
+    completeEmailSignIn.mockRejectedValue(new EmailLinkError({ reason: 'needs-email' }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'needs-email' }));
+    expect(clearPendingAction).not.toHaveBeenCalled();
+  });
+});
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
 const anon: FakeUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };

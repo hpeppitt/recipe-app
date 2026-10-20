@@ -223,7 +223,7 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
               <Button variant="secondary" fullWidth className="border-border-strong!" onClick={() => go(`/recipe/${selected.id}`)}>
                 Open
               </Button>
-              <Button fullWidth onClick={() => branch(`/recipe/${selected.id}/vary`)}>
+              <Button fullWidth onClick={() => branch(selected.id)}>
                 Branch here
               </Button>
             </div>

@@ -116,8 +116,8 @@ export function EmailStepNotes() {
 }
 
 /**
- * The 5c step. The link returns to the app's origin (actionCodeSettings.url), not to
- * the page the sheet opened on, so the copy promises Recipe Lab and nothing more.
+ * The 5c step. The link returns to the page the sheet opened on (actionCodeSettings.url,
+ * RL-135), so the copy promises this page.
  */
 export function SentStep({
   titleId,
@@ -151,7 +151,7 @@ export function SentStep({
         <span className="inline-block max-w-full break-all rounded-full bg-neutral-100 px-2.5 py-0.5 text-sm font-semibold text-neutral-800">
           {email}
         </span>
-        . Open it on this device and it brings you back to Recipe Lab.
+        . The link brings you back to this page.
       </p>
       <Button fullWidth variant="ghost" onClick={onDifferentEmail} className="relative">
         Use a different email

@@ -22,6 +22,7 @@ import {
 } from './storage';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { linkReturnPath } from '../lib/pendingAction';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -96,7 +97,8 @@ export async function signInAnonymously() {
 export async function sendEmailSignInLink(email: string) {
   if (!auth) throw new Error('Firebase not configured');
   const actionCodeSettings = {
-    url: window.location.origin,
+    // Same page, so the link returns where it was asked for (RL-135).
+    url: window.location.origin + linkReturnPath(window.location.pathname, window.location.hash),
     handleCodeInApp: true,
   };
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
@@ -106,7 +108,7 @@ export async function sendEmailSignInLink(email: string) {
 export async function sendEmailLinkForLinking(email: string) {
   if (!auth) throw new Error('Firebase not configured');
   const actionCodeSettings = {
-    url: window.location.origin,
+    url: window.location.origin + linkReturnPath(window.location.pathname, window.location.hash),
     handleCodeInApp: true,
   };
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
@@ -172,7 +174,7 @@ export function isEmailLinkLanding(): boolean {
  * retried an already-consumed code and failed again, forever, silently.
  */
 function clearLinkFromUrl(): void {
-  window.history.replaceState({}, '', window.location.pathname);
+  window.history.replaceState({}, '', linkReturnPath(window.location.pathname, window.location.hash));
 }
 
 function classifyLinkError(err: unknown): EmailLinkFailure {

@@ -647,7 +647,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           )}
           <button
             type="button"
-            onClick={() => branch(`/recipe/${recipe.id}/vary`)}
+            onClick={() => branch(recipe.id)}
             className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
           >
             <GitBranchPlus className="h-4 w-4 shrink-0" />
@@ -665,6 +665,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         action={{ kind: 'save' }}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
+        pending={{ kind: 'save', recipeId: recipe.id }}
       />
 
       <SignUpDialog
@@ -679,6 +680,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         action={{ kind: 'suggest' }}
         body={`Suggestions go to the person who wrote ${recipe.title}, so they come from a name rather than an anonymous account. Add your email and you can suggest, reply, and publish recipes of your own.`}
         onClose={() => setShowSuggestSignUp(false)}
+        pending={{ kind: 'suggest', recipeId: recipe.id }}
       />
 
       {sentTo && (

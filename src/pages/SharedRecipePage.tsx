@@ -368,7 +368,7 @@ function SharedRecipeView() {
                 )}
                 <button
                   type="button"
-                  onClick={() => branch(`/recipe/${paramId}/vary`)}
+                  onClick={() => branch(paramId)}
                   className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
                 >
                   <GitBranchPlus className="h-4 w-4 shrink-0" />
@@ -419,6 +419,7 @@ function SharedRecipeView() {
         action={{ kind: 'save' }}
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
+        pending={paramId ? { kind: 'save', recipeId: paramId } : undefined}
       />
 
       {branchSignUp}
@@ -428,6 +429,7 @@ function SharedRecipeView() {
         action={{ kind: 'suggest' }}
         body={`Suggestions go to the person who wrote ${recipe.title}, so they come from a name rather than an anonymous account. Add your email and you can suggest, reply, and publish recipes of your own.`}
         onClose={() => setShowSuggestSignUp(false)}
+        pending={paramId ? { kind: 'suggest', recipeId: paramId } : undefined}
       />
 
       {sentTo && (

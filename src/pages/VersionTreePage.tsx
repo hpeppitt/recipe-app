@@ -150,7 +150,7 @@ export function VersionTreePage() {
       {showTree && (
         <div className="sticky bottom-0 z-30">
           <div className="max-w-lg mx-auto bg-surface shadow-lg border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <Button fullWidth className="min-w-0" onClick={() => branch(`/recipe/${recipe.id}/vary`)}>
+            <Button fullWidth className="min-w-0" onClick={() => branch(recipe.id)}>
               <span className="truncate">{`Branch from "${recipe.title}"`}</span>
             </Button>
           </div>

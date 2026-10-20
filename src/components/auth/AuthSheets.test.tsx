@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, fireEvent, act, render, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { renderWithProviders } from '../../test/renderWithProviders';
-import { getTermsAcceptance } from '../../services/storage';
+import { getTermsAcceptance, getPendingAction, setPendingAction } from '../../services/storage';
 import { AuthContext, type AuthContextType } from '../../contexts/AuthContext';
 import type { AppUser } from '../../types/recipe';
 
@@ -105,7 +105,7 @@ describe('AuthModal', () => {
     expect(screen.getByRole('button', { name: 'Continue with email' })).toHaveFocus();
   });
 
-  it('a sent link shows Check your inbox without promising a return to this page, and can go back to the email step', async () => {
+  it('a sent link shows Check your inbox, says the link returns to this page, and can go back to the email step', async () => {
     const sendEmailLink = vi.fn(async () => {});
     const { onDismiss } = mount({ sendEmailLink });
     await sendFromEmailStep(screen.getByRole('dialog'), 'Send me a link');
@@ -113,7 +113,7 @@ describe('AuthModal', () => {
     const dialog = screen.getByRole('dialog', { name: 'Check your inbox' });
     expect(screen.getByRole('heading', { name: 'Check your inbox' })).toHaveFocus();
     expect(within(dialog).getByText(/^We sent a sign-in link to/).textContent).toBe(
-      'We sent a sign-in link to a@example.com. Open it on this device and it brings you back to Recipe Lab.'
+      'We sent a sign-in link to a@example.com. The link brings you back to this page.'
     );
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -171,6 +171,73 @@ describe('AuthModal', () => {
     rerender(ui(anon));
     expect(onAuthenticated).toHaveBeenCalled();
     expect(dialog).not.toHaveAttribute('open');
+  });
+});
+
+describe('pending action (RL-135)', () => {
+  it('AuthModal stores the intent before the send, and the guest option clears it', async () => {
+    let seen: unknown = 'not called';
+    const sendEmailLink = vi.fn(async () => {
+      seen = getPendingAction();
+    });
+    renderWithProviders(
+      <AuthModal open action={{ kind: 'save' }} onAuthenticated={() => {}} onDismiss={() => {}} pending={{ kind: 'save', recipeId: 'r1' }} />,
+      { user: null, auth: { sendEmailLink } }
+    );
+    await sendFromEmailStep(screen.getByRole('dialog'), 'Send me a link');
+    expect(seen).toMatchObject({ kind: 'save', recipeId: 'r1' });
+    expect(getPendingAction()).toMatchObject({ kind: 'save', recipeId: 'r1' });
+  });
+
+  it('the guest option clears a stored intent', async () => {
+    setPendingAction({ kind: 'save', recipeId: 'r1' });
+    renderWithProviders(
+      <AuthModal open action={{ kind: 'save' }} onAuthenticated={() => {}} onDismiss={() => {}} pending={{ kind: 'save', recipeId: 'r1' }} />,
+      { user: null, auth: { signInAnonymously: vi.fn(async () => {}) } }
+    );
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Continue without an account' })));
+    expect(getPendingAction()).toBeNull();
+  });
+
+  it('a failed guest sign-in keeps the stored intent', async () => {
+    setPendingAction({ kind: 'save', recipeId: 'r1' });
+    renderWithProviders(<AuthModal open action={{ kind: 'save' }} onAuthenticated={() => {}} onDismiss={() => {}} />, {
+      user: null,
+      auth: {
+        signInAnonymously: vi.fn(async () => {
+          throw new Error('network');
+        }),
+      },
+    });
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Continue without an account' })));
+    expect(getPendingAction()).toMatchObject({ kind: 'save', recipeId: 'r1' });
+  });
+
+  it('a link sent without an intent replaces an older one', async () => {
+    setPendingAction({ kind: 'save', recipeId: 'r1' });
+    renderWithProviders(<AuthModal open action={{ kind: 'continue' }} onAuthenticated={() => {}} onDismiss={() => {}} />, {
+      user: null,
+      auth: { sendEmailLink: vi.fn(async () => {}) },
+    });
+    await sendFromEmailStep(screen.getByRole('dialog'), 'Send me a link');
+    expect(getPendingAction()).toBeNull();
+  });
+
+  it('SignUpDialog stores a follow, and a failed send leaves none', async () => {
+    const mount = (sendEmailLink: () => Promise<void>) =>
+      renderWithProviders(
+        <SignUpDialog open action={{ kind: 'follow', name: 'Chef' }} body="b" onClose={() => {}} pending={{ kind: 'follow', uid: 'u1' }} />,
+        { user: null, auth: { sendEmailLink } }
+      );
+    const { unmount } = mount(async () => {});
+    await sendFromEmailStep(screen.getByRole('dialog'), 'Send me a link');
+    expect(getPendingAction()).toMatchObject({ kind: 'follow', uid: 'u1' });
+    unmount();
+    mount(async () => {
+      throw new Error('network');
+    });
+    await sendFromEmailStep(screen.getByRole('dialog'), 'Send me a link');
+    expect(getPendingAction()).toBeNull();
   });
 });
 
