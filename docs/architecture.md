@@ -275,7 +275,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/share.ts`** (`pickShareUrl`) — the cloud-vs-hash decision, isolated so the
   fallback shape can change without touching the share UI. The decode path validates with Zod
   and returns null on failure.
-- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`, `tileRowTitle`, `branchingThisWeek`, `mostBranched`, `WEEK_MS`): the list logic behind Explore, Saved and the own profile, so
+- **`lib/library.ts`** (`buildFeed`, `filterFeed`, `splitLibrary`, `tileRowTitle`, `branchingThisWeek`, `mostBranched`, `WEEK_MS`, and the Pantry rule `PANTRY_TIMES`, `pantryItems`, `matchesPantry`, `filterPantry`, RL-168): the list logic behind Explore, Saved and the own profile, so
   a browse dimension such as tag chips (RL-009) changes one module.
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens
@@ -283,7 +283,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/suggestion.ts`** (`composeSuggestionMessage`, `parseAmountText`, `describeEdits`, `applySuggestionEdits`, `hasApplicableEdits`, `noteOf`, `buildBranchFromSuggestion`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): the structured suggestion model (RL-145). A suggestion may carry `edits[]` and `branchId`; `composeSuggestionMessage` still writes the free-text `message` from them, and the helpers describe, apply and branch from the edits. Suggest mode writes them (RL-147); Apply and Keep as branch read them (RL-148).
 - **`components/recipe/SuggestMode.tsx`** (RL-107): the recipe page and the shared page as the suggest form; composes with
   `lib/suggestion.ts` and sends `{ message, edits }` through the page's existing submit (ingredient and step edits plus a general note).
-- **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, RL-125): the Create tab's three
+- **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, `buildPantryPrompt`, RL-125): the Create tab's three
   cycling words and the prompt they build for the chat, so the options or the sentence change in one module.
 - **`lib/diet.ts`** (`dietLabel`, RL-130): the diet pill's label from `recipe.tags`, so there is no diet field
   and a new diet is one line in one module.

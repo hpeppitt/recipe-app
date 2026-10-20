@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CREATE_OPTIONS, DEFAULT_SELECTION, buildCreatePrompt, cycleWord, type CreateSelection, type CreateSlot } from './createPrompt';
+import { CREATE_OPTIONS, DEFAULT_SELECTION, buildCreatePrompt, buildPantryPrompt, cycleWord, type CreateSelection, type CreateSlot } from './createPrompt';
 
 describe('createPrompt', () => {
   it('builds the default prompt from the first options', () => {
@@ -32,5 +32,20 @@ describe('createPrompt', () => {
     const out = cycleWord(input, 2);
     expect(input).toEqual([0, 0, 0]);
     expect(out).not.toBe(input);
+  });
+});
+
+describe('buildPantryPrompt', () => {
+  it('handles 0, 1, 2 and 3 items', () => {
+    expect(buildPantryPrompt([], 'any')).toBe('Something with what I have');
+    expect(buildPantryPrompt(['eggs'], 'any')).toBe('Something with eggs');
+    expect(buildPantryPrompt(['eggs', 'feta'], 'any')).toBe('Something with eggs and feta');
+    expect(buildPantryPrompt(['eggs', 'tomatoes', 'feta'], 'any')).toBe('Something with eggs, tomatoes and feta');
+  });
+
+  it('adds the time limit', () => {
+    expect(buildPantryPrompt(['eggs'], '30')).toBe('Something with eggs in under 30 minutes');
+    expect(buildPantryPrompt(['eggs'], '60')).toBe('Something with eggs in under an hour');
+    expect(buildPantryPrompt([], '15')).toBe('Something with what I have in under 15 minutes');
   });
 });
