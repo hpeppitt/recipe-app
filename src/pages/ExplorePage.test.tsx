@@ -42,6 +42,7 @@ beforeEach(async () => {
   getRecent.mockReset();
   getRecent.mockResolvedValue([]);
   getOne.mockReset();
+  getOne.mockResolvedValue(null);
   clearBranchingThisWeekCache();
   getPage.mockResolvedValue({ recipes: [], cursor: null, hasMore: false });
 });
@@ -414,6 +415,76 @@ describe('ExplorePage Branching fast this week', () => {
     renderWithProviders(<ExplorePage />, localOnly);
     await screen.findByRole('link', { name: 'Local Loaf' });
     expect(getRecent).not.toHaveBeenCalled();
+  });
+});
+
+describe('ExplorePage Most branched', () => {
+  const NOW = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const root = (id: string) => cloud({ id, title: id, createdAt: NOW - 100 * DAY });
+  const kid = (id: string, rootId: string, daysAgo: number) =>
+    cloud({ id, rootId, parentId: rootId, depth: 1, title: id, createdAt: NOW - daysAgo * DAY });
+  const seed = () => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
+    // z: 3 in 90 days but 0 in 30; a: 2 in 90 days, 1 in 30; y: 1 in 30.
+    getRecent.mockResolvedValue([kid('k1', 'a', 1), kid('k2', 'a', 60), kid('k3', 'z', 40), kid('k4', 'z', 50), kid('k5', 'z', 70), kid('k6', 'y', 2)]);
+    getOne.mockImplementation(async (id: string) => root(id));
+  };
+  const section = () => screen.findByRole('region', { name: 'Most branched' });
+
+  it('renders ranked rows linking to the root, defaulting to 90 days with no All time', async () => {
+    seed();
+    renderWithProviders(<ExplorePage />);
+    const sec = await section();
+    expect(within(sec).getAllByRole('link', { name: /^\d\./ }).map((a) => a.getAttribute('aria-label'))).toEqual(['1. z, 3 branches', '2. a, 2 branches', '3. y, 1 branch']);
+    expect(within(sec).getByRole('link', { name: /^1\. z/ })).toHaveAttribute('href', '/recipe/z');
+    fireEvent.click(within(sec).getByRole('button', { name: /last 90 days/ }));
+    expect(screen.getAllByRole('menuitemradio').map((m) => m.textContent)).toEqual(['Last 30 days', 'Last 90 days']);
+    expect(screen.queryByRole('menuitemradio', { name: /all time/i })).not.toBeInTheDocument();
+  });
+
+  it('re-ranks when the range changes and Escape closes the menu', async () => {
+    seed();
+    renderWithProviders(<ExplorePage />);
+    const sec = await section();
+    fireEvent.click(within(sec).getByRole('button', { name: /last 90 days/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Last 30 days' }));
+    await screen.findByRole('button', { name: /last 30 days/ });
+    await act(async () => {});
+    expect(within(await section()).getAllByRole('link', { name: /^\d\./ }).map((a) => a.getAttribute('aria-label'))).toEqual(['1. a, 1 branch', '2. y, 1 branch']);
+    fireEvent.click(screen.getByRole('button', { name: /last 30 days/ }));
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('a failed range switch shows Retry, not the empty line, and retry recovers', async () => {
+    seed();
+    renderWithProviders(<ExplorePage />);
+    const sec = await section();
+    // Pretend the shared read is gone: the cached success keeps the 30 day read working, so fail via a fresh query.
+    clearBranchingThisWeekCache();
+    getRecent.mockRejectedValueOnce(new Error('boom'));
+    fireEvent.click(within(sec).getByRole('button', { name: /last 90 days/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Last 30 days' }));
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.queryByText('No branches in this range.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Showing 2 families for last 30 days')).toBeInTheDocument();
+  });
+
+  it('is hidden under a tag and in local-only mode', async () => {
+    seed();
+    renderWithProviders(<ExplorePage />);
+    await section();
+    fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
+    expect(screen.queryByRole('region', { name: 'Most branched' })).not.toBeInTheDocument();
+  });
+
+  it('is hidden in local-only mode', async () => {
+    await db.recipes.add(makeRecipe({ id: 'l1', title: 'Local Loaf' }));
+    renderWithProviders(<ExplorePage />, localOnly);
+    await screen.findByRole('link', { name: 'Local Loaf' });
+    expect(screen.queryByRole('region', { name: 'Most branched' })).not.toBeInTheDocument();
   });
 });
 

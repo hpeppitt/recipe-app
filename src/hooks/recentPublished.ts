@@ -9,7 +9,7 @@ export const RECENT_MAX = 100;
 // Read only, module state for the page session, shared by Branching fast this week and Most
 // branched (RL-166): one 90 day query, one read per unknown root. Only successes are cached, so
 // a timeout or failure is retried on the next mount instead of sticking until reload.
-let recentQuery: Promise<PublishedRecipe[]> | undefined;
+let recentQuery: Promise<PublishedRecipe[] | null> | undefined;
 const rootReads = new Map<string, Promise<PublishedRecipe | null>>();
 
 /** Test use only: the caches are module state and would leak between tests. */
@@ -37,11 +37,16 @@ async function bounded<T>(read: Promise<T>, tag: string): Promise<T | typeof FAI
 
 /** The newest 100 published recipes from the last 90 days. `tag` names the first caller in telemetry. */
 export function readRecent(tag: string): Promise<PublishedRecipe[]> {
+  return readRecentOrFail(tag).then((out) => out ?? []);
+}
+
+/** As `readRecent`, but null when the read failed, so a caller can tell failure from nothing. */
+export function readRecentOrFail(tag: string): Promise<PublishedRecipe[] | null> {
   if (!recentQuery) {
     const p = bounded(getRecentPublishedRecipes(Date.now() - RECENT_DAYS * 86400000, RECENT_MAX), tag).then((out) => {
       if (out !== FAILED) return out;
       if (recentQuery === p) recentQuery = undefined;
-      return [] as PublishedRecipe[];
+      return null;
     });
     recentQuery = p;
   }

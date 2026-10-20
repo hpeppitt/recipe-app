@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isFirebaseConfigured } from '../services/firebase';
 import { buildFeed, mostBranched, type FeedRecipe } from '../lib/library';
-import { RECENT_DAYS, RECENT_MAX, readRecent, readRoot } from './recentPublished';
+import { RECENT_DAYS, RECENT_MAX, readRecentOrFail, readRoot } from './recentPublished';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TOP = 3;
@@ -9,7 +9,7 @@ const TOP = 3;
 export type MostBranchedRange = '30' | '90';
 export type MostBranchedTile = FeedRecipe & { count: number };
 type Result = {
-  status: 'loading' | 'ready' | 'none';
+  status: 'loading' | 'ready' | 'none' | 'error';
   tiles: MostBranchedTile[];
   /** Always false: there is no all-time read (RL-166), so "All time" is never offered. */
   allTimeAvailable: false;
@@ -17,8 +17,10 @@ type Result = {
   coverageStartMs: number;
   /** True when this range starts before `coverageStartMs`. */
   capped: boolean;
+  /** Starts the read again after an 'error'. */
+  retry: () => void;
 };
-const EMPTY = { tiles: [] as MostBranchedTile[], allTimeAvailable: false as const, coverageStartMs: 0, capped: false };
+const EMPTY = { retry: () => {}, tiles: [] as MostBranchedTile[], allTimeAvailable: false as const, coverageStartMs: 0, capped: false };
 
 /**
  * Organic 1b's "Most branched" (RL-166): the top three families by branches in the last 30 or 90
@@ -27,13 +29,19 @@ const EMPTY = { tiles: [] as MostBranchedTile[], allTimeAvailable: false as cons
  * server-side counter. Never writes to Dexie or Firestore; reads nothing in local-only mode.
  */
 export function useMostBranched(range: MostBranchedRange): Result {
-  const [state, setState] = useState<(Result & { range: MostBranchedRange }) | null>(null);
+  const [state, setState] = useState<(Omit<Result, 'retry'> & { range: MostBranchedRange }) | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!isFirebaseConfigured) return;
     let cancelled = false;
     void (async () => {
-      const library = await readRecent('most-branched');
+      const read = await readRecentOrFail('most-branched');
+      if (!read) {
+        if (!cancelled) setState({ range, status: 'error', ...EMPTY, capped: false });
+        return;
+      }
+      const library = read;
       const now = Date.now();
       const sinceMs = now - Number(range) * DAY_MS;
       const full = library.length >= RECENT_MAX;
@@ -54,9 +62,13 @@ export function useMostBranched(range: MostBranchedRange): Result {
     return () => {
       cancelled = true;
     };
-  }, [range]);
+  }, [range, attempt]);
 
+  const retry = () => {
+    setState(null);
+    setAttempt((n) => n + 1);
+  };
   if (!isFirebaseConfigured) return { status: 'none', ...EMPTY };
   // Results from another range never show under this range's label.
-  return state && state.range === range ? state : { status: 'loading', ...EMPTY };
+  return state && state.range === range ? { ...state, retry } : { status: 'loading', ...EMPTY, retry };
 }
