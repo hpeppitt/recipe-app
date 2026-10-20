@@ -57,6 +57,54 @@ notifications are dropped, not delayed.
 
 ---
 
+## 0.1 After v1: the design spec's roadmap (2026-10-20)
+
+Source: [docs/design/organic/SPEC.md](docs/design/organic/SPEC.md) section 12 and its
+Overrides list. The v1 gaps from that spec were groomed into tickets on 2026-10-20. Everything
+below is planned, not ticketed. Groom an item when it is next.
+
+**Deferred from v1 by the author (2026-10-20).**
+- Explore: "Most branched" top 3, the Pantry card and chip, and the 1c Pantry sheet (recipes
+  that use every listed ingredient, live count in the CTA, "write one with these").
+- Profile: Collabs tab, Started / Grew / Followers / Saves tiles, trees button, the 4b Forest
+  view (each family drawn small, the person's nodes in accent), full-screen 14b avatar editor.
+- Generate: 7a typing-pause dedup card, 7b "Someone's already baked this" sheet with Same /
+  Similar, 7c chip split (Nobody's tried / Already a branch), 6b chips ordered by the family's
+  past branches, Grow opening What changed.
+- Settings: "Weigh liquids and volumes" toggle (density-1 estimates shown with "≈"). Reverses
+  the units rule of leaving unconvertible amounts as written, so record it when taken.
+- 12c import from a link, with the 7b dedup notice.
+- Google sign-in. Apple stays out while the rules gate on `email_verified`.
+
+**Phase 1 · The cooking signal (spec: 4 wks).** v1 measures branching; after v1 the signal
+is cooking.
+- 25a "I made this" sheet from ticking the last step or a footer **Cooked**: Would make again
+  / Needs a tweak (the vote, no stars), optional note, offer to grow the note into a branch.
+  The spec's optional cook photo **conflicts with decision 3** (photos out); decide before
+  grooming.
+- 25b cook log, public "Made N times" row on the recipe page, Profile Saves tile becomes
+  Cooked, footer Suggest · Cooked · Branch, cook mode (screen awake, one step at a time).
+
+**Phase 2 · Kitchen (5 wks).** 24a Kitchen replaces Saved (tab and `/kitchen`): Shopping
+list, Pantry, This week (stub), Cook log, Saved row. 26a shopping list grouped by aisle with
+summed amounts, Shop mode, Bought it all. 26b "Which banana bread are you shopping for?"
+sheet. 27a collections after save. Desktop rail gets Kitchen.
+
+**Phase 3 · Personal and shared (6 wks).** 28b learned taste profile at `/settings/taste`
+(not the 28a questionnaire). 29a household pantry with ageing nudges and "Cook from what's
+here" (needs shared household data and rules). 23a Explore by cooking and a Tonight card.
+31a cook counts and a "Most cooked" trophy on the tree. 6b chips learn from the family.
+
+**Phase 4 · Bring recipes in, send them out (5 wks).** 30a import from a link or a photo of
+a page (photo as generation input only, as the 2026-10-20 chat photos are). 30b review the
+import with unclear amounts flagged, never guessed. 27b shared cookbook at `/c/:id` with
+Follow.
+
+**Not on the roadmap (spec):** hands-free cook mode, weekly plan generation, merging a
+branch into its parent, ratings or stars.
+
+---
+
 ## 1. Ground truth
 
 Everything below was verified against the code, the test run, or the git log on this
