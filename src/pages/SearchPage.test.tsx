@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, within } from '@testing-library/react';
-import { Link, Routes, Route, useLocation } from 'react-router-dom';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { screen, fireEvent, within, waitFor } from '@testing-library/react';
+import { Link, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { Recipe } from '../types/recipe';
@@ -28,7 +28,13 @@ import { SearchPage } from './SearchPage';
 
 function Probe() {
   const { pathname, search, state } = useLocation();
-  return <output data-testid="probe">{`${pathname}${search}|${JSON.stringify(state)}`}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output data-testid="probe">{`${pathname}${search}|${JSON.stringify(state)}`}</output>
+      <button onClick={() => navigate(-1)}>history back</button>
+    </>
+  );
 }
 
 const render = (route = '/search', localOnly = false) =>
@@ -68,6 +74,12 @@ const branch = makeRecipe({
   title: 'Spicy Bean Stew',
   prompt: 'make it spicy',
   createdAt: 4,
+});
+
+beforeAll(() => {
+  // jsdom has no showModal/close; mirror the open attribute.
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open'); };
 });
 
 beforeEach(() => {
@@ -216,7 +228,7 @@ describe('SearchPage', () => {
   it('names the chip group', () => {
     render();
     const group = screen.getByRole('group', { name: 'Filter results' });
-    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['All', 'Under 30 min', 'Easy', 'Branches']);
+    expect(within(group).getAllByRole('button').map((b) => b.textContent)).toEqual(['Pantry', 'All', 'Under 30 min', 'Easy', 'Branches']);
   });
 
   it('disables Load more while a page loads', () => {
@@ -242,5 +254,124 @@ describe('SearchPage', () => {
     expect(screen.getByText('Nothing called "pumpkin" yet')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Search more shared recipes' }));
     expect(lib.cloud.loadMore).toHaveBeenCalled();
+  });
+
+  describe('Pantry', () => {
+    const omelette = makeRecipe({ id: 'om', title: 'Omelette', totalTime: 20, ingredients: [makeIngredient('Eggs'), makeIngredient('feta')], createdAt: 5 });
+    const frittata = makeRecipe({ id: 'fr', title: 'Frittata', totalTime: 50, ingredients: [makeIngredient('eggs'), makeIngredient('feta')], createdAt: 6 });
+    const eggBranch = makeRecipe({ id: 'om-b', parentId: 'om', rootId: 'om', depth: 1, title: 'Egg Wrap', totalTime: 10, ingredients: [makeIngredient('eggs'), makeIngredient('feta')], createdAt: 7 });
+    beforeEach(() => {
+      lib.local = [stew, salad, branch, omelette, frittata, eggBranch];
+    });
+    const addItem = (name: string) => {
+      const field = screen.queryByRole('textbox', { name: 'Add an ingredient' });
+      if (!field) fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+      const input = screen.getByRole('textbox', { name: 'Add an ingredient' });
+      fireEvent.change(input, { target: { value: name } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+    };
+    const sheet = () => screen.getByRole('dialog', { name: 'What have you got?' });
+
+    it('adds and removes items, and the Show button counts live', () => {
+      render();
+      fireEvent.click(screen.getByRole('button', { name: 'Pantry' }));
+      addItem('eggs');
+      expect(within(sheet()).getByRole('button', { name: 'Remove eggs' })).toBeInTheDocument();
+      expect(within(sheet()).getByRole('button', { name: 'Show 3 recipes' })).toBeInTheDocument();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Add an ingredient' }), { target: { value: 'feta' } });
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Add an ingredient' }), { key: ',' });
+      fireEvent.click(within(sheet()).getByRole('radio', { name: '30 min' }));
+      expect(within(sheet()).getByRole('button', { name: 'Show 2 recipes' })).toBeInTheDocument();
+      addItem('walnut');
+      expect(within(sheet()).getByRole('button', { name: 'Show recipes' })).toBeInTheDocument();
+      fireEvent.click(within(sheet()).getByRole('button', { name: 'Remove walnut' }));
+      fireEvent.click(within(sheet()).getByRole('radio', { name: '15 min' }));
+      expect(within(sheet()).getByRole('button', { name: 'Show 1 recipe' })).toBeInTheDocument();
+      fireEvent.click(within(sheet()).getByRole('button', { name: 'Reset' }));
+      expect(within(sheet()).queryByRole('button', { name: /^Remove/ })).toBeNull();
+      expect(within(sheet()).getByRole('radio', { name: 'Any' })).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('Show filters, writes the URL and the Using line, and keeps branches', () => {
+      render('/search?q=stew');
+      fireEvent.click(screen.getByRole('button', { name: 'Pantry' }));
+      addItem('Eggs');
+      addItem('feta');
+      fireEvent.click(within(sheet()).getByRole('radio', { name: '30 min' }));
+      fireEvent.click(within(sheet()).getByRole('button', { name: 'Show 2 recipes' }));
+      expect(rowNames()).toEqual(['Egg Wrap', 'Omelette']);
+      expect(probe()).toContain('?p=eggs%2Cfeta&pt=30');
+      expect(probe()).not.toContain('q=');
+      expect(probe()).not.toContain('sheet');
+      expect(screen.getByText('Using eggs, feta · under 30 min')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Pantry, 2 ingredients' })).toHaveAttribute('aria-haspopup', 'dialog');
+      expect(screen.getByRole('searchbox')).toHaveValue('');
+    });
+
+    it('restores the filter from ?p= on load and opens the sheet from ?sheet=pantry', () => {
+      render('/search?p=eggs&pt=15&sheet=pantry');
+      expect(rowNames()).toEqual(['Egg Wrap']);
+      expect(screen.getByText('Using eggs · under 15 min')).toBeInTheDocument();
+      expect(within(sheet()).getByRole('button', { name: 'Remove eggs' })).toBeInTheDocument();
+      expect(within(sheet()).getByRole('radio', { name: '15 min' })).toHaveAttribute('aria-checked', 'true');
+    });
+
+    it('starts focus on the first chip, Escape closes and the URL drops sheet', async () => {
+      render('/search?p=eggs&sheet=pantry');
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Remove eggs' })).toHaveFocus());
+      fireEvent(sheet(), new Event('cancel', { cancelable: true }));
+      expect(probe()).not.toContain('sheet');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('Escape in the Add field cancels it, empty Enter adds nothing', async () => {
+      render('/search?sheet=pantry');
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Add' })).toHaveFocus());
+      addItem('');
+      expect(within(sheet()).queryByRole('button', { name: /^Remove/ })).toBeNull();
+      fireEvent.keyDown(screen.getByRole('textbox', { name: 'Add an ingredient' }), { key: 'Escape' });
+      expect(screen.getByRole('button', { name: 'Add' })).toHaveFocus();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('write-a-new-one opens the chat with the built prompt, unsent', () => {
+      render('/search?sheet=pantry');
+      addItem('eggs');
+      addItem('feta');
+      fireEvent.click(within(sheet()).getByRole('radio', { name: '30 min' }));
+      fireEvent.click(within(sheet()).getByRole('button', { name: 'Or write a new one with these' }));
+      expect(probe()).toBe('/create|{"suggestion":"Something with eggs and feta in under 30 minutes"}');
+    });
+
+    it('Back closes the sheet it pushed, and Show with no items is disabled', () => {
+      render();
+      fireEvent.click(screen.getByRole('button', { name: 'Pantry' }));
+      expect(probe()).toContain('sheet=pantry');
+      expect(within(sheet()).getByRole('button', { name: 'Add an ingredient' })).toBeDisabled();
+      fireEvent.click(within(sheet()).getByRole('radio', { name: '30 min' }));
+      expect(within(sheet()).getByRole('button', { name: 'Add an ingredient' })).toBeDisabled();
+      fireEvent.click(screen.getByRole('button', { name: 'history back' }));
+      expect(probe()).not.toContain('sheet');
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+
+    it('splits a pasted draft on commas', () => {
+      render('/search?sheet=pantry');
+      addItem('eggs, feta');
+      expect(within(sheet()).getByRole('button', { name: 'Remove feta' })).toBeInTheDocument();
+    });
+
+    it('typing a query clears the pantry filter', () => {
+      render('/search?p=eggs&pt=30');
+      type('stew');
+      expect(rowNames()).toEqual(['Spicy Bean Stew', 'Bean Stew']);
+      expect(probe()).toContain('?q=stew');
+      expect(probe()).not.toContain('p=');
+    });
+
+    it('local-only mode hides the write action', () => {
+      render('/search?sheet=pantry', true);
+      expect(within(sheet()).queryByRole('button', { name: 'Or write a new one with these' })).toBeNull();
+    });
   });
 });

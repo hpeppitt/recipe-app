@@ -1831,3 +1831,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-168 Pantry helpers
 - No visible change: pure helpers for the Pantry sheet (RL-169). Nothing to check in the app.
+
+### RL-169 Pantry chip and sheet on Search
+- On a phone, light and dark: Search, Pantry. Add three items by typing (Enter or comma), pick 30 min, and watch the Show button count change as items are added. Show: the chip reads "Pantry · 3", the "Using ... · under 30 min" line sits above results that all use every item. Open one, come Back: the filter is still there.
+- Pantry again, then "Or write a new one with these": the chat composer holds "Something with ... in under 30 minutes", unsent.
+- Keyboard: focus starts on the first item or Add, Tab follows the layout, Escape closes and focus returns to the Pantry chip. Typing in the search box clears the filter. Pills are 44px tall (the design says 34px for the chip; kept at the 44px target floor).

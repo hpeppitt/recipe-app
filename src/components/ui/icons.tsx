@@ -36,6 +36,12 @@ export const GripVertical = ({ className }: P) => (
 export const Plus = ({ className }: P) => (
   <Icon className={className}><path d="M5 12h14" /><path d="M12 5v14" /></Icon>
 );
+export const SlidersHorizontal = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M21 4h-7" /><path d="M10 4H3" /><path d="M21 12h-9" /><path d="M8 12H3" /><path d="M21 20h-5" /><path d="M12 20H3" />
+    <path d="M14 2v4" /><path d="M8 10v4" /><path d="M16 18v4" />
+  </Icon>
+);
 export const Minus = ({ className }: P) => (
   <Icon className={className}><path d="M5 12h14" /></Icon>
 );
