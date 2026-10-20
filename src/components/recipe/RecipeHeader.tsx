@@ -29,6 +29,8 @@ interface RecipeHeaderProps {
   onSuggest: () => void;
   /** In the wide-screen pane (RL-116): the pane pads the page, and sizes follow the pane's width, not the viewport. */
   inPane?: boolean;
+  /** From lg the tree icon opens the family panel (RL-144) instead of going to the tree page. */
+  onFamily?: () => void;
 }
 
 function SheetRow({ icon, label, onClick, disabled, danger, note }: {
@@ -107,7 +109,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
     >
       <IconButton variant={variant} label="Go back" onClick={onBack} icon={<ChevronLeft className="h-5 w-5" />} />
       <div className="flex-1" />
-      <IconButton variant={variant} label="Version tree" href={`/recipe/${recipe.id}/tree`} icon={<Network className="h-5 w-5" />} />
+      <IconButton variant={variant} label="Version tree" {...(props.onFamily ? { onClick: props.onFamily, haspopup: 'dialog' as const } : { href: `/recipe/${recipe.id}/tree` })} icon={<Network className="h-5 w-5" />} />
       {props.showFavorite && (
         <IconButton
           variant={variant}

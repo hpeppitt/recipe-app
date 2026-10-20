@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
@@ -39,9 +39,12 @@ import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
 import { rateLimitMessage, TooManyMovedBranchesError } from '../lib/errors';
-import { MAX_MOVED_CHILDREN } from '../lib/tree';
+import { MAX_MOVED_CHILDREN, buildTree } from '../lib/tree';
 import type { Recipe } from '../types/recipe';
 import { SavedToast } from '../components/recipe/SavedToast';
+import { FamilyPanel } from '../components/tree/FamilyPanel';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { WIDE_QUERY } from '../lib/paneMode';
 import { TreeIntro } from '../components/recipe/TreeIntro';
 import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
 import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
@@ -92,6 +95,14 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
   const { children, ancestors, descendantCount, recipes: family, isLoading: treeLoading } = useRecipeLineage(recipe);
+  // RL-144: from lg the Family button and tree icon open a pull-out; the page stays mounted across ids, so it closes on a change.
+  const wide = useMediaQuery(WIDE_QUERY);
+  const [familyOpen, setFamilyOpen] = useState(false);
+  useEffect(() => setFamilyOpen(false), [id]);
+  useEffect(() => {
+    if (!wide) setFamilyOpen(false);
+  }, [wide]);
+  const familyTree = useMemo(() => buildTree(family), [family]);
   const { isFavorite, toggleFavorite, canFavorite, ready: favoriteReady } = useFavorite(id);
   const { suggestions, apply, keepAsBranch, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
@@ -652,6 +663,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     <div ref={pageRef} className={`min-h-dvh flex flex-col bg-surface${inPane ? ' px-4 pt-4 @xl:px-12 @xl:pt-9' : ''}`}>
       <RecipeHeader
         inPane={inPane}
+        onFamily={wide ? () => setFamilyOpen(true) : undefined}
         recipe={recipe}
         familyRoot={ancestors[0]}
         onBack={handleBack}
@@ -814,7 +826,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           {/* The inline wide-screen row (RL-116); below lg the family stays in the header and More sheet. */}
           <button
             type="button"
-            onClick={() => navigate(`/recipe/${recipe.id}/tree`)}
+            onClick={() => (wide ? setFamilyOpen(true) : navigate(`/recipe/${recipe.id}/tree`))}
+            aria-haspopup={wide ? 'dialog' : undefined}
             className={`${footerButton} hidden lg:inline-flex lg:flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
           >
             <Network className="h-4 w-4 shrink-0" />
@@ -852,6 +865,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       {deleteDialogs}
 
       {branchSignUp}
+      <FamilyPanel open={familyOpen && wide} onClose={() => setFamilyOpen(false)} recipe={recipe} recipes={family} tree={familyTree} isLoading={treeLoading} />
 
       <AuthModal
         open={showAuth}

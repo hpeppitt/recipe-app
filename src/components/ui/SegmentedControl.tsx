@@ -12,6 +12,8 @@ interface SegmentedControlProps<T extends string> {
   compact?: boolean;
   /** Names the group for assistive tech, since the buttons alone imply no relationship. */
   label: string;
+  /** Extra classes on the group, e.g. a different ground colour. */
+  className?: string;
 }
 
 /**
@@ -26,12 +28,13 @@ export function SegmentedControl<T extends string>({
   onChange,
   compact = false,
   label,
+  className,
 }: SegmentedControlProps<T>) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className="flex rounded-full bg-surface-secondary p-1"
+      className={cn('flex rounded-full p-1', className ?? 'bg-surface-secondary')}
     >
       {options.map((option) => {
         const selected = option.value === value;

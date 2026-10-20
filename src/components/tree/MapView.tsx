@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { carriedListOrigin } from '../../lib/paneMode';
 import type { Recipe } from '../../types/recipe';
 import { ancestorChain, buildTree } from '../../lib/tree';
 import { layoutRadial, type RadialLayout } from '../../lib/radialLayout';
@@ -9,6 +10,8 @@ import { Maximize } from '../ui/icons';
 interface MapViewProps {
   recipes: Recipe[];
   currentId?: string;
+  /** Replaces navigating to a recipe's page (the family panel closes itself first). */
+  onOpen?: (id: string) => void;
   onShowTimeline: () => void;
 }
 
@@ -130,8 +133,9 @@ function Card({ recipe, generation, onOpen }: { recipe: Recipe; generation: numb
   );
 }
 
-export function MapView({ recipes, currentId, onShowTimeline }: MapViewProps) {
+export function MapView({ recipes, currentId, onShowTimeline, onOpen }: MapViewProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const tree = useMemo(() => buildTree(recipes), [recipes]);
   const layout = useMemo(() => (tree ? layoutRadial(tree) : null), [tree]);
   const byId = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
@@ -172,7 +176,7 @@ export function MapView({ recipes, currentId, onShowTimeline }: MapViewProps) {
     // Navigating away unmounts the dialog, so there is no expand button to hand focus back to.
     opener.current = null;
     dialogRef.current?.close();
-    navigate(path);
+    navigate(path, { state: carriedListOrigin(location.state) });
   };
 
   return (
@@ -197,7 +201,7 @@ export function MapView({ recipes, currentId, onShowTimeline }: MapViewProps) {
         </button>
         <MapCanvas {...canvas} />
       </div>
-      {selected && <Card recipe={selected} generation={generation} onOpen={() => go(`/recipe/${selected.id}`)} />}
+      {selected && <Card recipe={selected} generation={generation} onOpen={() => (onOpen ? onOpen(selected.id) : go(`/recipe/${selected.id}`))} />}
 
       <dialog
         ref={dialogRef}
@@ -229,7 +233,7 @@ export function MapView({ recipes, currentId, onShowTimeline }: MapViewProps) {
             </div>
             {selected && (
               <div className="px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                <Card recipe={selected} generation={generation} onOpen={() => go(`/recipe/${selected.id}`)} />
+                <Card recipe={selected} generation={generation} onOpen={() => (onOpen ? onOpen(selected.id) : go(`/recipe/${selected.id}`))} />
               </div>
             )}
           </div>
