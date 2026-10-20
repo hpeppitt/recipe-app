@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
-import { groupByDay, NOTIF_VERBS } from '../lib/notifications';
+import { filterByChip, groupByDays, NOTIF_VERBS, type ActivityChip } from '../lib/notifications';
 import { timeAgo } from '../lib/utils';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Avatar } from '../components/ui/Avatar';
@@ -24,13 +24,21 @@ const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell 
   favorite: { tint: 'bg-neutral-700', Icon: Heart },
 };
 
-/** The notifications as an Organic feed grouped into Today and Earlier (RL-092). */
+const CHIPS: [ActivityChip, string][] = [
+  ['all', 'All'],
+  ['branches', 'Branches'],
+  ['suggestions', 'Suggestions'],
+  ['follows', 'Follows'],
+];
+
+/** The notifications as an Organic feed with filter chips and day headers (RL-092, RL-154). */
 export function ActivityPage() {
   const { user, isConfigured } = useAuth();
   const { notifications, unreadCount, isLoading, error, markRead, markAllRead } = useNotifications();
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
+  const [chip, setChip] = useState<ActivityChip>('all');
 
   const open = (n: AppNotification) => {
     // Not awaited: a failed or offline mark must not stop the tap opening its target.
@@ -48,7 +56,7 @@ export function ActivityPage() {
     }
   };
 
-  const { today, earlier } = groupByDay(notifications);
+  const shown = filterByChip(notifications, chip);
   const signedOut = !isConfigured || !user || !user.emailVerified;
 
   const row = (n: AppNotification) => {
@@ -113,13 +121,6 @@ export function ActivityPage() {
     );
   };
 
-  const group = (label: string, items: AppNotification[], top: string) =>
-    items.length > 0 && (
-      <section>
-        <h2 className={`${top} mb-1 text-xs font-semibold text-text-tertiary`}>{label}</h2>
-        <ul>{items.map(row)}</ul>
-      </section>
-    );
 
   return (
     <div>
@@ -131,7 +132,7 @@ export function ActivityPage() {
             onClick={readAll}
             className="min-h-11 text-[13px] font-semibold text-accent-700"
           >
-            Mark all read
+            {chip === 'all' ? 'Mark all read' : 'Mark all read (all types)'}
           </button>
         )}
       </div>
@@ -166,10 +167,44 @@ export function ActivityPage() {
       ) : notifications.length === 0 ? (
         <p className="px-5 py-5 text-sm text-text-tertiary">Nothing here yet.</p>
       ) : (
-        <div className="px-5 pt-2.5">
-          {group('Today', today, 'mt-2.5')}
-          {group('Earlier', earlier, 'mt-3.5')}
-        </div>
+        <>
+          <div role="group" aria-label="Filter activity" className="flex gap-2 overflow-x-auto px-3 pb-1 pt-3.5">
+            {CHIPS.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={chip === key}
+                onClick={() => {
+                  setChip(key);
+                  setMarkFailed(false);
+                }}
+                className={`inline-flex min-h-11 items-center whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 rounded-full px-3.5 py-[7px] text-[13px] ${
+                  chip === key ? 'border border-transparent bg-text-primary text-surface' : 'border border-border bg-neutral-100 text-neutral-800'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {shown.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<Bell />}
+              title={`No ${CHIPS.find(([k]) => k === chip)![1].toLowerCase()} yet`}
+              description="Nothing here yet."
+              action={<Button variant="secondary" onClick={() => setChip('all')}>Show all</Button>}
+            />
+          ) : (
+            <div className="px-5">
+              {groupByDays(shown).map(({ label, items }) => (
+                <section key={label}>
+                  <h2 className="mb-1 mt-2.5 text-xs font-semibold text-text-tertiary">{label}</h2>
+                  <ul>{items.map(row)}</ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

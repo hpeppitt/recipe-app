@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { truncateNotificationMessage, NOTIFICATION_MESSAGE_MAX, groupByDay } from './notifications';
+import { truncateNotificationMessage, NOTIFICATION_MESSAGE_MAX, groupByDays, filterByChip } from './notifications';
 import type { AppNotification } from '../types/social';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
@@ -32,15 +32,55 @@ describe('truncateNotificationMessage', () => {
   });
 });
 
-describe('groupByDay', () => {
-  const now = new Date(2026, 9, 19, 15, 0).getTime();
-  const at = (d: number, h: number, m: number) => ({ createdAt: new Date(2026, 9, d, h, m).getTime() });
+describe('groupByDays', () => {
+  const now = new Date(2026, 9, 19, 15, 0).getTime(); // Monday 19 Oct 2026
+  const at = (d: number, h = 12, m = 0, mo = 9, y = 2026) => ({ createdAt: new Date(y, mo, d, h, m).getTime() });
+  const labels = (items: { createdAt: number }[], when = now) => groupByDays(items, when).map((g) => g.label);
 
-  it('puts 00:00 today in today and 23:59 yesterday in earlier, keeping order', () => {
-    const items = [at(19, 14, 0), at(19, 0, 0), at(18, 23, 59), at(1, 8, 0)];
-    const { today, earlier } = groupByDay(items, now);
-    expect(today).toEqual([items[0], items[1]]);
-    expect(earlier).toEqual([items[2], items[3]]);
+  it('labels each range and keeps order within a group', () => {
+    const items = [at(19, 14), at(19, 1), at(18), at(17), at(13), at(12), at(1)];
+    const out = groupByDays(items, now);
+    expect(out.map((g) => g.label)).toEqual(['Today', 'Yesterday', 'Saturday', 'Tuesday', '12 Oct', '1 Oct']);
+    expect(out[0].items).toEqual([items[0], items[1]]);
+  });
+
+  it('puts 00:00 today in Today and 23:59 yesterday in Yesterday', () => {
+    expect(labels([at(19, 0, 0), at(18, 23, 59)])).toEqual(['Today', 'Yesterday']);
+  });
+
+  it('uses weekday names for 2 to 6 days ago and a date at 7', () => {
+    expect(labels([at(17), at(13), at(12)])).toEqual(['Saturday', 'Tuesday', '12 Oct']);
+  });
+
+  it('adds the year only when it is not the current year', () => {
+    const jan = new Date(2026, 0, 20, 10).getTime();
+    expect(labels([at(30, 12, 0, 11, 2025)], jan)).toEqual(['30 Dec 2025']);
+    expect(labels([at(1, 12, 0, 0, 2026)], jan)).toEqual(['1 Jan']);
+  });
+
+  it('counts calendar days across a DST change', () => {
+    // UK clocks went back on 25 Oct 2026, so 25 Oct is 25 hours long.
+    const after = new Date(2026, 9, 26, 0, 30).getTime();
+    expect(labels([at(25, 0, 30), at(24, 23, 30)], after)).toEqual(['Yesterday', 'Saturday']);
+  });
+
+  it('treats a future timestamp as Today', () => {
+    expect(labels([at(20)])).toEqual(['Today']);
+  });
+});
+
+describe('filterByChip', () => {
+  const types = ['favorite', 'follow', 'suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched', 'branch', 'mystery'];
+  const items = types.map((type) => ({ type }));
+  const pick = (chip: Parameters<typeof filterByChip>[1]) => filterByChip(items, chip).map((i) => i.type);
+
+  it('All keeps everything, including favorite and unknown types', () => {
+    expect(pick('all')).toEqual(types);
+  });
+  it('Branches, Suggestions and Follows pick their types only', () => {
+    expect(pick('branches')).toEqual(['suggestion_branched', 'branch']);
+    expect(pick('suggestions')).toEqual(['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied']);
+    expect(pick('follows')).toEqual(['follow']);
   });
 });
 
