@@ -51,7 +51,16 @@ export function ActivityPage() {
 
   const row = (n: AppNotification) => {
     const { tint, Icon } = BADGES[n.type] ?? BADGES.suggestion;
-    const who = n.fromDisplayName ?? 'Someone';
+    const who = n.fromDisplayName?.trim() || 'Someone';
+    const message = n.message?.trim();
+    // Suggestions read "Sami: <change>"; outcomes read the bare message; the rest stay quoted (RL-151).
+    const detail = !message
+      ? null
+      : n.type === 'suggestion'
+        ? `${who.split(/\s+/)[0]}: ${message}`
+        : n.type === 'suggestion_applied' || n.type === 'suggestion_branched'
+          ? message
+          : `"${message}"`;
     return (
       <li key={n.id}>
         <button
@@ -83,8 +92,11 @@ export function ActivityPage() {
               )}
             </span>
             <span id={`n-${n.id}-detail`} className="mt-0.5 flex gap-1 text-xs text-text-tertiary">
-              {n.message && <span className="min-w-0 truncate">"{n.message}"</span>}
-              <span className="shrink-0">{timeAgo(n.createdAt)}</span>
+              {detail && <span className="min-w-0 truncate">{detail}</span>}
+              <span className="shrink-0">
+                <span aria-hidden="true">{detail ? '\u00b7 ' : ''}</span>
+                {timeAgo(n.createdAt)}
+              </span>
             </span>
           </span>
           {!n.read && (

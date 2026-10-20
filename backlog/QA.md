@@ -1655,3 +1655,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: `useSuggestionThread` has no loaded flag, so "No replies yet" can flash, and the replies error has no Retry (both pre-existing).
 - Reviewer noted: check 320px and the on-screen keyboard open in a real browser; the owner buttons hide while the reply box has focus.
 
+### RL-151 Activity rows state a suggestion's change in one line
+
+- Send a suggestion from a second account; the owner's row reads "Sami: 150 g light brown sugar → 100 g" then the time, no quotes, one truncated line at 320px.
+- Applied and Kept as a branch rows show the message with no name; replies, saves and follows keep quotes. Old free-text suggestions use the new format.
+- Reviewer noted: the Activity error state has no Retry and the empty state is an ad hoc `<p>` (pre-existing).
+- Reviewer noted: `open()` awaits `markRead` without a catch, so a failure blocks navigation silently (pre-existing).
