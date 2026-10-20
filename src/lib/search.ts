@@ -87,3 +87,13 @@ export function rankByQuery<T>(
     .slice(0, options.limit)
     .map((s) => s.item);
 }
+
+/** Tag a dedup match: 'same' when one title's words contain the other's, else 'similar'. */
+export function matchKind(query: string, match: { title: string }): 'same' | 'similar' {
+  const q = queryWords(query);
+  const t = queryWords(match.title);
+  if (q.length === 0 || t.length === 0) return 'similar';
+  const inQ = t.every((w) => q.includes(w));
+  const inT = q.every((w) => t.includes(w));
+  return inQ || inT ? 'same' : 'similar';
+}

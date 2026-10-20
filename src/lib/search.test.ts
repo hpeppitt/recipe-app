@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  matchKind,
   mergeDedupById,
   queryWords,
   rankByQuery,
@@ -151,5 +152,16 @@ describe('rankByQuery', () => {
     expect(
       rankByQuery(['licorice twists'], 'rice', { haystack, threshold: 0.5, limit: 5 })
     ).toEqual(['licorice twists']);
+  });
+});
+
+describe('matchKind', () => {
+  it('is same for equal or contained titles', () => {
+    expect(matchKind('banana bread', { title: 'Banana bread' })).toBe('same');
+    expect(matchKind('banana bread', { title: 'Brown butter banana bread' })).toBe('same');
+  });
+  it('is similar otherwise', () => {
+    expect(matchKind('banana bread', { title: 'chocolate banana loaf' })).toBe('similar');
+    expect(matchKind('', { title: 'x' })).toBe('similar');
   });
 });
