@@ -400,4 +400,63 @@ describe('RecipeEditPage fact pickers', () => {
       recipe.servings = 2;
     }
   });
+
+  describe('reordering and the method toggle', () => {
+    const originalIngredients = recipe.ingredients;
+    const originalInstructions = recipe.instructions;
+    beforeEach(() => {
+      recipe.ingredients = [makeIngredient('water'), makeIngredient('salt'), makeIngredient('leek')];
+    });
+    afterEach(() => {
+      recipe.ingredients = originalIngredients;
+      recipe.instructions = originalInstructions;
+    });
+
+    it('moves an ingredient with the arrow keys, keeps focus, announces it and saves the new order', async () => {
+      getPublishedRecipe.mockResolvedValue({ id: 'r1' });
+      renderEdit();
+      const handle = screen.getByRole('button', { name: 'Move ingredient 1, water' });
+      expect(handle.getAttribute('aria-describedby')).toBe('ingredient-move-hint');
+      fireEvent.keyDown(handle, { key: 'ArrowDown' });
+      expect(screen.getByLabelText('Ingredient 2 name')).toHaveProperty('value', 'water');
+      expect(document.activeElement).toBe(handle);
+      expect(screen.getByRole('status').textContent).toMatch(/^water moved to position 2 of 3/);
+      // The top row cannot move up.
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Move ingredient 1, salt' }), { key: 'ArrowUp' });
+      expect(screen.getByLabelText('Ingredient 1 name')).toHaveProperty('value', 'salt');
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('saved:cloud');
+      expect((publishRecipe.mock.calls[0][0] as Recipe).ingredients.map((i) => i.name)).toEqual(['salt', 'water', 'leek']);
+    });
+
+    it('says so at the edges and keeps rows and keys together across consecutive moves', () => {
+      renderEdit();
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Move ingredient 1, water' }), { key: 'ArrowUp' });
+      expect(screen.getByRole('status').textContent).toMatch(/^water is already first/);
+      fireEvent.change(screen.getByLabelText('Ingredient 1 notes'), { target: { value: 'cold' } });
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Move ingredient 1, water' }), { key: 'ArrowDown' });
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Move ingredient 2, water' }), { key: 'ArrowDown' });
+      expect(screen.getByLabelText('Ingredient 3 name')).toHaveProperty('value', 'water');
+      expect(screen.getByLabelText('Ingredient 3 notes')).toHaveProperty('value', 'cold');
+    });
+
+    it('collapses the method by default and toggles it', () => {
+      renderEdit();
+      const toggle = screen.getByRole('button', { name: /Method/ });
+      expect(toggle.textContent).toContain('1 step');
+      expect(toggle.getAttribute('aria-expanded')).toBe('false');
+      expect(screen.getByLabelText('Step 1').closest('#edit-method')?.hasAttribute('hidden')).toBe(true);
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute('aria-expanded')).toBe('true');
+      expect(screen.getByLabelText('Step 1').closest('#edit-method')?.hasAttribute('hidden')).toBe(false);
+    });
+
+    it('opens the method when validation flags the steps', () => {
+      renderEdit();
+      fireEvent.change(screen.getByLabelText('Step 1'), { target: { value: ' ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      expect(screen.getByRole('button', { name: /Method/ }).getAttribute('aria-expanded')).toBe('true');
+      expect(document.activeElement).toBe(screen.getByLabelText('Step 1'));
+    });
+  });
 });

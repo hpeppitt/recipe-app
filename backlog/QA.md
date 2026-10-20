@@ -27,6 +27,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): a browser Back or Forward to a recipe from the other list while the list is kept hidden mounts that page hidden (an unneeded read). The scroll hand-off uses refs fed by scroll events, so a clamped window offset at the exact moment of a resize may jump slightly; check on a device. EmailLinkStatus remounts on a resize (judged unreachable mid-flow).
 - Explore at 390px and 1280px, on a throttled network: no list jump while the Branching fast this week query runs (a grey placeholder holds the row's space, then the row or Newest replaces it).
 
+### RL-133 Ingredient reorder and collapsed method
+
+- On a phone, open Edit and drag an ingredient by its grip up and down with a thumb: it swaps as you pass a neighbour's middle, inputs keep their text, and the page still scrolls when you drag anywhere else. Check the handle is easy to hit at 320px without crowding the amount field.
+- With a keyboard and VoiceOver: Tab to a grip, press the arrow keys, hear "Moved to position N of M" and keep focus on that row's grip. Save and confirm the recipe page shows the new order.
+- Method starts collapsed with "N steps" and a chevron. Clear every step and Save: it opens and focuses the first step.
+- Reviewer noted: the grip icon (neutral-500) is about 2.7:1 in light (spec). Drag, auto-scroll near the header and footer, and the lifted-row style need a real-phone check. Touch-screen-reader reorder (VoiceOver swipe, no arrow keys) has no pick-up and move mode; a gap.
+- Reviewer to note: a pointer drag past the first or last row stops there; moving between ingredient groups is out of scope (a row keeps its group).
+
 ### RL-132 Edit page fact pills are native pickers
 
 - On iOS Safari and Android Chrome at 390px, open a recipe's Edit page: Servings, Prep, Cook and Difficulty are four pills in one wrapping row, each opening the native picker, with the chevron visible and a focus ring on keyboard focus. Check the ring contrast in dark theme.

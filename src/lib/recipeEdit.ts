@@ -254,3 +254,12 @@ export function draftToPatch(draft: RecipeDraft, previous: Recipe): RecipePatch 
 export function isDraftDirty(draft: RecipeDraft, recipe: Recipe): boolean {
   return JSON.stringify(draft) !== JSON.stringify(recipeToDraft(recipe));
 }
+
+/** A new array with the item at `from` moved to `to`; an out-of-range index returns the list unchanged. */
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const ok = (i: number) => Number.isInteger(i) && i >= 0 && i < list.length;
+  if (!ok(from) || !ok(to) || from === to) return list;
+  const next = [...list];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return next;
+}
