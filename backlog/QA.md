@@ -1587,3 +1587,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: a failed first Terms read is read again before the claim.
 - Reviewer noted: there is one storage slot, so if two links were asked for, the newest intent wins.
 
+
+### RL-141 Loading screen
+
+- Throttle the network to Slow 3G and hard-reload: a still, fully grown tree with "Turning the soil" and an empty bar shows (fading in), in light and dark, until React's first render. Then the existing PageFallback spinner shows while the route chunk loads (PageFallback is unchanged by this ticket). Check the swap from the tree to the spinner for flash.
+- The animated cycle (trunk, four branches, leaves that come and go, canopy, eight emoji, captions in order, bar fills, fade and restart) and the still tree under reduced motion are first visible in the app through RL-142.
+- Reviewer noted: Caprasimo may flash the system font on the cold-start caption.
+- Reviewer noted: the full variant scrolls in short landscape.
