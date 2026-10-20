@@ -22,7 +22,7 @@ import { canGenerate } from '../lib/generation';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
-import { ChevronDown, GitBranch, Sparkles, X } from '../components/ui/icons';
+import { Bookmark, ChevronDown, GitBranch, Sparkles, X } from '../components/ui/icons';
 
 /**
  * The query words this match actually shares, so the panel can say why it is
@@ -547,6 +547,28 @@ export function RecipeChatPage() {
           onSend={sendMessage}
           sentImageCount={sentImageCount}
           onLayoutChange={scrollToNewest}
+          leading={
+            // The newest card's own Save scrolls out of sight once it is collapsed.
+            latestRecipe && !isLoading && lastAssistantIdx >= 0 && !(toggled[lastAssistantIdx] ?? true) ? (
+              // Hand-styled: ui/Button has no 44px pill size that collapses to an icon.
+              <button
+                type="button"
+                onClick={() =>
+                  saveRecipe({
+                    recipe: messages[lastAssistantIdx].recipe as unknown as GeneratedRecipe,
+                    prompt: promptFor(messages, lastAssistantIdx),
+                  })
+                }
+                disabled={isSaving}
+                aria-label={isVarying ? 'Save Variation' : 'Save Recipe'}
+                className="flex size-11 flex-shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary-600 px-0 font-heading sm:w-auto sm:px-4 text-sm text-on-accent transition-colors hover:bg-primary-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:pointer-events-none disabled:opacity-50 active:scale-95"
+              >
+                <Bookmark className="size-[18px]" />
+                <span className="hidden sm:inline">{isSaving ? 'Saving…' : 'Save'}</span>
+                {isSaving && <span className="sr-only sm:hidden">Saving…</span>}
+              </button>
+            ) : undefined
+          }
           initialValue={suggestionSeed}
           disabled={isLoading || generationUnavailable || (isVarying && !parentRecipe)}
           placeholder={

@@ -241,6 +241,29 @@ describe('RecipeChatPage cards', () => {
     expect(screen.getByRole('button', { name: 'Save Recipe' })).toBeTruthy();
   });
 
+  it('a collapsed newest card pins a compact Save in the composer that saves once', async () => {
+    chat = withRecipes('Pasta');
+    const u = userEvent.setup();
+    view();
+    expect(screen.getAllByRole('button', { name: 'Save Recipe' })).toHaveLength(1);
+    await u.click(toggles()[0]);
+    const saves = screen.getAllByRole('button', { name: 'Save Recipe' });
+    expect(saves).toHaveLength(2);
+    await u.click(saves[saves.length - 1]);
+    expect(saveRecipe).toHaveBeenCalledTimes(1);
+    expect(saveRecipe.mock.calls[0][0].prompt).toBe('make Pasta');
+    await u.click(toggles()[0]);
+    expect(screen.getAllByRole('button', { name: 'Save Recipe' })).toHaveLength(1);
+  });
+
+  it('has no compact Save while loading', async () => {
+    chat = { ...withRecipes('Pasta'), isLoading: true };
+    const u = userEvent.setup();
+    view();
+    await u.click(toggles()[0]);
+    expect(screen.queryAllByRole('button', { name: 'Save Recipe' })).toHaveLength(0);
+  });
+
   it('collapsed card shows ingredient names cut at 8 with an ellipsis', () => {
     const many = Array.from({ length: 10 }, (_, i) => ({
       amount: 1, unit: null, name: `item${i + 1}`, notes: null, group: null,
