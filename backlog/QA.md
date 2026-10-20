@@ -1736,3 +1736,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Cousins are read as the first 20 matches sorted newest first, so no new index is needed.
 - The card fades in when its read lands, so it can push the ingredients down a little on arrival; check that it does not feel jarring, and that it does not animate with reduced motion on.
 - If the version count read fails, the row shows without "N versions" instead of the card vanishing.
+
+### RL-164 Move a new original into its related family
+
+- On the emulator, after RL-162's walk as account A (with one own branch on the new original): open the new original. Under the Related family card a grey card with a merge icon reads "Is this really a version of <title>? **Move it into that family**. You stay the author."
+- Tap the bold part: "Move into <title>?" with "It becomes a branch of <title>, with its 1 branch. You stay the author.", Keep it / Move. Keep it closes it with nothing changed.
+- Move: within a few seconds the page shows the recipe as a variation of the matched family (family label, version pill, lineage strip), the Related family card and Move line are gone, and the title has focus.
+- Check Tree, Timeline and Map of the target family on both accounts: the moved original sits under the matched original with its branch below it. Explore no longer lists it as an original.
+- Account B (the matched family's author) gets a "branched your recipe" row in Activity pointing at the moved recipe.
+- Have account B branch A's new original first: A then sees "This can't be moved because another cook has a version in it." with no button. Account B never sees the Move line.
+- Go offline (or stop the emulator) and tap Move: after up to 10 s an inline error ("Couldn't confirm the move yet. It may still finish.") shows under the card and nothing changes on the device. Reopening the dialog clears it; Keep it and Esc do nothing while Move is in flight.
+- After a successful move, focus is on the recipe title (VoiceOver reads it), not the page body.
+- A related link whose original has since moved into another family shows that family's original instead.
+- Check the card at 320px and in dark mode, and that VoiceOver reads the bold part as a button.
+- Emulator does not enforce the 500-write limit (a 501-update transaction passed); the client refuses above 500 versions regardless.
+- "One branch by another cook stayed behind." needs another account to branch during the move; hard to reproduce by hand.

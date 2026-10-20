@@ -54,7 +54,7 @@ tapped "Create New Recipe Anyway". Written with the recipe by `publishRecipe` an
 the cloud-to-local mappings (`toLocalRecipe`, and the `useRecipe` and `useRecipeTree` spreads)
 carry it, and a restore from an export keeps it (`ImportedRecipeSchema`). Nobody else's recipe
 is written. The recipe rules have no key allowlist; since RL-162 `hasBoundedContent` bounds this
-field (absent, null, or a string of at most 128 characters), in the repo until RL-160 deploys.
+field (absent, null, or a string of at most 128 characters), in the repo until RL-160 deploys. Moving the original into that family (RL-164) sets it to `null` on every moved version, in the same owner-update batch that rewrites their `parentId`, `rootId` and `depth`.
 
 **Write order of an edit** (RL-083): a verified owner's edit checks that the cloud copy exists,
 re-publishes the edited record with a fresh `updatedAt` within 5 seconds, and only then

@@ -43,6 +43,22 @@ export class TooManyMovedBranchesError extends Error {
   }
 }
 
+/** A family move refused before writing anything (RL-164); the message is shown as is. */
+export class FamilyMoveRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FamilyMoveRefusedError';
+  }
+}
+
+/** The cloud did not confirm a family move in time; it may still land (RL-164). */
+export class FamilyMoveTimeoutError extends Error {
+  constructor() {
+    super('Moving the family timed out');
+    this.name = 'FamilyMoveTimeoutError';
+  }
+}
+
 /** The message for a rate-limited write, or null for any other failure. */
 export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;

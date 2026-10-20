@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { FamilyMoveTimeoutError } from '../lib/errors';
 import { db } from './database';
 import {
   searchRecipes,
@@ -13,6 +14,7 @@ import {
   applyOwnRecipeSync,
   clearOwnRecipes,
   reparentChildren,
+  moveFamilyCloudFirst,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { Recipe } from '../types/recipe';
@@ -217,6 +219,48 @@ describe('reparentChildren', () => {
     expect(w).toMatchObject({ parentId: 'r1', depth: 1, title: 'Kept' });
     expect(await db.recipes.get('g')).toMatchObject({ parentId: 'w', depth: 3 });
     expect(await db.recipes.count()).toBe(3);
+  });
+});
+
+describe('moveFamilyCloudFirst', () => {
+  const seed = () =>
+    db.recipes.bulkAdd([
+      makeRecipe({ id: 'n', rootId: 'n', relatedFamilyId: 't', title: 'Mine' }),
+      makeRecipe({ id: 'a', rootId: 'n', parentId: 'n', depth: 1 }),
+      // Only on this device: never published.
+      makeRecipe({ id: 'local', rootId: 'n', parentId: 'a', depth: 2 }),
+    ]);
+  const changes = [
+    { id: 'n', parentId: 't', rootId: 't', depth: 1 },
+    { id: 'a', parentId: 'n', rootId: 't', depth: 2 },
+    { id: 'not-here', parentId: 'n', rootId: 't', depth: 2 },
+  ];
+
+  it('mirrors the committed changes here, local-only rows too, and clears the link', async () => {
+    await seed();
+    const result = await moveFamilyCloudFirst('n', Promise.resolve({ changes, leftBehind: 0 }));
+    expect(result.mirrored).toBe(true);
+    expect(await db.recipes.get('n')).toMatchObject({ parentId: 't', rootId: 't', depth: 1, relatedFamilyId: null, title: 'Mine' });
+    expect(await db.recipes.get('a')).toMatchObject({ parentId: 'n', rootId: 't', depth: 2 });
+    expect(await db.recipes.get('local')).toMatchObject({ parentId: 'a', rootId: 't', depth: 3 });
+    expect(await db.recipes.count()).toBe(3);
+  });
+
+  it('leaves Dexie untouched when the cloud move fails or times out', async () => {
+    await seed();
+    const before = await db.recipes.toArray();
+    await expect(moveFamilyCloudFirst('n', Promise.reject(new Error('permission-denied')))).rejects.toThrow('permission-denied');
+    await expect(moveFamilyCloudFirst('n', new Promise(() => {}), 10)).rejects.toBeInstanceOf(FamilyMoveTimeoutError);
+    expect(await db.recipes.toArray()).toEqual(before);
+  });
+
+  it('still resolves when the mirror fails after the commit', async () => {
+    await seed();
+    const spy = vi.spyOn(db.recipes, 'put').mockRejectedValueOnce(new Error('quota'));
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {});
+    const result = await moveFamilyCloudFirst('n', Promise.resolve({ changes, leftBehind: 1 }));
+    expect(result).toMatchObject({ mirrored: false, leftBehind: 1 });
+    spy.mockRestore();
   });
 });
 
