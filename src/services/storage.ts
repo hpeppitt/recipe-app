@@ -233,6 +233,12 @@ export function setPendingAction(intent: PendingIntent, at = Date.now()): void {
   safeSet(STORAGE_KEYS.PENDING_ACTION, JSON.stringify({ ...intent, at }));
 }
 
+/** Marks the stored intent as belonging to the uid this device's link just signed in (RL-136). */
+export function claimPendingAction(uid: string, now = Date.now()): void {
+  const action = getPendingAction(now);
+  if (action) safeSet(STORAGE_KEYS.PENDING_ACTION, JSON.stringify({ ...action, by: uid }));
+}
+
 export function clearPendingAction(): void {
   safeRemove(STORAGE_KEYS.PENDING_ACTION);
 }

@@ -33,6 +33,7 @@ import {
   clearTermsAcceptance,
   normaliseEmail,
   clearPendingAction,
+  claimPendingAction,
 } from '../services/storage';
 import { TERMS_VERSION } from '../lib/legal';
 import { onConsentChange, trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
@@ -281,6 +282,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // After runMigration, so the Dexie rows are already under the new uid.
         void pushFavoritesOnce(result.user, false);
       }
+      // The intent (RL-135) runs only for the account this device's own link signed in (RL-136).
+      // A typed address means the link was sent from elsewhere, so a stored intent is not its.
+      if (emailOverride) {
+        clearPendingAction();
+      } else {
+        // Cached per uid; awaited so the Terms prompt is known before the intent can run.
+        await checkTermsOnce(result.user);
+        claimPendingAction(result.user.uid);
+      }
       setLinkState({ status: 'done', linked: result.linked });
     } catch (err) {
       if (err instanceof EmailLinkError) {
@@ -335,6 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const unsubscribe = onAuthStateChanged((fbUser) => {
+      const hadUser = currentUidRef.current !== null;
       currentUidRef.current = fbUser?.uid ?? null;
       if (fbUser) {
         const appUser = toAppUser(fbUser);
@@ -373,6 +384,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Acceptance first, so a new account's first contributing write already passes.
         void checkTermsOnce(fbUser).then(() => ensureProfile(fbUser));
       } else {
+        // Signed out elsewhere (another tab, a revoked session): drop the unrun intent too.
+        // Not on a load that starts signed out, which is how a link's own tab begins.
+        if (hadUser) clearPendingAction();
         setUser(null);
         termsCheckRef.current = null;
         termsRetryRef.current = null;
@@ -421,6 +435,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAnonymousUid();
     // A ticked box belongs to whoever ticked it; the next person on this device ticks their own.
     clearTermsAcceptance();
+    // Same for an unrun sign-in intent (RL-136): it must not run for the next person.
+    clearPendingAction();
     const current = auth?.currentUser;
     const verifiedUid = current && !current.isAnonymous && current.emailVerified ? current.uid : null;
     await signOut();

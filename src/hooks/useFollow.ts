@@ -49,7 +49,8 @@ export function useFollow(targetUid: string | undefined) {
   // The lookup and the toggle error are stamped with the key they belong to, so a
   // late answer for profile A never shows under profile B and an error clears on
   // id change, without a setState in the effect body.
-  const [lookup, setLookup] = useState<{ key: string; following: boolean } | null>(null);
+  // `failed` marks a lookup error, whose `following: false` is a guess, not an answer.
+  const [lookup, setLookup] = useState<{ key: string; following: boolean; failed?: boolean } | null>(null);
   const [failure, setFailure] = useState<{ key: string; message: string } | null>(null);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ export function useFollow(targetUid: string | undefined) {
       .catch((err) => {
         console.error('Follow lookup failed', err);
         reportError(err, 'follow-lookup');
-        if (!cancelled) setLookup({ key, following: false });
+        if (!cancelled) setLookup({ key, following: false, failed: true });
       });
     return () => {
       cancelled = true;
@@ -108,6 +109,8 @@ export function useFollow(targetUid: string | undefined) {
     toggleFollow: toggle,
     loading,
     error: !!key && failure?.key === key ? failure.message : null,
+    /** The lookup for this pair has answered, so `isFollowing` is not a placeholder. */
+    ready: !!key && lookup?.key === key && !lookup.failed,
   };
 }
 

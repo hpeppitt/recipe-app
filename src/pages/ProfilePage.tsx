@@ -8,6 +8,7 @@ import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
 import { useOnline } from '../hooks/useOnline';
 import { splitLibrary, type FeedRecipe, type FeedSource } from '../lib/library';
 import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
+import { usePendingAction } from '../hooks/usePendingAction';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -433,9 +434,23 @@ function PublicProfile({ uid }: { uid: string }) {
     retry: retryProfile,
   } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
-  const { isFollowing, toggleFollow, loading: followLoading, error: followError } = useFollow(uid);
+  const {
+    isFollowing,
+    toggleFollow,
+    loading: followLoading,
+    error: followError,
+    ready: followReady,
+  } = useFollow(uid);
 
   const isSelf = user?.uid === uid;
+  // The follow a sign-in link was asked for (RL-136). Follows only, never unfollows; on your
+  // own profile it is dropped, since the lookup never runs there.
+  usePendingAction(
+    (a) => a.kind === 'follow' && a.uid === uid && !profileLoading && !!profile && (isSelf || followReady),
+    () => {
+      if (!isSelf && !isFollowing) void toggleFollow();
+    }
+  );
   // Following is a cloud write, so signed-out and anonymous visitors see the
   // button but get the sign-up call to action (decision 1a).
   const needsSignUp = !user?.emailVerified;

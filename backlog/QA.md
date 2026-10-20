@@ -1569,3 +1569,21 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: the link completion's `replaceState` drops `history.state`, so a link opened in the same tab on a recipe shown beside the list at lg loses the list and shows the recipe alone.
 - Reviewer noted: `TermsGate` and `EmailLinkStatus` can open together after a link; check their stacking in the emulator walk.
 - Reviewer noted: `src/content/legal/cookies.ts` and `privacy.ts` do not yet list the `recipe-app-pending-action` key (author reviews policies before go-live).
+
+### RL-136 After the sign-in link returns, the remembered action runs once
+
+- Emulators (`npm run emulators`, `npm run dev:emulated`), 390 px, signed out, for each of: recipe page Save, Suggest, Branch this recipe; shared link Save, Suggest, Make it yours; profile Follow. Tap it, Continue with email, send, open the link in the same browser. You land on the page and the action happens once: Saved state, Following state, suggest mode open, or the branch composer. Reload: it does not happen again.
+- A new account: the Terms dialog shows first if due; after Accept the action runs. Decline signs you out and nothing runs.
+- Already saved or already following before the link: it stays saved or followed (never toggled off).
+- Tree "Branch from" on another version, then the link: the composer opens for that version.
+- Open the link in another browser (typed address): you land on the page signed in and nothing runs.
+- Sign out with an unrun intent stored (Application > Local Storage `recipe-app-pending-action`): the key is gone.
+- Suggest on your own recipe or a local-only one: the link signs you in and nothing opens.
+- Reviewer noted: a skipped action (already saved, cannot suggest, your own profile, already following) gives no feedback.
+- Reviewer noted: neither recipe page announces a favourite save (only the button's Saved state and `aria-pressed`), so a remembered Save is silent for screen readers too.
+- Reviewer noted: a stored action lingers after a failed or not-found recipe load and can run on a later visit within the hour.
+- Reviewer noted: suggest mode opened by the remembered action does not move focus.
+- Reviewer noted: the recipe page renders briefly before the branch redirect.
+- Reviewer noted: a failed first Terms read is read again before the claim.
+- Reviewer noted: there is one storage slot, so if two links were asked for, the newest intent wins.
+

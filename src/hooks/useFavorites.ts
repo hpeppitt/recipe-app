@@ -18,31 +18,51 @@ import { TOGGLE_ERROR, boundedWrite } from './useFollow';
 /** Upper bound on how long a toggle stays locked waiting on the cloud write. */
 const FAVORITE_SYNC_TIMEOUT_MS = 5000;
 
-/** Uids whose cloud favourites this tab has already read, so a remount or auth refresh does not refetch. */
-const hydratedUids = new Set<string>();
+/**
+ * Each uid's cloud favourites read in this tab, so a remount or auth refresh does not refetch.
+ * Resolves (never rejects) once the read and the local add have settled, either way.
+ */
+const hydrations = new Map<string, Promise<void>>();
 
 /**
  * Once per session per verified uid, add the cloud favourites this device lacks
  * (RL-043). Anonymous and signed-out users never fetch. A failed read is not
  * retried until the next session.
  */
-function useHydrateFavorites() {
+function useHydrateFavorites(): boolean {
   const { user, isLoading } = useAuth();
   const uid = !isLoading && user && !user.isAnonymous && user.emailVerified ? user.uid : undefined;
+  // The uid whose hydrate has settled, so a caller can wait for it (RL-136).
+  const [settledUid, setSettledUid] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!uid || !isFirebaseConfigured || hydratedUids.has(uid)) return;
-    hydratedUids.add(uid);
-    void getCloudFavorites(uid).then(async (rows) => {
-      if (!rows) return;
-      try {
-        await addMissingFavorites(uid, rows);
-      } catch (err) {
-        console.error('Adding cloud favourites locally failed', err);
-        reportError(err, 'favorites-hydrate-local');
-      }
+    if (!uid || !isFirebaseConfigured) return;
+    let done = hydrations.get(uid);
+    if (!done) {
+      done = getCloudFavorites(uid).then(
+        async (rows) => {
+          if (!rows) return;
+          try {
+            await addMissingFavorites(uid, rows);
+          } catch (err) {
+            console.error('Adding cloud favourites locally failed', err);
+            reportError(err, 'favorites-hydrate-local');
+          }
+        },
+        () => {}
+      );
+      hydrations.set(uid, done);
+    }
+    let cancelled = false;
+    void done.then(() => {
+      if (!cancelled) setSettledUid(uid);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [uid]);
+
+  return !uid || !isFirebaseConfigured || settledUid === uid;
 }
 
 export function useFavoriteIds() {
@@ -75,14 +95,17 @@ export function useFavorite(recipeId: string | undefined) {
   const syncsToCloud = isFirebaseConfigured && !!user?.emailVerified;
   const togglingRef = useRef(false);
   // Also here, so a deep link to a recipe hydrates without visiting the Library first.
-  useHydrateFavorites();
+  const hydrated = useHydrateFavorites();
+  // Stamped with its key, so `ready` is false while a stale result shows. `hydrated` is in the
+  // key so the query re-reads after the cloud rows land, not before.
+  const key = `${uid}:${recipeId}:${hydrated}`;
 
   const favorite = useLiveQuery(
-    () => (uid && recipeId ? db.favorites.get([uid, recipeId]) : undefined),
-    [uid, recipeId]
+    async () => ({ key, row: uid && recipeId ? await db.favorites.get([uid, recipeId]) : undefined }),
+    [key]
   );
 
-  const isFav = !!favorite;
+  const isFav = !!favorite?.row;
 
   const toggle = useCallback(
     async (meta?: {
@@ -143,7 +166,7 @@ export function useFavorite(recipeId: string | undefined) {
     [uid, recipeId, isFav, user?.displayName, syncsToCloud]
   );
 
-  return { isFavorite: isFav, toggleFavorite: toggle, canFavorite: !!uid };
+  return { isFavorite: isFav, toggleFavorite: toggle, canFavorite: !!uid, ready: hydrated && favorite?.key === key };
 }
 
 /**
@@ -225,5 +248,6 @@ export function useCloudFavorite(recipeId: string | undefined) {
     isFavorite: isFav,
     toggleFavorite: toggle,
     error: !!key && failure?.key === key ? failure.message : null,
+    ready: !!key && lookup?.key === key,
   };
 }

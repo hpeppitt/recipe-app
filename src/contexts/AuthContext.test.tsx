@@ -62,8 +62,10 @@ vi.mock('../services/storage', () => ({
     storedTerms = null;
   },
   clearPendingAction: () => clearPendingAction(),
+  claimPendingAction: (uid: string) => claimPendingAction(uid),
 }));
 const clearPendingAction = vi.fn();
+const claimPendingAction = vi.fn();
 let storedTerms: { version: string; acceptedAt: number; email: string } | null = null;
 const setAnalyticsUserId = vi.fn();
 let consentListener: (granted: boolean) => void = () => {};
@@ -119,6 +121,51 @@ describe('AuthProvider failed link clears the pending action (RL-135)', () => {
 });
 
 const wrapper = ({ children }: { children: ReactNode }) => <AuthProvider>{children}</AuthProvider>;
+
+describe('AuthProvider claims or clears the pending action (RL-136)', () => {
+  beforeEach(() => {
+    clearPendingAction.mockClear();
+    claimPendingAction.mockClear();
+    completeEmailSignIn.mockReset();
+  });
+
+  it('stamps it with the uid this device\'s link signed in', async () => {
+    completeEmailSignIn.mockResolvedValue({ user: verified, linked: false });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'done', linked: false }));
+    expect(claimPendingAction).toHaveBeenCalledWith('me');
+    expect(clearPendingAction).not.toHaveBeenCalled();
+  });
+
+  it('clears it when the link needed a typed address, since it was sent from elsewhere', async () => {
+    completeEmailSignIn.mockRejectedValueOnce(new EmailLinkError({ reason: 'needs-email' }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'needs-email' }));
+    completeEmailSignIn.mockResolvedValue({ user: verified, linked: false });
+    await act(() => result.current.submitLinkEmail('c@example.com'));
+    expect(result.current.linkState).toEqual({ status: 'done', linked: false });
+    expect(clearPendingAction).toHaveBeenCalledTimes(1);
+    expect(claimPendingAction).not.toHaveBeenCalled();
+  });
+
+  it('clears it when the session ends elsewhere, but not on a load that starts signed out', async () => {
+    completeEmailSignIn.mockResolvedValue(null);
+    renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(null));
+    expect(clearPendingAction).not.toHaveBeenCalled();
+    act(() => authListener(verified));
+    act(() => authListener(null));
+    expect(clearPendingAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears it on sign-out', async () => {
+    completeEmailSignIn.mockResolvedValue(null);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(() => result.current.signOut());
+    expect(clearPendingAction).toHaveBeenCalledTimes(1);
+  });
+});
+
 const anon: FakeUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
 const verified: FakeUser = { uid: 'me', displayName: 'Cook', email: 'c@example.com', isAnonymous: false, emailVerified: true };
 

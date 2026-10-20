@@ -74,6 +74,13 @@ describe('useFollow', () => {
     const { result } = renderHook(() => useFollow('A'), { wrapper });
     await waitFor(() => expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'follow-lookup'));
     expect(result.current.isFollowing).toBe(false);
+    // A guess is not an answer, so a remembered follow (RL-136) does not act on it.
+    expect(result.current.ready).toBe(false);
+  });
+
+  it('is ready once the lookup answers', async () => {
+    const { result } = renderHook(() => useFollow('A'), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
   it('keeps state and sets an error on a failed toggle, clearing it on the next toggle and on id change', async () => {
