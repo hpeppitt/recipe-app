@@ -7,7 +7,15 @@
  * Deliberately not a Gemini call. Conversion must be deterministic — the same
  * recipe has to show the same numbers on every device and to every recipient —
  * and a silently wrong quantity ruins a bake in a way the cook cannot detect.
+ *
+ * Two modes. The default (`convertAmount`) refuses to guess: it crosses from
+ * volume to weight only for an ingredient in the curated density table. The
+ * opt-in `estimateGrams` guesses (water density when the table has no entry) and
+ * always says so, through `estimated: true`, so the caller can mark it "≈".
  */
+
+import type { Ingredient } from '../types/recipe';
+import { formatAmount } from './amount';
 
 export type UnitSystem = 'original' | 'metric' | 'imperial';
 
@@ -290,6 +298,42 @@ export function convertAmount(
   }
 
   return null;
+}
+
+export interface EstimatedGrams {
+  grams: number;
+  estimated: true;
+  from: string;
+}
+
+/** Grams per unit at water density, used when the table has no entry. */
+const WATER_G_PER: Partial<Record<CanonicalUnit, number>> = { tsp: 5, tbsp: 15, cup: 240, ml: 1, l: 1000 };
+
+/** Under 10 g to 1 g, under 100 g to 5 g, above to 10 g. */
+function roundGrams(g: number): number {
+  const step = g < 10 ? 1 : g < 100 ? 5 : 10;
+  return Math.round(g / step) * step;
+}
+
+/**
+ * Opt-in estimate of an ingredient's weight, for cooks who weigh everything.
+ * Uses the density table when it knows the ingredient, else water density.
+ * Returns null for non-volume units or a missing amount.
+ */
+export function estimateGrams(ingredient: Pick<Ingredient, 'amount' | 'unit' | 'name'>): EstimatedGrams | null {
+  const { amount, unit, name } = ingredient;
+  const canonical = canonicalUnit(unit);
+  if (amount == null || !canonical || WATER_G_PER[canonical] == null) return null;
+  const density = gramsPerCup(name);
+  // Spoons are fractions of a US cup: 16 tbsp, 48 tsp.
+  const perUnit = density
+    ? density * (ML_PER[canonical]! / ML_PER.cup!)
+    : WATER_G_PER[canonical]!;
+  return {
+    grams: roundGrams(amount * perUnit),
+    estimated: true,
+    from: `${formatAmount(amount)} ${formatUnit(unit, amount)}`,
+  };
 }
 
 /**

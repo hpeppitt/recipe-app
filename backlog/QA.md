@@ -1906,3 +1906,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - Reviewer noted (med): the no-flash claim rests on React Router batching two pushes in one tick; in the browser, confirm the recipe page never paints between Save Variation and What changed.
 - Reviewer noted (low): Forward or reload on /changes re-shows the toast (same as the recipe page); the toast's live region may not announce on every screen reader (same pattern as the recipe page); after "Cook this one", Back returns to the diff, not the chat.
+
+### RL-182 estimateGrams helper
+- Pure helper in src/lib/units.ts with unit tests. Nothing to check in the browser.
