@@ -99,3 +99,26 @@ export function forestHeadline(planted: number, grown: number): string {
   const branches = grown === 1 ? '1 branch has' : `${grown} branches have`;
   return `Planted ${recipes}. ${branches} grown from ${planted === 1 ? 'it' : 'them'}.`;
 }
+
+export const MAX_FOREST_FAMILIES = 12;
+
+/**
+ * Groups a person's recipes by family (rootId, or the id itself when a document predates rootId),
+ * newest first by the person's latest version, and keeps at most `max`. `more` counts the rest.
+ * shortcut: "newest root" is approximated by the person's newest version in the family, since a
+ * root by someone else is not known without a read; revisit if the order feels wrong.
+ */
+export function groupForestFamilies<T extends { id: string; rootId?: string; createdAt: number }>(
+  mine: T[],
+  max = MAX_FOREST_FAMILIES
+): { families: Array<{ rootId: string; mine: T[] }>; more: number } {
+  const byRoot = new Map<string, T[]>();
+  for (const r of mine) {
+    const key = r.rootId || r.id;
+    byRoot.set(key, [...(byRoot.get(key) ?? []), r]);
+  }
+  const all = [...byRoot].map(([rootId, list]) => ({ rootId, mine: list.sort((a, b) => a.createdAt - b.createdAt) }));
+  const newest = (f: { mine: T[] }) => f.mine[f.mine.length - 1].createdAt;
+  all.sort((a, b) => newest(b) - newest(a));
+  return { families: all.slice(0, max), more: Math.max(0, all.length - max) };
+}

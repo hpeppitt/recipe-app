@@ -25,7 +25,7 @@ import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { IconButton } from '../components/ui/IconButton';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { RecipeTileGrid } from '../components/profile/RecipeTileGrid';
-import { ChevronLeft, CloudOff, Pencil, RotateCw, Settings, UserRound } from '../components/ui/icons';
+import { ChevronLeft, CloudOff, Pencil, RotateCw, Settings, Trees, UserRound } from '../components/ui/icons';
 
 /** One row in the followers / following list. */
 function PersonRow({
@@ -296,6 +296,7 @@ function OwnProfile() {
     <div className="flex flex-col bg-surface">
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="flex justify-end px-3 pt-2">
+          <IconButton variant="flat" label="Forest view" href="/profile/forest" icon={<Trees className="size-6" />} />
           <IconButton variant="flat" label="Settings" href="/settings" icon={<Settings className="size-6" />} />
         </div>
         <div className="space-y-5 px-[22px] pb-6">
@@ -499,17 +500,18 @@ function LocalRecipes() {
 }
 
 /** Flat back button, shared by every public profile state. With no history (a deep link) it goes home. */
-function BackRow() {
+function BackRow({ forestUid }: { forestUid?: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   return (
-    <div className="flex px-3 pt-2">
+    <div className="flex justify-between px-3 pt-2">
       <IconButton
         variant="flat"
         label="Back"
         icon={<ChevronLeft className="size-6" />}
         onClick={() => (location.key === 'default' ? navigate('/') : navigate(-1))}
       />
+      {forestUid && <IconButton variant="flat" label="Forest view" href={`/profile/${forestUid}/forest`} icon={<Trees className="size-6" />} />}
     </div>
   );
 }
@@ -605,7 +607,7 @@ function PublicProfile({ uid }: { uid: string }) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
-      <BackRow />
+      <BackRow forestUid={uid} />
 
       <main className="flex-1 max-w-lg mx-auto w-full">
         <div className="space-y-5 px-[22px] pb-6">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRecipe } from '../test/factories';
-import { forestHeadline, forestSummary, layoutForestFamily } from './forest';
+import { forestHeadline, forestSummary, groupForestFamilies, layoutForestFamily } from './forest';
 
 const by = (uid: string) => ({ uid, displayName: null });
 
@@ -66,4 +66,19 @@ describe('forestHeadline', () => {
     [3, 1, 'Planted 3 recipes. 1 branch has grown from them.'],
     [0, 0, 'Planted 0 recipes. 0 branches have grown from them.'],
   ])('%i/%i', (p, g, s) => expect(forestHeadline(p, g)).toBe(s));
+});
+
+describe('groupForestFamilies', () => {
+  it('groups by rootId, newest first, caps and counts the rest', () => {
+    const rs = [
+      { id: 'a', rootId: 'a', createdAt: 1 },
+      { id: 'b', rootId: 'a', createdAt: 5 },
+      { id: 'c', rootId: 'c', createdAt: 3 },
+      { id: 'd', createdAt: 2 },
+    ];
+    const g = groupForestFamilies(rs, 2);
+    expect(g.families.map((f) => f.rootId)).toEqual(['a', 'c']);
+    expect(g.families[0].mine.map((r) => r.id)).toEqual(['a', 'b']);
+    expect(g.more).toBe(1);
+  });
 });

@@ -27,6 +27,7 @@ const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ defa
 const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
 const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const CreatePage = lazy(() => import('./pages/CreatePage').then(m => ({ default: m.CreatePage })));
+const ForestPage = lazy(() => import('./pages/ForestPage').then(m => ({ default: m.ForestPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -76,6 +77,9 @@ export function AppRoutes() {
         <Route path="/cookies" element={<LegalPage doc="cookies" />} />
         <Route path="/shared" element={<SharedRecipePage />} />
         <Route path="/shared/:id" element={<SharedRecipePage />} />
+        {/* 4b Forest view (RL-175), with its own Back button like /settings. */}
+        <Route path="/profile/forest" element={<ForestPage />} />
+        <Route path="/profile/:uid/forest" element={<ForestPage />} />
         <Route path="/profile/:uid" element={<ProfilePage />} />
       </Routes>
     </RecipePaneContext.Provider>
