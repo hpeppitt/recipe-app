@@ -199,8 +199,50 @@ describe('BranchComposer photos', () => {
   });
 
   it('attach is disabled while generating or unavailable', () => {
-    show({ generating: true });
+    const { unmount } = show({ generating: true });
     expect(attach().disabled).toBe(true);
+    unmount();
+    show({ unavailableNotice: <p>Recipe generation is unavailable</p> });
+    expect(attach().disabled).toBe(true);
+  });
+
+  it('a limit refusal scrolls the alert into view', async () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    try {
+      show({ seed: 'x', onGrow: vi.fn().mockResolvedValue('message-limit') });
+      await userEvent.setup().click(grow());
+      await screen.findByRole('alert');
+      expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+    } finally {
+      // @ts-expect-error jsdom has no scrollIntoView
+      delete Element.prototype.scrollIntoView;
+    }
+  });
+
+  it('onGrow rejecting keeps text and photos, shows no error and unlocks Grow', async () => {
+    const onGrow = vi.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue(null);
+    show({ seed: 'less sugar', onGrow });
+    const u = userEvent.setup();
+    await u.upload(fileInput(), jpg());
+    await screen.findByAltText('Attached photo 1 of 1');
+    await u.click(grow());
+    await waitFor(() => expect(onGrow).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(box().value).toBe('less sugar');
+    expect(screen.getByAltText('Attached photo 1 of 1')).toBeTruthy();
+    await u.click(grow());
+    expect(onGrow).toHaveBeenCalledTimes(2);
+  });
+
+  it('a null return that sent nothing (still mounted, not generating) unlocks Grow', async () => {
+    const onGrow = vi.fn().mockResolvedValue(null);
+    show({ seed: 'less sugar', onGrow });
+    const u = userEvent.setup();
+    await u.click(grow());
+    await waitFor(() => expect(onGrow).toHaveBeenCalledTimes(1));
+    await u.click(grow());
+    expect(onGrow).toHaveBeenCalledTimes(2);
   });
 });
 

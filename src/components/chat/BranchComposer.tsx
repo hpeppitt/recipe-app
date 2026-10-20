@@ -43,6 +43,11 @@ export function BranchComposer({
   const [caretTick, setCaretTick] = useState(0);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const sentRef = useRef(false);
+  const generatingRef = useRef(generating);
+  useEffect(() => {
+    generatingRef.current = generating;
+  });
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const tray = usePhotoTray();
   const { fileRef, attachRef, trayRef, mounted } = tray;
   const headingId = useId();
@@ -73,6 +78,11 @@ export function BranchComposer({
     box.setSelectionRange(box.value.length, box.value.length);
   }, [caretTick]);
 
+  // The alert is mid-page and Grow is in the sticky footer: bring the reason into view.
+  useEffect(() => {
+    if (tray.errorSeq) errorRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [tray.errorSeq]);
+
   useEffect(() => {
     if (!generating) sentRef.current = false;
   }, [generating]);
@@ -81,8 +91,11 @@ export function BranchComposer({
     const instruction = text.trim();
     if (!canGrow || sentRef.current) return;
     sentRef.current = true;
-    // The composer keeps its text and photos while a send runs (the page swaps
-    // screens on success), so a refusal only needs Grow unlocked and the copy shown.
+    // sendMessage appends the user message before dedup or generation, so the
+    // composer unmounts as soon as a send really starts (a generation failure keeps
+    // the photos in useRecipeChat for Retry). Only a pre-send refusal (a limit, or
+    // sendMessage's own in-flight guard returning null) leaves this mounted: unlock
+    // Grow and show the limit copy. Text and photos were never cleared.
     const restore = (msg: string | null) => {
       sentRef.current = false;
       if (msg && mounted.current) tray.setError(msg);
@@ -90,6 +103,7 @@ export function BranchComposer({
     void Promise.resolve(onGrow(instruction, tray.ready)).then(
       (limit) => {
         if (limit) restore(attachmentErrorMessage(limit));
+        else if (limit === null && mounted.current && !generatingRef.current) restore(null);
       },
       () => restore(null)
     );
@@ -151,6 +165,7 @@ export function BranchComposer({
           <PhotoTray photos={tray.photos} trayRef={trayRef} onRemove={tray.removePhoto} />
           {tray.error && (
             <p
+              ref={errorRef}
               key={tray.errorSeq}
               role="alert"
               className="min-w-0 break-words text-[13px] text-accent-900"

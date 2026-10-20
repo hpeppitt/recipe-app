@@ -22,6 +22,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - The Terms and Privacy Policy wording changed from favourite to save (headings, counts, erasure, analytics and notification lines) with no `lastUpdated` date change and no `TERMS_VERSION` bump, so nobody is asked to re-accept. The author will review all policy text before production.
 - On a phone, open a recipe's Vary screen (the first screen, "What would you change?"): tap Add photos, pick one to three photos. Thumbnails and the Gemini privacy notice appear, a fourth photo shows the limit line, and Grow this branch is disabled while a thumbnail spins. With a photo and no text, Grow works and the variation uses the photo. Then reload the page: no photo is left anywhere (the screen opens empty, and the history entry holds nothing).
+- Reviewer noted (low): Back or Close on the vary screen discards typed text and attached photos silently (text already did; photos are more effort to redo). The privacy notice appears only once a photo is picked, not before (same as the chat composer).
 - Explore at 390px and 1280px, on a throttled network: no list jump while the Branching fast this week query runs (a grey placeholder holds the row's space, then the row or Newest replaces it).
 
 ### RL-117 Dark Organic (Warm night 20a), Light / Dark / System in Settings
