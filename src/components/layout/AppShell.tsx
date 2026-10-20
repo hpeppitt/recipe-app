@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { ConsentBanner } from './ConsentBanner';
@@ -24,16 +24,22 @@ export function AppShell() {
   // When the window narrows beside a recipe the list stays mounted, hidden, so Back finds it as it
   // was. Cleared once the list shows again, so a row opened at narrow width unmounts it as before.
   const [track, setTrack] = useState({ wide, keepList: false });
+  // Read out politely when the pane shows a recipe; focus stays on the row that was chosen.
+  const [shownTitle, setShownTitle] = useState('');
   let keepList = track.keepList;
   if (track.wide !== wide || (keepList && recipeId === null)) {
     keepList = alone && (track.wide || keepList);
     setTrack({ wide, keepList });
+    // Empty on return to wide, so the status mounts silent and holds no stale title.
+    if (!wide) setShownTitle('');
   }
+  // Only beside the list, read at call time: below lg there is no status, so no shell render either.
+  const onShown = useCallback((title: string) => {
+    if (window.matchMedia?.(WIDE_QUERY).matches) setShownTitle(title);
+  }, []);
   const showList = !alone || keepList;
   const paneRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  // Read out politely when the pane shows a recipe; focus stays on the row that was chosen.
-  const [shownTitle, setShownTitle] = useState('');
   // RecipeDetailPage stays mounted across ids, so a newly chosen recipe starts at its top.
   useEffect(() => {
     if (paneRef.current) paneRef.current.scrollTop = 0;
@@ -108,14 +114,14 @@ export function AppShell() {
                   }}
                   className={beside ? '@container sticky top-0 h-dvh min-w-0 flex-1 overflow-y-auto overscroll-contain' : undefined}
                 >
-                  {/* Only beside the list. Mounted with its text on a resize, so it is not read out again. */}
+                  {/* Only beside the list. It mounts empty on a resize, so the resize is not read out. */}
                   {beside && <p role="status" className="sr-only">{shownTitle && `Showing ${shownTitle}`}</p>}
                   {/* Its own boundaries, so a failing recipe or its first chunk load leaves the list alone.
                       Reset on the id, since the pathname (the list's) does not change between recipes.
                       "Back to library" still goes to /. */}
                   <ErrorBoundary resetKey={recipeId} onBack={() => navigate('/')}>
                     <Suspense fallback={<PageFallback />}>
-                      <RecipeDetailPage id={recipeId} beside={wide} onShown={setShownTitle} />
+                      <RecipeDetailPage id={recipeId} beside={wide} onShown={onShown} />
                     </Suspense>
                   </ErrorBoundary>
                 </div>

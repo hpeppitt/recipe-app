@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { summariseChanges, diffRecipes } from '../../lib/recipeDiff';
 import { collectSubtreeIds } from '../../lib/tree';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
 import type { Recipe } from '../../types/recipe';
 import { Network } from '../ui/icons';
+import { carriedListOrigin } from '../../lib/paneMode';
 
 interface BranchCarouselProps {
   /** The recipe being viewed. */
@@ -24,6 +25,8 @@ const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-
 
 export function BranchCarousel({ recipe, recipes, isLoading = false }: BranchCarouselProps) {
   const navigate = useNavigate();
+  // Opened from a list: hops between branches stay in the shell beside it (2026-10-20).
+  const origin = carriedListOrigin(useLocation().state);
   const rowRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   // True for ~400ms after a dot press, so the observer does not override it mid-scroll.
@@ -148,7 +151,7 @@ export function BranchCarousel({ recipe, recipes, isLoading = false }: BranchCar
                   ))}
                 </ul>
               )}
-              <Button aria-label={`Open ${card.title}`} className="mt-auto outline-primary-600!" onClick={() => navigate(`/recipe/${card.id}`)}>
+              <Button aria-label={`Open ${card.title}`} className="mt-auto outline-primary-600!" onClick={() => navigate(`/recipe/${card.id}`, { state: origin })}>
                 Open
               </Button>
             </div>
@@ -180,6 +183,7 @@ export function BranchCarousel({ recipe, recipes, isLoading = false }: BranchCar
       {root && (
         <Link
           to={`/recipe/${root.id}`}
+          state={origin}
           className={`flex items-center gap-2 min-h-11 rounded-full px-3 text-sm text-text-primary hover:bg-surface-secondary ${focusRing}`}
         >
           <span aria-hidden="true">{root.emoji}</span>

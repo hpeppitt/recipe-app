@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import type { AppUser } from '../types/recipe';
@@ -293,6 +293,49 @@ describe('RecipeDetailPage in the wide-screen pane (RL-116)', () => {
     const onShown = vi.fn();
     renderWithProviders(<RecipeDetailPage id="r1" onShown={onShown} />, { route: '/' });
     expect(onShown).toHaveBeenCalledWith('Soup');
+  });
+
+  it('below lg in the shell (2026-10-20): a div inside the shell main, with the narrow page styling', () => {
+    renderWithProviders(<main><RecipeDetailPage id="r1" beside={false} /></main>, { route: '/' });
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveClass('lg:text-[44px]');
+    expect(screen.getByRole('button', { name: 'Branch this recipe' }).parentElement).not.toHaveClass('flex-wrap');
+  });
+
+  it('in the shell, sees the real navigation key and state, so Back steps back through history', () => {
+    // What the page itself sees under the overridden location.
+    function Seen() {
+      const { pathname, key, state } = useLocation();
+      return <p data-testid="seen">{`${pathname} ${key !== 'default'} ${JSON.stringify(state)}`}</p>;
+    }
+    // As AppRoutes does: the shell routes render against the list's pathname, keeping key and state.
+    function Shell() {
+      const location = useLocation();
+      const inPane = location.pathname === '/recipe/r1';
+      return (
+        <Routes location={inPane ? { ...location, pathname: '/' } : location}>
+          <Route
+            path="/"
+            element={
+              inPane ? (
+                <main>
+                  <RecipeDetailPage id="r1" beside={false} />
+                  <Seen />
+                </main>
+              ) : (
+                <Link to="/recipe/r1" state={{ listOrigin: '/' }}>Row</Link>
+              )
+            }
+          />
+        </Routes>
+      );
+    }
+    renderWithProviders(<Shell />, { route: '/' });
+    fireEvent.click(screen.getByRole('link', { name: 'Row' }));
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.getByTestId('seen')).toHaveTextContent('/ true {"listOrigin":"/"}');
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    expect(navigateSpy).toHaveBeenCalledWith(-1);
   });
 
   it('offers Family in the footer, which opens the tree', () => {

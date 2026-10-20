@@ -1,20 +1,27 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { screen, within, fireEvent } from '@testing-library/react';
+import { screen, within, fireEvent, cleanup } from '@testing-library/react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { BranchCarousel } from './BranchCarousel';
 import { makeRecipe, makeIngredient } from '../../test/factories';
 
 function Where() {
-  return <div data-testid="where">{useLocation().pathname}</div>;
+  const { pathname, state } = useLocation();
+  return (
+    <>
+      <div data-testid="where">{pathname}</div>
+      <div data-testid="state">{JSON.stringify(state)}</div>
+    </>
+  );
 }
 
-function setup(viewed: ReturnType<typeof makeRecipe>, family: ReturnType<typeof makeRecipe>[]) {
+function setup(viewed: ReturnType<typeof makeRecipe>, family: ReturnType<typeof makeRecipe>[], state?: unknown) {
   return renderWithProviders(
     <Routes>
       <Route path="*" element={<><BranchCarousel recipe={viewed} recipes={family} /><Where /></>} />
-    </Routes>
+    </Routes>,
+    { route: { pathname: `/recipe/${viewed.id}`, state } }
   );
 }
 
@@ -57,6 +64,24 @@ describe('BranchCarousel', () => {
     setup(root, family);
     fireEvent.click(within(screen.getAllByRole('group')[0]).getByRole('button', { name: 'Open Blueberry' }));
     expect(screen.getByTestId('where')).toHaveTextContent('/recipe/a');
+  });
+
+  it('Open and The original pass on the list origin, so the hop stays beside the list', () => {
+    setup(a, family, { listOrigin: '/saved' });
+    fireEvent.click(screen.getByRole('link', { name: /The original/ }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/recipe/r');
+    expect(screen.getByTestId('state')).toHaveTextContent('{"listOrigin":"/saved"}');
+    cleanup();
+    setup(root, family, { listOrigin: '/saved' });
+    fireEvent.click(within(screen.getAllByRole('group')[0]).getByRole('button', { name: 'Open Blueberry' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/recipe/a');
+    expect(screen.getByTestId('state')).toHaveTextContent('{"listOrigin":"/saved"}');
+  });
+
+  it('passes no state without a list origin', () => {
+    setup(root, family);
+    fireEvent.click(within(screen.getAllByRole('group')[0]).getByRole('button', { name: 'Open Blueberry' }));
+    expect(screen.getByTestId('state')).toHaveTextContent('null');
   });
 
   it('names the dots and marks the active one, which follows a press', () => {

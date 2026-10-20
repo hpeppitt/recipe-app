@@ -12,10 +12,12 @@ vi.mock('./pages/ExplorePage', () => ({
       mounts.explore++;
     }, []);
     const [tag, setTag] = useState('none');
+    const navigate = useNavigate();
     return (
       <div>
         <p>Explore list</p>
         <button onClick={() => setTag('pasta')}>Tag: {tag}</button>
+        <button onClick={() => navigate(1)}>Forward</button>
         <Link to="/recipe/r1" state={{ listOrigin: '/' }}>Row r1</Link>
         <Link to="/recipe/r2" state={{ listOrigin: '/' }}>Row r2</Link>
         <Link to="/recipe/boom" state={{ listOrigin: '/' }}>Row boom</Link>
@@ -52,6 +54,7 @@ vi.mock('./pages/RecipeDetailPage', () => ({
     return (
       <div>
         <h1>Recipe {id ?? params.id}</h1>
+        <p>{id ? 'In the shell' : 'Own route'}</p>
         <button onClick={() => setServings((n) => n + 1)}>Servings {servings}</button>
         <button onClick={() => navigate(-1)}>Back</button>
       </div>
@@ -112,8 +115,8 @@ function renderAt(path: string) {
 
 const nav = () => screen.queryByRole('navigation', { name: 'Main' });
 
-describe('AppRoutes below 1024px (unchanged)', () => {
-  it('opens a recipe from Explore on its own page, outside the shell', async () => {
+describe('AppRoutes below 1024px (behaves as before)', () => {
+  it('opens a recipe from Explore alone, without the list or the nav', async () => {
     renderAt('/');
     fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Recipe r1' })).toBeInTheDocument();
@@ -126,6 +129,32 @@ describe('AppRoutes below 1024px (unchanged)', () => {
     fireEvent.click(await screen.findByRole('link', { name: 'Row s1' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Recipe s1' })).toBeInTheDocument();
     expect(screen.queryByText('Saved list')).not.toBeInTheDocument();
+  });
+
+  it('Back to Saved remounts the list too', async () => {
+    renderAt('/saved');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row s1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Saved list')).toBeInTheDocument();
+    expect(mounts.saved).toBe(2);
+  });
+
+  it('a direct visit with no list origin takes the plain route', async () => {
+    renderAt('/recipe/r1');
+    expect(await screen.findByText('Own route')).toBeInTheDocument();
+    expect(nav()).not.toBeInTheDocument();
+  });
+
+  it('Forward after Back opens the recipe alone again, fresh, and unmounts the list', async () => {
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward' }));
+    expect(await screen.findByRole('button', { name: 'Servings 1' })).toBeInTheDocument();
+    expect(screen.getByText('In the shell')).toBeInTheDocument();
+    expect(screen.queryByText('Explore list')).not.toBeInTheDocument();
+    expect(mounts.recipe).toBe(2);
   });
 
   it('Back remounts the list, as before', async () => {
@@ -224,7 +253,10 @@ describe('AppRoutes at 1024px and wider', () => {
     setWide(true);
     expect(screen.getByRole('button', { name: 'Tag: pasta' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Showing Title r1');
+    // The status mounts empty, so the resize is not read out; the next choice is.
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    fireEvent.click(screen.getByRole('link', { name: 'Row r2' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Showing Title r2');
     expect(mounts).toMatchObject({ explore: 1, recipe: 1 });
   });
 

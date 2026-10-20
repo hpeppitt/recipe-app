@@ -24,7 +24,7 @@ const noop = async () => {};
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { user = fakeUser, route = '/', auth }: { user?: AppUser | null; route?: string; auth?: Partial<AuthContextType> } = {}
+  { user = fakeUser, route = '/', auth }: { user?: AppUser | null; route?: string | { pathname: string; state?: unknown }; auth?: Partial<AuthContextType> } = {}
 ) {
   const value: AuthContextType = {
     user,

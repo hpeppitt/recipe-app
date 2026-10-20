@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { describe, it, expect } from 'vitest';
 import { screen, fireEvent, within, cleanup } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { makeRecipe } from '../../test/factories';
 import { LineageStrip } from './LineageStrip';
@@ -169,5 +170,32 @@ describe('LineageStrip sentence and button', () => {
     expect(screen.queryByRole('button', { name: 'Show 3 more' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'switch' }));
     expect(screen.getByRole('button', { name: 'Show 3 more' })).toBeInTheDocument();
+  });
+});
+
+describe('LineageStrip list origin', () => {
+  function State() {
+    return <div data-testid="state">{JSON.stringify(useLocation().state)}</div>;
+  }
+  const root = makeRecipe({ id: 'root', title: 'Root' });
+  const recipe = makeRecipe({ id: 'cur', title: 'Current', depth: 1, parentId: 'root', rootId: 'root' });
+  const renderAt = (state?: unknown) =>
+    renderWithProviders(
+      <Routes>
+        <Route path="*" element={<><LineageStrip recipe={recipe} ancestors={[root]} /><State /></>} />
+      </Routes>,
+      { route: { pathname: '/recipe/cur', state } }
+    );
+
+  it('passes the list origin on a crumb, so the hop stays beside the list', () => {
+    renderAt({ listOrigin: '/' });
+    fireEvent.click(screen.getByRole('link', { name: 'Root' }));
+    expect(screen.getByTestId('state')).toHaveTextContent('{"listOrigin":"/"}');
+  });
+
+  it('passes no state without one', () => {
+    renderAt({ saved: 'cloud' });
+    fireEvent.click(screen.getByRole('link', { name: 'Root' }));
+    expect(screen.getByTestId('state')).toHaveTextContent('null');
   });
 });

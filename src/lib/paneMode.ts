@@ -29,9 +29,18 @@ export function paneMode(pathname: string, state: unknown, wide: boolean): PaneM
   if (!wide) return null;
   const id = matchPath('/recipe/:id', pathname)?.params.id;
   if (!id) return null;
-  const origin = typeof state === 'object' && state !== null ? (state as Partial<ListOriginState>).listOrigin : undefined;
-  if (origin !== '/' && origin !== '/saved') return null;
+  const origin = carriedListOrigin(state)?.listOrigin;
+  if (!origin) return null;
   return { listPath: origin, recipeId: decode(id) };
+}
+
+/**
+ * The list origin in the current navigation state, for a link from one recipe to another to
+ * pass on, so the hop stays in the shell at every width (2026-10-20). Undefined without one.
+ */
+export function carriedListOrigin(state: unknown): ListOriginState | undefined {
+  const origin = typeof state === 'object' && state !== null ? (state as Partial<ListOriginState>).listOrigin : undefined;
+  return origin === '/' || origin === '/saved' ? listOriginState(origin) : undefined;
 }
 
 // matchPath leaves params encoded; the route's useParams decodes them, so match that.
