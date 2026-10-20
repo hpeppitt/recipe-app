@@ -390,6 +390,7 @@ service cloud.firestore {
           || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched']
             && (request.resource.data.get('message', null) == null
               || (request.resource.data.message is string && request.resource.data.message.size() <= 500)))
+          || isBranchNotice()
         )
         && movedWindow('notification', 'notifications/' + notificationId);
       // Recipient may only flip the read flag
@@ -397,6 +398,44 @@ service cloud.firestore {
         && resource.data.recipientUid == request.auth.uid
         && changedKeys().hasOnly(['read']);
       allow delete: if verified() && resource.data.recipientUid == request.auth.uid;
+
+      // RL-152: "someone branched your recipe". recipeId names the new branch;
+      // the sender must be its author and the recipient the parent's owner, and
+      // never the sender (two document reads).
+      function isBranchNotice() {
+        let d = request.resource.data;
+        return request.resource.data.type in ['branch']
+          && (d.get('message', null) == null
+            || (d.message is string && d.message.size() <= 500))
+          && d.recipientUid is string
+          && d.recipientUid != request.auth.uid
+          && 'recipeId' in d
+          && isBranchBy(get(/databases/$(database)/documents/recipes/$(d.recipeId)).data, d.recipientUid);
+      }
+
+      function isBranchBy(branch, recipientUid) {
+        return branch.createdBy.uid == request.auth.uid
+          && branch.get('parentId', null) is string
+          && get(/databases/$(database)/documents/recipes/$(branch.parentId)).data.createdBy.uid == recipientUid;
+      }
+    }
+
+    // --- Notification preferences: private, one document per account (RL-152) ---
+    //
+    // "Notify me when" choices. Owner-only read: they are applied when the
+    // recipient reads Activity, so writers never read someone else's
+    // preferences. updatedAt must be serverTimestamp().
+    match /notificationPrefs/{uid} {
+      allow read: if verified() && request.auth.uid == uid;
+      // signedIn() like termsAcceptance, so erasure works if verification lapses.
+      allow delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if verified()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['branch', 'suggestion', 'follow', 'updatedAt'])
+        && request.resource.data.branch is bool
+        && request.resource.data.suggestion is bool
+        && request.resource.data.follow is bool
+        && request.resource.data.updatedAt == request.time;
     }
 
     // --- Profiles: public read; own doc writable; others may only bump followerCount ---

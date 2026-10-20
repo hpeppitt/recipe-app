@@ -1661,3 +1661,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Applied and Kept as a branch rows show the message with no name; replies, saves and follows keep quotes. Old free-text suggestions use the new format.
 - Reviewer noted: the Activity error state has no Retry and the empty state is an ad hoc `<p>` (pre-existing).
 - Reviewer noted: `open()` awaits `markRead` without a catch, so a failure blocks navigation silently (pre-existing).
+
+### RL-152 Rules for branch notifications and notification preferences
+
+- No visible change. Rules in the repo only; RL-156 deploys them. Probe codes are in the ticket's Notes.
+- Nothing writes a `branch` notification (RL-153) or `notificationPrefs` (RL-155) yet.
