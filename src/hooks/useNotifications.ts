@@ -1,16 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   subscribeNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '../services/firestore';
+import { useNotificationPrefs } from './useNotificationPrefs';
+import { visibleFor } from '../lib/notifications';
 import type { AppNotification } from '../types/social';
 
 export function useNotifications() {
   const { user, isConfigured } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { prefs, loaded } = useNotificationPrefs();
+  const [all, setAll] = useState<AppNotification[]>([]);
+  // One filtered list feeds Activity, Mark all read and the badge, so they agree.
+  const notifications = useMemo(() => (loaded ? visibleFor(all, prefs) : []), [all, prefs, loaded]);
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
   // The panel had no way to tell "waiting for the first snapshot" from "there is
   // nothing here", so it showed the empty state during startup and after a
   // failure alike.
@@ -19,8 +24,7 @@ export function useNotifications() {
 
   useEffect(() => {
     if (!isConfigured || !user) {
-      setNotifications([]);
-      setUnreadCount(0);
+      setAll([]);
       setIsLoading(false);
       setError(false);
       return;
@@ -30,8 +34,7 @@ export function useNotifications() {
     return subscribeNotifications(
       user.uid,
       (notifs) => {
-        setNotifications(notifs);
-        setUnreadCount(notifs.filter((n) => !n.read).length);
+        setAll(notifs);
         setIsLoading(false);
       },
       () => {
@@ -54,5 +57,6 @@ export function useNotifications() {
     await markAllNotificationsRead(uid);
   }, [uid]);
 
-  return { notifications, unreadCount, isLoading, error, markRead, markAllRead };
+  // Until the preferences arrive, hidden types would flash: stay loading, badge 0.
+  return { notifications, unreadCount, isLoading: isLoading || !loaded, prefs, error, markRead, markAllRead };
 }

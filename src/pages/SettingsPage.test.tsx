@@ -17,7 +17,14 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 const updateAvatar = vi.fn(async () => {});
 vi.mock('../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null, updateAvatar }) }));
 const fetchCloud = vi.fn();
-vi.mock('../services/firestore', () => ({ fetchCloudDataForExport: (...a: unknown[]) => fetchCloud(...a) }));
+let prefsLoads = true;
+let prefsFails = false;
+const setPrefsDoc = vi.fn(async (..._a: unknown[]) => {});
+vi.mock('../services/firestore', () => ({
+  fetchCloudDataForExport: (...a: unknown[]) => fetchCloud(...a),
+  subscribeNotificationPrefs: (_u: string, cb: (p: null) => void, err: () => void) => ((prefsFails ? err() : prefsLoads && cb(null)), () => {}),
+  setNotificationPrefs: (...a: unknown[]) => setPrefsDoc(...a),
+}));
 const exportRecipes = vi.fn(async (): Promise<unknown[]> => []);
 vi.mock('../db/recipes', () => ({
   exportAllRecipes: () => exportRecipes(),
@@ -28,8 +35,11 @@ vi.mock('../db/favorites', () => ({ exportAllFavorites: async () => [{ uid: 'u1'
 
 import { SettingsPage } from './SettingsPage';
 
+// The always-mounted notification error region is also a status.
+const exportStatus = () => screen.getAllByRole('status').find((e) => !e.hasAttribute('data-notify-status'))!;
+
 const ok = { data: null };
-const allOk = { profile: ok, recipes: { data: [] }, favorites: { data: [] }, follows: { data: [] }, suggestions: { data: [] }, notifications: { data: [] }, termsAcceptance: ok, writeWindows: { data: [] } };
+const allOk = { profile: ok, recipes: { data: [] }, favorites: { data: [] }, follows: { data: [] }, suggestions: { data: [] }, notifications: { data: [] }, termsAcceptance: ok, notificationPrefs: ok, writeWindows: { data: [] } };
 
 let blobs: Blob[];
 // Real timer captured before any spy, so the stall check can wait in real time.
@@ -102,7 +112,7 @@ describe('Settings: Download my data', () => {
     user = anon;
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data (this device only)' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/downloaded/));
     expect(fetchCloud).not.toHaveBeenCalled();
     const file = JSON.parse(await blobs[0].text());
     expect(file.cloud).toBeNull();
@@ -123,7 +133,7 @@ describe('Settings: Download my data', () => {
     const btn = screen.getByRole('button', { name: 'Download my data' });
     expect(btn.className).toContain('min-h-11');
     fireEvent.click(btn);
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/downloaded/));
     expect(fetchCloud).toHaveBeenCalledWith('u1', true);
     const file = JSON.parse(await blobs[0].text());
     expect(file.uid).toBe('u1');
@@ -142,11 +152,11 @@ describe('Settings: Download my data', () => {
   it('raises an alert when every cloud read failed, and still downloads the local part', async () => {
     user = member;
     const e = { error: 'permission-denied' };
-    fetchCloud.mockResolvedValue({ profile: e, recipes: e, favorites: e, follows: e, suggestions: e, notifications: e, termsAcceptance: e, writeWindows: e });
+    fetchCloud.mockResolvedValue({ profile: e, recipes: e, favorites: e, follows: e, suggestions: e, notifications: e, termsAcceptance: e, notificationPrefs: e, writeWindows: e });
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/could not be loaded/));
-    expect(JSON.parse(await blobs[0].text()).errors).toHaveLength(8);
+    expect(JSON.parse(await blobs[0].text()).errors).toHaveLength(9);
   });
 
   it('notes a partial failure without an alert', async () => {
@@ -154,7 +164,7 @@ describe('Settings: Download my data', () => {
     fetchCloud.mockResolvedValue({ ...allOk, suggestions: { error: 'permission-denied' } });
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/some of your online data \(suggestions\) could not be included/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/some of your online data \(suggestions\) could not be included/));
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -165,7 +175,7 @@ describe('Settings: Download my data', () => {
     const btn = screen.getByRole('button', { name: 'Download my data' });
     fireEvent.click(btn);
     fireEvent.click(btn);
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/downloaded/));
     expect(fetchCloud).toHaveBeenCalledTimes(1);
     expect(blobs).toHaveLength(1);
   });
@@ -175,8 +185,8 @@ describe('Settings: Download my data', () => {
     fetchCloud.mockResolvedValue({ ...allOk, suggestions: { error: 'Verify your email to include suggestions' } });
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Verify your email to include suggestions\./));
-    expect(screen.getByRole('status').textContent).not.toMatch(/Try again later/);
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/Verify your email to include suggestions\./));
+    expect(exportStatus().textContent).not.toMatch(/Try again later/);
     expect(fetchCloud).toHaveBeenCalledWith('u1', false);
   });
 
@@ -189,7 +199,7 @@ describe('Settings: Download my data', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Couldn't prepare/));
     expect(blobs).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/downloaded/));
   });
 
   it('revokes the object URL after a delay, not at once', async () => {
@@ -197,7 +207,7 @@ describe('Settings: Download my data', () => {
     fetchCloud.mockResolvedValue(allOk);
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/downloaded/));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/downloaded/));
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
     expect(revokeTimers).toHaveLength(1);
     revokeTimers[0]();
@@ -232,19 +242,18 @@ describe('Settings: Delete recipes on this device copy', () => {
 });
 
 describe('Settings: layout (RL-093)', () => {
-  it('has no Sign-in methods, Weigh or notification rows', () => {
+  it('has no Sign-in methods or Weigh rows', () => {
     user = member;
     render();
     expect(screen.queryByText(/sign-in methods/i)).toBeNull();
     expect(screen.queryByText(/weigh/i)).toBeNull();
-    expect(screen.queryByText(/notify me/i)).toBeNull();
   });
 
-  it('orders the groups Account, Appearance, Your data, Legal and ends with Sign out', () => {
+  it('orders the groups Account, Notify me when, Appearance, Your data, Legal and ends with Sign out', () => {
     user = member;
     render();
     const labels = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-    expect(labels).toEqual(['Account', 'Appearance', 'Your data', 'Legal']);
+    expect(labels).toEqual(['Account', 'Notify me when', 'Appearance', 'Your data', 'Legal']);
     const buttons = screen.getAllByRole('button').map((b) => b.textContent);
     expect(buttons[buttons.length - 1]).toBe('Sign out');
   });
@@ -299,7 +308,8 @@ describe('Settings: layout (RL-093)', () => {
     exportRecipes.mockResolvedValue([]);
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Export my recipes' }));
-    const status = await screen.findByRole('status');
+    await waitFor(() => expect(exportStatus()).toBeTruthy());
+    const status = exportStatus();
     const wrapper = screen.getByRole('button', { name: 'Export my recipes' }).parentElement;
     expect(status.parentElement).toBe(wrapper);
     expect(wrapper?.className).toContain('last:border-b-0');
@@ -388,5 +398,61 @@ describe('Settings: analytics switch', () => {
     expect((sw.querySelector('span[aria-hidden]') as HTMLElement).className).toContain('bg-accent-2-600');
     fireEvent.click(sw);
     expect(setConsent).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('Settings: Notify me when', () => {
+  it('shows no card signed out or unverified', () => {
+    user = null;
+    const { unmount } = render();
+    expect(screen.queryByText('Notify me when')).toBeNull();
+    unmount();
+    user = anon;
+    render();
+    expect(screen.queryByRole('switch', { name: 'Someone follows me' })).toBeNull();
+  });
+
+  it('shows three switches, all on, and writes the whole document on toggle', async () => {
+    user = member;
+    setPrefsDoc.mockClear();
+    render();
+    expect(screen.getAllByRole('switch').filter((x) => x.getAttribute('aria-checked') === 'true')).toHaveLength(3);
+    await userEvent.click(screen.getByRole('switch', { name: 'Someone follows me' }));
+    expect(setPrefsDoc).toHaveBeenCalledWith('u1', { branch: true, suggestion: true, follow: false });
+    expect(screen.getByRole('switch', { name: 'Someone follows me' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('reverts and says so when the write fails', async () => {
+    user = member;
+    setPrefsDoc.mockRejectedValueOnce(new Error('denied'));
+    render();
+    await userEvent.click(screen.getByRole('switch', { name: 'I get a suggestion' }));
+    expect(await screen.findByText(/Couldn't save that\. Try again\. \(I get a suggestion\)/)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'I get a suggestion' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('disables the switches and marks them busy until the stored document arrives', () => {
+    user = member;
+    prefsLoads = false;
+    try {
+      render();
+      const sw = screen.getByRole('switch', { name: 'Someone follows me' });
+      expect(sw).toBeDisabled();
+      expect(sw).toHaveAttribute('aria-busy', 'true');
+    } finally {
+      prefsLoads = true;
+    }
+  });
+
+  it('keeps the switches disabled and says so when the stored choices could not be read', () => {
+    user = member;
+    prefsFails = true;
+    try {
+      render();
+      expect(screen.getByRole('switch', { name: 'Someone follows me' })).toBeDisabled();
+      expect(screen.getByText("Couldn't load your choices. Reopen Settings to try again.")).toBeInTheDocument();
+    } finally {
+      prefsFails = false;
+    }
   });
 });

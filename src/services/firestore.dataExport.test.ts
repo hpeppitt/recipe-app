@@ -125,13 +125,21 @@ describe('fetchCloudDataForExport', () => {
     expect('warning' in out.notifications && out.notifications.warning).toMatch(/Stopped after 10000/);
   });
 
-  it('reads the four own writeWindows ids and the profile and terms by id', async () => {
+  it('reads the four own writeWindows ids and the profile, terms and notificationPrefs by id', async () => {
     const paths: string[] = [];
     getDocImpl = async (p) => (paths.push(p), missing(p));
     await fetchCloudDataForExport('u1');
     expect(paths.sort()).toEqual([
-      'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
+      'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
     ]);
+  });
+
+  it('reports the verify note for notificationPrefs when the email is unverified, without reading it', async () => {
+    const paths: string[] = [];
+    getDocImpl = async (p) => (paths.push(p), missing(p));
+    const out = await fetchCloudDataForExport('u1', false);
+    expect(out.notificationPrefs).toEqual({ error: 'Verify your email to include suggestions' });
+    expect(paths).not.toContain('notificationPrefs/u1');
   });
 
   it('does not report truncation for exactly 10000 rows', async () => {

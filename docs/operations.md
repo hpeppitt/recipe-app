@@ -598,7 +598,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | Data | Erase |
 |---|---|
 | Auth user | Deleted, after Firestore |
-| `profiles/{uid}`, `termsAcceptance/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification` and `{uid}_recipe` | Deleted |
+| `profiles/{uid}`, `termsAcceptance/{uid}`, `notificationPrefs/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification` and `{uid}_recipe` | Deleted |
 | `recipes` with `createdBy.uid == uid` (with `createdBy.displayName`) | Deleted |
 | The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) | That element removed with `arrayRemove`. No query can match a uid inside those objects, so every recipe is read |
 | `favorites` with `uid == uid` | Deleted, and the favourited recipe's `favoriteCount` decremented (not below 0, not on the uid's own recipes) |

@@ -12,7 +12,7 @@ undeployed.
 ```mermaid
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
-    Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useMediaQuery...]
+    Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useNotificationPrefs, useMediaQuery...]
     Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt, paneMode, diet]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
@@ -309,7 +309,7 @@ start and is split only for caching.
 (RL-097) is five `Link`s: Explore, Saved, Create (a link to `/new`, the sentence builder, which hands its prompt to `/create`),
 Activity and You. Each sets `aria-current="page"` from `matchPath` on the current path, and
 Explore is also current on `/search` (a `NavLink` could not do that). The Activity badge reads `useNotifications()`, which
-reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. From `lg` (1024px) the same single `nav` is a fixed 220px left rail (CSS only, RL-115): `AppShell` main takes `lg:ml-[220px] lg:pb-0`, `UpdatePrompt` moves to `lg:left-[220px] lg:bottom-4` on shell routes only, and `CreatePage` drops its nav-height sticky offset (`lg:bottom-0`, `lg:min-h-dvh`). The bar is fixed, 78px plus the safe area, below lg; beyond
+reports 0 when signed out or local-only, and also needs a verified email, as ActivityPage does. Since RL-155 the list, the unread count (so the badge) and Mark all read are post-filter: `useNotifications` applies `visibleFor` with the owner's `hooks/useNotificationPrefs.ts` choices, and stays loading with a badge of 0 until those arrive, so a switched-off type never flashes. From `lg` (1024px) the same single `nav` is a fixed 220px left rail (CSS only, RL-115): `AppShell` main takes `lg:ml-[220px] lg:pb-0`, `UpdatePrompt` moves to `lg:left-[220px] lg:bottom-4` on shell routes only, and `CreatePage` drops its nav-height sticky offset (`lg:bottom-0`, `lg:min-h-dvh`). The bar is fixed, 78px plus the safe area, below lg; beyond
 8px; `AppShell`'s `<main>` padding and `UpdatePrompt`'s offset use the same sum. `/settings` sits
 outside the shell, reached from the You tab's gear, with its own Back button.
 `/recipe/:id/suggestion/:suggestionId` (`SuggestionThreadPage`, RL-106) is lazy and outside the

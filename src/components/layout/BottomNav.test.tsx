@@ -12,6 +12,7 @@ vi.mock('../../services/firestore', () => ({
     cb(feed.items);
     return () => {};
   },
+  subscribeNotificationPrefs: (_u: string, cb: (p: null) => void) => (cb(null), () => {}),
   markNotificationRead: async () => {},
   markAllNotificationsRead: async () => {},
 }));

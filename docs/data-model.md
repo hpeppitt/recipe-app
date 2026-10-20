@@ -254,7 +254,7 @@ by the owner with a verified email; delete by the signed-in owner (no verified e
 like termsAcceptance, so erasure works if verification lapses). Writes take exactly the keys `branch`,
 `suggestion`, `follow` (each a bool) and `updatedAt`, which must equal the request time
 (`serverTimestamp()`). Nobody else can read or list them; preferences are applied when the
-recipient reads Activity, not by the writer.
+recipient reads Activity, not by the writer. RL-155 writes the whole document with `setDoc` on each toggle, and it is part of Download my data (`cloud.notificationPrefs`, additive, so `DATA_EXPORT_VERSION` stays 1; an unverified user gets the verify note for it, as for suggestions) and of the erase script.
 
 **profiles** are publicly readable, and every write needs a verified email. You own your
 document. Anyone else may change exactly one thing: a `followerCount` ±1 bump. Since RL-041 the

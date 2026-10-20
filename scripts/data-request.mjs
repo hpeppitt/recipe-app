@@ -227,7 +227,7 @@ export function buildErasePlan(uid, fetched) {
 
   for (const n of uniqueByPath(fetched.notifications ?? [])) add('notification (to or from)', [del(n.path)]);
   for (const e of fetched.clientErrors ?? []) add('error report', [del(e.path)]);
-  for (const key of ['profile', 'termsAcceptance', 'rateLimit']) {
+  for (const key of ['profile', 'termsAcceptance', 'notificationPrefs', 'rateLimit']) {
     if (fetched[key]) add(key, [del(fetched[key].path)]);
   }
   for (const w of fetched.writeWindows ?? []) add('write window', [del(w.path)]);
@@ -358,6 +358,7 @@ async function collect(db, auth, uid) {
     authUser,
     profile: await one(`profiles/${uid}`),
     termsAcceptance: await one(`termsAcceptance/${uid}`),
+    notificationPrefs: await one(`notificationPrefs/${uid}`),
     rateLimit: await one(`rateLimits/${uid}`),
     writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
     ownRecipes,
@@ -418,7 +419,7 @@ export function redactExport(uid, body) {
   // Paths last, once every other uid has an alias. Composite ids are joined with `_`.
   const fixPath = (p) => p.split('/').map((seg) => seg.split('_').map((x) => ids.get(x) ?? x).join('_')).join('/');
   const docs = [
-    out.profile, out.termsAcceptance, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
+    out.profile, out.termsAcceptance, out.notificationPrefs, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
   ].filter(Boolean);
@@ -437,6 +438,7 @@ function exportBody(uid, project, target, f) {
     authUser: f.authUser,
     profile: f.profile,
     termsAcceptance: f.termsAcceptance,
+    notificationPrefs: f.notificationPrefs,
     rateLimit: f.rateLimit,
     writeWindows: f.writeWindows,
     recipes: { owned: f.ownRecipes, asCollaborator: f.collaboratorRecipes },
@@ -453,6 +455,7 @@ function countExport(body) {
     authUser: body.authUser ? 1 : 0,
     profile: body.profile ? 1 : 0,
     termsAcceptance: body.termsAcceptance ? 1 : 0,
+    notificationPrefs: body.notificationPrefs ? 1 : 0,
     rateLimit: body.rateLimit ? 1 : 0,
     writeWindows: body.writeWindows.length,
     ownedRecipes: body.recipes.owned.length,

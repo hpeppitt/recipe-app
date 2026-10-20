@@ -29,6 +29,7 @@ export interface CloudInput {
   suggestions: Section<CloudSuggestion[]>;
   notifications: Section<AppNotification[]>;
   termsAcceptance: Section<CloudDoc | null>;
+  notificationPrefs: Section<CloudDoc | null>;
   writeWindows: Section<CloudDoc[]>;
 }
 
@@ -58,6 +59,7 @@ export interface DataExport {
     suggestions: CloudSuggestion[];
     notifications: AppNotification[];
     termsAcceptance: CloudDoc | null;
+    notificationPrefs: CloudDoc | null;
     writeWindows: CloudDoc[];
   } | null;
   note?: string;
@@ -166,6 +168,7 @@ export function assembleDataExport(input: DataExportInput): DataExport {
       suggestions,
       notifications,
       termsAcceptance: take('termsAcceptance', c.termsAcceptance, null),
+      notificationPrefs: take('notificationPrefs', c.notificationPrefs, null),
       writeWindows: sorted(take('writeWindows', c.writeWindows, [])),
     };
     // Document ids that embed a uid (follows, favourites) are rewritten last,

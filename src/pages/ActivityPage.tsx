@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
-import { filterByChip, groupByDays, NOTIF_VERBS, type ActivityChip } from '../lib/notifications';
+import { DEFAULT_NOTIFICATION_PREFS, filterByChip, groupByDays, NOTIF_VERBS, type ActivityChip } from '../lib/notifications';
 import { timeAgo } from '../lib/utils';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Avatar } from '../components/ui/Avatar';
@@ -31,10 +31,28 @@ const CHIPS: [ActivityChip, string][] = [
   ['follows', 'Follows'],
 ];
 
+const CHIP_PREF: Record<Exclude<ActivityChip, 'all'>, keyof typeof DEFAULT_NOTIFICATION_PREFS> = {
+  branches: 'branch',
+  suggestions: 'suggestion',
+  follows: 'follow',
+};
+
+function TurnedOff() {
+  return (
+    <EmptyState
+      compact
+      icon={<Bell />}
+      title="Some notifications are turned off"
+      description="Turn them back on in Settings to see them here."
+      action={<Link to="/settings" className="text-[13px] font-semibold text-accent-700">Notification settings</Link>}
+    />
+  );
+}
+
 /** The notifications as an Organic feed with filter chips and day headers (RL-092, RL-154). */
 export function ActivityPage() {
   const { user, isConfigured } = useAuth();
-  const { notifications, unreadCount, isLoading, error, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, isLoading, error, prefs, markRead, markAllRead } = useNotifications();
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
@@ -57,6 +75,7 @@ export function ActivityPage() {
   };
 
   const shown = filterByChip(notifications, chip);
+  const anyOff = !prefs.branch || !prefs.suggestion || !prefs.follow;
   const signedOut = !isConfigured || !user || !user.emailVerified;
 
   const row = (n: AppNotification) => {
@@ -165,7 +184,7 @@ export function ActivityPage() {
           description="The connection failed. Reopen this to try again."
         />
       ) : notifications.length === 0 ? (
-        <p className="px-5 py-5 text-sm text-text-tertiary">Nothing here yet.</p>
+        anyOff ? <TurnedOff /> : <p className="px-5 py-5 text-sm text-text-tertiary">Nothing here yet.</p>
       ) : (
         <>
           <div role="group" aria-label="Filter activity" className="flex gap-2 overflow-x-auto px-3 pb-1 pt-3.5">
@@ -186,7 +205,9 @@ export function ActivityPage() {
               </button>
             ))}
           </div>
-          {shown.length === 0 ? (
+          {shown.length === 0 && chip !== 'all' && !prefs[CHIP_PREF[chip]] ? (
+            <TurnedOff />
+          ) : shown.length === 0 ? (
             <EmptyState
               compact
               icon={<Bell />}
