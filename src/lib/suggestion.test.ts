@@ -7,7 +7,15 @@ import {
   applySuggestionEdits,
   hasApplicableEdits,
   buildBranchFromSuggestion,
+  MAX_EDITS,
+  MAX_EDIT_FROM,
+  MAX_EDIT_TO,
+  MAX_EDIT_INDEX,
+  MAX_EDIT_NAME,
+  MAX_WHY,
 } from './suggestion';
+// ?raw rather than node:fs, as in rateLimit.test.ts.
+import rules from '../../firestore.rules?raw';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { SuggestionEdit } from '../types/social';
 
@@ -154,5 +162,36 @@ describe('structured suggestion edits', () => {
     expect(() =>
       buildBranchFromSuggestion(parent, { ...sug, edits: [ing(0, 'Sugar', '1 g', '2 g')] }, { uid: 'o', displayName: null }, 'x', 1)
     ).toThrow();
+  });
+});
+
+describe('firestore.rules edit caps (RL-146)', () => {
+  it('the comment block names the client caps', () => {
+    expect(rules).toContain(`edits        ${MAX_EDITS} per suggestion`);
+    expect(rules).toContain(`from         ${MAX_EDIT_FROM} characters`);
+    expect(rules).toContain(`to           ${MAX_EDIT_TO} characters`);
+    expect(rules).toContain(`index        ${MAX_EDIT_INDEX} at most`);
+    expect(rules).toContain(`name         ${MAX_EDIT_NAME} characters`);
+    expect(rules).toContain(`why          ${MAX_WHY} characters`);
+  });
+
+  it('the rule literals match the client caps', () => {
+    expect(rules).toContain(`n >= 1 && n <= ${MAX_EDITS}\n`);
+    expect(rules).toContain(`e.from.matches('(?s).{0,${MAX_EDIT_FROM}}')`);
+    expect(rules).toContain(`e.to.matches('(?s).{1,${MAX_EDIT_TO}}')`);
+    expect(rules).toContain(`i >= 0 && i <= ${MAX_EDIT_INDEX}`);
+    expect(rules).toContain(`e.get('name', '').matches('(?s).{0,${MAX_EDIT_NAME}}')`);
+    expect(rules).toContain(`e.get('why', '').matches('(?s).{0,${MAX_WHY}}')`);
+  });
+
+  it('every regex cap is within the RE2 repeat limit of 1000', () => {
+    for (const cap of [MAX_EDIT_FROM, MAX_EDIT_TO, MAX_EDIT_NAME, MAX_WHY]) expect(cap).toBeLessThanOrEqual(1000);
+  });
+
+  it('checks every index up to the cap and no further', () => {
+    for (let i = 0; i < MAX_EDITS; i++) {
+      expect(rules).toContain(`(n <= ${i} || validEdit(es[${i}]))`);
+    }
+    expect(rules).not.toContain(`validEdit(es[${MAX_EDITS}])`);
   });
 });

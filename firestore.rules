@@ -231,21 +231,100 @@ service cloud.firestore {
       // recipeOwnerId must name the real owner (one extra read per create): a
       // wrong value leaves a suggestion no one can review and, since delete is
       // forbidden, no one can remove.
+      //
+      // A fixed key set (RL-146): the fields createSuggestion writes plus
+      // `edits`. Without it a suggester could pre-set `branchId`, which the
+      // owner's Decline and Apply may not touch, or any other field.
       allow create: if verified()
         && acceptedTerms()
         && request.resource.data.suggestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['recipeId', 'recipeOwnerId', 'recipeTitle', 'recipeEmoji', 'suggestedBy', 'message', 'status', 'createdAt', 'edits'])
+        && validEdits(request.resource.data)
         && get(/databases/$(database)/documents/recipes/$(request.resource.data.recipeId)).data.createdBy.uid == request.resource.data.recipeOwnerId
         && movedWindow('suggestion', 'suggestions/' + suggestionId);
+      // The owner closes an open suggestion exactly once (RL-146): Declined
+      // ('rejected'), Applied, or Branched with the id of the branch Keep as
+      // branch created. 'approved' is no longer writable; old approved
+      // documents stay as they are. A closed suggestion cannot change.
       allow update: if verified()
         && resource.data.recipeOwnerId == request.auth.uid
-        && changedKeys().hasOnly(['status'])
-        && request.resource.data.status in ['approved', 'rejected'];
+        && resource.data.status == 'pending'
+        && changedKeys().hasOnly(['status', 'branchId'])
+        && (
+          (request.resource.data.status in ['rejected', 'applied']
+            && !('branchId' in changedKeys()))
+          || (request.resource.data.status == 'branched'
+            && request.resource.data.branchId is string
+            && isOwnBranchOf(request.resource.data.branchId, resource.data.recipeId))
+        );
       allow delete: if false;
+
+      // The branch must be the owner's own child of the suggested recipe. The
+      // exists() and get() of one path count as one document read.
+      function isOwnBranchOf(branchId, recipeId) {
+        let path = /databases/$(database)/documents/recipes/$(branchId);
+        return exists(path)
+          && get(path).data.parentId == recipeId
+          && get(path).data.createdBy.uid == request.auth.uid;
+      }
+
+      // Structured edits (RL-145, RL-146). Optional: a free-text suggestion has
+      // none. Rules cannot loop over a list, so the count is capped and each
+      // index is checked explicitly. MUST equal MAX_EDITS and the MAX_EDIT_*
+      // caps in src/lib/suggestion.ts; src/lib/suggestion.test.ts fails the
+      // build when they differ:
+      //   edits        10 per suggestion
+      //   from         500 characters
+      //   to           1000 characters
+      //   index        99 at most
+      //   name         200 characters
+      //   why          200 characters
+      // RE2 caps a repeat count at 1000, so no cap here may exceed 1000.
+      //
+      // Text fields are checked with matches() rather than `is string` plus
+      // size(). A request may evaluate at most 1000 expressions, shared with the
+      // writeWindows write in the same transaction; with size() the emulator
+      // denied 7 full edits for that reason alone, with matches() 10 pass
+      // (RL-146 Notes). matches() errors on a non-string, which denies, and
+      // counts code points where size() counts UTF-16 units, so text in astral
+      // characters (emoji) may run to twice the cap in UTF-16 units. The client
+      // caps by UTF-16 length, which is never longer in code points, so a
+      // client write is never denied by the difference. Adding checks here can
+      // push 10 edits back over the limit: re-probe 10 full edits after any change.
+      function validEdits(d) {
+        return !('edits' in d) || validEditList(d.edits);
+      }
+
+      function validEditList(es) {
+        let n = es.size();
+        return es is list && n >= 1 && n <= 10
+          && (n <= 0 || validEdit(es[0]))
+          && (n <= 1 || validEdit(es[1]))
+          && (n <= 2 || validEdit(es[2]))
+          && (n <= 3 || validEdit(es[3]))
+          && (n <= 4 || validEdit(es[4]))
+          && (n <= 5 || validEdit(es[5]))
+          && (n <= 6 || validEdit(es[6]))
+          && (n <= 7 || validEdit(es[7]))
+          && (n <= 8 || validEdit(es[8]))
+          && (n <= 9 || validEdit(es[9]));
+      }
+
+      function validEdit(e) {
+        let i = e.get('index', 0);
+        return e.keys().hasOnly(['kind', 'index', 'name', 'from', 'to', 'why'])
+          && e.kind in ['ingredient', 'step', 'general']
+          && e.from.matches('(?s).{0,500}')
+          && e.to.matches('(?s).{1,1000}')
+          && i is int && i >= 0 && i <= 99
+          && e.get('name', '').matches('(?s).{0,200}')
+          && e.get('why', '').matches('(?s).{0,200}');
+      }
 
       // --- Reply thread on a suggestion ---
       // A subcollection rather than a `replies` array on the parent, so the
-      // owner-only + status-only update rule above stays intact. Relaxing that
+      // owner-only update rule above stays narrow. Relaxing that
       // rule to permit an array append would also permit rewriting the
       // suggestion body, which is a wider grant than replying needs.
       //
@@ -254,7 +333,7 @@ service cloud.firestore {
       // there is no edit or delete UI, and allowing either would let one party
       // silently rewrite a thread the other has already read.
       //
-      // Replies stay allowed after approval or rejection on purpose. A
+      // Replies stay allowed after the suggestion is closed on purpose. A
       // rejection is exactly when the suggester wants to ask why, so gating on
       // status == 'pending' would close the conversation at the moment it
       // becomes most useful.
@@ -308,7 +387,7 @@ service cloud.firestore {
         && (
           (request.resource.data.type in ['favorite', 'follow']
             && request.resource.data.get('message', null) == null)
-          || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected']
+          || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched']
             && (request.resource.data.get('message', null) == null
               || (request.resource.data.message is string && request.resource.data.message.size() <= 500)))
         )

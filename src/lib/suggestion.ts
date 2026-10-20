@@ -2,10 +2,17 @@ import type { Collaborator, CreatedBy, Ingredient, Instruction, Recipe } from '.
 import type { Suggestion, SuggestionEdit } from '../types/social';
 import { formatAmount } from './amount';
 
-/** Client-side caps. The rules set no size limit on a suggestion message, so these are the only ones. */
+/** Client-side caps. The rules set no size limit on a suggestion message, so these are the only ones for it. MAX_WHY is also the rules' cap on an edit's `why`. */
 export const MAX_WHY = 200;
 export const MAX_NOTE = 1000;
 export const MAX_MESSAGE = 2000;
+
+/** Structured edit caps. MUST equal validEdits()/validEdit() in firestore.rules; suggestion.test.ts checks. */
+export const MAX_EDITS = 10;
+export const MAX_EDIT_FROM = 500;
+export const MAX_EDIT_TO = 1000;
+export const MAX_EDIT_INDEX = 99;
+export const MAX_EDIT_NAME = 200;
 
 export interface IngredientEdit {
   name: string;
