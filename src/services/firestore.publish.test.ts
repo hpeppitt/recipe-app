@@ -118,6 +118,7 @@ describe('publishRecipe — first publish', () => {
 
     const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(payload.collaborators).toEqual(collaborators);
+    expect(payload.collaboratorUids).toEqual(['c1']);
   });
 
   it('keeps createdBy and createdAt on create', async () => {
@@ -129,11 +130,21 @@ describe('publishRecipe — first publish', () => {
     expect(payload.createdAt).toBe(1234);
   });
 
+  it('dedupes the derived uid list on create', async () => {
+    await publishRecipe(
+      makeRecipe({ id: 'r1', collaborators: [{ uid: 'c1', displayName: 'A' }, { uid: 'c1', displayName: 'B' }] })
+    );
+
+    const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
+    expect(payload.collaboratorUids).toEqual(['c1']);
+  });
+
   it('defaults collaborators to [] on create when the local copy has none', async () => {
     await publishRecipe(makeRecipe({ id: 'r1', collaborators: undefined }));
 
     const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(payload.collaborators).toEqual([]);
+    expect(payload.collaboratorUids).toEqual([]);
   });
 });
 
@@ -192,6 +203,7 @@ describe('publishRecipe — re-publish', () => {
 
     const payload = setDoc.mock.calls[0][1] as unknown as Record<string, unknown>;
     expect(payload).not.toHaveProperty('collaborators');
+    expect(payload).not.toHaveProperty('collaboratorUids');
   });
 
   it.each([undefined, null])(

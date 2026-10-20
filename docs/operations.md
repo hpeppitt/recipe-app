@@ -600,7 +600,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | Auth user | Deleted, after Firestore |
 | `profiles/{uid}`, `termsAcceptance/{uid}`, `notificationPrefs/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification` and `{uid}_recipe` | Deleted |
 | `recipes` with `createdBy.uid == uid` (with `createdBy.displayName`) | Deleted |
-| The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) | That element removed with `arrayRemove`. No query can match a uid inside those objects, so every recipe is read |
+| The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) and `collaboratorUids` (RL-172) | Removed from both with `arrayRemove` in one update (`collaboratorUids` only when the document's list holds the uid). Found with an `array-contains` query on `collaboratorUids` plus a read of every recipe, because recipes credited before RL-172 have only the objects, which no query can match on uid. Export aliases other uids in both fields |
 | `favorites` with `uid == uid` | Deleted, and the favourited recipe's `favoriteCount` decremented (not below 0, not on the uid's own recipes) |
 | Other users' `favorites` of the uid's recipes (`recipeOwnerId == uid`) | Deleted: the recipe is gone |
 | `follows` on either side (with `followerDisplayName`) | Deleted, and the other party's `followerCount` or `followingCount` decremented (not below 0) |

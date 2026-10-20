@@ -56,6 +56,7 @@ vi.mock('firebase/firestore', () => ({
   limit: (...args: unknown[]) => args,
   onSnapshot: (...args: unknown[]) => onSnapshot(...args),
   increment: (n: number) => ({ __increment: n }),
+  arrayUnion: (...args: unknown[]) => ({ __arrayUnion: args }),
   writeBatch: () => ({ set: vi.fn(), update: vi.fn(), delete: vi.fn(), commit: vi.fn(async () => {}) }),
   // RL-049: limited writes are transactions with a window. The window is absent;
   // the content write is logged when staged.
@@ -157,6 +158,8 @@ describe('applySuggestion (RL-148)', () => {
     expect(written.ingredients[0]).toMatchObject({ amount: 100, unit: 'g' });
     expect(written.instructions[0].text).toBe('Simmer.');
     expect(written.collaborators).toEqual([SAM]);
+    // RL-172: the uid list rides the same update as the edits and the credit.
+    expect((written as unknown as Record<string, unknown>).collaboratorUids).toEqual({ __arrayUnion: ['suggester'] });
     expect(log[1][2]).toEqual({ status: 'applied' });
     expect((log[2][2] as Recipe).collaborators).toEqual([SAM]);
     expect(notifications()[0]).toMatchObject({
@@ -181,6 +184,20 @@ describe('applySuggestion (RL-148)', () => {
     docs['recipes/recipe-1'] = { ...recipe, collaborators: [{ uid: 'suggester', displayName: 'Old name' }] };
     await applySuggestion(suggestion({ edits: [ingEdit] }), recipe, reviewer);
     expect((log[0][2] as Recipe).collaborators).toEqual([{ uid: 'suggester', displayName: 'Old name' }]);
+    // Still unioned, so a suggester credited before RL-172 gains the uid entry.
+    expect(log[0][2]).toMatchObject({ collaboratorUids: { __arrayUnion: ['suggester'] } });
+  });
+
+  it('unions every credited uid, so a recipe credited before RL-172 gains the whole list', async () => {
+    docs['recipes/recipe-1'] = { ...recipe, collaborators: [{ uid: 'early', displayName: 'Eve' }] };
+    await applySuggestion(suggestion({ edits: [ingEdit] }), recipe, reviewer);
+    expect(log[0][2]).toMatchObject({ collaboratorUids: { __arrayUnion: ['early', 'suggester'] } });
+  });
+
+  it('does not credit the owner applying their own suggestion', async () => {
+    await applySuggestion(suggestion({ edits: [ingEdit], suggestedBy: reviewer }), recipe, reviewer);
+    expect(log[0][2]).not.toHaveProperty('collaboratorUids');
+    expect((log[0][2] as Recipe).collaborators).toEqual([]);
   });
 
   it('writes nothing when an edit is stale against the cloud copy', async () => {
@@ -247,6 +264,7 @@ describe('keepSuggestionAsBranch (RL-148)', () => {
       parentId: 'recipe-1',
       createdBy: reviewer,
       collaborators: [SAM],
+      collaboratorUids: ['suggester'],
       favoriteCount: 0,
     });
     expect(log[2][2]).toEqual({ status: 'branched', branchId });

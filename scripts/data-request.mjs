@@ -144,6 +144,7 @@ const uniqueByPath = (docs) => [...new Map(docs.map((d) => [d.path, d])).values(
  * together and a re-run after a failure does not decrement twice.
  *
  * Ops: { kind: 'delete', path } or { kind: 'update', path, set?, arrayRemove?, increment? }.
+ * arrayRemove maps each field to the values removed from it, all in one update.
  */
 export function buildErasePlan(uid, fetched) {
   const groups = [];
@@ -198,7 +199,11 @@ export function buildErasePlan(uid, fetched) {
   for (const r of fetched.collaboratorRecipes ?? []) {
     if (ownRecipes.has(r.path)) continue;
     const values = (r.data.collaborators ?? []).filter((c) => c?.uid === uid);
-    if (values.length) add('collaborator entry removed', [{ kind: 'update', path: r.path, arrayRemove: { field: 'collaborators', values } }]);
+    // RL-172: the uid list goes in the same update; only named when it holds the uid, since
+    // arrayRemove on a missing field would create it.
+    const inUids = Array.isArray(r.data.collaboratorUids) && r.data.collaboratorUids.includes(uid);
+    const arrayRemove = { ...(values.length ? { collaborators: values } : {}), ...(inUids ? { collaboratorUids: [uid] } : {}) };
+    if (Object.keys(arrayRemove).length) add('collaborator entry removed', [{ kind: 'update', path: r.path, arrayRemove }]);
   }
 
   for (const f of fetched.favorites ?? []) {
@@ -266,7 +271,10 @@ export function summarise(plan) {
 export function describeOp(op) {
   if (op.kind === 'delete') return `DELETE ${op.path}`;
   if (op.set) return `UPDATE ${op.path} set ${JSON.stringify(op.set)}`;
-  if (op.arrayRemove) return `UPDATE ${op.path} ${op.arrayRemove.field} remove ${JSON.stringify(op.arrayRemove.values)}`;
+  if (op.arrayRemove) {
+    const parts = Object.entries(op.arrayRemove).map(([field, values]) => `${field} remove ${JSON.stringify(values)}`);
+    return `UPDATE ${op.path} ${parts.join(', ')}`;
+  }
   return `UPDATE ${op.path} ${op.increment.field} ${op.increment.by > 0 ? '+' : ''}${op.increment.by}`;
 }
 
@@ -311,14 +319,15 @@ async function collect(db, auth, uid) {
   const withMessages = async (docs) =>
     Promise.all(docs.map(async (d) => ({ ...d, messages: await q(db.collection(`${d.path}/messages`).orderBy('createdAt')) })));
 
-  // shortcut: collaborators holds { uid, displayName } objects, which no query can match
-  // on uid alone, so every recipe is read. Fine for a private circle; add a
-  // `collaboratorUids` array field and an array-contains query if the feed grows large.
+  // shortcut: recipes credited before RL-172 lack `collaboratorUids`, and `collaborators` holds
+  // { uid, displayName } objects no query can match on uid, so every recipe is still read
+  // beside the array-contains query. Drop the scan once no credited recipe lacks the list.
   const allRecipes = await q(db.collection('recipes'));
   const ownRecipes = allRecipes.filter((r) => r.data.createdBy?.uid === uid);
-  const collaboratorRecipes = allRecipes.filter(
-    (r) => r.data.createdBy?.uid !== uid && (r.data.collaborators ?? []).some((c) => c?.uid === uid),
-  );
+  const collaboratorRecipes = uniqueByPath([
+    ...(await q(db.collection('recipes').where('collaboratorUids', 'array-contains', uid))),
+    ...allRecipes.filter((r) => (r.data.collaborators ?? []).some((c) => c?.uid === uid)),
+  ]).filter((r) => r.data.createdBy?.uid !== uid);
 
   // Under the rules a reply can only be written by one of a thread's two parties, so the
   // threads fetched here hold every reply the uid wrote. The collection-group query is a
@@ -397,10 +406,14 @@ export function redactExport(uid, body) {
     if (d[uidKey] !== uid && nameKey in d) d[nameKey] = null;
     if (uidKey in d) d[uidKey] = alias(d[uidKey]);
   };
-  for (const r of out.recipes.owned) r.data.collaborators = (r.data.collaborators ?? []).map(person);
+  const credit = (d) => {
+    d.collaborators = (d.collaborators ?? []).map(person);
+    if (Array.isArray(d.collaboratorUids)) d.collaboratorUids = d.collaboratorUids.map(alias);
+  };
+  for (const r of out.recipes.owned) credit(r.data);
   for (const r of out.recipes.asCollaborator) {
     r.data.createdBy = person(r.data.createdBy);
-    r.data.collaborators = (r.data.collaborators ?? []).map(person);
+    credit(r.data);
   }
   for (const f of out.favorites) f.data.recipeOwnerId = alias(f.data.recipeOwnerId);
   for (const f of out.follows) {
@@ -475,7 +488,10 @@ async function execute(db, admin, plan) {
     const ref = db.doc(op.path);
     if (op.kind === 'delete') batch.delete(ref);
     else if (op.set) batch.update(ref, op.set);
-    else if (op.arrayRemove) batch.update(ref, { [op.arrayRemove.field]: FieldValue.arrayRemove(...op.arrayRemove.values) });
+    else if (op.arrayRemove) {
+      const patch = Object.entries(op.arrayRemove).map(([field, values]) => [field, FieldValue.arrayRemove(...values)]);
+      batch.update(ref, Object.fromEntries(patch));
+    }
     else batch.update(ref, { [op.increment.field]: FieldValue.increment(op.increment.by) });
   };
   const failed = [];

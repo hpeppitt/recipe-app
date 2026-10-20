@@ -237,7 +237,10 @@ service cloud.firestore {
           && d.instructions is list && d.instructions.size() <= 100
           // RL-162: a recipe id (a UUID); absent or null on most recipes.
           && (d.get('relatedFamilyId', null) == null
-            || (d.relatedFamilyId is string && d.relatedFamilyId.size() <= 128));
+            || (d.relatedFamilyId is string && d.relatedFamilyId.size() <= 128))
+          // RL-172: credited uids for array-contains; absent on older recipes.
+          && (!('collaboratorUids' in d)
+            || (d.collaboratorUids is list && d.collaboratorUids.size() <= 50));
       }
     }
 
