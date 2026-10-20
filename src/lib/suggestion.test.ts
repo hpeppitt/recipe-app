@@ -7,6 +7,7 @@ import {
   applySuggestionEdits,
   hasApplicableEdits,
   buildBranchFromSuggestion,
+  suggestionBranchId,
   MAX_EDITS,
   MAX_EDIT_FROM,
   MAX_EDIT_TO,
@@ -193,5 +194,14 @@ describe('firestore.rules edit caps (RL-146)', () => {
       expect(rules).toContain(`(n <= ${i} || validEdit(es[${i}]))`);
     }
     expect(rules).not.toContain(`validEdit(es[${MAX_EDITS}])`);
+  });
+});
+
+describe('suggestionBranchId (RL-148)', () => {
+  it('is a stable UUID v5 per suggestion and differs between suggestions', async () => {
+    const a = await suggestionBranchId('s1');
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(await suggestionBranchId('s1')).toBe(a);
+    expect(await suggestionBranchId('s2')).not.toBe(a);
   });
 });

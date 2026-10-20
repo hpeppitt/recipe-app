@@ -83,6 +83,23 @@ and the last copy when offline. Signing out of a verified account runs `clearOwn
 (`db/recipes.ts`) after `signOut()` resolves, so the account's own rows leave the device and the
 listener reloads them on the next sign-in (RL-085).
 
+Reviewing a suggestion (RL-148, `services/firestore.ts`) never leaves a suggestion marked done
+with nothing behind it, and the notification always comes last. `applySuggestion` is one
+`runTransaction`, bounded at 5 seconds: it reads the recipe and the suggestion, requires the
+suggestion still `pending`, checks the edits against the recipe as read (`StaleSuggestionError`,
+nothing written, when any no longer matches), and updates the edited lists, `updatedAt` and
+`collaborators` (the suggester added, deduped by uid) together with `status: 'applied'`. After
+the commit it caches `toLocalRecipe` of the result (keeping the local `chatHistory`) and
+notifies `suggestion_applied`. `keepSuggestionAsBranch` requires the suggestion `pending`,
+builds the branch from the cloud parent with `buildBranchFromSuggestion` under
+`suggestionBranchId` (a UUID v5 of the suggestion id), and publishes it (create, recipe window)
+unless that id already exists, so a retry after a partial failure reuses the first branch rather
+than making a second. It reuses an existing document only when it is the owner's own child of
+the recipe; the id is guessable, so anything else at that id is refused. A suggestion no longer
+`pending` throws `SuggestionClosedError` (`lib/errors.ts`) before any write. Then it caches the branch, writes `status: 'branched'` with `branchId`,
+and notifies `suggestion_branched`. Decline writes `status: 'rejected'`, then notifies. A failed
+cache or notification never fails the review.
+
 Anonymous, signed-out and local-only users are Dexie only: their saved copies of other
 people's recipes never reach the cloud.
 
@@ -233,7 +250,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`services/gemini.ts`** — the only Gemini caller. Swapping AI Logic for the Cloud
   Function proxy is a change to this file's transport, not to its callers.
 - **`lib/errors.ts`** (`describeGenerationError`) — the one place raw provider errors become
-  user-facing copy. It also holds `RateLimitedError` and `rateLimitMessage` (RL-048, RL-049),
+  user-facing copy. It also holds `StaleSuggestionError` (RL-148) and `RateLimitedError` and `rateLimitMessage` (RL-048, RL-049),
   which turn a write-limit hit into the suggestion, reply or daily-publish message (a limited
   notification is skipped in `services/firestore.ts` and never reaches a message). New failure modes get mapped here, not at the call site.
 - **`components/ui/ErrorBoundary.tsx`**: wraps the routes and the shell outlet; render errors
@@ -248,7 +265,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens
   (no stored data).
-- **`lib/suggestion.ts`** (`composeSuggestionMessage`, `parseAmountText`, `describeEdits`, `applySuggestionEdits`, `hasApplicableEdits`, `buildBranchFromSuggestion`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): the structured suggestion model (RL-145). A suggestion may carry `edits[]` and `branchId`; `composeSuggestionMessage` still writes the free-text `message` from them, and the helpers describe, apply and branch from the edits. Suggest mode writes them (RL-147); no screen reads them yet.
+- **`lib/suggestion.ts`** (`composeSuggestionMessage`, `parseAmountText`, `describeEdits`, `applySuggestionEdits`, `hasApplicableEdits`, `buildBranchFromSuggestion`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): the structured suggestion model (RL-145). A suggestion may carry `edits[]` and `branchId`; `composeSuggestionMessage` still writes the free-text `message` from them, and the helpers describe, apply and branch from the edits. Suggest mode writes them (RL-147); Apply and Keep as branch read them (RL-148).
 - **`components/recipe/SuggestMode.tsx`** (RL-107): the recipe page and the shared page as the suggest form; composes with
   `lib/suggestion.ts` and sends `{ message, edits }` through the page's existing submit (ingredient and step edits plus a general note).
 - **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, RL-125): the Create tab's three

@@ -16,14 +16,16 @@ const unsubMessages = vi.fn();
 const subscribeMessages = vi.fn();
 const addMessage = vi.fn();
 const updateStatus = vi.fn();
+const applySuggestion = vi.fn();
 vi.mock('../services/firestore', () => ({
   subscribeRecipeSuggestions: (...a: unknown[]) => subscribe(...a),
   subscribeSuggestionMessages: (...a: unknown[]) => subscribeMessages(...a),
   addSuggestionMessage: (...a: unknown[]) => addMessage(...a),
   updateSuggestionStatus: (...a: unknown[]) => updateStatus(...a),
+  applySuggestion: (...a: unknown[]) => applySuggestion(...a),
+  keepSuggestionAsBranch: vi.fn(),
   createSuggestion: vi.fn(),
 }));
-vi.mock('../db/recipes', () => ({ addLocalCollaborator: vi.fn(async () => {}) }));
 vi.mock('../services/analytics', () => ({
   trackSuggestionSubmitted: vi.fn(),
   trackSuggestionReviewed: vi.fn(),
@@ -215,10 +217,10 @@ describe('SuggestionThreadPage', () => {
   });
 
   describe('owner actions', () => {
-    it('shows Decline and Approve for the owner on a pending suggestion', () => {
+    it('shows Decline and Apply for the owner on a pending suggestion', () => {
       open();
       expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
       expect(subscribe).toHaveBeenCalledWith('r1', fakeUser.uid, true, expect.any(Function));
     });
 
@@ -230,7 +232,7 @@ describe('SuggestionThreadPage', () => {
       open();
       expect(screen.getByText(label)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
       expect(input()).toBeInTheDocument();
     });
 
@@ -240,23 +242,25 @@ describe('SuggestionThreadPage', () => {
       expect(subscribe).toHaveBeenCalledWith('r1', MAYA.uid, false, expect.any(Function));
       expect(screen.getByLabelText('Reply to Test Cook')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     });
 
-    it('Approve opens the variation composer seeded with the message', async () => {
-      updateStatus.mockResolvedValue({ recipeId: 'r1', collaborator: { uid: MAYA.uid } });
+    it('Apply applies the suggestion as the owner and stays (RL-148)', async () => {
+      applySuggestion.mockResolvedValue(undefined);
       open();
-      fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-      expect(await screen.findByText('Composer seeded with: More garlic')).toBeInTheDocument();
-      expect(updateStatus).toHaveBeenCalledWith('s1', 'approved', { uid: fakeUser.uid, displayName: fakeUser.displayName });
-    });
-
-    it('a failed Approve shows the approve error and stays', async () => {
-      updateStatus.mockRejectedValue(new Error('denied'));
-      open();
-      fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-      expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't approve that suggestion. Please try again.");
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      await waitFor(() =>
+        expect(applySuggestion).toHaveBeenCalledWith(suggestions[0], recipe, { uid: fakeUser.uid, displayName: fakeUser.displayName })
+      );
       expect(screen.queryByText(/Composer seeded/)).not.toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('a failed Apply shows the apply error and stays', async () => {
+      applySuggestion.mockRejectedValue(new Error('denied'));
+      open();
+      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't apply that suggestion. Please try again.");
     });
 
     it('Decline confirms first, then declines with the same notification path', async () => {

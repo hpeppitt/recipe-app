@@ -5,11 +5,13 @@ import {
   subscribeSuggestionMessages,
   addSuggestionMessage,
   updateSuggestionStatus,
+  applySuggestion,
+  keepSuggestionAsBranch,
   createSuggestion,
 } from '../services/firestore';
-import { addLocalCollaborator } from '../db/recipes';
 import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
 import type { Suggestion, SuggestionEdit, SuggestionMessage } from '../types/social';
+import type { Recipe } from '../types/recipe';
 
 /**
  * `recipeOwnerUid` is the recipe's `createdBy.uid`, or undefined while the
@@ -52,15 +54,18 @@ export function useSuggestions(recipeId: string | undefined, recipeOwnerUid: str
     [user]
   );
 
-  const approve = useCallback(async (id: string) => {
-    const approved = await updateSuggestionStatus(id, 'approved', reviewer);
-    // Dual-write, as with favourites: the owner's UI reads the local copy first,
-    // so a cloud-only collaborator would be invisible on their own device.
-    if (approved) {
-      await addLocalCollaborator(approved.recipeId, approved.collaborator);
-    }
-    trackSuggestionReviewed(id, 'approved');
-    return approved;
+  // Throws without a reviewer: both writes need the signed-in owner (rules, notification).
+  const apply = useCallback(async (suggestion: Suggestion, recipe: Recipe) => {
+    if (!reviewer) throw new Error('Cannot apply a suggestion while signed out');
+    await applySuggestion(suggestion, recipe, reviewer);
+    trackSuggestionReviewed(suggestion.id, 'applied');
+  }, [reviewer]);
+
+  const keepAsBranch = useCallback(async (suggestion: Suggestion, recipe: Recipe) => {
+    if (!reviewer) throw new Error('Cannot keep a suggestion as a branch while signed out');
+    const branchId = await keepSuggestionAsBranch(suggestion, recipe, reviewer);
+    trackSuggestionReviewed(suggestion.id, 'branched');
+    return branchId;
   }, [reviewer]);
 
   const reject = useCallback(async (id: string) => {
@@ -69,7 +74,7 @@ export function useSuggestions(recipeId: string | undefined, recipeOwnerUid: str
   }, [reviewer]);
 
   // `loaded` tells the thread page "not found" apart from "still listening".
-  return { suggestions, loaded, approve, reject };
+  return { suggestions, loaded, apply, keepAsBranch, reject };
 }
 
 /**

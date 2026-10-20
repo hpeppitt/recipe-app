@@ -53,6 +53,8 @@ describe('firestore.rules notification types', () => {
     suggestion_reply: true,
     suggestion_approved: true,
     suggestion_rejected: true,
+    suggestion_applied: true,
+    suggestion_branched: true,
   };
   const ruleTypes = [...rules.matchAll(/request\.resource\.data\.type in \[([^\]]+)\]/g)].flatMap((m) =>
     [...m[1].matchAll(/'([^']+)'/g)].map((t) => t[1]),

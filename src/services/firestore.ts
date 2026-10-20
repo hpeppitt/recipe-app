@@ -26,7 +26,6 @@ import {
 } from 'firebase/firestore';
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
 import { auth, firestore } from './firebase';
-import { arrayUnion } from 'firebase/firestore';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
@@ -36,12 +35,20 @@ import { withTimeout } from '../lib/utils';
 import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
-import { RateLimitedError } from '../lib/errors';
+import { RateLimitedError, StaleSuggestionError, SuggestionClosedError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
 import type { Suggestion, SuggestionEdit, SuggestionMessage, AppNotification } from '../types/social';
-import { describeEdits } from '../lib/suggestion';
+import {
+  applySuggestionEdits,
+  buildBranchFromSuggestion,
+  describeEdits,
+  hasApplicableEdits,
+  suggestionBranchId,
+} from '../lib/suggestion';
+import { toLocalRecipe, type CloudRecipeDoc } from '../lib/recipeSync';
+import { cacheRecipe } from '../db/recipes';
 import type { UserProfile, Follow } from '../types/profile';
 import { VERIFY_NOTE } from '../lib/dataExport';
 import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, Section } from '../lib/dataExport';
@@ -58,8 +65,8 @@ import { reportError } from './telemetry';
  * destroys that data.
  *
  * A re-publish also omits `collaborators`. A merge replaces arrays wholesale, and
- * the cloud array is maintained by the approval `arrayUnion`, which reaches Dexie
- * only on the approving device, so writing the local copy here would erase credit.
+ * the cloud array is maintained by applySuggestion (and, before RL-148, the
+ * approval `arrayUnion`), so writing a stale local copy here would erase credit.
  */
 export async function publishRecipe(recipe: Recipe): Promise<void> {
   if (!firestore) return;
@@ -710,74 +717,168 @@ export function subscribeSuggestionMessages(
   );
 }
 
+type Reviewer = { uid: string; displayName: string | null };
+
+/** Tells the suggester what happened, after the review has committed. Never throws (notify). */
+function notifyReview(
+  fs: Firestore,
+  suggestion: Suggestion,
+  reviewer: Reviewer | undefined,
+  type: 'suggestion_applied' | 'suggestion_branched' | 'suggestion_rejected',
+  recipeId: string,
+  message: string | null
+): void {
+  if (!reviewer || reviewer.uid === suggestion.suggestedBy.uid) return;
+  notify(fs, {
+    recipientUid: suggestion.suggestedBy.uid,
+    type,
+    recipeId,
+    recipeTitle: suggestion.recipeTitle,
+    recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
+    fromUid: reviewer.uid,
+    fromDisplayName: reviewer.displayName,
+    // The suggestion rule does not require a string message, so fall back to
+    // null rather than throw after the status write has already landed.
+    message: typeof message === 'string' && message ? truncateNotificationMessage(message) : null,
+    read: false,
+    createdAt: Date.now(),
+  });
+}
+
+/** What the outcome notification echoes: the edits when there are any, else the free text. */
+const reviewMessage = (s: Suggestion) => describeEdits(s.edits ?? []) || s.message;
+
 /**
- * Approve or reject a suggestion.
- *
- * Returns the collaborator added on approval so the caller can mirror it onto
- * the local Dexie copy — the owner's UI reads that copy first, so a cloud-only
- * write left them unable to see the collaborator they just approved (FUN-7).
- * Approval throws if the collaborator write fails; status is then untouched.
+ * Apply a suggestion (RL-148). With ingredient or step edits, one transaction
+ * reads the recipe and the suggestion, requires the suggestion still pending,
+ * checks the edits against the recipe as read (StaleSuggestionError, nothing
+ * written, when any no longer matches), and writes the edited recipe with the
+ * suggester added to `collaborators` together with `status: 'applied'`. So the
+ * recipe never changes with the suggestion left open, or the reverse. The
+ * cache and the notification follow the commit. Without such edits ("Mark
+ * applied") only the status and the notification.
  */
+export async function applySuggestion(suggestion: Suggestion, recipe: Recipe, reviewer: Reviewer): Promise<void> {
+  if (!firestore) throw new Error('Firestore is not configured');
+  const fs = firestore;
+  const edits = suggestion.edits ?? [];
+  const suggestionRef = doc(fs, 'suggestions', suggestion.id);
+
+  if (hasApplicableEdits(edits)) {
+    const recipeRef = doc(fs, 'recipes', recipe.id);
+    // Bounded: a transaction fails offline rather than queueing, but may stall.
+    const edited = await rejectAfter(
+      runTransaction(fs, async (tx) => {
+        const recipeSnap = await tx.get(recipeRef);
+        const suggestionSnap = await tx.get(suggestionRef);
+        if (!suggestionSnap.exists() || suggestionSnap.data().status !== 'pending') throw new SuggestionClosedError();
+        // Never creates a cloud copy: a missing one was deleted on another device.
+        if (!recipeSnap.exists()) throw new Error('The recipe is not in the cloud');
+        const cloud = { ...recipeSnap.data(), id: recipe.id } as CloudRecipeDoc;
+        const result = applySuggestionEdits(cloud, edits);
+        if (!result.ok) throw new StaleSuggestionError(result.stale);
+        const existing = cloud.collaborators ?? [];
+        const { uid, displayName } = suggestion.suggestedBy;
+        const collaborators =
+          uid === cloud.createdBy?.uid || existing.some((c) => c.uid === uid)
+            ? existing
+            : [...existing, { uid, displayName }];
+        const updatedAt = Date.now();
+        // An update, not publishRecipe, whose re-publish omits collaborators.
+        tx.update(recipeRef, { ...result.patch, collaborators, updatedAt });
+        tx.update(suggestionRef, { status: 'applied' });
+        return toLocalRecipe({ ...cloud, ...result.patch, collaborators, updatedAt }, recipe);
+      }),
+      'Applying the suggestion'
+    );
+    try {
+      await cacheRecipe(edited);
+    } catch (err) {
+      // The edit is in the cloud; the own-recipe sync (RL-078) fills the row.
+      console.error('Caching the applied recipe locally failed', err);
+      reportError(err, 'apply-suggestion-cache');
+    }
+  } else {
+    await updateDoc(suggestionRef, { status: 'applied' });
+  }
+
+  notifyReview(fs, suggestion, reviewer, 'suggestion_applied', suggestion.recipeId, reviewMessage(suggestion));
+}
+
+/**
+ * Keep a suggestion as a new branch of the recipe owned by `owner`, crediting
+ * the suggester (RL-148). Requires the suggestion still pending, builds the
+ * branch from the cloud parent under an id derived from the suggestion, and
+ * publishes it (create, recipe window; a RateLimitedError writes nothing else)
+ * unless an earlier attempt already did, so a retry never makes a second
+ * branch. Then caches it, writes `branched` with its id, and notifies.
+ * Returns the branch id.
+ */
+export async function keepSuggestionAsBranch(suggestion: Suggestion, recipe: Recipe, owner: Reviewer): Promise<string> {
+  if (!firestore) throw new Error('Firestore is not configured');
+  const fs = firestore;
+  const edits = suggestion.edits ?? [];
+  if (!hasApplicableEdits(edits)) throw new Error('Suggestion has no ingredient or step edits');
+  const branchId = await suggestionBranchId(suggestion.id);
+
+  const branch = await rejectAfter(
+    (async () => {
+      const suggestionSnap = await getDoc(doc(fs, 'suggestions', suggestion.id));
+      if (!suggestionSnap.exists() || suggestionSnap.data().status !== 'pending') throw new SuggestionClosedError();
+      const parentSnap = await getDoc(doc(fs, 'recipes', recipe.id));
+      if (!parentSnap.exists()) throw new Error('The recipe is not in the cloud');
+      const parent = toLocalRecipe({ ...parentSnap.data(), id: recipe.id } as CloudRecipeDoc, recipe);
+      const check = applySuggestionEdits(parent, edits);
+      if (!check.ok) throw new StaleSuggestionError(check.stale);
+
+      // A previous attempt published it and failed later: reuse it. Re-publishing
+      // would move createdAt, which the owner-update rule denies.
+      const existing = await getDoc(doc(fs, 'recipes', branchId));
+      if (existing.exists()) {
+        // The id is guessable, so anyone could have created it first: reuse only our own branch of this recipe.
+        const data = existing.data();
+        if (data.createdBy?.uid !== owner.uid || data.parentId !== recipe.id) {
+          throw new Error(`Branch id ${branchId} is taken by another recipe`);
+        }
+        return toLocalRecipe({ ...data, id: branchId } as CloudRecipeDoc);
+      }
+      const built = buildBranchFromSuggestion(parent, suggestion, owner, branchId, Date.now());
+      await publishRecipe(built);
+      return built;
+    })(),
+    'Keeping the suggestion as a branch'
+  );
+  try {
+    await cacheRecipe(branch);
+  } catch (err) {
+    // The branch is in the cloud; the own-recipe sync (RL-078) fills the row.
+    console.error('Caching the new branch locally failed', err);
+    reportError(err, 'branch-suggestion-cache');
+  }
+
+  await updateDoc(doc(fs, 'suggestions', suggestion.id), { status: 'branched', branchId });
+  notifyReview(fs, suggestion, owner, 'suggestion_branched', branchId, reviewMessage(suggestion));
+  return branchId;
+}
+
+/** Decline a suggestion: the status, then the notification. */
 export async function updateSuggestionStatus(
   suggestionId: string,
-  status: 'approved' | 'rejected',
-  reviewer?: { uid: string; displayName: string | null }
-): Promise<{ recipeId: string; collaborator: Collaborator } | null> {
-  if (!firestore) return null;
+  status: 'rejected',
+  reviewer?: Reviewer
+): Promise<void> {
+  if (!firestore) return;
 
-  // Read before writing: the suggester's identity is needed to notify them of
-  // either outcome, and a rejection used to return early without ever loading it.
+  // Read before writing: the suggester's identity is needed to notify them.
   const suggestionSnap = await getDoc(doc(firestore, 'suggestions', suggestionId));
-  if (!suggestionSnap.exists()) return null;
-  const suggestion = suggestionSnap.data() as Suggestion;
-
-  // On approval the collaborator goes on first, so a failure leaves the
-  // suggestion pending and unannounced instead of "approved" with no
-  // collaborator. A retry after this succeeded but the status write failed is
-  // safe: arrayUnion of the same object is idempotent.
-  let collaborator: Collaborator | null = null;
-  if (status === 'approved') {
-    collaborator = {
-      uid: suggestion.suggestedBy.uid,
-      displayName: suggestion.suggestedBy.displayName,
-    };
-    try {
-      await updateDoc(doc(firestore, 'recipes', suggestion.recipeId), {
-        collaborators: arrayUnion(collaborator),
-      });
-    } catch (err) {
-      // Throw, not return null: the caller must not mirror locally or move on
-      // as if the approval happened.
-      console.error('Adding collaborator to the published recipe failed', err);
-      reportError(err, 'add-collaborator');
-      throw err;
-    }
-  }
+  // Throw, not return: a silent return would read as a successful decline.
+  if (!suggestionSnap.exists()) throw new Error('The suggestion no longer exists');
+  const suggestion = { id: suggestionId, ...suggestionSnap.data() } as Suggestion;
 
   await updateDoc(doc(firestore, 'suggestions', suggestionId), { status });
 
-  // Close the loop back to the suggester. Fire-and-forget like the other
-  // notification writes, so a failure here never blocks the review itself.
-  if (reviewer && reviewer.uid !== suggestion.suggestedBy.uid) {
-    notify(firestore, {
-      recipientUid: suggestion.suggestedBy.uid,
-      type: status === 'approved' ? 'suggestion_approved' : 'suggestion_rejected',
-      recipeId: suggestion.recipeId,
-      recipeTitle: suggestion.recipeTitle,
-      recipeEmoji: suggestion.recipeEmoji ?? '🍽️',
-      fromUid: reviewer.uid,
-      fromDisplayName: reviewer.displayName,
-      // Echo the original suggestion so the notification is self-explanatory
-      // weeks later, rather than "your suggestion was approved" with no context.
-      // The suggestion rule does not require a string message, so fall back to
-      // null rather than throw after the status write has already landed.
-      message: typeof suggestion.message === 'string' ? truncateNotificationMessage(suggestion.message) : null,
-      read: false,
-      createdAt: Date.now(),
-    });
-  }
-
-  return collaborator ? { recipeId: suggestion.recipeId, collaborator } : null;
+  // Echo the original suggestion so the notification is self-explanatory weeks later.
+  notifyReview(firestore, suggestion, reviewer, 'suggestion_rejected', suggestion.recipeId, suggestion.message);
 }
 
 // --- Notifications ---

@@ -59,10 +59,10 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { recipe, isLoading: recipeLoading, cloudError, retry: retryRecipe } = useRecipe(id);
   const ownerUid = recipe?.createdBy?.uid;
-  const { suggestions, loaded, approve, reject } = useSuggestions(id, ownerUid);
+  const { suggestions, loaded, apply, keepAsBranch, reject } = useSuggestions(id, ownerUid);
   const suggestion = suggestions.find((s) => s.id === suggestionId) ?? null;
   const { messages, error: threadError, send } = useSuggestionThread(suggestion);
-  const { reviewingId, reviewError, review } = useSuggestionReview(id, approve, reject);
+  const { reviewingId, reviewError, review } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
 
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -300,7 +300,7 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
               disabled={reviewingId !== null}
               className={`${ownerButton} flex-[1.2] bg-primary-600 text-on-accent hover:bg-primary-700`}
             >
-              {reviewingId === suggestion.id ? 'Working…' : 'Approve'}
+              {reviewingId === suggestion.id ? 'Working…' : 'Apply'}
             </button>
           </div>
         )}

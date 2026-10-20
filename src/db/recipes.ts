@@ -3,7 +3,7 @@ import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { parseImportedRecipes } from '../lib/import';
 import { planOwnRecipeSync } from '../lib/recipeSync';
-import type { Recipe, CreatedBy, Collaborator } from '../types/recipe';
+import type { Recipe, CreatedBy } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
 
@@ -104,32 +104,6 @@ export async function deleteRecipeTree(id: string): Promise<string[]> {
   const toDelete = await getSubtreeIds(id);
   await db.recipes.bulkDelete(toDelete);
   return toDelete;
-}
-
-/**
- * Mirror an approved collaborator onto the local copy of a recipe.
- *
- * Approval only wrote to the Firestore doc, but `useRecipe` prefers the local
- * Dexie record, so the owner — who always has one — never saw the collaborator
- * they had just approved. Idempotent on uid, matching Firestore's `arrayUnion`.
- * A no-op when the recipe isn't held locally.
- */
-export async function addLocalCollaborator(
-  recipeId: string,
-  collaborator: Collaborator
-): Promise<boolean> {
-  const recipe = await db.recipes.get(recipeId);
-  if (!recipe) return false;
-
-  const existing = recipe.collaborators ?? [];
-  if (existing.some((c) => c.uid === collaborator.uid)) return false;
-
-  await db.recipes.put({
-    ...recipe,
-    collaborators: [...existing, collaborator],
-    updatedAt: Date.now(),
-  });
-  return true;
 }
 
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {

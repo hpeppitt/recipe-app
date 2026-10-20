@@ -170,3 +170,21 @@ export function buildBranchFromSuggestion(
     updatedAt: now,
   };
 }
+
+// A fixed namespace so the same suggestion always names the same branch.
+const BRANCH_NAMESPACE = '6f1d5c2e-8a4b-4c3d-9e7f-2b1a0c9d8e7f';
+
+/**
+ * The branch id Keep as branch uses: a UUID v5 of the suggestion id, the same
+ * format as other recipe ids. Deterministic, so a retry after a partial failure
+ * finds the branch the first attempt published instead of making a second one.
+ */
+export async function suggestionBranchId(suggestionId: string): Promise<string> {
+  const ns = BRANCH_NAMESPACE.replace(/-/g, '').match(/../g)!.map((h) => parseInt(h, 16));
+  const name = new TextEncoder().encode(suggestionId);
+  const bytes = new Uint8Array((await crypto.subtle.digest('SHA-1', new Uint8Array([...ns, ...name]))).slice(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}

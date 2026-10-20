@@ -73,7 +73,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // variations, lineage and descendant count instead of local-only emptiness.
   const { children, ancestors, descendantCount, recipes: family, isLoading: treeLoading } = useRecipeLineage(recipe);
   const { isFavorite, toggleFavorite, canFavorite, ready: favoriteReady } = useFavorite(id);
-  const { suggestions, approve, reject } = useSuggestions(id, recipe?.createdBy?.uid);
+  const { suggestions, apply, keepAsBranch, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // The confirm message, captured on open: the RL-078 sync can remove the recipe
   // once the cloud delete lands, while the dialog is still open, so it cannot be
@@ -126,7 +126,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
   const savedOutcome = savedState?.saved;
   const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
-  const { reviewingId, reviewError, review: handleReview } = useSuggestionReview(id, approve, reject);
+  const { reviewingId, reviewError, review: handleReview } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
   const [introState, setIntroState] = useState(getIntroState);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and

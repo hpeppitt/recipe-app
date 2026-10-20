@@ -13,7 +13,8 @@ let isFavorite = false;
 let source: 'local' | 'cloud' = 'local';
 let pending = 0;
 let suggestionRows: Record<string, unknown>[] | null = null;
-const approveMock = vi.fn();
+const applyMock = vi.fn();
+const keepAsBranchMock = vi.fn();
 const rejectMock = vi.fn();
 const getPublishedRecipe = vi.fn();
 const publishRecipe = vi.fn();
@@ -64,7 +65,7 @@ vi.mock('../hooks/useFavorites', () => ({
 }));
 vi.mock('../hooks/useSuggestions', () => ({
   useSuggestions: () => ({
-    suggestions: suggestionRows ?? Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), approve: approveMock, reject: rejectMock }),
+    suggestions: suggestionRows ?? Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), apply: applyMock, keepAsBranch: keepAsBranchMock, reject: rejectMock }),
   useSubmitSuggestion: () => ({ submit: (...a: unknown[]) => submitMock(...a) }),
   useSuggestionThread: () => ({ messages: [], error: null, send: vi.fn() }),
 }));
@@ -589,7 +590,7 @@ describe('RecipeDetailPage suggestions', () => {
     expect(screen.getByRole('heading', { name: 'Your suggestion' })).toBeInTheDocument();
     expect(screen.getByText('Mine')).toBeInTheDocument();
     expect(screen.queryByText('Theirs')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
   });
 
   it('has no section without suggestions', () => {
@@ -606,25 +607,22 @@ describe('RecipeDetailPage suggestions', () => {
     expect(method.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('Approve opens the variation composer seeded with the message', async () => {
-    approveMock.mockResolvedValue({ uid: 'u1' });
+  it('Apply applies the suggestion to this recipe and stays (RL-148)', async () => {
+    applyMock.mockResolvedValue(undefined);
     suggestionRows = [row('a', 'u1', 'More garlic')];
     open();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    await waitFor(() =>
-      expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/vary', { state: { suggestion: 'More garlic' } })
-    );
-    expect(approveMock).toHaveBeenCalledWith('a');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await waitFor(() => expect(applyMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), recipe));
+    expect(navigateSpy).not.toHaveBeenCalledWith('/recipe/r1/vary', expect.anything());
   });
 
-  it('a failed approve shows the approve error and does not navigate', async () => {
-    approveMock.mockRejectedValue(new Error('denied'));
+  it('a failed Apply shows the apply error', async () => {
+    applyMock.mockRejectedValue(new Error('denied'));
     vi.spyOn(console, 'error').mockImplementation(() => {});
     suggestionRows = [row('a', 'u1', 'More garlic')];
     open();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't approve that suggestion. Please try again.");
-    expect(navigateSpy).not.toHaveBeenCalledWith('/recipe/r1/vary', expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't apply that suggestion. Please try again.");
   });
 
   it('Decline confirms, then a failed reject shows the decline error', async () => {

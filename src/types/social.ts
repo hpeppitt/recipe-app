@@ -50,12 +50,16 @@ export interface AppNotification {
   /**
    * `suggestion_approved` / `suggestion_rejected` close the loop back to the
    * suggester, who previously never learned what happened to their suggestion.
+   * `suggestion_applied` / `suggestion_branched` replace approval (RL-148); a
+   * branched one's `recipeId` is the new branch and `recipeTitle` the parent's.
    */
   type:
     | 'favorite'
     | 'suggestion'
     | 'suggestion_approved'
     | 'suggestion_rejected'
+    | 'suggestion_applied'
+    | 'suggestion_branched'
     | 'suggestion_reply'
     | 'follow';
   /**
