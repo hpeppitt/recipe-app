@@ -265,7 +265,7 @@ Places designed to be replaced, worth knowing before you change them:
 - **`lib/recipeDiff.ts`** (`diffRecipes`, `summariseChanges`): what a branch changed from its parent,
   computed client-side from ingredients and steps, for the change tags and "What changed" screens
   (no stored data).
-- **`lib/suggestion.ts`** (`composeSuggestionMessage`, `parseAmountText`, `describeEdits`, `applySuggestionEdits`, `hasApplicableEdits`, `buildBranchFromSuggestion`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): the structured suggestion model (RL-145). A suggestion may carry `edits[]` and `branchId`; `composeSuggestionMessage` still writes the free-text `message` from them, and the helpers describe, apply and branch from the edits. Suggest mode writes them (RL-147); Apply and Keep as branch read them (RL-148).
+- **`lib/suggestion.ts`** (`composeSuggestionMessage`, `parseAmountText`, `describeEdits`, `applySuggestionEdits`, `hasApplicableEdits`, `noteOf`, `buildBranchFromSuggestion`, `MAX_WHY`, `MAX_NOTE`, `MAX_MESSAGE`): the structured suggestion model (RL-145). A suggestion may carry `edits[]` and `branchId`; `composeSuggestionMessage` still writes the free-text `message` from them, and the helpers describe, apply and branch from the edits. Suggest mode writes them (RL-147); Apply and Keep as branch read them (RL-148).
 - **`components/recipe/SuggestMode.tsx`** (RL-107): the recipe page and the shared page as the suggest form; composes with
   `lib/suggestion.ts` and sends `{ message, edits }` through the page's existing submit (ingredient and step edits plus a general note).
 - **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, RL-125): the Create tab's three

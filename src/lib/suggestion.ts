@@ -188,3 +188,12 @@ export async function suggestionBranchId(suggestionId: string): Promise<string> 
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+
+/** The note under the diff rows: the general edit, else the whys, else the old free-text message. */
+export function noteOf(s: Suggestion): string {
+  const edits = s.edits ?? [];
+  const general = edits.find((e) => e.kind === 'general');
+  if (general) return general.to;
+  const whys = edits.map((e) => e.why?.trim()).filter(Boolean);
+  return whys.length ? whys.join(' ') : edits.length ? '' : s.message;
+}

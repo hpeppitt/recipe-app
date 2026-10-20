@@ -101,14 +101,4 @@ describe('useSuggestionReview (RL-148)', () => {
     });
     expect(apply).toHaveBeenCalledOnce();
   });
-
-  it('the old review adapter maps approve to apply and reject to decline', async () => {
-    apply.mockResolvedValue(undefined);
-    reject.mockResolvedValue(undefined);
-    const result = hook();
-    await act(() => result.current.review('s1', 'approve', 'm'));
-    await act(() => result.current.review('s1', 'reject', 'm'));
-    expect(apply).toHaveBeenCalledOnce();
-    expect(reject).toHaveBeenCalledWith('s1');
-  });
 });

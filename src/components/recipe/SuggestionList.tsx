@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Ellipsis, GitBranch, MessageCircle } from '../ui/icons';
 import { Sheet } from '../ui/Sheet';
 import { SuggestionDiffRow } from './SuggestionDiffRow';
-import { describeEdit, hasApplicableEdits } from '../../lib/suggestion';
+import { describeEdit, hasApplicableEdits, noteOf } from '../../lib/suggestion';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { UserPill } from '../ui/UserPill';
 import { pluralize, timeAgo } from '../../lib/utils';
@@ -32,15 +32,6 @@ const closedTag = {
   branched: { label: 'Branched', cls: 'bg-accent-2-100 text-accent-2-800' },
   pending: { label: 'Open', cls: 'bg-accent-100 text-accent-800' },
 } as const;
-
-/** The note under the diff rows: the general edit, else the whys, else the old free-text message. */
-function noteOf(s: Suggestion): string {
-  const edits = s.edits ?? [];
-  const general = edits.find((e) => e.kind === 'general');
-  if (general) return general.to;
-  const whys = edits.map((e) => e.why?.trim()).filter(Boolean);
-  return whys.length ? whys.join(' ') : edits.length ? '' : s.message;
-}
 
 /**
  * The suggestions section under the recipe body. The owner's attention is kept

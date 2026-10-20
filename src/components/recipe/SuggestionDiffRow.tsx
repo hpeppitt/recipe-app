@@ -1,7 +1,7 @@
 import type { SuggestionEdit } from '../../types/social';
 
 /** One ingredient or step edit as a diff row (RL-149; reused by the thread screen). A general note is not a row. */
-export function SuggestionDiffRow({ edit }: { edit: SuggestionEdit }) {
+export function SuggestionDiffRow({ edit, thread }: { edit: SuggestionEdit; thread?: boolean }) {
   if (edit.kind === 'general') return null;
   const step = edit.kind === 'step';
   const from = edit.from.trim();
@@ -11,8 +11,15 @@ export function SuggestionDiffRow({ edit }: { edit: SuggestionEdit }) {
       ? `Change ${edit.name?.trim() || 'ingredient'} from ${from} to ${edit.to.trim()}`
       : `Add ${edit.name?.trim() || 'ingredient'}: ${edit.to.trim()}`;
   return (
-    <div className="flex gap-2.5 rounded-2xl bg-accent-100 px-3 py-2 text-sm text-text-primary">
+    <div
+      className={`flex gap-2.5 bg-accent-100 text-text-primary ${thread ? 'rounded-[18px] px-3.5 py-2.5 text-[15px]' : 'rounded-2xl px-3 py-2 text-sm'}`}
+    >
       <span className="sr-only">{sentence}</span>
+      {thread && (
+        <b aria-hidden="true" className="shrink-0 text-accent-800">
+          ~
+        </b>
+      )}
       {step ? (
         <>
           <b aria-hidden="true" className="shrink-0">Step {(edit.index ?? 0) + 1}</b>
