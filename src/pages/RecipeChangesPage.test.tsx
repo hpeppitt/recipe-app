@@ -73,6 +73,33 @@ describe('RecipeChangesPage', () => {
     state.byId = { p: found(parent), c: found(child), r: found(root), x: found(cousin) };
   });
 
+  it('shows the saved toast when arriving from a save (RL-181)', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
+      </Routes>,
+      { route: { pathname: '/recipe/c/changes', state: { saved: 'cloud', note: null } } }
+    );
+    expect(screen.getByText('Recipe saved')).toBeTruthy();
+  });
+
+  it('shows the saved toast while the comparison is still loading', () => {
+    state.byId = { c: { isLoading: true, cloudError: false } };
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
+      </Routes>,
+      { route: { pathname: '/recipe/c/changes', state: { saved: 'local', note: null } } }
+    );
+    expect(screen.getByRole('status', { name: 'Loading comparison' })).toBeTruthy();
+    expect(screen.getByText('Saved on this device')).toBeTruthy();
+  });
+
+  it('shows no toast on a plain visit', () => {
+    renderPage('/recipe/c/changes');
+    expect(screen.queryByText('Recipe saved')).toBeNull();
+  });
+
   it('compares a version with its parent', () => {
     renderPage('/recipe/c/changes');
     expect(screen.getByRole('heading', { level: 1, name: 'What changed' })).toBeTruthy();

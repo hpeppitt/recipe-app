@@ -1900,3 +1900,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Throttle the network: the chips stay in the default order with no split and do not jump later.
 
 - Reviewer noted (low): the per-parent family cache is session-long, so a branch you create and then return to /vary within the session still shows as untried until reload (clear the cache entry on branch save if this bites); the split layout is taller than the one-row placeholder, so content below shifts once; useBranchFamily has no direct test.
+
+### RL-181 Saved branch opens What changed
+- Branch a recipe, Grow, Save Variation (390px): What changed opens against the parent with the "Recipe saved" toast. Back lands on the new branch's recipe page (no toast), not the chat. Cook this one opens the recipe. Saving a brand new recipe still opens the recipe page.
+
+- Reviewer noted (med): the no-flash claim rests on React Router batching two pushes in one tick; in the browser, confirm the recipe page never paints between Save Variation and What changed.
+- Reviewer noted (low): Forward or reload on /changes re-shows the toast (same as the recipe page); the toast's live region may not announce on every screen reader (same pattern as the recipe page); after "Cook this one", Back returns to the diff, not the chat.

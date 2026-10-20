@@ -458,6 +458,14 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     savingRef.current = true;
     setIsSaving(true);
 
+    // A saved branch opens What changed against its parent (RL-181). The recipe
+    // page goes in history first, without state, so Back from the diff lands on
+    // the new branch; both navigates run in one tick, so it is never painted.
+    const openSaved = (id: string, saved: 'cloud' | 'local') => {
+      if (parentRecipe) navigate(`/recipe/${id}`);
+      navigate(parentRecipe ? `/recipe/${id}/changes` : `/recipe/${id}`, { state: { saved, note: null } });
+    };
+
     try {
       const firstUserMessage = messages.find((m) => m.role === 'user');
       const prompt = target?.prompt ?? firstUserMessage?.content ?? '';
@@ -482,7 +490,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         // kept as the plain Dexie save it always was.
         const recipe = await createRecipe(...args);
         trackRecipeCreated(recipe.id, !!parentRecipe);
-        navigate(`/recipe/${recipe.id}`, { state: { saved: 'local', note: null } });
+        openSaved(recipe.id, 'local');
         return;
       }
 
@@ -534,7 +542,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       }
 
       trackRecipeCreated(recipe.id, !!parentRecipe);
-      navigate(`/recipe/${recipe.id}`, { state: { saved: 'cloud', note: null } });
+      openSaved(recipe.id, 'cloud');
       // Deliberately stays locked after a successful save: the page is
       // navigating away and re-enabling would briefly re-arm the button.
     } catch (err) {
