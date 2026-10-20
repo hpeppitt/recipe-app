@@ -1618,3 +1618,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: system Back in suggest mode discards drafts (useBlocker was rejected, see docs/decisions.md).
 - Reviewer noted: a Why on an unchanged step is dropped without a hint.
 - Reviewer noted: `composeSuggestionMessage` writes a double period when the step text ends with '.'.
+
+### RL-148 Apply, keep as branch or decline a suggestion
+
+- Emulator only (`npm run emulators` plus `npm run dev:emulated`, two verified accounts); the live rules deny `applied` and `branched` until RL-156.
+- As the suggester, change an ingredient amount. As the owner, tap Apply on the card (recipe page) or in the thread: the recipe shows the new amount on both devices, the suggestion closes, the suggester appears under Collaborators, and the suggester's Activity row reads "applied your suggestion to" with a sage check badge.
+- Suggest again, then edit that ingredient by hand as the owner before applying: Apply shows "That recipe changed since the suggestion. Open it and edit by hand." and nothing changes.
+- A free-text or General-note-only suggestion: Apply just closes it and notifies; the recipe is untouched.
+- Keep as branch has no button until RL-149. It is covered by tests only for now.
+- Old Approved suggestions still show Approved.
+- Reviewer noted: an owner who has not accepted the current Terms gets the generic "Couldn't keep that as a branch" error on Keep as branch (the recipe create rule needs `acceptedTerms()`).
+- Reviewer noted: `src/content/legal/privacy.ts` line 103 still says "approves or rejects your suggestion", and line 35 says "people whose suggestions you approved"; the author reviews the policies.
+- Reviewer noted: an Apply that times out on the client can still commit late; the recipe then changes without a success message, and the Dexie row fills from the own-recipe sync (RL-078).
+- Reviewer noted: the `branched` status write can race a Decline from a second device; the decline wins and the published branch is left orphaned (very unlikely).
+- Reviewer noted: a suggestion already reviewed elsewhere now shows "This suggestion was already reviewed. Refresh to see it." on Apply or Keep as branch.

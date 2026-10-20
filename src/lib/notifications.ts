@@ -28,6 +28,8 @@ export const NOTIF_VERBS: Record<string, string> = {
   suggestion: 'suggested a change to',
   suggestion_approved: 'approved your suggestion on',
   suggestion_rejected: 'passed on your suggestion for',
+  suggestion_applied: 'applied your suggestion to',
+  suggestion_branched: 'kept your suggestion as a branch of',
   // Works in both directions: the owner and the suggester each receive this when
   // the other replies, so the verb cannot assume which side is reading.
   suggestion_reply: 'replied about',

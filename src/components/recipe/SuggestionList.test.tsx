@@ -42,13 +42,13 @@ describe('SuggestionList', () => {
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
 
-  it('owner: heading, counts and an open card with Decline, Replies and Approve', () => {
+  it('owner: heading, counts and an open card with Decline, Replies and Apply', () => {
     show([one, ...closed]);
     expect(screen.getByRole('heading', { name: 'Suggestions' })).toBeInTheDocument();
     expect(screen.getByText('1 open · 2 closed')).toBeInTheDocument();
     expect(screen.getByText('More garlic')).toBeInTheDocument();
     expect(screen.getByText('Open')).toBeInTheDocument();
-    for (const name of ['Decline', 'Replies', 'Approve']) {
+    for (const name of ['Decline', 'Replies', 'Apply']) {
       expect(screen.getByRole('button', { name })).toBeInTheDocument();
     }
     expect(screen.getByRole('link', { name: 'Maya' })).toHaveAttribute('href', '/profile/u1');
@@ -63,11 +63,11 @@ describe('SuggestionList', () => {
     expect(screen.queryByText(/open/)).not.toBeInTheDocument();
   });
 
-  it('non-owner: "Your suggestion" heading, one Reply button, no Approve or Decline', () => {
+  it('non-owner: "Your suggestion" heading, one Reply button, no Apply or Decline', () => {
     show([one], { isOwner: false });
     expect(screen.getByRole('heading', { name: 'Your suggestion' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reply' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
   });
 
@@ -117,9 +117,9 @@ describe('SuggestionList', () => {
     }
   });
 
-  it('Approve calls onReview straight away', () => {
+  it('Apply calls onReview straight away', () => {
     const { onReview } = show([one]);
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
     expect(onReview).toHaveBeenCalledWith('a', 'approve', 'More garlic');
   });
 

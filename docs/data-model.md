@@ -201,12 +201,13 @@ changing `branchId`, or to `branched` with a string `branchId` naming a recipe w
 suggested recipe and whose `createdBy.uid` is the owner (one extra document read). `approved`
 is no longer writable, old approved documents stay as they are, and a closed suggestion cannot
 change. Emulator-checked 2026-10-21 (ticket RL-146 Notes). Until RL-156 deploys this the live
-rules still allow only `approved` or `rejected`; the current client's approve path (which adds
-the suggester to the recipe's `collaborators` first, then writes `status`, then notifies) is
-replaced by Apply and Keep as branch in RL-147 and RL-148. That `arrayUnion` is the only write
-that changes a published `collaborators` array: `publishRecipe` writes it on create only and
-leaves it out of a re-publish, because a merge replaces arrays wholesale and the local copy may
-be stale (RL-037). Deletion is forbidden
+rules still allow only `approved` or `rejected`, so the RL-148 client's `applied` and
+`branched` status writes are denied there. Since RL-148 the only write that changes a published
+`collaborators` array is Apply (`applySuggestion`), which reads the cloud array and writes it
+back with the suggester added, deduped by uid, in one transaction with the edits and
+`status: 'applied'` (emulator-checked 2026-10-21, RL-148 Notes) (old approvals
+used `arrayUnion`). `publishRecipe` writes it on create only and leaves it out of a
+re-publish, because a merge replaces arrays wholesale and the local copy may be stale (RL-037). Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
 verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the
@@ -264,7 +265,7 @@ Functions:
 |---|---|---|---|---|
 | `suggestion` | 10 | 1 hour | suggestion create | message in suggest mode on the recipe page and the shared page |
 | `reply` | 30 | 1 hour | message create | message under the reply box |
-| `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, approve, reject) | skipped silently, reported |
+| `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, apply, branch, decline) | skipped silently, reported |
 | `recipe` | 30 | 1 day | recipe create only (a re-publish is an update and is not limited) | "You've published a lot today. Try again tomorrow." |
 
 `createSuggestion`, `addSuggestionMessage`, the create branch of `publishRecipe` and every

@@ -14,6 +14,24 @@ export class RateLimitedError extends Error {
   }
 }
 
+/** Thrown before writing anything when a suggestion's edits no longer match the recipe (RL-148). */
+export class StaleSuggestionError extends Error {
+  readonly stale: number[];
+  constructor(stale: number[]) {
+    super(`Suggestion edits are stale: ${stale.join(', ')}`);
+    this.name = 'StaleSuggestionError';
+    this.stale = stale;
+  }
+}
+
+/** Thrown before writing anything when a suggestion is no longer pending, e.g. reviewed on another device (RL-148). */
+export class SuggestionClosedError extends Error {
+  constructor() {
+    super('This suggestion is no longer open');
+    this.name = 'SuggestionClosedError';
+  }
+}
+
 /** The message for a rate-limited write, or null for any other failure. */
 export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;

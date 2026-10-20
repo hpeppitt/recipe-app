@@ -9,7 +9,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { Bell, Check, Heart, MessageCircle, UserPlus, X } from '../components/ui/icons';
+import { Bell, Check, GitBranch, Heart, MessageCircle, UserPlus, X } from '../components/ui/icons';
 import type { AppNotification } from '../types/social';
 
 const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell }> = {
@@ -17,6 +17,8 @@ const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell 
   suggestion_reply: { tint: 'bg-accent', Icon: MessageCircle },
   suggestion_approved: { tint: 'bg-accent-2-600', Icon: Check },
   suggestion_rejected: { tint: 'bg-neutral-700', Icon: X },
+  suggestion_applied: { tint: 'bg-accent-2-600', Icon: Check },
+  suggestion_branched: { tint: 'bg-accent-2-600', Icon: GitBranch },
   follow: { tint: 'bg-neutral-700', Icon: UserPlus },
   favorite: { tint: 'bg-neutral-700', Icon: Heart },
 };

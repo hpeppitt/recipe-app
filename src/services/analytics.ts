@@ -189,7 +189,7 @@ export const trackFavoriteToggled = (recipeId: string, isFavorite: boolean) =>
 export const trackSuggestionSubmitted = (recipeId: string) =>
   logEvent('suggestion_submitted', { recipe_id: recipeId });
 
-export const trackSuggestionReviewed = (suggestionId: string, action: 'approved' | 'rejected') =>
+export const trackSuggestionReviewed = (suggestionId: string, action: 'applied' | 'branched' | 'rejected') =>
   logEvent('suggestion_reviewed', { suggestion_id: suggestionId, action });
 
 // Profile events

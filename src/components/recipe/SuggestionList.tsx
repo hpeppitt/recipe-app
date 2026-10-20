@@ -109,13 +109,12 @@ export function SuggestionList({
               {isOwner && (
                 <button
                   type="button"
-                  // Approving carries the owner into the variation composer with
-                  // the suggestion prefilled (RL-017).
+                  // Applies the suggestion (RL-148); RL-149 adds Keep as branch here.
                   onClick={() => onReview(s.id, 'approve', s.message)}
                   disabled={reviewingId !== null}
                   className={`${actionButton} bg-primary-600 text-on-accent hover:bg-primary-700 ${reviewingId === s.id ? '!px-1' : ''}`}
                 >
-                  {reviewingId === s.id ? 'Working…' : 'Approve'}
+                  {reviewingId === s.id ? 'Working…' : 'Apply'}
                 </button>
               )}
             </div>

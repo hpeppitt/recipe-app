@@ -4,26 +4,28 @@ import { renderHook, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { AuthContext, type AuthContextType } from '../contexts/AuthContext';
 import { fakeUser } from '../test/renderWithProviders';
+import { makeRecipe } from '../test/factories';
 import type { AppUser } from '../types/recipe';
 import type { Suggestion } from '../types/social';
 
 const subscribe = vi.fn();
 const subscribeMessages = vi.fn();
 const updateStatus = vi.fn();
-const addLocalCollaborator = vi.fn(async (..._a: unknown[]) => {});
+const applySuggestion = vi.fn();
+const keepSuggestionAsBranch = vi.fn();
+const trackReviewed = vi.fn();
 vi.mock('../services/firestore', () => ({
   subscribeRecipeSuggestions: (...a: unknown[]) => subscribe(...a),
   subscribeSuggestionMessages: (...a: unknown[]) => subscribeMessages(...a),
   addSuggestionMessage: vi.fn(),
   updateSuggestionStatus: (...a: unknown[]) => updateStatus(...a),
+  applySuggestion: (...a: unknown[]) => applySuggestion(...a),
+  keepSuggestionAsBranch: (...a: unknown[]) => keepSuggestionAsBranch(...a),
   createSuggestion: vi.fn(),
-}));
-vi.mock('../db/recipes', () => ({
-  addLocalCollaborator: (...a: unknown[]) => addLocalCollaborator(...a),
 }));
 vi.mock('../services/analytics', () => ({
   trackSuggestionSubmitted: vi.fn(),
-  trackSuggestionReviewed: vi.fn(),
+  trackSuggestionReviewed: (...a: unknown[]) => trackReviewed(...a),
 }));
 
 import { useSuggestions, useSuggestionThread } from './useSuggestions';
@@ -136,28 +138,43 @@ describe('useSuggestions teardown and keying', () => {
   });
 });
 
-describe('useSuggestions.approve', () => {
+describe('useSuggestions review actions (RL-148)', () => {
+  const s1 = { id: 's1' } as Suggestion;
+  const recipe = makeRecipe({ id: 'r1' });
+  const reviewer = { uid: fakeUser.uid, displayName: fakeUser.displayName };
   beforeEach(() => {
     subscribe.mockReset();
     subscribe.mockReturnValue(() => {});
+    applySuggestion.mockReset();
+    keepSuggestionAsBranch.mockReset();
     updateStatus.mockReset();
-    addLocalCollaborator.mockClear();
+    trackReviewed.mockClear();
+  });
+  const hook = () => renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(fakeUser) }).result;
+
+  it('apply passes the reviewer and records applied', async () => {
+    applySuggestion.mockResolvedValue(undefined);
+    await hook().current.apply(s1, recipe);
+    expect(applySuggestion).toHaveBeenCalledWith(s1, recipe, reviewer);
+    expect(trackReviewed).toHaveBeenCalledWith('s1', 'applied');
   });
 
-  it('mirrors the collaborator to Dexie after the cloud writes succeed', async () => {
-    const approved = { recipeId: 'r1', collaborator: { uid: 'u2', displayName: 'Sam' } };
-    updateStatus.mockResolvedValue(approved);
-    const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(fakeUser) });
-
-    await expect(result.current.approve('s1')).resolves.toEqual(approved);
-    expect(addLocalCollaborator).toHaveBeenCalledWith('r1', approved.collaborator);
+  it('keepAsBranch returns the branch id and records branched', async () => {
+    keepSuggestionAsBranch.mockResolvedValue('b1');
+    await expect(hook().current.keepAsBranch(s1, recipe)).resolves.toBe('b1');
+    expect(keepSuggestionAsBranch).toHaveBeenCalledWith(s1, recipe, reviewer);
+    expect(trackReviewed).toHaveBeenCalledWith('s1', 'branched');
   });
 
-  it('does not mirror and propagates when the cloud approval throws', async () => {
-    updateStatus.mockRejectedValue(new Error('permission-denied'));
-    const { result } = renderHook(() => useSuggestions('r1', 'owner-uid'), { wrapper: wrapperFor(fakeUser) });
+  it('reject declines and records rejected', async () => {
+    await hook().current.reject('s1');
+    expect(updateStatus).toHaveBeenCalledWith('s1', 'rejected', reviewer);
+    expect(trackReviewed).toHaveBeenCalledWith('s1', 'rejected');
+  });
 
-    await expect(result.current.approve('s1')).rejects.toThrow('permission-denied');
-    expect(addLocalCollaborator).not.toHaveBeenCalled();
+  it('records nothing when the write throws', async () => {
+    applySuggestion.mockRejectedValue(new Error('permission-denied'));
+    await expect(hook().current.apply(s1, recipe)).rejects.toThrow('permission-denied');
+    expect(trackReviewed).not.toHaveBeenCalled();
   });
 });
