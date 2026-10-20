@@ -24,20 +24,41 @@ export function useOwnRecipes(uid: string | undefined) {
     [uid]
   );
 
-  const [stats, setStats] = useState<Map<string, { viewCount: number; favoriteCount: number }>>(
-    new Map()
-  );
+  const [state, setState] = useState<{
+    uid: string;
+    status: 'ready' | 'error';
+    stats: Map<string, { viewCount: number; favoriteCount: number }>;
+  } | null>(null);
+  const ids = localRecipes?.map((r) => r.id).join(',');
 
   useEffect(() => {
-    if (!localRecipes || localRecipes.length === 0) return;
-    if (!uid) return;
+    if (!localRecipes || !uid) return;
+    // An empty library has nothing to read: ready with zeros.
+    if (localRecipes.length === 0) {
+      setState({ uid, status: 'ready', stats: new Map() });
+      return;
+    }
+    let cancelled = false;
     // One query for every published recipe of this user; unpublished ones are simply absent.
     getUserRecipes(uid)
-      .then((published) =>
-        setStats(new Map(published.map((r) => [r.id, { viewCount: r.viewCount || 0, favoriteCount: r.favoriteCount || 0 }])))
-      )
-      .catch(() => {});
-  }, [uid, localRecipes?.map((r) => r.id).join(',')]);
+      .then((published) => {
+        if (cancelled) return;
+        const stats = new Map(published.map((r) => [r.id, { viewCount: r.viewCount || 0, favoriteCount: r.favoriteCount || 0 }]));
+        setState({ uid, status: 'ready', stats });
+      })
+      .catch((err) => {
+        reportError(err, 'load-own-stats');
+        if (!cancelled) setState({ uid, status: 'error', stats: new Map() });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, ids]);
+
+  const mine = state?.uid === uid ? state : null;
+  const stats = mine?.stats ?? new Map<string, { viewCount: number; favoriteCount: number }>();
+  const statsStatus: 'loading' | 'ready' | 'error' = mine?.status ?? 'loading';
 
   const recipes = (localRecipes ?? []).map((r) => ({
     id: r.id,
@@ -54,7 +75,7 @@ export function useOwnRecipes(uid: string | undefined) {
     totalFavorites: recipes.reduce((sum, r) => sum + r.favoriteCount, 0),
   };
 
-  return { recipes, stats: totals, isLoading: localRecipes === undefined };
+  return { recipes, stats: totals, statsStatus, isLoading: localRecipes === undefined };
 }
 
 /** Public profile or other user: Firestore only */

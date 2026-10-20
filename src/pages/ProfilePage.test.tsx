@@ -20,7 +20,7 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({
-  useOwnProfile: () => ({ profile: ownProfile, updateAvatar, updateName: vi.fn() }),
+  useOwnProfile: () => ({ profile: ownProfile, loaded: ownLoaded, updateAvatar, updateName: vi.fn() }),
   usePublicProfile: () => publicProfile,
 }));
 const chefProfile = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
@@ -31,17 +31,20 @@ let publicProfile: { profile: typeof chefProfile | null; isLoading: boolean; err
   error: false,
   retry: retryProfile,
 };
-let chefRecipes: unknown[] = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let chefRecipes: Record<string, any>[] = [];
 let chefLoading = false;
 let syncStatus = 'off';
 let rows: Recipe[] | undefined = [];
+let ownLoaded = true;
 let ownProfile: { createdAt: number; followerCount: number; followingCount: number } | null = null;
 vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
+let statsStatus = 'ready';
 let totals = { totalViews: 0, totalFavorites: 0 };
 vi.mock('../hooks/useRecipeLibrary', () => ({ useLocalLibrary: () => rows }));
 vi.mock('../hooks/useUserRecipes', () => ({
-  useOwnRecipes: () => ({ recipes: [], stats: totals, isLoading: false }),
-  useUserRecipes: () => ({ recipes: chefRecipes, stats: { totalViews: 0, totalFavorites: 0 }, isLoading: chefLoading }),
+  useOwnRecipes: () => ({ recipes: [], stats: totals, statsStatus, isLoading: false }),
+  useUserRecipes: () => ({ recipes: chefRecipes, stats: { totalViews: 0, totalFavorites: chefRecipes.reduce((n, r) => n + (r.favoriteCount ?? 0), 0) }, isLoading: chefLoading }),
 }));
 
 import { ProfilePage } from './ProfilePage';
@@ -74,6 +77,8 @@ beforeEach(() => {
   retryProfile.mockClear();
   rows = [];
   ownProfile = null;
+  ownLoaded = true;
+  statsStatus = 'ready';
   totals = { totalViews: 0, totalFavorites: 0 };
 });
 
@@ -193,11 +198,11 @@ describe('OwnProfile sync states (RL-079)', () => {
 const mine = (o: Partial<Recipe>) => makeRecipe({ createdBy: { uid: fakeUser.uid, displayName: null }, ...o });
 
 describe('OwnProfile Organic layout (RL-095)', () => {
-  it('shows placeholders instead of 0 for Originals and Branches while the library loads', () => {
+  it('shows placeholders instead of 0 for Started and Grew while the library loads', () => {
     rows = undefined;
     renderAt('/profile', fakeUser);
-    expect(within(screen.getByText('Originals').parentElement!).getByText('–')).toBeInTheDocument();
-    expect(within(screen.getByText('Branches').parentElement!).queryByText('0')).toBeNull();
+    expect(within(screen.getAllByText('Started')[0].parentElement!).getByText('–')).toBeInTheDocument();
+    expect(within(screen.getAllByText('Grew')[0].parentElement!).queryByText('0')).toBeNull();
   });
 
   it('splits Started and Grew with counts, a branch of someone else under Grew, and the right meta', () => {
@@ -208,9 +213,9 @@ describe('OwnProfile Organic layout (RL-095)', () => {
       makeRecipe({ id: 'theirs-kid', rootId: 'theirs', parentId: 'theirs', title: 'My Take', prompt: 'less salt', createdBy: { uid: fakeUser.uid, displayName: null }, createdAt: 9 }),
     ];
     renderAt('/profile', fakeUser);
-    const tile = (label: string) => screen.getByText(label).parentElement!;
-    expect(tile('Originals')).toHaveTextContent(/^1Originals$/);
-    expect(tile('Branches')).toHaveTextContent(/^1Branches$/);
+    const tile = (label: string) => screen.getAllByText(label)[0].parentElement!;
+    expect(tile('Started')).toHaveTextContent(/^1Started$/);
+    expect(tile('Grew')).toHaveTextContent(/^1Grew$/);
     const started = screen.getByRole('link', { name: /Root Soup/ });
     expect(started).toHaveTextContent('1 branch');
     expect(screen.queryByText('My Take')).toBeNull();
@@ -233,13 +238,28 @@ describe('OwnProfile Organic layout (RL-095)', () => {
     expect(screen.queryByText('My Profile')).toBeNull();
   });
 
-  it('shows the views and saves line only when there are some', () => {
+  it('shows the views line only when there are some, and saves in the tile', () => {
     const { unmount } = renderAt('/profile', fakeUser);
     expect(screen.queryByText(/views/)).toBeNull();
     unmount();
     totals = { totalViews: 3, totalFavorites: 1 };
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('3 views · 1 save')).toBeInTheDocument();
+    expect(screen.getByText('3 views')).toBeInTheDocument();
+    expect(within(screen.getByText('Saves').parentElement!).getByText('1')).toBeInTheDocument();
+  });
+
+  it.each(['loading', 'error'])('shows a dash for Saves while stats are %s', (status) => {
+    statsStatus = status;
+    totals = { totalViews: 0, totalFavorites: 0 };
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('group', { name: 'Saves: loading' })).toBeInTheDocument();
+  });
+
+  it('shows dashes for Followers and no Following number until the profile has loaded', () => {
+    ownLoaded = false;
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('button', { name: 'Followers: loading' })).toHaveAttribute('aria-controls', 'followers-panel');
+    expect(screen.getByRole('button', { name: 'Following' })).toBeInTheDocument();
   });
 
   it('toggles the followers list from its stat tile', async () => {
@@ -253,9 +273,9 @@ describe('OwnProfile Organic layout (RL-095)', () => {
     expect(screen.queryByText('No followers yet')).toBeNull();
   });
 
-  it('toggles the following list from its stat tile', async () => {
+  it('toggles the following list from the link under the tiles', async () => {
     renderAt('/profile', fakeUser);
-    const btn = screen.getByRole('button', { name: /Following/ });
+    const btn = screen.getByRole('button', { name: 'Following 0' });
     expect(btn).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(btn);
     expect(btn).toHaveAttribute('aria-expanded', 'true');
@@ -328,7 +348,7 @@ describe('ProfilePage signed out, local-only and errors (RL-095)', () => {
     renderWithProviders(<ProfilePage />, { route: '/profile', user: null, auth: { isConfigured: false } });
     expect(screen.getByRole('heading', { name: 'Your recipes' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Local One/ })).toBeInTheDocument();
-    expect(screen.queryByText('Originals')).toBeNull();
+    expect(screen.queryByText('Saves')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change avatar' })).toBeNull();
   });
 });
@@ -338,16 +358,16 @@ describe('PublicProfile Organic layout (RL-096)', () => {
 
   it('splits Started and Grew by parentId, with branch counts and prompts as meta', () => {
     chefRecipes = [
-      theirs({ id: 'root', title: 'Root Soup', rootId: 'root', createdAt: 3 }),
+      theirs({ id: 'root', title: 'Root Soup', rootId: 'root', createdAt: 3, favoriteCount: 4 }),
       theirs({ id: 'lone', title: 'Lone Toast', rootId: 'lone', createdAt: 2 }),
-      theirs({ id: 'kid', title: 'Spicy Soup', parentId: 'root', rootId: 'root', prompt: 'make it spicy', createdAt: 1 }),
+      theirs({ id: 'kid', title: 'Spicy Soup', parentId: 'root', rootId: 'root', prompt: 'make it spicy', createdAt: 1, favoriteCount: 2 }),
     ];
     renderAt('/profile/chef', null);
-    const tile = (label: string) => screen.getByText(label).parentElement!;
-    expect(within(tile('Originals')).getByText('2')).toBeInTheDocument();
-    expect(within(tile('Branches')).getByText('1')).toBeInTheDocument();
+    const tile = (label: string) => screen.getAllByText(label)[0].parentElement!;
+    expect(within(tile('Started')).getByText('2')).toBeInTheDocument();
+    expect(within(tile('Grew')).getByText('1')).toBeInTheDocument();
     expect(within(tile('Followers')).getByText('3')).toBeInTheDocument();
-    expect(within(tile('Following')).getByText('5')).toBeInTheDocument();
+    expect(within(tile('Saves')).getByText('6')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Root Soup/ })).toHaveTextContent('1 branch');
     expect(screen.getByRole('link', { name: /Lone Toast/ })).not.toHaveTextContent('No branches yet');
     expect(screen.queryByRole('link', { name: /Spicy Soup/ })).toBeNull();
@@ -402,13 +422,13 @@ describe('PublicProfile Organic layout (RL-096)', () => {
     expect(screen.getByText('Home page')).toBeInTheDocument();
   });
 
-  it('shows placeholders instead of 0 for Originals and Branches while recipes load', () => {
+  it('shows placeholders instead of 0 for Started and Grew while recipes load', () => {
     chefLoading = true;
     renderAt('/profile/chef', null);
-    const tile = (label: string) => screen.getByText(label).parentElement!;
-    expect(within(tile('Originals')).getByText('–')).toBeInTheDocument();
-    expect(within(tile('Branches')).getByText('–')).toBeInTheDocument();
-    expect(within(tile('Originals')).queryByText('0')).toBeNull();
+    const tile = (label: string) => screen.getAllByText(label)[0].parentElement!;
+    expect(within(tile('Started')).getByText('–')).toBeInTheDocument();
+    expect(within(tile('Grew')).getByText('–')).toBeInTheDocument();
+    expect(within(tile('Started')).queryByText('0')).toBeNull();
     expect(within(tile('Followers')).getByText('3')).toBeInTheDocument();
   });
 

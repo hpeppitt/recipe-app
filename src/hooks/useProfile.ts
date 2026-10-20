@@ -14,15 +14,17 @@ import { reportError } from '../services/telemetry';
 /** Subscribe to the current user's own profile */
 export function useOwnProfile() {
   const { user, isConfigured } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  // Stamped with the uid it belongs to so `loaded` is false until the first snapshot for this user.
+  const [state, setState] = useState<{ uid: string; profile: UserProfile | null } | null>(null);
+  const uid = user?.uid;
+  const live = isConfigured && !!uid && state?.uid === uid;
+  const profile = live ? state.profile : null;
+  const loaded = !isConfigured || !uid || live;
 
   useEffect(() => {
-    if (!isConfigured || !user) {
-      setProfile(null);
-      return;
-    }
-    return subscribeProfile(user.uid, setProfile);
-  }, [isConfigured, user?.uid]);
+    if (!isConfigured || !uid) return;
+    return subscribeProfile(uid, (p) => setState({ uid, profile: p }));
+  }, [isConfigured, uid]);
 
   const updateAvatar = useCallback(
     async (data: {
@@ -54,7 +56,7 @@ export function useOwnProfile() {
     [user]
   );
 
-  return { profile, updateAvatar, updateName };
+  return { profile, loaded, updateAvatar, updateName };
 }
 
 /** Fetch another user's profile (one-time, not real-time) */

@@ -1841,3 +1841,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - On Explore at 390px, below the tile row and Most branched, light and dark: a sage "What have you got?" card. Tap it: Search opens with the Pantry sheet over it and focus inside; close it and you stay on Search with focus on the Pantry chip.
 - At 1280px the card leaves the two-pane view and opens Search full width; Back restores the pane. In cloud mode the card appears together with the rows, not before.
 - The card is absent under a tag chip and under Following, and shows in local-only mode.
+
+### RL-171 Profile stat tiles
+- At 390px, own profile and another cook's profile: four tiles read Started, Grew, Followers, Saves (Saves shows "–" until recipes load). The own profile has "Following N" in terracotta text under the tiles; tap it to open the list and tap again to close it. Followers still opens its list. The views line no longer repeats saves.
+- Reviewer noted: on a public profile a failed `useUserRecipes` shows 0s in the tiles (pre-existing). The own profile's Following list shows "Not following anyone yet" if its read fails, because `useFollowingList` exposes no error (pre-existing).
+- Check the four tiles at 320px with 4-digit values: nothing should overflow or wrap.

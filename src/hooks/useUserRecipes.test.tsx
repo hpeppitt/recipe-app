@@ -12,7 +12,9 @@ vi.mock('../services/firestore', () => ({
 const reportError = vi.fn();
 vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 
-import { useUserRecipes, useFollowingRecipes } from './useUserRecipes';
+import { useUserRecipes, useFollowingRecipes, useOwnRecipes } from './useUserRecipes';
+import { db } from '../db/database';
+import { makeRecipe } from '../test/factories';
 
 const recipe = (id: string) => ({ id, viewCount: 1, favoriteCount: 2 });
 const deferred = <T,>() => {
@@ -40,6 +42,33 @@ describe('useUserRecipes', () => {
     expect(result.current.isLoading).toBe(true);
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'load-user-recipes');
+  });
+});
+
+describe('useOwnRecipes statsStatus', () => {
+  beforeEach(() => db.recipes.clear());
+
+  it('is ready with zeros for an empty library', async () => {
+    const { result } = renderHook(() => useOwnRecipes('me'));
+    await waitFor(() => expect(result.current.statsStatus).toBe('ready'));
+    expect(getUserRecipes).not.toHaveBeenCalled();
+  });
+
+  it('is loading, then error and reported when the read fails', async () => {
+    await db.recipes.add(makeRecipe({ id: 'r1', createdBy: { uid: 'me', displayName: null } }));
+    getUserRecipes.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useOwnRecipes('me'));
+    expect(result.current.statsStatus).toBe('loading');
+    await waitFor(() => expect(result.current.statsStatus).toBe('error'));
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'load-own-stats');
+  });
+
+  it('is ready with the summed saves on success', async () => {
+    await db.recipes.add(makeRecipe({ id: 'r1', createdBy: { uid: 'me', displayName: null } }));
+    getUserRecipes.mockResolvedValue([recipe('r1')]);
+    const { result } = renderHook(() => useOwnRecipes('me'));
+    await waitFor(() => expect(result.current.statsStatus).toBe('ready'));
+    expect(result.current.stats.totalFavorites).toBe(2);
   });
 });
 
