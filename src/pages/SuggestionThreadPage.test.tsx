@@ -6,7 +6,7 @@ import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import { RateLimitedError } from '../lib/errors';
 import type { AppUser, Recipe } from '../types/recipe';
-import type { Suggestion, SuggestionMessage } from '../types/social';
+import type { Suggestion, SuggestionEdit, SuggestionMessage } from '../types/social';
 
 // The real hooks run; only the Firestore calls underneath are faked, so these
 // tests see which listeners open and which write is made.
@@ -17,13 +17,14 @@ const subscribeMessages = vi.fn();
 const addMessage = vi.fn();
 const updateStatus = vi.fn();
 const applySuggestion = vi.fn();
+const keepSuggestionAsBranch = vi.fn();
 vi.mock('../services/firestore', () => ({
   subscribeRecipeSuggestions: (...a: unknown[]) => subscribe(...a),
   subscribeSuggestionMessages: (...a: unknown[]) => subscribeMessages(...a),
   addSuggestionMessage: (...a: unknown[]) => addMessage(...a),
   updateSuggestionStatus: (...a: unknown[]) => updateStatus(...a),
   applySuggestion: (...a: unknown[]) => applySuggestion(...a),
-  keepSuggestionAsBranch: vi.fn(),
+  keepSuggestionAsBranch: (...a: unknown[]) => keepSuggestionAsBranch(...a),
   createSuggestion: vi.fn(),
 }));
 vi.mock('../services/analytics', () => ({
@@ -59,6 +60,12 @@ const sug = (over: Partial<Suggestion> = {}): Suggestion => ({
   createdAt: Date.now(),
   ...over,
 });
+
+const EDITS: SuggestionEdit[] = [
+  { kind: 'ingredient', index: 0, name: 'sugar', from: '150 g', to: '100 g' },
+  { kind: 'step', index: 1, from: 'Bake', to: 'Bake longer' },
+  { kind: 'general', from: '', to: 'Less sweet please' },
+];
 
 const msg = (over: Partial<SuggestionMessage>): SuggestionMessage => ({
   id: 'm',
@@ -115,6 +122,7 @@ function open(user: AppUser | null = fakeUser) {
         }
       />
       <Route path="/recipe/:id/vary" element={<VaryProbe />} />
+      <Route path="/recipe/:id" element={<p>Branch page</p>} />
     </Routes>,
     { user, route: '/recipe/r1/suggestion/s1' }
   );
@@ -136,6 +144,16 @@ describe('SuggestionThreadPage', () => {
     expect(within(card).getByText('More garlic')).toBeInTheDocument();
     expect(within(card).getByText('just now')).toBeInTheDocument();
     expect(screen.getByText('Open')).toBeInTheDocument();
+  });
+
+  it('pins the edits as diff rows above the note', () => {
+    suggestions = [sug({ edits: EDITS })];
+    open();
+    const card = screen.getByRole('region', { name: 'Suggestion' });
+    expect(within(card).getByText('Change sugar from 150 g to 100 g')).toBeInTheDocument();
+    expect(within(card).getByText('Change step 2 to: Bake longer')).toBeInTheDocument();
+    expect(within(card).getAllByText('~')).toHaveLength(2);
+    expect(within(card).getByText('Less sweet please')).toBeInTheDocument();
   });
 
   it('keeps the line breaks of a composed suggestion message', () => {
@@ -217,10 +235,12 @@ describe('SuggestionThreadPage', () => {
   });
 
   describe('owner actions', () => {
-    it('shows Decline and Apply for the owner on a pending suggestion', () => {
+    it('shows Decline, Keep as branch and Apply for the owner on a pending suggestion with edits', () => {
+      suggestions = [sug({ edits: EDITS })];
       open();
-      expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Keep as branch, suggestion from Maya' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Decline, suggestion/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Apply, suggestion/ })).toBeInTheDocument();
       expect(subscribe).toHaveBeenCalledWith('r1', fakeUser.uid, true, expect.any(Function));
     });
 
@@ -231,9 +251,16 @@ describe('SuggestionThreadPage', () => {
       suggestions = [sug({ status })];
       open();
       expect(screen.getByText(label)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Decline, suggestion/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Apply, suggestion/ })).not.toBeInTheDocument();
       expect(input()).toBeInTheDocument();
+    });
+
+    it.each(['applied', 'branched'] as const)('hides them on a %s suggestion and tags the header', (status) => {
+      suggestions = [sug({ status, edits: EDITS })];
+      open();
+      expect(screen.getByText(status === 'applied' ? 'Applied' : 'Branched')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Apply, suggestion|^Decline, suggestion|as branch/ })).not.toBeInTheDocument();
     });
 
     it('hides them from the suggester, who replies to the owner', () => {
@@ -241,14 +268,39 @@ describe('SuggestionThreadPage', () => {
       open(maya);
       expect(subscribe).toHaveBeenCalledWith('r1', MAYA.uid, false, expect.any(Function));
       expect(screen.getByLabelText('Reply to Test Cook')).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Decline, suggestion/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Apply, suggestion/ })).not.toBeInTheDocument();
+    });
+
+    it('hides the owner buttons while the reply box has focus', () => {
+      suggestions = [sug({ edits: EDITS })];
+      open();
+      fireEvent.focus(input());
+      expect(screen.queryByRole('button', { name: /^Apply, suggestion/ })).not.toBeInTheDocument();
+      fireEvent.blur(input());
+      expect(screen.getByRole('button', { name: /^Apply, suggestion/ })).toBeInTheDocument();
+    });
+
+    it('a free-text suggestion offers Mark applied and no Keep as branch', () => {
+      open();
+      expect(screen.getByRole('button', { name: 'Mark applied, suggestion from Maya' })).toHaveTextContent('Mark applied');
+      expect(screen.queryByRole('button', { name: /as branch/ })).not.toBeInTheDocument();
+    });
+
+    it('Keep as branch writes the branch and opens it', async () => {
+      suggestions = [sug({ edits: EDITS })];
+      keepSuggestionAsBranch.mockResolvedValue('b1');
+      open();
+      fireEvent.click(screen.getByRole('button', { name: 'Keep as branch, suggestion from Maya' }));
+      expect(await screen.findByText('Branch page')).toBeInTheDocument();
+      expect(keepSuggestionAsBranch).toHaveBeenCalled();
     });
 
     it('Apply applies the suggestion as the owner and stays (RL-148)', async () => {
+      suggestions = [sug({ edits: EDITS })];
       applySuggestion.mockResolvedValue(undefined);
       open();
-      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      fireEvent.click(screen.getByRole('button', { name: /^Apply, suggestion/ }));
       await waitFor(() =>
         expect(applySuggestion).toHaveBeenCalledWith(suggestions[0], recipe, { uid: fakeUser.uid, displayName: fakeUser.displayName })
       );
@@ -257,16 +309,17 @@ describe('SuggestionThreadPage', () => {
     });
 
     it('a failed Apply shows the apply error and stays', async () => {
+      suggestions = [sug({ edits: EDITS })];
       applySuggestion.mockRejectedValue(new Error('denied'));
       open();
-      fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      fireEvent.click(screen.getByRole('button', { name: /^Apply, suggestion/ }));
       expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't apply that suggestion. Please try again.");
     });
 
     it('Decline confirms first, then declines with the same notification path', async () => {
       updateStatus.mockResolvedValue(null);
       open();
-      fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+      fireEvent.click(screen.getByRole('button', { name: /^Decline, suggestion/ }));
       expect(updateStatus).not.toHaveBeenCalled();
       const dialog = screen.getByRole('dialog', { name: 'Decline this suggestion?' });
       expect(dialog).toHaveTextContent('"More garlic" will be marked declined and the suggester will be notified.');
@@ -424,7 +477,8 @@ describe('SuggestionThreadPage', () => {
     open();
     reply('Why?');
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't send that reply. Please try again.");
-    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    fireEvent.blur(input());
+    fireEvent.click(screen.getByRole('button', { name: /^Decline, suggestion/ }));
     expect(screen.getByRole('dialog', { name: 'Decline this suggestion?' })).toBeInTheDocument();
     expect(unsubSuggestions).not.toHaveBeenCalled();
     expect(unsubMessages).not.toHaveBeenCalled();

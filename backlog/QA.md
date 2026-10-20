@@ -1625,7 +1625,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - As the suggester, change an ingredient amount. As the owner, tap Apply on the card (recipe page) or in the thread: the recipe shows the new amount on both devices, the suggestion closes, the suggester appears under Collaborators, and the suggester's Activity row reads "applied your suggestion to" with a sage check badge.
 - Suggest again, then edit that ingredient by hand as the owner before applying: Apply shows "That recipe changed since the suggestion. Open it and edit by hand." and nothing changes.
 - A free-text or General-note-only suggestion: Apply just closes it and notifies; the recipe is untouched.
-- Keep as branch has no button until RL-149. It is covered by tests only for now.
+- Keep as branch now has a button (RL-149 and RL-150).
 - Old Approved suggestions still show Approved.
 - Reviewer noted: an owner who has not accepted the current Terms gets the generic "Couldn't keep that as a branch" error on Keep as branch (the recipe create rule needs `acceptedTerms()`).
 - Reviewer noted: `src/content/legal/privacy.ts` line 103 still says "approves or rejects your suggestion", and line 35 says "people whose suggestions you approved"; the author reviews the policies.
@@ -1643,3 +1643,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Screen reader: a diff row reads "Change light brown sugar from 150 g to 100 g".
 - Replies is now a link, not a button.
 - Reviewer noted: check the action row (Decline, Mark applied, More options) at a real 320px viewport; Mark applied now wraps inside the 44px height.
+
+### RL-150 The suggestion thread pins diff rows and gives the owner Decline, Keep as branch and Apply
+
+- Emulator only (two verified accounts); the live rules deny `applied` and `branched` until RL-156.
+- Open a suggestion with edits from Replies: the pinned card shows each edit as a diff row with a leading "~", then the note, and scrolls with the thread.
+- As owner at 320px: Decline, Keep as branch and Apply fit on one row without truncating "Keep as branch". Check "Working…" fits too.
+- Apply stays on the thread and the header tag turns Applied, with no footer. Keep as branch opens the new branch.
+- A free-text suggestion shows Decline and Mark applied only. The suggester and closed suggestions show no footer.
+- Reviewer noted: the footer uses ad hoc buttons, not `ui/Button`.
+- Reviewer noted: `useSuggestionThread` has no loaded flag, so "No replies yet" can flash, and the replies error has no Retry (both pre-existing).
+- Reviewer noted: check 320px and the on-screen keyboard open in a real browser; the owner buttons hide while the reply box has focus.
+

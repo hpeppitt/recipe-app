@@ -82,10 +82,5 @@ export function useSuggestionReview(
 
   const decline = (id: string) => run(id, 'decline', () => actions.reject(id), () => DECLINE_ERROR);
 
-  // shortcut: adapter for the old Approve/Decline buttons, removed when RL-149 and RL-150 redo them.
-  // The message argument is the old signature's and is unused.
-  const review = (id: string, action: 'approve' | 'reject', _message?: string) =>
-    action === 'approve' ? apply(id) : decline(id);
-
-  return { reviewingId, reviewError, apply, keepAsBranch, decline, review };
+  return { reviewingId, reviewError, apply, keepAsBranch, decline };
 }

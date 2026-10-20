@@ -6,13 +6,15 @@ import { useSuggestions, useSuggestionThread } from '../hooks/useSuggestions';
 import { useSuggestionReview } from '../hooks/useSuggestionReview';
 import { DeclineSuggestionDialog } from '../components/recipe/SuggestionList';
 import { AuthModal } from '../components/auth/AuthModal';
+import { SuggestionDiffRow } from '../components/recipe/SuggestionDiffRow';
 import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { PageFallback } from '../components/ui/PageFallback';
-import { ArrowUp, ChevronLeft, CloudOff, MessageCircle, RotateCw } from '../components/ui/icons';
+import { ArrowUp, ChevronLeft, CloudOff, GitBranch, MessageCircle, RotateCw } from '../components/ui/icons';
 import { rateLimitMessage } from '../lib/errors';
+import { hasApplicableEdits, noteOf } from '../lib/suggestion';
 import { timeAgo } from '../lib/utils';
 
 const STATUS_TAG = {
@@ -24,7 +26,7 @@ const STATUS_TAG = {
 } as const;
 
 const ownerButton =
-  'inline-flex h-12 min-w-0 items-center justify-center rounded-full px-2 font-heading text-[15px] whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
+  'inline-flex h-12 min-w-0 items-center justify-center rounded-full px-1 text-center font-heading text-[15px] leading-tight whitespace-normal transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 
 /** How long the page waits for the suggestions listener before offering Retry. */
 const SUGGESTION_LOAD_TIMEOUT_MS = 8000;
@@ -62,14 +64,18 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
   const { suggestions, loaded, apply, keepAsBranch, reject } = useSuggestions(id, ownerUid);
   const suggestion = suggestions.find((s) => s.id === suggestionId) ?? null;
   const { messages, error: threadError, send } = useSuggestionThread(suggestion);
-  const { reviewingId, reviewError, review } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
+  const { reviewingId, reviewError, apply: handleApply, keepAsBranch: handleKeepAsBranch, decline: handleDecline } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
 
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [pressed, setPressed] = useState<'apply' | 'branch' | 'decline'>('apply');
   const [declining, setDeclining] = useState<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const alertRef = useRef<HTMLParagraphElement>(null);
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -86,6 +92,11 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
     const timer = setTimeout(() => setTimedOut(true), SUGGESTION_LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [listening]);
+
+  // A failed review leaves focus on a disabled control; move it to the message.
+  useEffect(() => {
+    if (reviewError) alertRef.current?.focus();
+  }, [reviewError]);
 
   // Newest at the bottom: scroll to it on open and whenever a reply lands.
   useEffect(() => {
@@ -160,7 +171,11 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
   const suggesterName = suggestion.suggestedBy.displayName || 'Someone';
   const otherName = isOwner ? suggesterName : recipe?.createdBy?.displayName || 'Someone';
   const tag = STATUS_TAG[suggestion.status] ?? STATUS_TAG.pending;
-  const message = suggestion.message || '(No message)';
+  const edits = suggestion.edits ?? [];
+  const applicable = hasApplicableEdits(edits);
+  const message = noteOf(suggestion) || (edits.length ? '' : '(No message)');
+  const busy = reviewingId !== null;
+  const working = (kind: typeof pressed) => reviewingId === suggestion.id && pressed === kind;
 
   const handleSend = async () => {
     const text = draft.trim();
@@ -187,14 +202,14 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
     <div className="mx-auto flex h-dvh max-w-lg flex-col bg-surface">
       <header className="flex shrink-0 items-center gap-1 px-3 pt-[calc(12px+env(safe-area-inset-top))] pb-2">
         {backButton}
-        <h1 className="min-w-0 flex-1 truncate font-heading text-lg text-text-primary">Suggestion</h1>
-        <span className={`mr-2.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${tag.cls}`}>
+        <h1 ref={titleRef} tabIndex={-1} className="min-w-0 flex-1 truncate font-heading text-lg text-text-primary focus:outline-none">Suggestion</h1>
+        <span role="status" className={`mr-2.5 shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${tag.cls}`}>
           {tag.label}
         </span>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 pt-3 pb-3">
-        <section aria-label="Suggestion" className="flex flex-col gap-3 rounded-[30px] bg-surface-secondary p-4">
+        <section aria-label="Suggestion" aria-busy={reviewingId === suggestion.id} className="flex flex-col gap-3 rounded-[30px] bg-surface-secondary p-4">
           <div className="flex items-center gap-2.5 text-[13px] text-text-primary">
             <span className="shrink-0 [&>div]:h-8 [&>div]:w-8 [&>div]:text-xs">
               <Avatar uid={suggestion.suggestedBy.uid} name={suggesterName} />
@@ -204,7 +219,10 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
             </p>
             <span className="shrink-0 text-text-tertiary">{timeAgo(suggestion.createdAt)}</span>
           </div>
-          <p className="whitespace-pre-line break-words text-sm leading-normal text-text-primary">{message}</p>
+          {edits.map((e, i) => (
+            <SuggestionDiffRow key={i} edit={e} thread />
+          ))}
+          {message && <p className="whitespace-pre-line break-words text-sm leading-normal text-text-primary">{message}</p>}
         </section>
 
         {messages.length === 0 && !threadError && (
@@ -242,9 +260,15 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
         <div ref={endRef} />
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2.5 bg-surface px-4 pt-2.5 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
-        {errors.map((e) => (
-          <p key={e} role="alert" className="text-xs text-danger-700">
+      <div className={`flex shrink-0 flex-col gap-2.5 bg-surface px-4 pt-2.5 ${inputFocused ? 'pb-2.5' : 'pb-[calc(28px+env(safe-area-inset-bottom))]'} shadow-[0_-1px_0_var(--color-border)]`}>
+        {errors.map((e, i) => (
+          <p
+            key={i}
+            ref={e === reviewError ? alertRef : undefined}
+            tabIndex={e === reviewError ? -1 : undefined}
+            role="alert"
+            className="text-xs text-danger-700 focus:outline-none"
+          >
             {e}
           </p>
         ))}
@@ -257,7 +281,12 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
               id={inputId}
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSendError(null);
+              }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -284,23 +313,46 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
             </button>
           </div>
         )}
-        {isOwner && suggestion.status === 'pending' && (
-          <div className="flex gap-2.5">
+        {isOwner && suggestion.status === 'pending' && !inputFocused && (
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => setDeclining(suggestion.message)}
-              disabled={reviewingId !== null}
+              onClick={() => {
+                setPressed('decline');
+                setDeclining(suggestion.message);
+              }}
+              disabled={busy}
+              aria-label={working('decline') ? 'Working…' : `Decline, suggestion from ${suggesterName}`}
               className={`${ownerButton} flex-1 border border-border text-text-primary hover:bg-surface-secondary`}
             >
-              Decline
+              {working('decline') ? 'Working…' : 'Decline'}
             </button>
+            {applicable && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPressed('branch');
+                  void handleKeepAsBranch(suggestion.id);
+                }}
+                disabled={busy}
+                aria-label={working('branch') ? 'Working…' : `Keep as branch, suggestion from ${suggesterName}`}
+                className={`${ownerButton} flex-[1.3] gap-1 border border-border text-text-primary hover:bg-surface-secondary`}
+              >
+                <GitBranch className="h-3.5 w-3.5 shrink-0" />
+                {working('branch') ? 'Working…' : 'Keep as branch'}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => void review(suggestion.id, 'approve', suggestion.message)}
-              disabled={reviewingId !== null}
+              onClick={() => {
+                setPressed('apply');
+                void handleApply(suggestion.id).then(() => titleRef.current?.focus());
+              }}
+              disabled={busy}
+              aria-label={working('apply') ? 'Working…' : `${applicable ? 'Apply' : 'Mark applied'}, suggestion from ${suggesterName}`}
               className={`${ownerButton} flex-[1.2] bg-primary-600 text-on-accent hover:bg-primary-700`}
             >
-              {reviewingId === suggestion.id ? 'Working…' : 'Apply'}
+              {working('apply') ? 'Working…' : applicable ? 'Apply' : 'Mark applied'}
             </button>
           </div>
         )}
@@ -311,7 +363,7 @@ function SuggestionThreadScreen({ onRetry }: { onRetry: () => void }) {
         onConfirm={() => {
           const target = declining;
           setDeclining(null);
-          if (target !== null) void review(suggestion.id, 'reject', target);
+          if (target !== null) void handleDecline(suggestion.id).then(() => titleRef.current?.focus());
         }}
         onCancel={() => setDeclining(null)}
       />
