@@ -99,6 +99,32 @@ describe('ExplorePage beside a recipe (RL-116)', () => {
   });
 });
 
+describe('ExplorePage pantry card (RL-170)', () => {
+  const card = () => screen.queryByRole('link', { name: /What have you got\?/ });
+
+  it('links to the Pantry sheet on Search, once the feed has loaded', async () => {
+    renderWithProviders(<ExplorePage />);
+    expect(card()).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /What have you got\?/ })).toHaveAttribute('href', '/search?sheet=pantry');
+  });
+
+  it('shows in local-only mode', () => {
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(card()).toBeInTheDocument();
+  });
+
+  it('hides under a tag chip and under Following', async () => {
+    renderWithProviders(<ExplorePage />);
+    await screen.findByRole('link', { name: /What have you got\?/ });
+    fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
+    expect(card()).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: EXPLORE_TAGS[0] }));
+    await screen.findByRole('link', { name: /What have you got\?/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Following' }));
+    expect(card()).not.toBeInTheDocument();
+  });
+});
+
 describe('ExplorePage rows', () => {
   it('makes each row one link named by the title, with the author pill as a separate link', async () => {
     const root = cloud({ id: 'r1', title: 'Cloud Curry', createdBy: { uid: 'ana', displayName: 'Ana' } });
@@ -499,7 +525,7 @@ describe('ExplorePage local-only mode', () => {
     expect(screen.queryByRole('link', { name: 'Local Branch' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: "What's growing" })).toBeInTheDocument();
     // Every row is the device's own, so no author link.
-    expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['/search', '/recipe/l1']);
+    expect(screen.getAllByRole('link').map((a) => a.getAttribute('href'))).toEqual(['/search', '/search?sheet=pantry', '/recipe/l1']);
     expect(getPage).not.toHaveBeenCalled();
   });
 

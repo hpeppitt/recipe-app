@@ -1836,3 +1836,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - On a phone, light and dark: Search, Pantry. Add three items by typing (Enter or comma), pick 30 min, and watch the Show button count change as items are added. Show: the chip reads "Pantry · 3", the "Using ... · under 30 min" line sits above results that all use every item. Open one, come Back: the filter is still there.
 - Pantry again, then "Or write a new one with these": the chat composer holds "Something with ... in under 30 minutes", unsent.
 - Keyboard: focus starts on the first item or Add, Tab follows the layout, Escape closes and focus returns to the Pantry chip. Typing in the search box clears the filter. Pills are 44px tall (the design says 34px for the chip; kept at the 44px target floor).
+
+### RL-170 Pantry card on Explore
+- On Explore at 390px, below the tile row and Most branched, light and dark: a sage "What have you got?" card. Tap it: Search opens with the Pantry sheet over it and focus inside; close it and you stay on Search with focus on the Pantry chip.
+- At 1280px the card leaves the two-pane view and opens Search full width; Back restores the pane. In cloud mode the card appears together with the rows, not before.
+- The card is absent under a tag chip and under Following, and shows in local-only mode.
