@@ -55,26 +55,37 @@ function StatTile({
   value,
   onClick,
   expanded,
+  controls,
 }: {
   label: string;
   /** A string is a placeholder while the count is still loading. */
   value: number | string;
   onClick?: () => void;
   expanded?: boolean;
+  /** Id of the panel a tappable tile opens. */
+  controls?: string;
 }) {
-  const cls = `min-w-0 rounded-[20px] px-1 py-3 text-center ${expanded ? 'bg-surface-tertiary' : 'bg-surface-secondary'}`;
+  const cls = `min-w-0 rounded-[20px] px-1 py-3 text-center ${expanded ? 'bg-surface-tertiary ring-1 ring-border-strong' : 'bg-surface-secondary'}`;
+  const name = `${label}: ${typeof value === 'string' ? 'loading' : value}`;
   const body = (
     <>
-      <p className="font-heading text-xl leading-tight text-text-primary">{value}</p>
+      <p className="min-w-0 overflow-hidden font-heading text-xl leading-tight text-text-primary tabular-nums">{value}</p>
       <p className="truncate text-[11px] text-text-tertiary">{label}</p>
     </>
   );
-  if (!onClick) return <div className={cls}>{body}</div>;
+  if (!onClick)
+    return (
+      <div role="group" aria-label={name} className={cls}>
+        {body}
+      </div>
+    );
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={expanded}
+      aria-controls={controls}
+      aria-label={name}
       className={`${cls} min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
     >
       {body}
@@ -170,8 +181,8 @@ function useRecipeTabs(uid: string | undefined, isConfigured: boolean) {
 
 function OwnProfile() {
   const { user, updateDisplayName, isConfigured } = useAuth();
-  const { profile, updateAvatar, updateName } = useOwnProfile();
-  const { stats } = useOwnRecipes(user?.uid);
+  const { profile, loaded: profileLoaded, updateAvatar, updateName } = useOwnProfile();
+  const { stats, statsStatus } = useOwnRecipes(user?.uid);
   const tabs = useRecipeTabs(user?.uid, isConfigured);
   const navigate = useNavigate();
   const [editingAvatar, setEditingAvatar] = useState(false);
@@ -303,30 +314,34 @@ function OwnProfile() {
 
           <div className="space-y-2">
             <div className="grid grid-cols-4 gap-2">
-              <StatTile label="Originals" value={tabs.loading ? '–' : tabs.created.length} />
-              <StatTile label="Branches" value={tabs.loading ? '–' : tabs.branched.length} />
+              <StatTile label="Started" value={tabs.loading ? '–' : tabs.created.length} />
+              <StatTile label="Grew" value={tabs.loading ? '–' : tabs.branched.length} />
               <StatTile
                 label="Followers"
-                value={profile?.followerCount ?? 0}
+                value={profileLoaded ? (profile?.followerCount ?? 0) : '–'}
                 expanded={openList === 'followers'}
+                controls="followers-panel"
                 onClick={() => setOpenList(openList === 'followers' ? null : 'followers')}
               />
-              <StatTile
-                label="Following"
-                value={profile?.followingCount ?? followingProfiles.length}
-                expanded={openList === 'following'}
-                onClick={() => setOpenList(openList === 'following' ? null : 'following')}
-              />
+              <StatTile label="Saves" value={tabs.loading || statsStatus !== 'ready' ? '–' : stats.totalFavorites} />
             </div>
-            {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
+            <button
+              type="button"
+              onClick={() => setOpenList(openList === 'following' ? null : 'following')}
+              aria-expanded={openList === 'following'}
+              aria-controls="following-panel"
+              className="min-h-11 rounded-lg text-sm text-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              Following{profileLoaded ? ` ${profile?.followingCount ?? followingProfiles.length}` : ''}
+            </button>
+            {stats.totalViews > 0 && (
               <p className="text-[13px] text-text-tertiary">
-                {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
-                {pluralize(stats.totalFavorites, 'save')}
+                {stats.totalViews} {pluralize(stats.totalViews, 'view')}
               </p>
             )}
 
             {openList === 'followers' && (
-              <div className="border border-border rounded-2xl p-2">
+              <div id="followers-panel" className="border border-border rounded-2xl p-2">
                 {followersLoading ? (
                   <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
                 ) : followersError ? (
@@ -349,7 +364,7 @@ function OwnProfile() {
             )}
 
             {openList === 'following' && (
-              <div className="border border-border rounded-2xl p-2">
+              <div id="following-panel" className="border border-border rounded-2xl p-2">
                 {followingLoading ? (
                   <p className="text-sm text-text-tertiary text-center py-3">Loading...</p>
                 ) : followingProfiles.length === 0 ? (
@@ -559,15 +574,14 @@ function PublicProfile({ uid }: { uid: string }) {
 
           <div className="space-y-2">
             <div className="grid grid-cols-4 gap-2">
-              <StatTile label="Originals" value={recipesLoading ? '–' : created.length} />
-              <StatTile label="Branches" value={recipesLoading ? '–' : branched.length} />
+              <StatTile label="Started" value={recipesLoading ? '–' : created.length} />
+              <StatTile label="Grew" value={recipesLoading ? '–' : branched.length} />
               <StatTile label="Followers" value={profile.followerCount ?? 0} />
-              <StatTile label="Following" value={profile.followingCount ?? 0} />
+              <StatTile label="Saves" value={recipesLoading ? '–' : stats.totalFavorites} />
             </div>
-            {(stats.totalViews > 0 || stats.totalFavorites > 0) && (
+            {stats.totalViews > 0 && (
               <p className="text-[13px] text-text-tertiary">
-                {stats.totalViews} {pluralize(stats.totalViews, 'view')} · {stats.totalFavorites}{' '}
-                {pluralize(stats.totalFavorites, 'save')}
+                {stats.totalViews} {pluralize(stats.totalViews, 'view')}
               </p>
             )}
           </div>
