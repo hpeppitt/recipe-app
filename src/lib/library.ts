@@ -283,3 +283,39 @@ export function mostBranched(
     .slice(0, limit)
     .map(({ rootId, count }) => ({ rootId, count }));
 }
+
+export const PANTRY_TIMES = [
+  { id: '15', label: '15 min', max: 15 },
+  { id: '30', label: '30 min', max: 30 },
+  { id: '60', label: '1 hr', max: 60 },
+  { id: 'any', label: 'Any', max: null },
+] as const;
+
+export type PantryTimeId = (typeof PANTRY_TIMES)[number]['id'];
+
+export const normalizePantryItem = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Normalised, non-empty, de-duplicated pantry items in first-seen order. */
+export const pantryItems = (list: readonly string[]): string[] => [...new Set(list.map(normalizePantryItem).filter(Boolean))];
+
+/** Every item is a substring of some ingredient name (as in `searchLibrary`), within the time limit if set. */
+export function matchesPantry(
+  recipe: { ingredients?: { name: string }[]; totalTime: number },
+  items: readonly string[],
+  maxMinutes: number | null
+): boolean {
+  if (maxMinutes !== null && !(recipe.totalTime <= maxMinutes)) return false;
+  const names = (recipe.ingredients ?? []).map((i) => i.name.toLowerCase());
+  return items.every((it) => names.some((n) => n.includes(it)));
+}
+
+/** Applies the pantry rule to `searchLibrary` output; branches stay. Items are normalised here. */
+export function filterPantry<T extends { ingredients?: { name: string }[]; totalTime: number }>(
+  results: readonly T[],
+  items: readonly string[],
+  timeId: PantryTimeId
+): T[] {
+  const list = pantryItems(items);
+  const max = PANTRY_TIMES.find((t) => t.id === timeId)?.max ?? null;
+  return results.filter((r) => matchesPantry(r, list, max));
+}

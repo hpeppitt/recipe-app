@@ -1828,3 +1828,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Open the pill by touch and by keyboard (arrows, Escape, tap outside): Last 30 days and Last 90 days only. There is no All time row (RL-166 has no all-time read), so the ticket's All time option is not built; say if you want a server-side counter ticket.
 - When the 100-recipe read does not reach back far enough, a "Counts only the newest 100 recipes" line shows under the heading.
 - It is absent under a tag chip, under Following and in local-only mode.
+
+### RL-168 Pantry helpers
+- No visible change: pure helpers for the Pantry sheet (RL-169). Nothing to check in the app.

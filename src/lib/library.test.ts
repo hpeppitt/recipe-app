@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, branchingThisWeek, mostBranched, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
+import { PANTRY_TIMES, normalizePantryItem, pantryItems, matchesPantry, filterPantry, buildFeed, branchingThisWeek, mostBranched, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -354,5 +354,48 @@ describe('mostBranched', () => {
 
   it('counts a family whose root is not in the input', () => {
     expect(mostBranched([kid('1', 'gone', 5)], { sinceMs: null, now })).toEqual([{ rootId: 'gone', count: 1 }]);
+  });
+});
+
+describe('pantry', () => {
+  const r = (mins: number, ...names: string[]) => makeRecipe({ totalTime: mins, ingredients: names.map((name) => makeIngredient(name)) });
+
+  it('exposes the four time options', () => {
+    expect(PANTRY_TIMES.map((t) => t.max)).toEqual([15, 30, 60, null]);
+  });
+
+  it('normalises items and drops empties and duplicates', () => {
+    expect(normalizePantryItem('  Fresh   BASIL ')).toBe('fresh basil');
+    expect(pantryItems(['Egg', ' egg ', '', '  ', 'Feta'])).toEqual(['egg', 'feta']);
+  });
+
+  it('matches by substring, case-insensitively', () => {
+    expect(matchesPantry(r(10, 'Large Eggs'), ['egg'], null)).toBe(true);
+  });
+
+  it('needs every item to be present', () => {
+    const rec = r(10, 'eggs', 'feta');
+    expect(matchesPantry(rec, ['egg', 'feta'], null)).toBe(true);
+    expect(matchesPantry(rec, ['egg', 'tomato'], null)).toBe(false);
+  });
+
+  it('applies the time limit inclusively, and no items means time only', () => {
+    expect(matchesPantry(r(30, 'eggs'), ['egg'], 30)).toBe(true);
+    expect(matchesPantry(r(31, 'eggs'), ['egg'], 30)).toBe(false);
+    expect(matchesPantry(r(20), [], 30)).toBe(true);
+    expect(matchesPantry(r(45), [], 30)).toBe(false);
+  });
+
+  it('filterPantry keeps branches and normalises items', () => {
+    const rows = searchLibrary(
+      [
+        { ...r(10, 'eggs'), id: 'a' },
+        { ...r(10, 'eggs'), id: 'b', parentId: 'a', rootId: 'a' },
+        { ...r(90, 'eggs'), id: 'c' },
+      ],
+      { query: 'egg', filter: 'all' }
+    );
+    expect(filterPantry(rows, [' EGG '], '30').map((x) => x.id).sort()).toEqual(['a', 'b']);
+    expect(filterPantry(rows, ['egg'], 'any')).toHaveLength(3);
   });
 });
