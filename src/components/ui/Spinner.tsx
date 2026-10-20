@@ -11,7 +11,7 @@ export function Spinner({ className, size = 'md', label = 'Loading' }: SpinnerPr
   return (
     <div
       className={cn(
-        'animate-spin rounded-full border-2 border-current border-t-transparent',
+        'motion-safe:animate-spin rounded-full border-2 border-current border-t-transparent',
         size === 'sm' && 'w-4 h-4',
         size === 'md' && 'w-6 h-6',
         size === 'icon' && 'size-5',
