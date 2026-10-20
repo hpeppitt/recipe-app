@@ -6,11 +6,23 @@ import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { Skeleton } from '../components/ui/Skeleton';
 import { UserPill } from '../components/ui/UserPill';
-import { ChevronLeft, GitBranch, Search, Sparkles } from '../components/ui/icons';
+import { PantrySheet } from '../components/recipe/PantrySheet';
+import { ChevronLeft, GitBranch, Search, SlidersHorizontal, Sparkles } from '../components/ui/icons';
 import { formatTime, pluralize } from '../lib/utils';
-import { SEARCH_FILTERS, searchLibrary, type SearchFilter, type SearchResult } from '../lib/library';
+import {
+  PANTRY_TIMES,
+  SEARCH_FILTERS,
+  filterPantry,
+  pantryItems,
+  searchLibrary,
+  type PantryTimeId,
+  type SearchFilter,
+  type SearchResult,
+} from '../lib/library';
+import { buildPantryPrompt } from '../lib/createPrompt';
 
 const isFilter = (f: string | null): f is SearchFilter => SEARCH_FILTERS.some((s) => s.id === f);
+const PANTRY_UNDER: Record<PantryTimeId, string> = { '15': ' · under 15 min', '30': ' · under 30 min', '60': ' · under 1 hr', any: '' };
 
 /**
  * `/search` (Organic 1a, RL-124): titles and ingredient names across the device's
@@ -18,39 +30,86 @@ const isFilter = (f: string | null): f is SearchFilter => SEARCH_FILTERS.some((s
  */
 export function SearchPage() {
   const navigate = useNavigate();
-  const { key } = useLocation();
+  const { key, state } = useLocation();
   const { isConfigured } = useAuth();
   const [params, setParams] = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  const query = params.get('q') ?? '';
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const focusAfterClose = useRef<'chip' | 'results'>('chip');
+  const pantry = pantryItems((params.get('p') ?? '').split(','));
+  const pt = params.get('pt');
+  const pantryTime: PantryTimeId = PANTRY_TIMES.find((t) => t.id === pt)?.id ?? 'any';
+  const pantryOn = pantry.length > 0;
+  const sheetOpen = params.get('sheet') === 'pantry';
+  // The pantry filter replaces the query box while it is active.
+  const query = pantryOn ? '' : (params.get('q') ?? '');
   const f = params.get('f');
   const filter: SearchFilter = isFilter(f) ? f : 'all';
   const trimmed = query.trim();
 
+  // The dialog's own focus return does not exist for a deep link, so the chip is focused here.
   useEffect(() => {
-    inputRef.current?.focus();
+    if (sheetOpen) return;
+    const t = setTimeout(() => {
+      if (focusAfterClose.current === 'results') resultsRef.current?.focus();
+      else if (document.activeElement === document.body) chipRef.current?.focus();
+      focusAfterClose.current = 'chip';
+    }, 0);
+    return () => clearTimeout(t);
+  }, [sheetOpen]);
+  useEffect(() => {
+    if (!sheetOpen) inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- first render only
   }, []);
 
   // replace, so Back from a result returns here with the query and chip, not to each keystroke.
-  const setParam = (name: 'q' | 'f', value: string) =>
+  const edit = (change: (next: URLSearchParams) => void) =>
     setParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set(name, value);
-        else next.delete(name);
+        change(next);
         return next;
       },
       { replace: true }
     );
+  const setP = (next: URLSearchParams, name: string, value: string) => (value ? next.set(name, value) : next.delete(name));
+  // A query or a chip replaces the pantry filter.
+  const setParam = (name: 'q' | 'f', value: string) =>
+    edit((next) => {
+      setP(next, name, value);
+      next.delete('p');
+      next.delete('pt');
+    });
+  // Opening pushes, so Back closes the sheet; closing pops that entry, or edits a deep-linked one in place.
+  const openSheet = () =>
+    setParams((prev) => new URLSearchParams([...prev, ['sheet', 'pantry']]), { state: { pantrySheet: true } });
+  const closeSheet = () => (state?.pantrySheet ? navigate(-1) : edit((next) => next.delete('sheet')));
 
   // A new tab or direct visit has no in-app history, so back would leave the app.
   const onBack = () => (key !== 'default' ? navigate(-1) : navigate('/'));
+  const showPantry = (items: string[], time: PantryTimeId) => {
+    edit((next) => {
+      next.delete('q');
+      next.delete('f');
+      next.delete('sheet');
+      setP(next, 'p', items.join(','));
+      setP(next, 'pt', items.length && time !== 'any' ? time : '');
+    });
+    focusAfterClose.current = 'results';
+  };
   const writeIt = () => navigate('/create', { state: { suggestion: trimmed } });
 
   const local = useLocalLibrary();
   const cloud = useCloudLibrary(isConfigured);
   // Device rows first, so a device copy wins over its cloud twin.
-  const results = searchLibrary([...(local ?? []), ...(cloud.recipes ?? [])], { query, filter });
+  const sources = [...(local ?? []), ...(cloud.recipes ?? [])];
+  // An empty query lists originals only, so the pantry pool adds the branches back.
+  const pantryPool = () =>
+    [...searchLibrary(sources, { query: '', filter: 'all' }), ...searchLibrary(sources, { query: '', filter: 'branches' })];
+  const results = pantryOn
+    ? filterPantry(pantryPool(), pantry, pantryTime).sort((a, b) => b.createdAt - a.createdAt)
+    : searchLibrary(sources, { query, filter });
   const cloudFailed = isConfigured && cloud.cloudError;
   const loading = local === undefined || (cloud.isLoading && results.length === 0);
   const cloudCount = cloud.recipes?.length ?? 0;
@@ -98,12 +157,25 @@ export function SearchPage() {
       </header>
 
       <div role="group" aria-label="Filter results" className="flex gap-2 overflow-x-auto px-5 pt-3.5 pb-1 scrollbar-none">
+        <button
+          type="button"
+          ref={chipRef}
+          onClick={openSheet}
+          aria-haspopup="dialog"
+          aria-label={pantryOn ? `Pantry, ${pantry.length} ${pluralize(pantry.length, 'ingredient')}` : undefined}
+          className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500 ${
+            pantryOn ? 'bg-primary-600 text-on-accent' : 'bg-neutral-100 text-neutral-800 border border-border hover:bg-neutral-200'
+          }`}
+        >
+          <SlidersHorizontal className="size-4" />
+          {pantryOn ? `Pantry · ${pantry.length}` : 'Pantry'}
+        </button>
         {SEARCH_FILTERS.map((s) => (
           <Chip
             key={s.id}
             label={s.label}
-            active={filter === s.id}
-            pressed={filter === s.id}
+            active={!pantryOn && filter === s.id}
+            pressed={!pantryOn && filter === s.id}
             onClick={() => setParam('f', s.id === 'all' ? '' : s.id)}
           />
         ))}
@@ -135,14 +207,17 @@ export function SearchPage() {
           <span className="sr-only">
             {results.length > 0
               ? `${results.length} ${pluralize(results.length, 'result')}`
-              : trimmed
+              : pantryOn
+                ? 'Nothing uses all of those'
+                : trimmed
                 ? `Nothing called "${trimmed}" here`
                 : ''}
           </span>
         )}
       </div>
 
-      <div className="flex flex-col gap-3 px-5 py-3">
+      <div ref={resultsRef} tabIndex={-1} className="flex flex-col gap-3 px-5 py-3 focus:outline-none">
+        {pantryOn && <p className="text-[13px] text-neutral-700">Using {pantry.join(', ')}{PANTRY_UNDER[pantryTime]}</p>}
         {loading ? (
           <div className="flex flex-col gap-3" role="status" aria-label="Loading recipes">
             {[0, 1, 2].map((i) => (
@@ -155,6 +230,8 @@ export function SearchPage() {
               <SearchRow key={r.id} recipe={r} showAuthor={isConfigured} />
             ))}
           </ul>
+        ) : pantryOn ? (
+          <p className="text-sm text-text-tertiary">Nothing here uses all of those. Try fewer ingredients or more time.</p>
         ) : trimmed ? (
           <div className="flex flex-col gap-2.5 rounded-[30px] bg-accent-100 p-[22px]">
             <p className="break-words font-heading text-xl text-text-primary">
@@ -188,6 +265,20 @@ export function SearchPage() {
           </div>
         )}
       </div>
+
+      <PantrySheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        items={pantry}
+        time={pantryTime}
+        count={(items, time) => filterPantry(pantryPool(), items, time).length}
+        partial={cloud.isLoading}
+        onShow={showPantry}
+        onWrite={isConfigured ? (items, time) => {
+                edit((next) => next.delete('sheet'));
+                navigate('/create', { state: { suggestion: buildPantryPrompt(items, time) } });
+              } : undefined}
+      />
     </div>
   );
 }
