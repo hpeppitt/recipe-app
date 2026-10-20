@@ -14,6 +14,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Button } from '../components/ui/Button';
 import { UserPill } from '../components/ui/UserPill';
+import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { REFINEMENT_CHIPS, SUGGESTION_CHIPS } from '../lib/constants';
@@ -155,9 +156,14 @@ export function RecipeChatPage() {
   };
 
   const scrollToNewest = () => scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const [slow, setSlow] = useState(false);
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading, similarRecipes]);
+    // After a frame, so the taller loading screen has laid out before we scroll to it.
+    const id = requestAnimationFrame(() =>
+      scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    );
+    return () => cancelAnimationFrame(id);
+  }, [messages, isLoading, similarRecipes, slow]);
 
   const lastAssistantIdx = messages.reduce(
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
@@ -174,6 +180,18 @@ export function RecipeChatPage() {
   // The first turn of a variation shows the growing card, which is then the
   // live region (and the sr-only one is silent), so it is announced once.
   const growingFirst = isVarying && isLoading && messages.length === 1;
+
+  // After 4 s of waiting on a new recipe the typing dots give way to the
+  // growing-tree screen. The timer restarts whenever `waiting` flips.
+  const waiting = isLoading && loadingPhase !== 'checking' && !growingFirst;
+  useEffect(() => {
+    if (!waiting) return;
+    const id = setTimeout(() => setSlow(true), 4000);
+    return () => {
+      clearTimeout(id);
+      setSlow(false);
+    };
+  }, [waiting]);
 
   // The one live region, permanently mounted (a region that appears already
   // containing its text is not announced by NVDA or VoiceOver) and in the same
@@ -491,7 +509,9 @@ export function RecipeChatPage() {
 
           {growingFirst && <GrowingCard />}
 
-          {isLoading && !growingFirst && (
+          {waiting && slow && <LoadingScreen variant="inline" label="Generating recipe" decorative />}
+
+          {isLoading && !growingFirst && !(waiting && slow) && (
             <TypingIndicator
               label={
                 loadingPhase === 'checking'
