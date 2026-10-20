@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { canonicalUnit, convertAmount, convertTemperatures, formatUnit } from './units';
+import { canonicalUnit, estimateGrams, convertAmount, convertTemperatures, formatUnit } from './units';
 
 describe('canonicalUnit', () => {
   it('accepts the spellings a model actually emits', () => {
@@ -238,5 +238,43 @@ describe('convertTemperatures', () => {
 
   it('leaves text unchanged when already in the target system', () => {
     expect(convertTemperatures('Bake at 180°C', 'metric')).toBe('Bake at 180°C');
+  });
+});
+
+describe('estimateGrams', () => {
+  const ing = (amount: number | null, unit: string | null, name: string) => ({
+    amount, unit, name, notes: null, group: null,
+  });
+
+  it('uses water density for each unit when the ingredient is unknown', () => {
+    expect(estimateGrams(ing(1, 'tsp', 'stock'))?.grams).toBe(5);
+    expect(estimateGrams(ing(1, 'tbsp', 'stock'))?.grams).toBe(15);
+    expect(estimateGrams(ing(1, 'cup', 'stock'))?.grams).toBe(240);
+    expect(estimateGrams(ing(250, 'ml', 'stock'))?.grams).toBe(250);
+    expect(estimateGrams(ing(2, 'l', 'stock'))?.grams).toBe(2000);
+  });
+
+  it('uses the density table on a hit', () => {
+    expect(estimateGrams(ing(1, 'cup', 'plain flour'))?.grams).toBe(130);
+    expect(estimateGrams(ing(2, 'tbsp', 'flour'))?.grams).toBe(15);
+  });
+
+  it('flags the result and echoes the original amount', () => {
+    expect(estimateGrams(ing(1, 'tbsp', 'stock'))).toEqual({ grams: 15, estimated: true, from: '1 tbsp' });
+    expect(estimateGrams(ing(2, 'cups', 'stock'))?.from).toBe('2 cups');
+  });
+
+  it('rounds by band', () => {
+    expect(estimateGrams(ing(7, 'ml', 'x'))?.grams).toBe(7);
+    expect(estimateGrams(ing(3.4, 'ml', 'x'))?.grams).toBe(3);
+    expect(estimateGrams(ing(47, 'ml', 'x'))?.grams).toBe(45);
+    expect(estimateGrams(ing(234, 'ml', 'x'))?.grams).toBe(230);
+  });
+
+  it('returns null for other units or no amount', () => {
+    expect(estimateGrams(ing(1, 'oz', 'flour'))).toBeNull();
+    expect(estimateGrams(ing(2, 'cloves', 'garlic'))).toBeNull();
+    expect(estimateGrams(ing(null, 'cup', 'flour'))).toBeNull();
+    expect(estimateGrams(ing(1, null, 'flour'))).toBeNull();
   });
 });
