@@ -320,6 +320,7 @@ describe('ProfilePage signed out, local-only and errors (RL-095)', () => {
     expect(screen.getByRole('heading', { name: "You're browsing" })).toBeInTheDocument();
     expect(screen.getByText('Reading is free. Sign in to save recipes, branch them and follow cooks.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
   });
 
   it('local-only lists every device row under Your recipes with no identity or stats', () => {

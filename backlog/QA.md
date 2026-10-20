@@ -1751,3 +1751,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Check the card at 320px and in dark mode, and that VoiceOver reads the bold part as a button.
 - Emulator does not enforce the 500-write limit (a 501-update transaction passed); the client refuses above 500 versions regardless.
 - "One branch by another cook stayed behind." needs another account to branch during the move; hard to reproduce by hand.
+
+### RL-165 Settings when signed out
+- Signed out on a phone, open You: a Settings cog sits top right above "You're browsing". Tap it.
+- Settings shows an Account card with a person icon, "Sign in" and "Save, branch and follow cooks", and no Sign out, no Notify me when card. Appearance, Your data and Legal work as before. Switch to Dark.
+- Tap Sign in: the sign-in sheet opens over Settings. Finish the email link: you land back on Settings with the Account card showing your name and email.
+- Reviewer noted: the guest helper copy says "recipes" in Settings but "bookmarks" on the profile; the signed-out You tab has no h1 (pre-existing).

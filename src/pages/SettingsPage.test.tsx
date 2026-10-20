@@ -4,6 +4,9 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
+import { render as rtlRender } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { AuthContext, type AuthContextType } from '../contexts/AuthContext';
 
 let user: typeof fakeUser | null = null;
 const anon = { ...fakeUser, uid: 'u1', isAnonymous: true, emailVerified: false };
@@ -315,11 +318,23 @@ describe('Settings: layout (RL-093)', () => {
     expect(wrapper?.className).toContain('last:border-b-0');
   });
 
-  it('signed out: Account row says Not signed in and there is no Sign out', () => {
+  it('signed out: a Sign in row opens the auth dialog and there is no Sign out (RL-165)', async () => {
     user = null;
     render();
-    expect(screen.getByRole('button', { name: 'Sign in, Not signed in' })).toBeTruthy();
+    expect(screen.getByText('Save, branch and follow cooks')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /^Sign in/ }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+
+  it('focus moves to the heading when sign-in replaces the Sign in row (RL-165)', () => {
+    const ctx = (u: typeof fakeUser | null) => ({ user: u, isConfigured: true, signOut } as unknown as AuthContextType);
+    const tree = (u: typeof fakeUser | null) => (
+      <MemoryRouter><AuthContext.Provider value={ctx(u)}><SettingsPage /></AuthContext.Provider></MemoryRouter>
+    );
+    const { rerender } = rtlRender(tree(null));
+    rerender(tree(member));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Settings' }));
   });
 
   it('Back goes to the profile when there is no history', async () => {
