@@ -612,6 +612,8 @@ idle, the fix is `/groom`, not a looser rule.
 
 ### Suggestion approval writes the collaborator first (RL-017, 2026-10-14)
 
+**Superseded 2026-10-20 by "Structured suggestions replace Approve" (RL-145) below.** Kept for the reasoning on write order.
+
 Approval adds the suggester to `collaborators`, then writes `status: 'approved'`, then
 notifies. The old order wrote status and notified first, so a failed collaborator write
 left a suggestion marked approved with no collaborator and a suggester told otherwise.
@@ -858,3 +860,15 @@ The author's answers to RL-161, all as recommended. When a user writes a new ori
 ### The remembered sign-in action runs only for the link that signed in here (RL-136, 2026-10-20)
 
 A signed-out visitor has no uid to record when they ask, so "the same user" is pinned at the other end: when this device's own link completes (no typed address), `AuthContext` stamps the stored intent with the uid it signed in, and `usePendingAction` runs it only for that uid. A link finished with a typed address was sent from another device, so it clears the intent rather than adopting someone else's; signing out clears it too. The pages wait for the favourite or follow lookup before running, so a Save or Follow only ever turns on. Rejected: storing the asker's uid at send (signed-out visitors have none, and an existing account replaces a guest's uid); running whatever is stored for any verified user (another account on a shared device could pick it up).
+
+### Structured suggestions replace Approve (RL-145, 2026-10-20)
+
+A suggestion may carry `edits[]` of `{ kind: 'ingredient' | 'step' | 'general', index?, name?, from, to, why? }` (`SuggestionEdit`, `types/social.ts`). `name` is one key beyond the spec so the diff row and the stale check do not depend on the index. `message` is still written, composed from the edits, so old clients, notifications and exports keep reading text. Stored statuses keep their values so nothing is migrated: `pending` is shown as Open, `rejected` as Declined, `applied` and `branched` are new (`branchId` is set with `branched`), and `approved` stays readable on old documents and shows as Approved.
+
+The recipe owner can **Apply**, **Decline** or **Keep as branch**. Approve is no longer offered.
+- **Apply** edits the recipe in place through the cloud-first edit path (RL-083) and adds the suggester to `collaborators` in the same write. All or nothing: if any edit no longer matches the recipe (`applySuggestionEdits` returns `stale`), nothing is written.
+- **Keep as branch** makes a new branch (`buildBranchFromSuggestion`) owned by the recipe owner with the suggester as its collaborator, edits applied, and no AI call.
+- Free-text suggestions (no edits) and general-only ones (`hasApplicableEdits` false) get Decline and **Mark applied** (status `applied`, recipe untouched).
+- Existing `approved` suggestions and the collaborators they added are left as they are.
+
+Unparseable new ingredient amounts ("a pinch") are applied as amount and unit null with the text kept in the ingredient's `notes`. The rules, write paths and screens follow in RL-146 to RL-151.

@@ -1,3 +1,16 @@
+export interface SuggestionEdit {
+  kind: 'ingredient' | 'step' | 'general';
+  /** Position in the recipe when suggested: ingredients[index] or instructions[index]. Absent for general. */
+  index?: number;
+  /** Ingredient only: the name when suggested, so the diff row and the stale check do not depend on the index. */
+  name?: string;
+  /** ingredient: old amount as shown ("150 g", "" when none); step: old step text; general: "". */
+  from: string;
+  /** ingredient: new amount as typed ("100 g"); step: new step text; general: the note. */
+  to: string;
+  why?: string;
+}
+
 export interface Suggestion {
   id: string;
   recipeId: string;
@@ -7,7 +20,12 @@ export interface Suggestion {
   recipeEmoji?: string;
   suggestedBy: { uid: string; displayName: string | null };
   message: string;
-  status: 'pending' | 'approved' | 'rejected';
+  /** Stored values; shown as Open, Approved (old documents only), Declined, Applied, Branched. */
+  status: 'pending' | 'approved' | 'rejected' | 'applied' | 'branched';
+  /** Absent on free-text suggestions; `message` is always written too. */
+  edits?: SuggestionEdit[];
+  /** The branch Keep as branch created; set with status `branched`. */
+  branchId?: string;
   createdAt: number;
 }
 
