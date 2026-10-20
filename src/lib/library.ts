@@ -258,3 +258,28 @@ export function searchLibrary(
   }
   return rows.sort((a, b) => b.createdAt - a.createdAt);
 }
+
+/**
+ * Families ranked by branches created in a window (RL-166). Only rows with a parent count, at any
+ * depth. `sinceMs` null means all time; rows newer than `now` are ignored. Most branches first,
+ * ties by the newest branch; families with no branch in the window are dropped.
+ */
+export function mostBranched(
+  recipes: readonly { id: string; parentId?: string | null; rootId?: string; createdAt?: number }[],
+  { sinceMs, now, limit = 3 }: { sinceMs: number | null; now: number; limit?: number }
+): { rootId: string; count: number }[] {
+  const byRoot = new Map<string, { rootId: string; count: number; newestAt: number }>();
+  for (const r of recipes) {
+    const at = r.createdAt ?? 0;
+    if (!r.parentId || at > now || (sinceMs !== null && at < sinceMs)) continue;
+    const rootId = r.rootId ?? r.id;
+    const f = byRoot.get(rootId) ?? { rootId, count: 0, newestAt: 0 };
+    f.count += 1;
+    f.newestAt = Math.max(f.newestAt, at);
+    byRoot.set(rootId, f);
+  }
+  return [...byRoot.values()]
+    .sort((a, b) => b.count - a.count || b.newestAt - a.newestAt)
+    .slice(0, limit)
+    .map(({ rootId, count }) => ({ rootId, count }));
+}

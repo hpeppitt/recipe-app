@@ -116,6 +116,17 @@ it in the query would need a composite index. Cost: one read per document return
 per session, plus at most 8 `getDoc` reads for family roots not already loaded. A week with more
 than 100 new recipes counts only the newest 100.
 
+`useMostBranched` (RL-166, Explore's Most branched) shares one `getRecentPublishedRecipes` read
+with Branching fast this week (`hooks/recentPublished.ts`): `createdAt >= 90 days ago`, `limit
+100`, the same automatic single-field index, so no new index. The 30 and 90 day windows are ranked
+in memory from that result. Cost: at most 100 documents per page load, shared by both sections,
+plus one `getDoc` per ranked family root outside the result (at most 6 for Most branched, 8 for
+Branching fast, overlapping roots read once), so at most about 114 reads per page load for both,
+read only. Only successes are cached; a timeout (10 s) or failure is retried on the next mount.
+When the read returns the full 100 the hook reports `coverageStartMs` (the oldest row) and
+`capped` for a range that starts before it, because that range is undercounted. There is no all
+time read (`allTimeAvailable` is always false). Upgrade path: a server-side branch counter.
+
 Missing an index shows up as a Firestore error containing a console link that creates it —
 but create it *here* and deploy, not in the console, or it exists in production and not in
 the repo.

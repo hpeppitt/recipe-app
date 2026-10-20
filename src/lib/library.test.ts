@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeed, branchingThisWeek, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
+import { buildFeed, branchingThisWeek, mostBranched, filterFeed, splitLibrary, normalizeTags, buildSavedList, searchLibrary, SEARCH_FILTERS, type FavoriteFetch } from './library';
 import { makeRecipe, makeIngredient } from '../test/factories';
 
 describe('normalizeTags', () => {
@@ -319,5 +319,40 @@ describe('branchingThisWeek', () => {
     expect(branchingThisWeek(many, NOW)).toHaveLength(8);
     expect(branchingThisWeek(many, NOW, 3)).toHaveLength(3);
     expect(branchingThisWeek([], NOW)).toEqual([]);
+  });
+});
+
+describe('mostBranched', () => {
+  const now = 1_000_000;
+  const kid = (id: string, rootId: string, createdAt: number) => ({ id, rootId, parentId: rootId, createdAt });
+  const orig = (id: string) => ({ id, rootId: id, parentId: null, createdAt: now - 1 });
+
+  it('returns an empty list for empty input', () => {
+    expect(mostBranched([], { sinceMs: null, now })).toEqual([]);
+  });
+
+  it('counts branches only, drops zero-branch families, ranks by count then newest', () => {
+    const rows = [orig('a'), orig('b'), orig('c'), kid('1', 'a', 10), kid('2', 'b', 20), kid('3', 'b', 5), kid('4', 'c', 30)];
+    expect(mostBranched(rows, { sinceMs: null, now })).toEqual([
+      { rootId: 'b', count: 2 },
+      { rootId: 'c', count: 1 },
+      { rootId: 'a', count: 1 },
+    ]);
+    expect(mostBranched([orig('x')], { sinceMs: null, now })).toEqual([]);
+  });
+
+  it('applies the window and the limit', () => {
+    const rows = [kid('1', 'a', 100), kid('2', 'a', 900), kid('3', 'b', 950), kid('4', 'c', 960), kid('5', 'd', 970)];
+    expect(mostBranched(rows, { sinceMs: 800, now })).toEqual([
+      { rootId: 'd', count: 1 },
+      { rootId: 'c', count: 1 },
+      { rootId: 'b', count: 1 },
+    ]);
+    expect(mostBranched(rows, { sinceMs: null, now })[0]).toEqual({ rootId: 'a', count: 2 });
+    expect(mostBranched(rows, { sinceMs: null, now, limit: 1 })).toHaveLength(1);
+  });
+
+  it('counts a family whose root is not in the input', () => {
+    expect(mostBranched([kid('1', 'gone', 5)], { sinceMs: null, now })).toEqual([{ rootId: 'gone', count: 1 }]);
   });
 });
