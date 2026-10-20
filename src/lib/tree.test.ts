@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle, collapseLineage } from './tree';
+import { ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle } from './tree';
 import { makeRecipe } from '../test/factories';
 
 describe('collectSubtreeIds', () => {
@@ -159,21 +159,5 @@ describe('familySubtitle', () => {
   it('appends the year when it is not this year', () => {
     const old = new Date(2025, 2, 10).getTime();
     expect(familySubtitle([root({ createdAt: old })], now)).toContain('in March 2025');
-  });
-});
-
-describe('collapseLineage', () => {
-  const mk = (n: number) => Array.from({ length: n }, (_, i) => i);
-  const items = (xs: number[]) => xs.map((item) => ({ kind: 'item', item }));
-  it('keeps everything with two or fewer ancestors', () => {
-    for (const n of [0, 1, 2]) expect(collapseLineage(mk(n), false)).toEqual(items(mk(n)));
-  });
-  it('collapses the middle when deeper', () => {
-    expect(collapseLineage(mk(3), false)).toEqual([...items([0]), { kind: 'more', count: 1 }, ...items([2])]);
-    expect(collapseLineage(mk(5), false)).toEqual([...items([0]), { kind: 'more', count: 3 }, ...items([4])]);
-  });
-  it('shows everything when expanded', () => {
-    expect(collapseLineage(mk(3), true)).toEqual(items(mk(3)));
-    expect(collapseLineage(mk(5), true)).toEqual(items(mk(5)));
   });
 });

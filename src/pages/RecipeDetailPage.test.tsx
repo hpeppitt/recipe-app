@@ -435,13 +435,12 @@ describe('RecipeDetailPage header and More sheet', () => {
     expect(screen.getByText('🍌 Banana bread variation')).toBeInTheDocument();
   });
 
-  it('shows the lineage nav with the right crumbs on a branch', () => {
+  it('shows the version pill on a branch', () => {
     recipe = makeRecipe({ id: 'r1', title: 'Chunky', parentId: 'p', depth: 1, prompt: 'x' });
     ancestors = [makeRecipe({ id: 'p', title: 'Banana bread', emoji: '🍌' })];
     show();
-    const nav = screen.getByRole('navigation', { name: 'Recipe lineage' });
-    expect(within(nav).getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/recipe/p']);
-    expect(nav.querySelector('[aria-current="page"]')?.textContent).toBe('Chunky');
+    expect(screen.getByText(/Generation 2/).closest('span')).toHaveTextContent('Generation 2 · from Banana bread');
+    expect(screen.getByRole('button', { name: /Path/ })).toBeInTheDocument();
   });
 });
 
