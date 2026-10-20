@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
 import { parseConsent, serialiseConsent, type ConsentChoice } from '../lib/consent';
+import { parsePendingAction, type PendingAction, type PendingIntent } from '../lib/pendingAction';
 
 // Storage can throw on access (blocked cookies raise SecurityError from merely
 // touching `localStorage`), on read, and on write (quota, private modes). Nothing
@@ -211,4 +212,27 @@ export function getGaCookiesCleared(): boolean {
 
 export function setGaCookiesCleared(): void {
   safeSet(STORAGE_KEYS.GA_COOKIES_CLEARED, '1');
+}
+
+// --- Pending action (RL-135) ---
+//
+// What a signed-out visitor asked a sign-in link for. Written before the send, like the
+// email, because the link can be opened before the send settles.
+
+export function getPendingAction(now = Date.now()): PendingAction | null {
+  const raw = safeGet(STORAGE_KEYS.PENDING_ACTION);
+  if (!raw) return null;
+  try {
+    return parsePendingAction(JSON.parse(raw), now);
+  } catch {
+    return null;
+  }
+}
+
+export function setPendingAction(intent: PendingIntent, at = Date.now()): void {
+  safeSet(STORAGE_KEYS.PENDING_ACTION, JSON.stringify({ ...intent, at }));
+}
+
+export function clearPendingAction(): void {
+  safeRemove(STORAGE_KEYS.PENDING_ACTION);
 }

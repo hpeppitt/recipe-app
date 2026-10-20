@@ -32,6 +32,7 @@ import {
   getTermsAcceptance,
   clearTermsAcceptance,
   normaliseEmail,
+  clearPendingAction,
 } from '../services/storage';
 import { TERMS_VERSION } from '../lib/legal';
 import { onConsentChange, trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
@@ -293,12 +294,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // somewhere else and we are about to ask them for the address. Reporting
         // it would bury the real failures under the commonest happy-ish path.
         if (err.failure.reason !== 'needs-email') {
+          // The link is spent, so the intent it carried (RL-135) must not ride on a later sign-in.
+          clearPendingAction();
           reportError(err, `email-link-${err.failure.reason}`);
         }
         return;
       }
       console.error('[auth] email link completion failed', err);
       reportError(err, 'email-link-unknown');
+      clearPendingAction();
       setLinkState({ status: 'error', reason: 'failed' });
     }
   };

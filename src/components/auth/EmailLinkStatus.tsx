@@ -17,8 +17,8 @@ import { TERMS_VERSION } from '../../lib/legal';
  * message at all: the user landed on a signed-out app having done everything
  * right. That is the whole reason this component exists.
  *
- * Rendered once in `AppShell`, because the link returns to the app origin and the
- * user can land on any of its routes. Each state is one sheet (15b) over that page,
+ * Rendered once at the app root, because the link returns to the page that asked for it
+ * (RL-135), which can be any route, inside the shell or not. Each state is one sheet (15b) over that page,
  * so the page underneath stays put.
  */
 export function EmailLinkStatus() {

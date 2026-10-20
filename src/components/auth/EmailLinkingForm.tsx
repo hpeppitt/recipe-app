@@ -2,7 +2,8 @@ import { useId, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { TermsCheckbox, TermsHint } from './TermsCheckbox';
-import { setTermsAcceptance, clearTermsAcceptance } from '../../services/storage';
+import { setTermsAcceptance, clearTermsAcceptance, setPendingAction, clearPendingAction } from '../../services/storage';
+import type { PendingIntent } from '../../lib/pendingAction';
 import { TERMS_VERSION } from '../../lib/legal';
 import { Input } from '../ui/Input';
 import { TriangleAlert } from '../ui/icons';
@@ -41,6 +42,7 @@ export function EmailLinkingForm({
   bare = false,
   onSent,
   onBusyChange,
+  pending,
 }: {
   tone?: Tone;
   title?: string;
@@ -54,6 +56,8 @@ export function EmailLinkingForm({
   onSent?: (email: string) => void;
   /** True while a send is in flight, so the host can hold its own controls (SignUpDialog's Back). */
   onBusyChange?: (busy: boolean) => void;
+  /** What the link is for, kept on this device so the app can pick it up after sign-in (RL-135). */
+  pending?: PendingIntent;
 }) {
   const { user, linkEmail, sendEmailLink } = useAuth();
   const [email, setEmail] = useState('');
@@ -84,12 +88,17 @@ export function EmailLinkingForm({
       const send = user?.isAnonymous ? linkEmail : sendEmailLink;
       // Stored first: the link can be opened before this promise settles.
       setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: email.trim() });
+      // A link with no intent replaces any older one, so it never runs a stale action.
+      if (pending) setPendingAction(pending);
+      else clearPendingAction();
       await send(email.trim());
       if (onSent) onSent(email.trim());
       else setSent(true);
     } catch {
       // No link went out, so nothing may later record this tick.
       clearTermsAcceptance();
+      // Only an intent this send wrote: with none, the clear above already ran.
+      if (pending) clearPendingAction();
       setError('Failed to send link. Please try again.');
     } finally {
       setLoading(false);

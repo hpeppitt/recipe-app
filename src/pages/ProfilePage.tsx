@@ -573,6 +573,7 @@ function PublicProfile({ uid }: { uid: string }) {
         action={{ kind: 'follow', name: profile.displayName }}
         body="Following shows their new recipes in your feed and lets them see who follows them, so it needs an account with an email."
         onClose={() => setShowSignUp(false)}
+        pending={{ kind: 'follow', uid }}
       />
     </div>
   );

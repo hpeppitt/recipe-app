@@ -17,6 +17,7 @@ export const STORAGE_KEYS = {
   TERMS_ACCEPTANCE: 'recipe-app-terms-acceptance',
   ANALYTICS_CONSENT: 'recipe-app-analytics-consent',
   GA_COOKIES_CLEARED: 'recipe-app-ga-cookies-cleared',
+  PENDING_ACTION: 'recipe-app-pending-action',
 } as const;
 
 export const SUGGESTION_CHIPS = [

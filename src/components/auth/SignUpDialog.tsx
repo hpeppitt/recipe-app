@@ -4,6 +4,7 @@ import { Sheet } from '../ui/Sheet';
 import { Mail } from '../ui/icons';
 import { EmailLinkingForm } from './EmailLinkingForm';
 import { ActionIntro, EmailStepHeading, SentStep, type AuthAction } from './AuthSheetParts';
+import type { PendingIntent } from '../../lib/pendingAction';
 
 /**
  * The sign-up gate for actions that need a verified email (share an unpublished
@@ -17,12 +18,15 @@ export function SignUpDialog({
   action,
   body,
   onClose,
+  pending,
 }: {
   open: boolean;
   /** Names the headline and icon: "Sign in to <action>". */
   action: AuthAction;
   body: string;
   onClose: () => void;
+  /** What the link is for, kept on this device so the app can pick it up after sign-in (RL-135). */
+  pending?: PendingIntent;
 }) {
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [sentTo, setSentTo] = useState('');
@@ -61,6 +65,7 @@ export function SignUpDialog({
               bare
               submitLabel="Send me a link"
               onBusyChange={setSending}
+              pending={pending}
               onSent={(email) => {
                 setSentTo(email);
                 setStep('sent');
