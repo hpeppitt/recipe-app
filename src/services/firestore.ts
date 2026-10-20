@@ -1510,6 +1510,26 @@ export async function getUserRecipes(uid: string): Promise<Array<SharedRecipe & 
   return results;
 }
 
+/**
+ * Recipes of other cooks that credit `uid` (RL-173), newest first. One single-field
+ * array-contains query (automatic index, no orderBy, so no composite index), at most `max + 1`
+ * reads; the extra one only tells `truncated`. Recipes the person owns are dropped after the
+ * read, so they can use up some of the limit. Legacy documents may lack `collaboratorUids`; they
+ * simply never match.
+ */
+export async function getCollabRecipes(
+  uid: string,
+  max = 50
+): Promise<{ recipes: Array<SharedRecipe & { id: string; createdAt: number }>; truncated: boolean }> {
+  if (!firestore) return { recipes: [], truncated: false };
+  const snap = await getDocs(query(collection(firestore, 'recipes'), where('collaboratorUids', 'array-contains', uid), limit(max + 1)));
+  const recipes = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; createdAt: number })
+    .filter((r) => r.createdBy?.uid !== uid)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  return { recipes: recipes.slice(0, max), truncated: snap.size > max };
+}
+
 export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }>> {
   if (!firestore || uids.length === 0) return [];
   // Firestore 'in' supports up to 30 values

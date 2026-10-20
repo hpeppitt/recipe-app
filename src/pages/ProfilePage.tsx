@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
+import { useCollabRecipes } from '../hooks/useCollabRecipes';
 import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
 import { useLocalLibrary } from '../hooks/useRecipeLibrary';
 import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
@@ -93,15 +94,14 @@ function StatTile({
   );
 }
 
-const TAB_OPTIONS = [
-  { value: 'started', label: 'Started' },
-  { value: 'grew', label: 'Grew' },
-] as const;
+type Tab = 'started' | 'grew' | 'collabs';
 
 /**
- * The Started / Grew tabs over the tile grid, shared by the own profile and the
- * local-only "Your recipes" view. Started is own recipes with no parent, Grew is
- * own recipes with a parent, whoever owns the parent (`splitLibrary`).
+ * The Started / Grew (/ Collabs) tabs over the tile grid, shared by the own profile and the
+ * local-only "Your recipes" view. Started is own recipes with no parent, Grew is own recipes
+ * with a parent, whoever owns the parent (`splitLibrary`). Collabs (RL-173) is other cooks'
+ * recipes that credit this person; `collabsUid` is omitted in local-only mode, which hides it. It is
+ * read only once the tab is first opened.
  */
 function RecipeTabs({
   created,
@@ -110,6 +110,8 @@ function RecipeTabs({
   loading,
   offline,
   hideNoBranches = false,
+  collabsUid,
+  collabsSelf = false,
 }: {
   created: FeedRecipe[];
   branched: FeedRecipe[];
@@ -118,8 +120,36 @@ function RecipeTabs({
   offline: boolean;
   /** Another cook's profile only knows their own recipes, so "No branches yet" could be false there. */
   hideNoBranches?: boolean;
+  collabsUid?: string;
+  /** Own profile: the empty line says "your suggestion". */
+  collabsSelf?: boolean;
 }) {
-  const [tab, setTab] = useState<(typeof TAB_OPTIONS)[number]['value']>('started');
+  const [tab, setTab] = useState<Tab>('started');
+  const [collabsOpened, setCollabsOpened] = useState(false);
+  const collabs = useCollabRecipes(collabsUid, collabsOpened);
+  // The count is aria-hidden with a spoken "N recipes", so the name stays "Started ..." as it loads.
+  const withCount = (label: string, n: number | string | null) =>
+    n === null ? (
+      label
+    ) : (
+      <>
+        {label} <span aria-hidden="true">{n}</span>
+        <span className="sr-only">{n} recipes</span>
+      </>
+    );
+  const options: { value: Tab; label: ReactNode }[] = [
+    { value: 'started', label: withCount('Started', loading ? null : created.length) },
+    { value: 'grew', label: withCount('Grew', loading ? null : branched.length) },
+    ...(collabsUid
+      ? [
+          {
+            value: 'collabs' as const,
+            label: withCount('Collabs', collabs.status === 'ready' ? `${collabs.recipes.length}${collabs.truncated ? '+' : ''}` : null),
+          },
+        ]
+      : []),
+  ];
+  const showCollabs = tab === 'collabs' && !!collabsUid;
   const tiles =
     tab === 'started'
       ? created.map((r) => ({
@@ -133,28 +163,73 @@ function RecipeTabs({
                 ? ''
                 : 'No branches yet',
         }))
-      : branched.map((r) => ({
-          id: r.id,
-          emoji: r.emoji,
-          title: r.title,
-          meta: promptById.get(r.id)?.trim() ? `"${promptById.get(r.id)}"` : 'Branched',
-        }));
+      : tab === 'grew'
+        ? branched.map((r) => ({
+            id: r.id,
+            emoji: r.emoji,
+            title: r.title,
+            meta: promptById.get(r.id)?.trim() ? `"${promptById.get(r.id)}"` : 'Branched',
+          }))
+        : collabs.recipes.map((r) => ({
+            id: r.id,
+            emoji: r.emoji,
+            title: r.title,
+            meta: '',
+            owner: { uid: r.createdBy?.uid ?? '', name: r.createdBy?.displayName ?? null },
+          }));
+  const gridLoading = showCollabs ? collabs.status === 'loading' : loading;
   return (
     <div className="space-y-3">
-      <SegmentedControl label="Recipes" options={TAB_OPTIONS} value={tab} onChange={setTab} />
-      {offline && (
+      <SegmentedControl
+        compact
+        label="Recipes"
+        options={options}
+        value={tab}
+        onChange={(v) => {
+          if (v === 'collabs') setCollabsOpened(true);
+          setTab(v);
+        }}
+      />
+      {offline && !showCollabs && (
         <p role="status" className="text-xs text-text-tertiary">
           You're offline. Showing the recipes saved on this device.
         </p>
       )}
-      {loading ? (
+      <div aria-live="polite" aria-busy={gridLoading}>
+      {gridLoading ? (
         <div className="grid grid-cols-2 gap-2.5">
           {[0, 1].map((i) => (
             <Skeleton key={i} className="aspect-square rounded-[28px]" />
           ))}
         </div>
+      ) : showCollabs && collabs.status === 'error' ? (
+        <div role="alert">
+          <EmptyState
+            compact
+            icon={<CloudOff />}
+            title="Couldn't load collabs"
+            description="The connection failed. Nothing is lost."
+            action={
+              <Button variant="secondary" className="border-border-strong!" onClick={collabs.retry}>
+                <RotateCw className="mr-2 size-4" />
+                Try again
+              </Button>
+            }
+          />
+        </div>
+      ) : showCollabs && tiles.length === 0 ? (
+        <EmptyState
+          compact
+          icon="🤝"
+          title="No collabs yet"
+          description={`Recipes where ${collabsSelf ? 'your' : 'their'} suggestion was applied show up here.`}
+        />
       ) : (
         <RecipeTileGrid tiles={tiles} />
+      )}
+      </div>
+      {showCollabs && collabs.status === 'ready' && collabs.truncated && (
+        <p className="px-1 text-xs text-text-tertiary">Showing the first 50.</p>
       )}
     </div>
   );
@@ -383,7 +458,7 @@ function OwnProfile() {
             )}
           </div>
 
-          <RecipeTabs {...tabs} />
+          <RecipeTabs {...tabs} collabsUid={user.uid} collabsSelf />
         </div>
       </main>
 
@@ -593,6 +668,7 @@ function PublicProfile({ uid }: { uid: string }) {
             loading={recipesLoading}
             offline={false}
             hideNoBranches
+            collabsUid={isConfigured ? uid : undefined}
           />
         </div>
       </main>

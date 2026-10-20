@@ -266,7 +266,12 @@ Keep as branch creates the branch with `collaborators: [suggester]` and
 merge replaces arrays wholesale and the local copy may be stale (RL-037). There is no
 backfill of `collaboratorUids`; the 2026-10-18 wipe left almost no credited recipes, and
 Apply unions every credited uid of the recipe (not only the new suggester's), so an older
-recipe gains its whole list the next time a suggestion is applied to it. Deletion is forbidden
+recipe gains its whole list the next time a suggestion is applied to it. **Read cost of the
+profile Collabs tab (RL-173):** one `where('collaboratorUids', 'array-contains', uid)` query with
+`limit(51)` (the extra one only detects truncation) when the Collabs tab is first opened, cached 5 minutes per uid in memory, one document read per recipe returned (at most 51). It uses the
+automatic single-field index (no `orderBy`, so no composite index; sorted on the client), and
+the owner's own recipes are dropped after the read. Recipes without the field never match.
+Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
 verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the

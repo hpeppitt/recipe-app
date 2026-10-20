@@ -34,7 +34,7 @@ export function EmptyState({
   if (compact) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-6 px-4">
-        <span className="text-3xl mb-2">{icon}</span>
+        <span className="text-3xl mb-2 [&>svg]:size-9">{icon}</span>
         {/* A section-level empty state sits under an existing heading, so h2 would
             misreport the outline. Only the full-page variant is a real heading. */}
         <p className="text-sm font-medium text-text-secondary">{title}</p>

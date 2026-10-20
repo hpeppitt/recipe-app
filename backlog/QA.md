@@ -1852,3 +1852,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Download my data on an account with a credited recipe: `collaboratorUids` shows `other-user-N`, never a raw uid.
 
 - Reviewer noted (round 2, low): a recipe with 50 credited cooks can never take another Apply (rules cap; generic error). Create does not drop the owner from collaboratorUids (harmless). The erase script's arrayRemove on collaborators needs an exact object match; its re-check fails loudly if not.
+
+### RL-173 Profile Collabs tab
+- With two verified accounts on the emulator or live: as B, publish a recipe; as A, suggest an edit on it; as B, Apply it. Then A's own profile, Collabs tab, shows B's recipe with B's pill under the title, and the tab reads "Collabs 1". B's profile page seen by C shows nothing under Collabs for B ("No collabs yet", "their suggestion"), and A's profile seen by C shows the same recipe.
+- Tabs read "Started N / Grew N / Collabs" (the Collabs count appears once it has loaded; "50+" with a "Showing the first 50." line when capped). Collabs is read only the first time you open it, and a return within 5 minutes reuses it. Keyboard: Tab lands on the selected tab, Left/Right/Home/End move and select. Check the three tabs fit at 320px.
+- Switch the network off (or block Firestore) and open a profile's Collabs: an error with Try again, never "No collabs yet". The error uses the compact empty-state style (icon now sized), not the full-page 19a blob, to fit under the tabs.
+- Recipes credited before RL-172 will not appear until a later Apply on them (no backfill).
+
+- Reviewer noted (round 2, low): SegmentedControl with a value matching no option has no tab stop (no caller does this today); RecipeTileGrid's bare 'Nothing here yet.' fallback on Started/Grew; role=alert inside the polite live region may announce twice.
