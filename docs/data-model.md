@@ -33,8 +33,8 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Ten top-level collections (`recipes`, `favorites`,
-`suggestions`, `notifications`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
+Project `recipe-lab-3832b` (`.firebaserc`). Eleven top-level collections (`recipes`, `favorites`,
+`suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
 `rateLimits`, `follows`) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
@@ -72,6 +72,7 @@ transaction); everything else, `favorites` included, stays.
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
 | `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the maintained counters `followerCount` and `followingCount` (`recipeCount` is stored but no longer bumped, RL-032). Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
+| `notificationPrefs/{uid}` | user uid | `{ branch, suggestion, follow, updatedAt }` (three bools and a server timestamp) | The account's "Notify me when" choices (RL-152 rules, in the repo, deployed by RL-156; RL-155 writes them). **Private**: owner-only read. Applied when the recipient reads Activity, so a writer never reads someone else's preferences. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
 | `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification` or `recipe` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
@@ -239,6 +240,19 @@ suggestion types (`suggestion`, `suggestion_reply`, `suggestion_approved`,
 notification copy with `truncateNotificationMessage` in `src/lib/notifications.ts`; the
 suggestion and message documents keep the full text.
 The recipient may flip `read` and nothing else, and may delete.
+**`branch` (RL-152, in the repo, deployed by RL-156).** A ninth type, "someone branched your
+recipe" (RL-153 writes it). `message` null or at most 500 characters, and `recipeId` must be
+present and name a branch (its `parentId` a string) whose `createdBy.uid` is the sender, and
+`recipientUid` must be the parent recipe's owner and not the sender. So only the branch's
+author can announce it, and only to the owner of the recipe branched. That is two more document
+reads (the branch and its parent). Emulator-checked 2026-10-21 (ticket RL-152 Notes).
+
+**notificationPrefs** (RL-152, in the repo, deployed by RL-156): read, create and update only
+by the owner with a verified email; delete by the signed-in owner (no verified email needed,
+like termsAcceptance, so erasure works if verification lapses). Writes take exactly the keys `branch`,
+`suggestion`, `follow` (each a bool) and `updatedAt`, which must equal the request time
+(`serverTimestamp()`). Nobody else can read or list them; preferences are applied when the
+recipient reads Activity, not by the writer.
 
 **profiles** are publicly readable, and every write needs a verified email. You own your
 document. Anyone else may change exactly one thing: a `followerCount` ±1 bump. Since RL-041 the
