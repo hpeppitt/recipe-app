@@ -26,6 +26,10 @@ describe('useTheme', () => {
   });
 
   it('defaults to system when nothing is stored and follows the OS', () => {
+    // jsdom has no stylesheet, so stand in for the --color-surface token per theme.
+    vi.spyOn(window, 'getComputedStyle').mockImplementation(
+      () => ({ getPropertyValue: () => (isDark() ? ' #1e1915' : '#f5ead8') }) as unknown as CSSStyleDeclaration,
+    );
     osDark = true;
     const { result } = renderHook(() => useTheme());
     expect(result.current.theme).toBe('system');

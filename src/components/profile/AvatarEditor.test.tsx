@@ -50,7 +50,7 @@ describe('AvatarEditor', () => {
     expect(within(sheet).getByRole('button', { name: 'Upload a photo' })).toBeTruthy();
   });
 
-  it('saves the chosen emoji and colour hex as an emoji avatar', async () => {
+  it('saves the chosen emoji and the colour token as an emoji avatar', async () => {
     const { sheet, onSave } = setup();
     fireEvent.click(within(sheet).getByRole('radio', { name: 'Emoji' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Background Moss' }));
@@ -60,7 +60,7 @@ describe('AvatarEditor', () => {
     expect(within(sheet).getByRole('button', { name: '🍕' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(onSave).toHaveBeenCalledWith({ photoType: 'emoji', photoEmoji: '🍕', photoBgColor: '#ccdbb2', photoURL: null })
+      expect(onSave).toHaveBeenCalledWith({ photoType: 'emoji', photoEmoji: '🍕', photoBgColor: 'var(--color-accent-2-300)', photoURL: null })
     );
   });
 
@@ -71,6 +71,12 @@ describe('AvatarEditor', () => {
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ photoType: 'generated', photoEmoji: null, photoBgColor: null, photoURL: null })
     );
+  });
+
+  it('presses Peach for an avatar saved with the legacy hex', () => {
+    const { sheet } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍕', currentPhotoBgColor: '#ffe1d0' });
+    expect(within(sheet).getByRole('button', { name: 'Background Peach' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(sheet).getByRole('button', { name: 'Background Apricot' }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('presses no swatch for an avatar saved with an older colour', () => {

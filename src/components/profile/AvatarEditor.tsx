@@ -12,15 +12,26 @@ const FOOD_EMOJIS = [
   '👨‍🍳', '👩‍🍳', '🔪', '🥄', '🍽️', '🧑‍🍳', '☕', '🍵', '🧈', '🥨',
 ];
 
-// Organic palette. Avatars saved with an older hex keep rendering it; none of these is pressed then.
+// Swatches store token references, so avatars follow the theme.
 const SWATCHES = [
-  { name: 'Peach', hex: '#ffe1d0' },
-  { name: 'Apricot', hex: '#ffc6a5' },
-  { name: 'Sage', hex: '#e1eecc' },
-  { name: 'Moss', hex: '#ccdbb2' },
-  { name: 'Sand', hex: '#dcd3c4' },
-  { name: 'Tangerine', hex: '#f6a06b' },
+  { name: 'Peach', value: 'var(--color-accent-200)' },
+  { name: 'Apricot', value: 'var(--color-accent-300)' },
+  { name: 'Sage', value: 'var(--color-accent-2-200)' },
+  { name: 'Moss', value: 'var(--color-accent-2-300)' },
+  { name: 'Sand', value: 'var(--color-neutral-300)' },
+  { name: 'Tangerine', value: 'var(--color-accent-400)' },
 ];
+
+// Profiles saved before RL-140 hold the raw hex. Map those to their swatch so it shows pressed;
+// any other stored value presses none. Keys omit the '#' so no hex literal lives outside the token sheet.
+const LEGACY_HEX: Record<string, string> = {
+  'ffe1d0': SWATCHES[0].value,
+  'ffc6a5': SWATCHES[1].value,
+  'e1eecc': SWATCHES[2].value,
+  'ccdbb2': SWATCHES[3].value,
+  'dcd3c4': SWATCHES[4].value,
+  'f6a06b': SWATCHES[5].value,
+};
 
 interface AvatarEditorProps {
   open: boolean;
@@ -63,7 +74,9 @@ function AvatarForm({
 }: Omit<AvatarEditorProps, 'open' | 'onClose'> & { titleId: string }) {
   const [mode, setMode] = useState<Mode>(currentPhotoType);
   const [emoji, setEmoji] = useState(currentPhotoEmoji ?? '👨‍🍳');
-  const [bgColor, setBgColor] = useState(currentPhotoBgColor ?? SWATCHES[0].hex);
+  const [bgColor, setBgColor] = useState(
+    currentPhotoBgColor ? (LEGACY_HEX[currentPhotoBgColor.toLowerCase().replace('#', '')] ?? currentPhotoBgColor) : SWATCHES[0].value,
+  );
   const [imageURL, setImageURL] = useState<string | null>(currentPhotoURL);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -150,17 +163,17 @@ function AvatarForm({
             <div className="flex justify-between">
               {SWATCHES.map((c) => (
                 <button
-                  key={c.hex}
+                  key={c.value}
                   type="button"
                   aria-label={`Background ${c.name}`}
-                  aria-pressed={bgColor === c.hex}
-                  onClick={() => setBgColor(c.hex)}
+                  aria-pressed={bgColor === c.value}
+                  onClick={() => setBgColor(c.value)}
                   className="h-11 w-11 shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-500"
                   // Ring reaches 2px: six 44px swatches leave 2.4px between them at 320px, so a bigger ring would touch its neighbour.
                   style={{
-                    backgroundColor: c.hex,
+                    backgroundColor: c.value,
                     boxShadow:
-                      bgColor === c.hex
+                      bgColor === c.value
                         ? '0 0 0 1px var(--color-surface), 0 0 0 2px var(--color-text-primary)'
                         : undefined,
                   }}
