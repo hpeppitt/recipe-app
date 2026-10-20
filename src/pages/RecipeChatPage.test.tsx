@@ -31,6 +31,7 @@ type Chat = {
   error?: { message: string; retryable?: boolean } | null;
   attachmentPreviews?: Record<number, string[]>;
   sentImageCount?: number;
+  similarRecipes?: import('../hooks/useRecipeChat').SimilarRecipe[];
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -101,6 +102,24 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) { this.setAttribute('open', ''); };
   HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) { this.removeAttribute('open'); };
+});
+
+describe('RecipeChatPage similar recipes', () => {
+  it('names the author of a cloud match as a pill', () => {
+    chat = {
+      messages: [],
+      isLoading: false,
+      latestRecipe: null,
+      similarRecipes: [
+        {
+          id: 'c1', rootId: 'c1', emoji: '🍲', title: 'Stew', description: 'Hearty',
+          cloudOrigin: { isOwn: false, creatorName: 'Mia Stone', creatorUid: 'u9' },
+        },
+      ],
+    };
+    view();
+    expect(screen.getByText('Mia Stone')).toBeTruthy();
+  });
 });
 
 describe('RecipeChatPage chips and composer', () => {

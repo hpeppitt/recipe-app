@@ -4,6 +4,7 @@ import { summariseChanges, diffRecipes } from '../../lib/recipeDiff';
 import { collectSubtreeIds } from '../../lib/tree';
 import { Button } from '../ui/Button';
 import { Skeleton } from '../ui/Skeleton';
+import { UserPill } from '../ui/UserPill';
 import type { Recipe } from '../../types/recipe';
 import { Network } from '../ui/icons';
 import { carriedListOrigin } from '../../lib/paneMode';
@@ -134,9 +135,14 @@ export function BranchCarousel({ recipe, recipes, isLoading = false }: BranchCar
               <p className="font-heading text-[25px] leading-tight text-text-primary line-clamp-3 break-words">
                 {card.prompt || card.title}
               </p>
-              <p className="text-[13px] text-text-secondary break-words">
-                {card.title} · {card.createdBy.displayName || 'Anonymous'}
-              </p>
+              <div className="text-[13px] text-text-secondary break-words">
+                <p>{card.title}</p>
+                {card.createdBy.uid !== 'local' && (
+                  <p className="mt-1">
+                    <UserPill uid={card.createdBy.uid} name={card.createdBy.displayName} wrap />
+                  </p>
+                )}
+              </div>
               {tags.length > 0 && (
                 <ul role="list" aria-label="What changed" className="flex flex-wrap gap-2">
                   {tags.map((t) => (

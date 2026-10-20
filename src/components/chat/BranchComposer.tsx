@@ -10,6 +10,7 @@ import {
   type AttachmentRejection,
   type ImageAttachment,
 } from '../../lib/imageAttachments';
+import { UserPill } from '../ui/UserPill';
 import { PhotoTray } from './PhotoTray';
 import { usePhotoTray } from './usePhotoTray';
 
@@ -133,6 +134,11 @@ export function BranchComposer({
               <span className="min-w-0 truncate">
                 Branching <b>{parent.title.trim() || 'this recipe'}</b>
               </span>
+              {parent.createdBy.uid !== 'local' && (
+                <span className="flex min-w-0 max-w-[40%]">
+                  <UserPill uid={parent.createdBy.uid} name={parent.createdBy.displayName} truncate />
+                </span>
+              )}
               <ChevronDown
                 className={`size-4 flex-shrink-0 text-text-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
               />

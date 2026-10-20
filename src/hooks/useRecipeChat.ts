@@ -48,7 +48,7 @@ export type SimilarRecipe = {
   title: string;
   description: string;
   /** Set when the match was found in the cloud and is not on this device. */
-  cloudOrigin: { isOwn: boolean; creatorName: string | null } | null;
+  cloudOrigin: { isOwn: boolean; creatorName: string | null; creatorUid: string | null } | null;
 };
 
 function toSimilar(recipes: Recipe[]): SimilarRecipe[] {
@@ -98,6 +98,7 @@ function toCloudSimilar(
       // device, which is a different message than someone else's recipe.
       isOwn: !!currentUid && r.createdBy?.uid === currentUid,
       creatorName: r.createdBy?.displayName ?? null,
+      creatorUid: r.createdBy?.uid ?? null,
     },
   };
 }

@@ -1768,3 +1768,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - At 1024px in the pane: the bar pins to the top of the pane, full pane width, and does not cover the list.
 - With Reduce motion on, the bar appears with no fade. VoiceOver reads the title once.
 - Reviewer noted: the full title is not visible on touch while the clamped h1 is on screen (the bar shows only after it leaves); a long title makes the bar about 80px tall at 320px. The bar can cover a heading that a scroll-to or focus jump lands at the very top (no `scroll-pt` added); check the in-page jumps.
+
+### RL-131 User Pills on carousel, similar matches and composer
+- At 320px, a recipe with branches by named cooks: each carousel card shows "Title · [pill]" with the pill wrapping for a long name. A branch made on this device (no account) shows only the title.
+- Prompt something that matches someone else's published recipe: the similar panel reads "Shared library, by [pill]". Your own match still reads "Your recipe, not on this device".
+- Reviewer noted: check 320px in all three places (long names: carousel wraps, chat wraps, composer truncates with an ellipsis); the pill now has a border so it shows in dark mode, so glance at the other pill sites (Explore, Saved, Search) too.
+- Branch someone else's recipe: the composer card reads "Branching **Title** [pill]" on one line at 44px, title truncating first. Your own local recipe shows no pill.
