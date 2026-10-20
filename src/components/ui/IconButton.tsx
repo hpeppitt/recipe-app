@@ -10,9 +10,10 @@ interface IconButtonProps {
   href?: string;
   pressed?: boolean;
   tabIndex?: number;
+  haspopup?: 'dialog';
 }
 
-export function IconButton({ label, icon, onClick, variant, href, pressed, tabIndex }: IconButtonProps) {
+export function IconButton({ label, icon, onClick, variant, href, pressed, tabIndex, haspopup }: IconButtonProps) {
   const className = cn(
     'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-text-primary transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
@@ -26,7 +27,7 @@ export function IconButton({ label, icon, onClick, variant, href, pressed, tabIn
     );
   }
   return (
-    <button type="button" aria-label={label} aria-pressed={pressed} tabIndex={tabIndex} onClick={onClick} className={className}>
+    <button type="button" aria-label={label} aria-pressed={pressed} aria-haspopup={haspopup} tabIndex={tabIndex} onClick={onClick} className={className}>
       {icon}
     </button>
   );

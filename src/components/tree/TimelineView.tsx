@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { carriedListOrigin } from '../../lib/paneMode';
 import type { Recipe } from '../../types/recipe';
 import { layoutTimeline } from '../../lib/timelineLayout';
 import { diffRecipes, summariseChanges } from '../../lib/recipeDiff';
@@ -10,6 +11,8 @@ import { Button } from '../ui/Button';
 interface TimelineViewProps {
   recipes: Recipe[];
   currentId?: string;
+  /** Replaces navigating to a recipe's page (the family panel closes itself first). */
+  onOpen?: (id: string) => void;
 }
 
 // Geometry in px. Lanes are 44 apart; a label baseline sits LABEL_RISE above its lane, which keeps
@@ -28,8 +31,9 @@ export const LEGEND_MS = 2000;
 const laneY = (lane: number) => TOP + lane * LANE;
 const colour = (token: string) => `var(--color-${token})`;
 
-export function TimelineView({ recipes, currentId }: TimelineViewProps) {
+export function TimelineView({ recipes, currentId, onOpen }: TimelineViewProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { branch, signUp } = useBranchEntry();
   const layout = useMemo(() => layoutTimeline(recipes), [recipes]);
   const byId = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
@@ -97,7 +101,7 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
     // Navigating away unmounts the dialog, so there is no opener to hand focus back to.
     opener.current = null;
     dialogRef.current?.close();
-    navigate(path);
+    navigate(path, { state: carriedListOrigin(location.state) });
   };
 
   return (
@@ -259,7 +263,7 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
               </Button>
             )}
             <div className="flex gap-3 mt-5">
-              <Button variant="secondary" fullWidth className="border-border-strong!" onClick={() => go(`/recipe/${selected.id}`)}>
+              <Button variant="secondary" fullWidth className="border-border-strong!" onClick={() => (onOpen ? onOpen(selected.id) : go(`/recipe/${selected.id}`))}>
                 Open
               </Button>
               <Button fullWidth onClick={() => branch(selected.id)}>

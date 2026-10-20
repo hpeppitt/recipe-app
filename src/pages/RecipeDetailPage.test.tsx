@@ -541,6 +541,23 @@ describe('RecipeDetailPage in the wide-screen pane (RL-116)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Family' }));
     expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/tree');
   });
+
+  it('at lg the Family button and tree icon open the family panel instead', () => {
+    window.matchMedia = ((q: string) => ({ matches: true, media: q, addEventListener: () => {}, removeEventListener: () => {} })) as never;
+    try {
+      renderWithProviders(<RecipeDetailPage id="r1" />, { route: '/' });
+      fireEvent.click(screen.getByRole('button', { name: 'Family' }));
+      expect(screen.getByRole('heading', { name: 'Soup family' })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(screen.queryByRole('heading', { name: 'Soup family' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Version tree' }));
+      expect(screen.getByRole('heading', { name: 'Soup family' })).toBeInTheDocument();
+      expect(navigateSpy).not.toHaveBeenCalled();
+    } finally {
+      // @ts-expect-error jsdom has no matchMedia; restore that
+      delete window.matchMedia;
+    }
+  });
 });
 
 describe('RecipeDetailPage header and More sheet', () => {
