@@ -149,7 +149,8 @@ and shared links work without an account. Publishing requires a **verified email
 stamping your own uid as `createdBy.uid`, with both counters starting at zero. A re-publish
 is an update and needs no window. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
-verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`.
+verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`
+(RL-158 adds a fourth in the repo, the reparent below).
 Delete needs a verified owner. Recipes published anonymously before the 2026-08-10 gate can
 no longer be edited or deleted by their anonymous owner; RL-042 wipes them. Since RL-023 the
 client attempts the cloud delete only for users with `emailVerified`, which matches the rule.
@@ -163,6 +164,22 @@ recipe to the top of everyone's feed, and an oversized document is read on every
 Past `createdAt` values stay allowed because imports keep their original date. The caps are
 named in a comment above the recipe rules. Array elements are not checked; rules cannot
 iterate a list. A client clock more than a minute fast cannot publish.
+**Moving children up when a version is deleted (RL-158, in the repo, deployed by RL-160).** A
+fourth update shape, `isReparentAfterParentDelete()`: a verified user may change only
+`parentId` and `depth` of a recipe whose stored `parentId` names a version P, when P's
+`createdBy.uid` is theirs, P is deleted in the same batch (`!existsAfter(P)`), P is not an
+original (its `parentId` is a string), the new `parentId` equals P's and that recipe exists
+(`exists()`, because P's owner controls P's `parentId`), and the new `depth` is one less. So
+deleting a version can move its direct children, including other cooks', up one level, and
+only in that batch. Only direct children are rewritten: deeper descendants keep their stored
+`depth`, which is then stale, so display must not rely on it. A batch reads P and the new
+parent once plus each other cook's child; the emulator passed one batch with 18 other-cook
+children (each with its `moved` notice) and one own child, and denied 19. Production may bill `get` and `getAfter` separately, so
+`MAX_MOVED_CHILDREN` in `src/lib/tree.ts` is held at 8 until RL-160 re-probes production;
+above it the client refuses the cloud delete (RL-159). Accepted risk: P's owner can first set
+P's `parentId` to any existing recipe, so other cooks' children can land under an unrelated
+recipe; each affected cook gets the `moved` notice (see [decisions.md](decisions.md)). Root deletes are not covered. Emulator-checked 2026-10-21 (ticket RL-158
+Notes). RL-159 writes it.
 
 **favorites** are readable only by their owner, and created and deleted only by their owner
 with a verified email. The document id must match `{your uid}_{recipeId}`. No updates.
@@ -232,7 +249,7 @@ and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoj
 `fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
 Since RL-049 a create also needs a notification-window move (at most 60 per hour per
 sender, see writeWindows below), so a notification costs 2 extra document reads.
-`type` must be one of the nine: `favorite` and `follow` require `message` null; the six
+`type` must be one of the ten: `favorite` and `follow` require `message` null; the six
 suggestion types (`suggestion`, `suggestion_reply`, `suggestion_approved`,
 `suggestion_rejected`, and since RL-146, in the repo and deployed by RL-156,
 `suggestion_applied` and `suggestion_branched`) allow null or a string of at most 500 characters, counted as UTF-16 units
@@ -248,6 +265,18 @@ author can announce it, and only to the owner of the recipe branched. That is tw
 reads (the branch and its parent). Emulator-checked 2026-10-21 (ticket RL-152 Notes).
 Since RL-153 `saveRecipe` writes it through `notifyBranched` after the branch is published, with
 `recipeTitle` and `recipeEmoji` the parent's and `message` the branch's prompt.
+**`moved` (RL-158, in the repo, deployed by RL-160).** A tenth type, "your branch was moved up"
+after the version it hung from was deleted (RL-159 writes it). `message` must be a string of at
+most 200 characters; it is the sender's text (the client sends the deleted version's title), not
+checked against P. `recipeId` must name the moved child and the document id must be
+`moved_{recipeId}`, so each child gets at most one such notice ever (a second create of the id
+is an update, which only the recipient's read flip passes). `recipientUid` must be that child's
+`createdBy.uid` and not the sender, and the child's `parentId` must change in the same batch
+(`getAfter` differs from `get`), which the reparent rule above allows only to the deleted
+version's owner. It is the one type **exempt from the notification window**: a window admits one
+notification per batch (`last` names one document), and a delete moves several children in one
+batch that cannot be split, since each notice must ride with its move. The real move and the id
+binding bound it instead. Emulator-checked 2026-10-21 (ticket RL-158 Notes).
 
 **notificationPrefs** (RL-152, in the repo, deployed by RL-156): read, create and update only
 by the owner with a verified email; delete by the signed-in owner (no verified email needed,

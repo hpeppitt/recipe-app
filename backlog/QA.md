@@ -1694,3 +1694,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Switches are disabled until the stored document (or a failed read) arrives; the off track has a ring for 3:1 contrast in the light theme. A fully hidden Activity says "Some notifications are turned off" with a Settings link.
 - Reviewer noted: the Activity "Nothing here yet." fallback is still an ad hoc `<p>` and its error state has no Retry (pre-existing).
 - A failed read of the stored choices keeps the switches disabled with "Couldn't load your choices. Reopen Settings to try again."; the three switches also disable while any save is in flight.
+
+### RL-158 Rules for moving children up when a version is deleted
+
+- No visible change. Rules in the repo only; RL-160 deploys them. Probe codes are in the ticket's Notes.
+- Nothing writes the reparent update or a `moved` notification yet (RL-159).

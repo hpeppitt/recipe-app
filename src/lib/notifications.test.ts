@@ -113,6 +113,11 @@ describe('firestore.rules notification types', () => {
   it('the rules allow a branch notification (RL-152)', () => {
     expect(ruleTypes).toContain('branch');
   });
+
+  // RL-159 adds 'moved' to AppNotification; until then the rules allow it ahead of the client.
+  it('the rules allow a moved notification (RL-158)', () => {
+    expect(ruleTypes).toContain('moved');
+  });
 });
 
 describe('visibleFor', () => {

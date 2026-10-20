@@ -155,7 +155,8 @@ service cloud.firestore {
       // needs no window (RL-049 limits creates only).
       allow update: if isViewIncrement()
         || isFavoriteCountBump()
-        || isOwnerUpdate();
+        || isOwnerUpdate()
+        || isReparentAfterParentDelete();
 
       allow delete: if verified()
         && resource.data.createdBy.uid == request.auth.uid;
@@ -192,6 +193,34 @@ service cloud.firestore {
           && request.resource.data.createdBy.uid == resource.data.createdBy.uid
           && !('createdAt' in changedKeys())
           && hasBoundedContent();
+      }
+
+      // RL-158: deleting a version P moves its direct children up to P's parent
+      // in the same batch, including children by other cooks. Only P's owner,
+      // only while P is deleted in this request (get() sees the stored P,
+      // existsAfter() the state after the batch), only to P's own parent (so
+      // never for an original), and only parentId and depth, one level up.
+      // Content is unchanged, so hasBoundedContent() is not needed. The new
+      // parent must exist, since P's owner controls P.parentId (accepted risk:
+      // docs/decisions.md, RL-158). Deeper descendants keep their stored depth.
+      // Accesses: P and the new parent, once per batch; isMovedNotice() adds
+      // each other cook's child. MAX_MOVED_CHILDREN in src/lib/tree.ts caps the
+      // children per batch; re-probe it after changing either rule.
+      function isReparentAfterParentDelete() {
+        let oldParent = resource.data.get('parentId', null);
+        return verified()
+          && changedKeys().hasOnly(['parentId', 'depth'])
+          && oldParent is string
+          && isDeletedParentOf(/databases/$(database)/documents/recipes/$(oldParent))
+          && request.resource.data.depth == resource.data.depth - 1;
+      }
+
+      function isDeletedParentOf(path) {
+        return get(path).data.createdBy.uid == request.auth.uid
+          && !existsAfter(path)
+          && get(path).data.get('parentId', null) is string
+          && request.resource.data.parentId == get(path).data.parentId
+          && exists(/databases/$(database)/documents/recipes/$(get(path).data.parentId));
       }
 
       // Evaluated on request.resource.data, the document as it would be after
@@ -385,14 +414,20 @@ service cloud.firestore {
         && request.resource.data.read == false
         && request.resource.data.keys().hasOnly(['recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'])
         && (
-          (request.resource.data.type in ['favorite', 'follow']
-            && request.resource.data.get('message', null) == null)
-          || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched']
-            && (request.resource.data.get('message', null) == null
-              || (request.resource.data.message is string && request.resource.data.message.size() <= 500)))
-          || isBranchNotice()
-        )
-        && movedWindow('notification', 'notifications/' + notificationId);
+          ((
+            (request.resource.data.type in ['favorite', 'follow']
+              && request.resource.data.get('message', null) == null)
+            || (request.resource.data.type in ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched']
+              && (request.resource.data.get('message', null) == null
+                || (request.resource.data.message is string && request.resource.data.message.size() <= 500)))
+            || isBranchNotice()
+          )
+            && movedWindow('notification', 'notifications/' + notificationId))
+          // No window: one window admits one notification per batch, and a
+          // delete moves several children in one batch. Bounded instead by the
+          // real move and the id (one notice per child).
+          || isMovedNotice()
+        );
       // Recipient may only flip the read flag
       allow update: if verified()
         && resource.data.recipientUid == request.auth.uid
@@ -411,6 +446,31 @@ service cloud.firestore {
           && d.recipientUid != request.auth.uid
           && 'recipeId' in d
           && isBranchBy(get(/databases/$(database)/documents/recipes/$(d.recipeId)).data, d.recipientUid);
+      }
+
+      // RL-158: "your branch was moved up" after its parent was deleted.
+      // recipeId names the moved child and the id is 'moved_' + recipeId, so
+      // there is one notice per child ever. The recipient must be the child's
+      // author and never the sender, and the child's parentId must change in
+      // this same batch, which isReparentAfterParentDelete() limits to the
+      // deleted version's owner. message is the sender's text (the client
+      // sends the deleted version's title); the rule only caps its length.
+      // Accesses: the moved child, once per batch (see the reparent rule).
+      function isMovedNotice() {
+        let d = request.resource.data;
+        return request.resource.data.type in ['moved']
+          && d.get('message', null) is string
+          && d.message.size() <= 200
+          && d.recipientUid is string
+          && d.recipientUid != request.auth.uid
+          && d.get('recipeId', null) is string
+          && notificationId == 'moved_' + d.recipeId
+          && isMovedChildOf(/databases/$(database)/documents/recipes/$(d.recipeId), d.recipientUid);
+      }
+
+      function isMovedChildOf(path, recipientUid) {
+        return get(path).data.createdBy.uid == recipientUid
+          && getAfter(path).data.get('parentId', null) != get(path).data.get('parentId', null);
       }
 
       function isBranchBy(branch, recipientUid) {
