@@ -234,7 +234,10 @@ service cloud.firestore {
         let d = request.resource.data;
         return d.title is string && d.title.size() <= 200
           && d.ingredients is list && d.ingredients.size() <= 100
-          && d.instructions is list && d.instructions.size() <= 100;
+          && d.instructions is list && d.instructions.size() <= 100
+          // RL-162: a recipe id (a UUID); absent or null on most recipes.
+          && (d.get('relatedFamilyId', null) == null
+            || (d.relatedFamilyId is string && d.relatedFamilyId.size() <= 128));
       }
     }
 

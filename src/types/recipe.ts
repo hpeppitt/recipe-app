@@ -73,6 +73,11 @@ export interface Recipe {
   emoji: string;
   /** Optional: recipes predate this field, so absence is normal. */
   nutrition?: Nutrition | null;
+  /**
+   * On an original written after "Create New Recipe Anyway": the rootId of the first
+   * similar match shown (RL-161, RL-162). Absent otherwise. Not indexed in Dexie.
+   */
+  relatedFamilyId?: string | null;
   prompt: string;
   chatHistory: ChatMessage[];
   createdAt: number;

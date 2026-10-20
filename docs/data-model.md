@@ -21,6 +21,10 @@ Database name `RecipeAppDB`, defined in `src/db/database.ts`. Two tables.
 | v2 | adds `favorites` table | backfills `createdBy = { uid: 'local', displayName: null }` on recipes that lack it. This is why `'local'` is a real uid value the ownership check must handle. |
 | v3 | no schema change | backfills `collaborators = []` on recipes that lack it. |
 
+Unindexed fields need no version. `relatedFamilyId` (RL-162) is one: optional on `Recipe`, set
+only on an original saved after "Create New Recipe Anyway", carrying the `rootId` of the first
+match the panel showed. Rows and documents without it are normal.
+
 Adding a version means adding a `this.version(n).stores({...})` block and, if existing rows
 need new fields, an `.upgrade()`. Never edit a released version's block: users have that
 version on disk.
@@ -43,6 +47,14 @@ publishes to Firestore first and only then `put`s the same record in Dexie. Noth
 locally when the publish fails or times out, so a verified user never has a local-only own
 recipe; the retry reuses the record's id, which `publishRecipe`'s in-transaction re-read turns
 into a merge if the earlier attempt landed. Local-only mode still adds to Dexie alone.
+
+**`recipes.relatedFamilyId`** (RL-162, decision "Related families and moving into one"): an
+optional string on a new original only, the `rootId` of the first match shown when the user
+tapped "Create New Recipe Anyway". Written with the recipe by `publishRecipe` and cached with it;
+the cloud-to-local mappings (`toLocalRecipe`, and the `useRecipe` and `useRecipeTree` spreads)
+carry it, and a restore from an export keeps it (`ImportedRecipeSchema`). Nobody else's recipe
+is written. The recipe rules have no key allowlist; since RL-162 `hasBoundedContent` bounds this
+field (absent, null, or a string of at most 128 characters), in the repo until RL-160 deploys.
 
 **Write order of an edit** (RL-083): a verified owner's edit checks that the cloud copy exists,
 re-publishes the edited record with a fresh `updatedAt` within 5 seconds, and only then
@@ -166,6 +178,9 @@ recipe to the top of everyone's feed, and an oversized document is read on every
 Past `createdAt` values stay allowed because imports keep their original date. The caps are
 named in a comment above the recipe rules. Array elements are not checked; rules cannot
 iterate a list. A client clock more than a minute fast cannot publish.
+Since RL-162 (in the repo, deployed with RL-160) the same check also requires `relatedFamilyId`
+to be absent, null, or a string of at most 128 characters. Emulator-probed 2026-10-21: 128
+characters 200, 129 characters, a number or a map 403, a normal publish 200.
 **Moving children up when a version is deleted (RL-158, in the repo, deployed by RL-160).** A
 fourth update shape, `isReparentAfterParentDelete()`: a verified user may change only
 `parentId` and `depth` of a recipe whose stored `parentId` names a version P, when P's

@@ -12,6 +12,11 @@ describe('parseImportedRecipes', () => {
     expect(result.recipes.map((r) => r.id)).toEqual(['a']);
   });
 
+  it('keeps relatedFamilyId through a restore (RL-162)', () => {
+    const [r] = parseImportedRecipes([makeRecipe({ id: 'a', relatedFamilyId: 'fam' })], NOW).recipes;
+    expect(r.relatedFamilyId).toBe('fam');
+  });
+
   it('rejects anything that is not an array', () => {
     for (const raw of [null, undefined, 42, 'nope', { recipes: [] }]) {
       expect(parseImportedRecipes(raw, NOW).recipes).toEqual([]);

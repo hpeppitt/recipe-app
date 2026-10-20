@@ -50,6 +50,23 @@ describe('RecipeHeader original', () => {
   });
 });
 
+describe('RecipeHeader New original tag (RL-162)', () => {
+  it('shows New original on an original with a related family', () => {
+    show({ ...original, relatedFamilyId: 'fam' });
+    expect(screen.getByText('New original').textContent).toBe('New original, similar to an existing recipe family');
+  });
+
+  it('shows no tag without one', () => {
+    show();
+    expect(screen.queryByText(/New original/)).toBeNull();
+  });
+
+  it('shows no tag on a branch even if the field is set', () => {
+    show({ ...branch, relatedFamilyId: 'fam' }, original);
+    expect(screen.queryByText(/New original/)).toBeNull();
+  });
+});
+
 describe('RecipeHeader branch', () => {
   it('shows the family label from the root', () => {
     show(branch, original);

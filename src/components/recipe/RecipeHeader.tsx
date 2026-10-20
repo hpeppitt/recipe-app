@@ -154,6 +154,13 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">
               {recipe.description}
             </p>
+            {recipe.relatedFamilyId && (
+              <p className="mt-3">
+                <span className="inline-flex rounded-full bg-accent-100 px-3 py-[5px] text-[13px] font-semibold leading-5 text-accent-800">
+                  New original<span className="sr-only">, similar to an existing recipe family</span>
+                </span>
+              </p>
+            )}
           </div>
         </>
       )}

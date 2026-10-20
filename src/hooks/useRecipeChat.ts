@@ -42,6 +42,8 @@ const PUBLISH_TIMEOUT_MS = 4000;
 /** A dedup match, which may live only in the shared cloud library. */
 export type SimilarRecipe = {
   id: string;
+  /** The match's family, recorded on a new original made despite it (RL-162). Null when unknown. */
+  rootId: string | null;
   emoji: string;
   title: string;
   description: string;
@@ -52,6 +54,7 @@ export type SimilarRecipe = {
 function toSimilar(recipes: Recipe[]): SimilarRecipe[] {
   return recipes.map((r) => ({
     id: r.id,
+    rootId: r.rootId,
     emoji: r.emoji,
     title: r.title,
     description: r.description,
@@ -80,11 +83,13 @@ async function searchSimilarRecipes(
 }
 
 function toCloudSimilar(
-  r: { id: string; emoji: string; title: string; description: string; createdBy?: { uid: string; displayName: string | null } },
+  r: { id: string; rootId?: string; parentId?: string | null; emoji: string; title: string; description: string; createdBy?: { uid: string; displayName: string | null } },
   currentUid: string | undefined
 ): SimilarRecipe {
   return {
     id: r.id,
+    // An original is its own root; a branch with no rootId has an unknown family.
+    rootId: r.rootId ?? (r.parentId == null ? r.id : null),
     emoji: r.emoji,
     title: r.title,
     description: r.description,
@@ -160,6 +165,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   // version reuses its id, so a publish that timed out but landed is merged by
   // publishRecipe instead of becoming a second recipe (RL-049, RL-082).
   const builtRef = useRef<{ source: GeneratedRecipe; recipe: Recipe } | null>(null);
+  // The first shown match's family, held from "Create New Recipe Anyway" for the
+  // rest of this chat and recorded on the original it saves (RL-162).
+  const relatedFamilyRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -258,6 +266,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
         // Check for duplicates until a recipe has actually been generated.
         if (shouldCheckDuplicates) {
+          // A fresh dedup decides afresh: a Create anyway whose generation failed must not tag this one.
+          relatedFamilyRef.current = null;
           // Covers the cloud round trip: disables the input and shows the
           // typing indicator instead of leaving the chat looking idle.
           setIsLoading(true);
@@ -302,9 +312,10 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
   const dismissSimilar = useCallback(async () => {
     if (pendingQuery) {
+      if (!parentRecipe) relatedFamilyRef.current = similarRecipes[0]?.rootId ?? null;
       await generateRecipe(pendingQuery, lastImagesRef.current);
     }
-  }, [pendingQuery, generateRecipe]);
+  }, [pendingQuery, generateRecipe, parentRecipe, similarRecipes]);
 
   /**
    * Save a specific generation, defaulting to the newest.
@@ -354,8 +365,13 @@ export function useRecipeChat(parentRecipe?: Recipe) {
 
       // Cloud first (decision 1b): the sync removes own rows the server lacks,
       // so a Dexie row written before a failed publish would vanish later.
+      // Only an original records a related family; a variation clears it.
+      const relatedFamilyId = parentRecipe ? null : relatedFamilyRef.current;
+      if (parentRecipe) relatedFamilyRef.current = null;
       const recipe =
-        builtRef.current?.source === toSave ? builtRef.current.recipe : buildRecipe(...args);
+        builtRef.current?.source === toSave
+          ? builtRef.current.recipe
+          : { ...buildRecipe(...args), ...(relatedFamilyId ? { relatedFamilyId } : {}) };
       builtRef.current = { source: toSave, recipe };
 
       // Bounded because an unreachable Firestore retries instead of rejecting.

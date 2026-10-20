@@ -226,6 +226,106 @@ describe('useRecipeChat saveRecipe tells the parent author about a branch (RL-15
   });
 });
 
+describe('useRecipeChat records the related family after Create anyway (RL-162)', () => {
+  const session = vi.fn();
+  const savedRecipe = () => publishRecipe.mock.calls.at(-1)![0] as Recipe;
+
+  beforeEach(() => {
+    publishRecipe.mockResolvedValue(undefined);
+    session.mockResolvedValue(generated('Soup'));
+    vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
+    vi.mocked(searchPublishedRecipes).mockResolvedValue([
+      makeRecipe({ id: 'v2', rootId: 'fam-1', title: 'Soup' }) as never,
+      makeRecipe({ id: 'other', rootId: 'fam-2', title: 'Soup two' }) as never,
+    ]);
+  });
+
+  it("stores the first match's rootId on the saved original, published and cached, and refining keeps it", async () => {
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    expect(result.current.similarRecipes.map((m) => m.rootId)).toEqual(['fam-1', 'fam-2']);
+
+    await act(() => result.current.dismissSimilar());
+    session.mockResolvedValue(generated('Spicy soup'));
+    await act(() => result.current.sendMessage('spicier'));
+    await act(() => result.current.saveRecipe());
+
+    const saved = savedRecipe();
+    expect(saved.title).toBe('Spicy soup');
+    expect(saved.parentId).toBeNull();
+    expect(saved.relatedFamilyId).toBe('fam-1');
+    expect((await db.recipes.get(saved.id))?.relatedFamilyId).toBe('fam-1');
+  });
+
+  it('is not set when there was no match to create past', async () => {
+    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    await act(() => result.current.saveRecipe());
+
+    expect(savedRecipe()).not.toHaveProperty('relatedFamilyId');
+  });
+
+  it('a failed generation after Create anyway does not tag a later unmatched original', async () => {
+    session.mockRejectedValueOnce(new Error('network'));
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    await act(() => result.current.dismissSimilar());
+    expect(result.current.error).not.toBeNull();
+
+    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    await act(() => result.current.sendMessage('pancakes'));
+    await act(() => result.current.saveRecipe());
+
+    expect(savedRecipe()).not.toHaveProperty('relatedFamilyId');
+  });
+
+  it('records nothing when the first match is a branch with no rootId', async () => {
+    vi.mocked(searchPublishedRecipes).mockResolvedValue([
+      { ...makeRecipe({ id: 'br', parentId: 'p', title: 'Soup' }), rootId: undefined } as never,
+    ]);
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    expect(result.current.similarRecipes[0].rootId).toBeNull();
+    await act(() => result.current.dismissSimilar());
+    await act(() => result.current.saveRecipe());
+
+    expect(savedRecipe()).not.toHaveProperty('relatedFamilyId');
+  });
+
+  it('a new chat starts without it', async () => {
+    const first = renderChat();
+    await act(() => first.result.current.sendMessage('soup'));
+    await act(() => first.result.current.dismissSimilar());
+
+    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    await act(() => result.current.saveRecipe());
+
+    expect(savedRecipe()).not.toHaveProperty('relatedFamilyId');
+  });
+
+  it('a variation is never given one, even after Create anyway', async () => {
+    const { searchPublishedVariations } = await import('../services/firestore');
+    vi.mocked(searchPublishedVariations).mockResolvedValue([
+      makeRecipe({ id: 'sib', rootId: 'fam-1', parentId: 'fam-1', title: 'Soup' }) as never,
+    ]);
+    const { createVariationChat } = await import('../services/gemini');
+    vi.mocked(createVariationChat).mockReturnValue({ sendMessage: session });
+    const parent = makeRecipe({ id: 'fam-1', createdBy: { uid: fakeUser.uid, displayName: null } });
+    const { result } = renderHook(() => useRecipeChat(parent), { wrapper });
+
+    await act(() => result.current.sendMessage('soup'));
+    expect(result.current.similarRecipes).toHaveLength(1);
+    await act(() => result.current.dismissSimilar());
+    await act(() => result.current.saveRecipe());
+
+    expect(savedRecipe().parentId).toBe('fam-1');
+    expect(savedRecipe()).not.toHaveProperty('relatedFamilyId');
+  });
+});
+
 describe('useRecipeChat photos as generation input (RL-118)', () => {
   const B64 = 'UEhPVE9CWVRFUw==';
   const photo = (n = 0): ImageAttachment => ({ mimeType: 'image/jpeg', base64: `${B64}${n}` });

@@ -38,12 +38,14 @@ export function toLocalRecipe(doc: CloudRecipeDoc, localRow?: Recipe): Recipe {
     tags: doc.tags,
     emoji: doc.emoji,
     nutrition: doc.nutrition,
+    relatedFamilyId: doc.relatedFamilyId,
     prompt: doc.prompt ?? '',
     chatHistory: localRow?.chatHistory ?? [],
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   } as Recipe;
   if (recipe.nutrition === undefined) delete recipe.nutrition;
+  if (recipe.relatedFamilyId === undefined) delete recipe.relatedFamilyId;
   return recipe;
 }
 

@@ -1718,3 +1718,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: a stored depth 0 under a non-root parent becomes -1 in the cloud when moved (the rule demands one less), while Dexie clamps it to 0.
 - Reviewer noted: `replace: true` means Back from the parent skips the deleted page (intended, but check it feels right).
 - Reviewer noted: the dialog copy is captured from the lineage at open time; if it is still loading the count can be low (the row is disabled while loading, so this needs a slow cloud read to see). The notice id changed to `moved_{child}_{deleted}` in the repo rules (RL-160 deploys it).
+
+### RL-162 New original tag after Create New Recipe Anyway
+
+- On the emulator, ask for a recipe that matches an existing one so the similar panel shows; tap Create New Recipe Anyway, refine once, save. The recipe page shows a small terracotta "New original" pill under the description, above the metadata pills.
+- In the emulator UI the new document has `relatedFamilyId` equal to the first listed match's `rootId` (its original's id, also when the match was a branch). Reload, and open it on a second device or account: the tag is still there.
+- A recipe saved with no match, and a branch made after Create anyway on a variation, show no tag and have no `relatedFamilyId`.
+- Check the pill sits well on narrow screens and in the wide pane, and that VoiceOver reads "New original, similar to an existing recipe family".
+- The rules bound on `relatedFamilyId` is repo only until RL-160 deploys; live publishes work either way.
