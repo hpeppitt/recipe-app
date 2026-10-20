@@ -47,6 +47,11 @@ vi.mock('../hooks/useUserRecipes', () => ({
   useUserRecipes: () => ({ recipes: chefRecipes, stats: { totalViews: 0, totalFavorites: chefRecipes.reduce((n, r) => n + (r.favoriteCount ?? 0), 0) }, isLoading: chefLoading }),
 }));
 
+const retryCollabs = vi.fn();
+let collabs: { status: string; recipes: Record<string, unknown>[]; truncated: boolean; retry: () => void } = { status: 'ready', recipes: [], truncated: false, retry: retryCollabs };
+const useCollabRecipes = vi.fn((_uid?: string, _enabled?: boolean) => collabs);
+vi.mock('../hooks/useCollabRecipes', () => ({ useCollabRecipes: (u?: string, e?: boolean) => useCollabRecipes(u, e) }));
+
 import { ProfilePage } from './ProfilePage';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
@@ -74,6 +79,9 @@ beforeEach(() => {
   publicProfile = { profile: chefProfile, isLoading: false, error: false, retry: retryProfile };
   chefRecipes = [];
   chefLoading = false;
+  collabs = { status: 'ready', recipes: [], truncated: false, retry: retryCollabs };
+  useCollabRecipes.mockClear();
+  retryCollabs.mockClear();
   retryProfile.mockClear();
   rows = [];
   ownProfile = null;
@@ -219,7 +227,7 @@ describe('OwnProfile Organic layout (RL-095)', () => {
     const started = screen.getByRole('link', { name: /Root Soup/ });
     expect(started).toHaveTextContent('1 branch');
     expect(screen.queryByText('My Take')).toBeNull();
-    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Grew/ }));
     expect(screen.getByRole('link', { name: /My Take/ })).toHaveTextContent('"less salt"');
     expect(screen.getByRole('link', { name: /My Take/ })).toHaveAttribute('href', '/recipe/theirs-kid');
     expect(screen.queryByText('Root Soup')).toBeNull();
@@ -287,7 +295,7 @@ describe('OwnProfile Organic layout (RL-095)', () => {
   it('falls back to Branched when a branch has no prompt', () => {
     rows = [mine({ id: 'b', parentId: 'p', rootId: 'p', title: 'Legacy Branch', prompt: '  ' })];
     renderAt('/profile', fakeUser);
-    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Grew/ }));
     const link = screen.getByRole('link', { name: /Legacy Branch/ });
     expect(link).toHaveTextContent('Branched');
     expect(link).not.toHaveTextContent('""');
@@ -371,7 +379,7 @@ describe('PublicProfile Organic layout (RL-096)', () => {
     expect(screen.getByRole('link', { name: /Root Soup/ })).toHaveTextContent('1 branch');
     expect(screen.getByRole('link', { name: /Lone Toast/ })).not.toHaveTextContent('No branches yet');
     expect(screen.queryByRole('link', { name: /Spicy Soup/ })).toBeNull();
-    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Grew/ }));
     expect(screen.getByRole('link', { name: /Spicy Soup/ })).toHaveTextContent('"make it spicy"');
     expect(screen.queryByRole('link', { name: /Root Soup/ })).toBeNull();
   });
@@ -379,7 +387,7 @@ describe('PublicProfile Organic layout (RL-096)', () => {
   it('falls back to Branched when a branch has no prompt', () => {
     chefRecipes = [theirs({ id: 'kid', title: 'Plain Kid', parentId: 'root', rootId: 'root' })];
     renderAt('/profile/chef', null);
-    fireEvent.click(screen.getByRole('radio', { name: 'Grew' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Grew/ }));
     expect(screen.getByRole('link', { name: /Plain Kid/ })).toHaveTextContent('Branched');
   });
 
@@ -455,5 +463,98 @@ describe('PublicProfile Organic layout (RL-096)', () => {
     renderAt('/profile/chef', null);
     expect(screen.getByRole('heading', { name: 'User not found' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+});
+
+describe('Collabs tab (RL-173)', () => {
+  const credited = { id: 'c1', title: 'Their Pie', emoji: '🥧', createdBy: { uid: 'owner', displayName: 'Olive' } };
+
+  it('is a third tab with counts on both profiles', () => {
+    collabs = { status: 'ready', recipes: [credited], truncated: false, retry: retryCollabs };
+    const { unmount } = renderAt('/profile', fakeUser);
+    expect(screen.getByRole('radio', { name: /^Started/ })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /^Grew/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    const link = screen.getByRole('link', { name: /Their Pie/ });
+    expect(link).toHaveAttribute('href', '/recipe/c1');
+    expect(within(link).getByText('Olive')).toBeInTheDocument();
+    unmount();
+    renderAt('/profile/chef', null);
+    expect(screen.getByRole('radio', { name: /^Collabs/ })).toBeInTheDocument();
+  });
+
+  it('shows a skeleton and no count while loading, never the empty line', () => {
+    collabs = { status: 'loading', recipes: [], truncated: false, retry: retryCollabs };
+    renderAt('/profile/chef', null);
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(screen.queryByText('No collabs yet')).toBeNull();
+  });
+
+  it('says "their" on another profile and "your" on the own one when empty', () => {
+    const { unmount } = renderAt('/profile/chef', null);
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(screen.getByText('No collabs yet')).toBeInTheDocument();
+    expect(screen.getByText('Recipes where their suggestion was applied show up here.')).toBeInTheDocument();
+    unmount();
+    renderAt('/profile', fakeUser);
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(screen.getByText('Recipes where your suggestion was applied show up here.')).toBeInTheDocument();
+  });
+
+  it('shows an error with Try again, not the empty line', () => {
+    collabs = { status: 'error', recipes: [], truncated: false, retry: retryCollabs };
+    renderAt('/profile/chef', null);
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(screen.queryByText('No collabs yet')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Try again/ }));
+    expect(retryCollabs).toHaveBeenCalled();
+  });
+
+  it('is hidden in a local-only build', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/profile" element={<ProfilePage />} />
+      </Routes>,
+      { route: '/profile', user: null, auth: { isConfigured: false } }
+    );
+    expect(screen.queryByRole('radio', { name: /Collabs/ })).toBeNull();
+  });
+
+  it('reads only after the tab is first opened', () => {
+    renderAt('/profile/chef', null);
+    expect(useCollabRecipes).toHaveBeenLastCalledWith('chef', false);
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(useCollabRecipes).toHaveBeenLastCalledWith('chef', true);
+  });
+
+  it('keeps the count in a spoken name and shows 50+ with a note when truncated', () => {
+    collabs = { status: 'ready', recipes: [credited], truncated: true, retry: retryCollabs };
+    renderAt('/profile/chef', null);
+    expect(screen.getByRole('radio', { name: 'Collabs 50+ recipes'.replace('50+', '1+') })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /^Collabs/ }));
+    expect(screen.getByText('Showing the first 50.')).toBeInTheDocument();
+  });
+
+  it('is hidden on another cook profile in a local-only build', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/profile/:uid" element={<ProfilePage />} />
+      </Routes>,
+      { route: '/profile/chef', user: null, auth: { isConfigured: false } }
+    );
+    expect(screen.queryByRole('radio', { name: /Collabs/ })).toBeNull();
+  });
+
+  it('moves between tabs with the arrow keys', () => {
+    renderAt('/profile/chef', null);
+    const started = screen.getByRole('radio', { name: /^Started/ });
+    expect(started).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('radio', { name: /^Grew/ })).toHaveAttribute('tabindex', '-1');
+    fireEvent.keyDown(started, { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: /^Grew/ })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(screen.getByRole('radio', { name: /^Grew/ }), { key: 'End' });
+    expect(screen.getByRole('radio', { name: /^Collabs/ })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(screen.getByRole('radio', { name: /^Collabs/ }), { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: /^Started/ })).toHaveAttribute('aria-checked', 'true');
   });
 });

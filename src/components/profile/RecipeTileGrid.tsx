@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
+import { UserPill } from '../ui/UserPill';
 
 export interface RecipeTile {
   id: string;
   emoji: string;
   title: string;
   meta: string;
+  /** Shown as a pill under the title instead of `meta` (the Collabs tab). */
+  owner?: { uid: string; name: string | null };
 }
 
 /** Tints rotate by index (Organic 4c). Photos are cut (decision 3), so a tile is always emoji on a tint. */
@@ -27,7 +30,14 @@ export function RecipeTileGrid({ tiles }: { tiles: readonly RecipeTile[] }) {
               {t.emoji}
             </div>
             <p className="break-words px-1 text-sm font-bold leading-[1.2] text-text-primary line-clamp-2">{t.title}</p>
-            <p className="-mt-1.5 px-1 text-xs text-text-tertiary line-clamp-2 break-words">{t.meta}</p>
+            {t.owner ? (
+              <p className="-mt-1 min-w-0 px-1">
+                <span className="sr-only">by </span>
+                <UserPill uid={t.owner.uid} name={t.owner.name} truncate />
+              </p>
+            ) : (
+              <p className="-mt-1.5 px-1 text-xs text-text-tertiary line-clamp-2 break-words">{t.meta}</p>
+            )}
           </Link>
         </li>
       ))}
