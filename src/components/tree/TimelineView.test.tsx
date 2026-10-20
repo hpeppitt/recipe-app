@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, it, expect } from 'vitest';
-import { cleanup, screen, fireEvent } from '@testing-library/react';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { act, cleanup, screen, fireEvent } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 import { TimelineView, CHAR_W } from './TimelineView';
 import { makeIngredient, makeRecipe } from '../../test/factories';
@@ -41,6 +41,41 @@ const kid = rec('k', root, {
 });
 
 describe('TimelineView', () => {
+  it('draws one legend row per lane, with a dot for every line that reuses it', () => {
+    const t1 = rec('t1', root, { createdAt: 2000 });
+    const t2 = rec('t2', t1, { createdAt: 3000 });
+    const t3 = rec('t3', t2, { createdAt: 4000 });
+    const a = rec('a', root, { createdAt: 1500, prompt: 'alpha' });
+    const b = rec('b', t2, { createdAt: 3500, prompt: 'beta' });
+    const { container } = draw([root, t1, t2, t3, a, b], 't3');
+    const dots = container.querySelectorAll('[data-legend-dot]').length;
+    const rows = container.querySelectorAll('[data-legend-label]').length;
+    expect(dots).toBe(3);
+    expect(rows).toBe(2);
+  });
+
+  it('pins lane names for 2s, then leaves only the dots; the timer dies with the view', () => {
+    vi.useFakeTimers();
+    try {
+      const { container, unmount } = draw([root, kid], 'k');
+      const label = () => container.querySelector('[data-legend-label="0"]')!;
+      expect(label().textContent).toBe('Original');
+      expect(label().getAttribute('data-collapsed')).toBe('false');
+      act(() => void vi.advanceTimersByTime(1999));
+      expect(label().getAttribute('data-collapsed')).toBe('false');
+      act(() => void vi.advanceTimersByTime(1));
+      expect(label().getAttribute('data-collapsed')).toBe('true');
+      expect(container.querySelector('[data-legend-dot="0"]')).toBeTruthy();
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+      // Mounting again (switching back to Timeline) shows the names again.
+      const again = draw([root, kid], 'k');
+      expect(again.container.querySelector('[data-legend-label="0"]')!.getAttribute('data-collapsed')).toBe('false');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('renders each stop as a named button, the current one flagged', () => {
     draw([root, kid], 'k');
     expect(screen.getByRole('button', { name: 'T-r, Original, stop 1' })).toBeTruthy();

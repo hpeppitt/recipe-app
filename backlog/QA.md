@@ -1793,3 +1793,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Generate a recipe, then collapse the newest card ("Hide full recipe"): a "Save" pill with a bookmark sits left of the input. Tap it and you land on the saved recipe. Expand the card again and the pill goes; while a reply is generating it is absent.
 - At 320 and 390px (320px with the keyboard open): the input pill stays usable beside the Save pill. On a variation the pill's accessible name is "Save Variation".
 - Reviewer noted: below 640px the pill is icon-only (44px circle) so the input keeps its width; from 640px it reads "Save". The pill stays active beside a disabled composer, matching the card's Save.
+
+### RL-138 Timeline lane legend
+- Open a family with 4+ lines in Timeline at 390px: each lane's name shows at the left edge for 2 s, then collapses to a coloured dot that stays. Scroll sideways: the dots stay at the left edge. Switch to Tree and back: the names show again.
+- Turn on reduced motion: same, but the names disappear without animation. The dots and names never block taps on stops.
+- Reviewer noted: the collapsed dots sit over stops scrolled under the left edge (visual only, taps pass through). Lines that share a lane show side-by-side dots and one joined name.
