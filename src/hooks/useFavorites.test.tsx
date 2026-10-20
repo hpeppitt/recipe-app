@@ -215,6 +215,24 @@ describe('cloud favourites hydration (RL-043)', () => {
     expect(getCloud).toHaveBeenCalledTimes(1);
   });
 
+  it('useFavorite is not ready until the first hydrate has landed, then reads the cloud row (RL-136)', async () => {
+    let land!: (rows: unknown[]) => void;
+    getCloud.mockReturnValue(new Promise<unknown[]>((r) => (land = r)));
+    const { result } = renderHook(() => useFavorite('cloud-only'), { wrapper: wrapperFor(verified('h6')) });
+    await act(async () => {});
+    expect(result.current.ready).toBe(false);
+    await act(async () => land([{ uid: 'h6', recipeId: 'cloud-only', createdAt: 1, recipeOwnerId: 'o' }]));
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.isFavorite).toBe(true);
+  });
+
+  it('useFavorite is ready after a failed hydrate too', async () => {
+    getCloud.mockResolvedValue(null);
+    const { result } = renderHook(() => useFavorite('r1'), { wrapper: wrapperFor(verified('h7')) });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    expect(result.current.isFavorite).toBe(false);
+  });
+
   it('hydrates a different uid after switching accounts', async () => {
     getCloud.mockResolvedValue([]);
     renderHook(() => useFavoriteIds(), { wrapper: wrapperFor(verified('h2')) });

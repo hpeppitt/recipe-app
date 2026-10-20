@@ -191,8 +191,25 @@ and the Terms tick are written, because the link can be opened before the send s
 send without one clears the key; a failed send clears only an intent it wrote; a successful
 guest sign-in in `AuthModal` clears it; and a failed link (expired, email-taken or failed, in
 `AuthContext`'s completion catch, not needs-email, whose retry can still succeed) clears it. `getPendingAction` parses it with `parsePendingAction`, which drops wrong shapes and
-anything older than an hour (`PENDING_ACTION_TTL_MS`). No code reads it yet; RL-136 runs it.
-It is per device, so a link opened elsewhere runs nothing.
+anything older than an hour (`PENDING_ACTION_TTL_MS`). It is per device, so a link opened elsewhere runs nothing.
+
+RL-136 runs it. When `runEmailLinkCompletion` succeeds without a typed address it awaits
+`checkTermsOnce` (cached per uid) and then `claimPendingAction(uid)` stamps the stored intent
+with `by`, the uid the link signed in, before `linkState` becomes done. A completion with a
+typed address (the cross-device retry) clears it instead, and so does `signOut` or the
+auth listener going from a user to none (a sign-out in another tab), but not a load that
+starts signed out, which is how the link's own tab begins.
+`usePendingAction(match, run)` (`hooks/usePendingAction.ts`), used by `RecipeDetailPage`,
+`SharedRecipePage` and `PublicProfile`, runs it once per mount when the user is verified,
+auth is not loading, `TermsContext.pending` is false, `by` equals the user's uid and `match`
+accepts it; it clears the key before calling `run`. Each page's `match` also waits for what
+its `run` reads: the recipe or profile, and the favourite or follow lookup (`ready` on
+`useFavorite`, `useCloudFavorite` and `useFollow`), so Save and Follow only ever turn on.
+`useFavorite.ready` also waits for the session's first cloud hydrate for that uid to settle
+and re-reads Dexie after it, so a cloud-only favourite is not re-added; `useFollow.ready`
+stays false after a failed lookup. A branch intent on
+the recipe page matches any recipe in the loaded family, since the tree can name another
+version.
 
 Ownership is a snapshot, not a join: every recipe carries `createdBy: { uid, displayName }`
 stamped at creation. `canManageRecipe` (`lib/ownership.ts`) is the single decision point,

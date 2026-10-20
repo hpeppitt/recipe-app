@@ -11,6 +11,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
+import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
@@ -184,6 +185,23 @@ function SharedRecipeView() {
     }
     setSuggesting(true);
   };
+
+  // The save, suggest or branch a sign-in link was asked for (RL-136). It runs for a
+  // verified user, so the favourite is the cloud one. Save never unsaves.
+  usePendingAction(
+    (a) =>
+      a.kind !== 'follow' &&
+      !!paramId &&
+      a.recipeId === paramId &&
+      status === 'ready' &&
+      !!recipe &&
+      (a.kind !== 'save' || cloudFavorite.ready),
+    (a) => {
+      if (a.kind === 'save' && !isFavorite) handleFavoriteClick();
+      else if (a.kind === 'suggest' && isConfigured && !isOwner) setSuggesting(true);
+      else if (a.kind === 'branch') navigate(`/recipe/${paramId}/vary`);
+    }
+  );
 
   useEffect(() => {
     if (!sentTo) return;

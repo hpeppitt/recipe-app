@@ -26,6 +26,7 @@ import { GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
+import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { SuggestionList } from '../components/recipe/SuggestionList';
@@ -70,7 +71,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
   const { children, ancestors, descendantCount, recipes: family, isLoading: treeLoading } = useRecipeLineage(recipe);
-  const { isFavorite, toggleFavorite, canFavorite } = useFavorite(id);
+  const { isFavorite, toggleFavorite, canFavorite, ready: favoriteReady } = useFavorite(id);
   const { suggestions, approve, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // The confirm message, captured on open: the RL-078 sync can remove the recipe
@@ -332,6 +333,22 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       emoji: recipe.emoji,
     });
   };
+
+  // The save, suggest or branch a sign-in link was asked for (RL-136). A branch from the
+  // tree may name another recipe in this family. Save never unsaves; suggest is skipped
+  // where this recipe cannot take one.
+  usePendingAction(
+    (a) => {
+      if (a.kind === 'follow' || isLoading || !recipe || recipe.id !== id) return false;
+      if (a.kind === 'branch') return a.recipeId === id || family.some((r) => r.id === a.recipeId);
+      return a.recipeId === id && (a.kind !== 'save' || favoriteReady);
+    },
+    (a) => {
+      if (a.kind === 'save' && !isFavorite) handleFavoriteToggle();
+      else if (a.kind === 'suggest' && canSuggest) setSuggestingFor(id ?? null);
+      else if (a.kind === 'branch') navigate(`/recipe/${a.recipeId}/vary`);
+    }
+  );
 
   // Track view, at most once per recipe per mount.
   //

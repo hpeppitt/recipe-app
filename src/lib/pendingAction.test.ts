@@ -16,6 +16,17 @@ describe('parsePendingAction', () => {
     });
   });
 
+  it('keeps the uid that claimed it and drops an empty or non-string one', () => {
+    expect(parsePendingAction({ kind: 'save', recipeId: 'r1', at: NOW, by: 'u9' }, NOW)).toEqual({
+      kind: 'save',
+      recipeId: 'r1',
+      at: NOW,
+      by: 'u9',
+    });
+    expect(parsePendingAction({ kind: 'follow', uid: 'u1', at: NOW, by: '' }, NOW)).toEqual({ kind: 'follow', uid: 'u1', at: NOW });
+    expect(parsePendingAction({ kind: 'follow', uid: 'u1', at: NOW, by: 7 }, NOW)).toEqual({ kind: 'follow', uid: 'u1', at: NOW });
+  });
+
   it.each([
     ['null', null],
     ['a string', 'save'],
