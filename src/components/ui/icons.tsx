@@ -345,3 +345,9 @@ export const Drumstick = ({ className }: P) => (
     <path d="m8.29 12.71-2.6 2.6a2.5 2.5 0 1 0-1.65 4.65A2.5 2.5 0 1 0 8.7 18.3l2.59-2.59" />
   </Icon>
 );
+export const Leaf = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+  </Icon>
+);

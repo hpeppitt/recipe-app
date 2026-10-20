@@ -67,6 +67,7 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
         difficulty={recipe.difficulty}
         author={compact ? null : recipe.createdBy}
         nutrition={recipe.nutrition}
+        tags={recipe.tags}
         servings={compact ? scaled.servings : undefined}
       />
 

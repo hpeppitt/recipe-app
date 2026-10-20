@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useMediaQuery...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt, paneMode]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt, paneMode, diet]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -220,6 +220,8 @@ Places designed to be replaced, worth knowing before you change them:
   `lib/suggestion.ts` and sends through the page's existing submit.
 - **`lib/createPrompt.ts`** (`CREATE_OPTIONS`, `cycleWord`, `buildCreatePrompt`, RL-125): the Create tab's three
   cycling words and the prompt they build for the chat, so the options or the sentence change in one module.
+- **`lib/diet.ts`** (`dietLabel`, RL-130): the diet pill's label from `recipe.tags`, so there is no diet field
+  and a new diet is one line in one module.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 
