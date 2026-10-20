@@ -616,6 +616,9 @@ export function ProfilePage() {
   if (!user) {
     return (
       <>
+        <div className="mx-auto flex w-full max-w-lg justify-end px-3 pt-2">
+          <IconButton variant="flat" label="Settings" href="/settings" icon={<Settings className="size-6" />} />
+        </div>
         {/* The error tone is the terracotta blob the 19a signed-out state asks for. */}
         <EmptyState
           tone="error"

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { exportAllRecipes, importRecipes, clearAllRecipes } from '../db/recipes';
 import { exportAllFavorites } from '../db/favorites';
 import { fetchCloudDataForExport } from '../services/firestore';
@@ -11,10 +11,11 @@ import { useConsent } from '../hooks/useConsent';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
 import type { NotificationPrefs } from '../lib/notifications';
 import { Avatar } from '../components/ui/Avatar';
+import { AuthModal } from '../components/auth/AuthModal';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { useOwnProfile } from '../hooks/useProfile';
 import { IconButton } from '../components/ui/IconButton';
-import { ChevronLeft, ChevronRight, Download } from '../components/ui/icons';
+import { ChevronLeft, ChevronRight, Download, UserRound } from '../components/ui/icons';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
@@ -68,8 +69,16 @@ export function SettingsPage() {
   // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
   const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
-  const accountName = user ? (user.displayName ?? 'Anonymous') : 'Sign in';
-  const accountSub = !user ? 'Not signed in' : user.isAnonymous ? 'Guest · this device only' : user.email;
+  const accountName = user?.displayName ?? 'Anonymous';
+  const accountSub = user?.isAnonymous ? 'Guest · this device only' : user?.email;
+  const [showAuth, setShowAuth] = useState(false);
+  // The Sign in row unmounts on sign-in; move focus to the heading so it does not drop to the body.
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const wasSignedIn = useRef(!!user);
+  useEffect(() => {
+    if (user && !wasSignedIn.current) headingRef.current?.focus();
+    wasSignedIn.current = !!user;
+  }, [user]);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   // 'default' is the first entry: nothing to go back to, so Back lands on the profile.
   const hasHistory = useLocation().key !== 'default';
@@ -186,25 +195,42 @@ export function SettingsPage() {
           icon={<ChevronLeft className="h-6 w-6" />}
           onClick={() => (hasHistory ? navigate(-1) : navigate('/profile'))}
         />
-        <h1 className="font-heading text-[22px] text-text-primary">Settings</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="font-heading text-[22px] text-text-primary outline-none">Settings</h1>
       </header>
 
       <div className="space-y-[18px] px-[18px] pb-[calc(30px+env(safe-area-inset-bottom))] pt-3">
-        {isConfigured && (
+        {isConfigured && !user && (
+          <Group label="Account">
+            <div className={CARD}>
+              <Row><button type="button" className={ROW} aria-haspopup="dialog" onClick={() => setShowAuth(true)}>
+                <span className="flex min-w-0 items-center gap-3">
+                  <UserRound className="h-6 w-6 flex-shrink-0 text-text-tertiary" />
+                  <span className="min-w-0">
+                    <span className="block truncate font-bold">Sign in</span>
+                    <span className="block truncate text-xs text-text-tertiary">Save, branch and follow cooks</span>
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
+              </button></Row>
+            </div>
+          </Group>
+        )}
+
+        {isConfigured && user && (
           <Group label="Account">
             <div className={CARD}>
               <Row><button
                 type="button"
                 className={ROW}
-                aria-label={user?.emailVerified ? `${accountName}, ${accountSub}, edit avatar` : `${accountName}, ${accountSub}`}
-                aria-haspopup={user?.emailVerified ? 'dialog' : undefined}
-                onClick={() => (user?.emailVerified ? setEditingAvatar(true) : navigate('/profile'))}
+                aria-label={user.emailVerified ? `${accountName}, ${accountSub}, edit avatar` : `${accountName}, ${accountSub}`}
+                aria-haspopup={user.emailVerified ? 'dialog' : undefined}
+                onClick={() => (user.emailVerified ? setEditingAvatar(true) : navigate('/profile'))}
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="flex-shrink-0 [&>div]:h-10 [&>div]:w-10 [&>div]:text-sm">
                     <Avatar
-                      uid={user?.uid ?? 'local'}
-                      name={user?.displayName ?? null}
+                      uid={user.uid}
+                      name={user.displayName}
                       photoType={profile?.photoType}
                       photoEmoji={profile?.photoEmoji}
                       photoBgColor={profile?.photoBgColor}
@@ -223,7 +249,7 @@ export function SettingsPage() {
                 <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
               </button></Row>
             </div>
-            {user?.isAnonymous && (
+            {user.isAnonymous && (
               <p className="mt-2 ml-1.5 text-xs text-text-tertiary">
                 Add an email to keep your recipes.
               </p>
@@ -459,6 +485,13 @@ export function SettingsPage() {
         confirmVariant="danger"
         onConfirm={handleClear}
         onCancel={() => setShowClearConfirm(false)}
+      />
+
+      <AuthModal
+        open={showAuth}
+        action={{ kind: 'continue' }}
+        onAuthenticated={() => setShowAuth(false)}
+        onDismiss={() => setShowAuth(false)}
       />
 
       {user?.emailVerified && (
