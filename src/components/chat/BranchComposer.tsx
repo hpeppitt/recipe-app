@@ -3,7 +3,15 @@ import type { Recipe } from '../../types/recipe';
 import { RecipeContent } from '../recipe/RecipeContent';
 import { BRANCH_CHIPS } from '../../lib/constants';
 import { appendClause } from '../../lib/utils';
-import { ChevronDown, GitBranchPlus, ShieldCheck, Sparkles } from '../ui/icons';
+import { ChevronDown, GitBranchPlus, ImagePlus, ShieldCheck, Sparkles } from '../ui/icons';
+import {
+  ACCEPTED_IMAGE_TYPES,
+  attachmentErrorMessage,
+  type AttachmentRejection,
+  type ImageAttachment,
+} from '../../lib/imageAttachments';
+import { PhotoTray } from './PhotoTray';
+import { usePhotoTray } from './usePhotoTray';
 
 interface BranchComposerProps {
   parent: Recipe;
@@ -12,7 +20,11 @@ interface BranchComposerProps {
   generating: boolean;
   /** Shown above the form, and disables Grow. */
   unavailableNotice?: ReactNode;
-  onGrow: (instruction: string) => void;
+  /** Text may be empty when photos are attached. May resolve to a limit reason: nothing was sent. */
+  onGrow: (
+    instruction: string,
+    images: ImageAttachment[]
+  ) => void | Promise<AttachmentRejection | null>;
 }
 
 const isCoarsePointer = () =>
@@ -31,11 +43,17 @@ export function BranchComposer({
   const [caretTick, setCaretTick] = useState(0);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   const sentRef = useRef(false);
+  const tray = usePhotoTray();
+  const { fileRef, attachRef, trayRef, mounted } = tray;
   const headingId = useId();
   const previewId = useId();
 
   const title = parent.title.trim() || 'This recipe';
-  const canGrow = !!text.trim() && !generating && !unavailableNotice;
+  const canGrow =
+    (!!text.trim() || tray.ready.length > 0) &&
+    !tray.preparing &&
+    !generating &&
+    !unavailableNotice;
 
   // As ChatInput: autofocus only on a pointer device, since on touch it would
   // open the keyboard over the chips. The caret goes to the end of any seed.
@@ -61,9 +79,21 @@ export function BranchComposer({
 
   const grow = () => {
     const instruction = text.trim();
-    if (!instruction || !canGrow || sentRef.current) return;
+    if (!canGrow || sentRef.current) return;
     sentRef.current = true;
-    onGrow(instruction);
+    // The composer keeps its text and photos while a send runs (the page swaps
+    // screens on success), so a refusal only needs Grow unlocked and the copy shown.
+    const restore = (msg: string | null) => {
+      sentRef.current = false;
+      if (msg && mounted.current) tray.setError(msg);
+    };
+    void Promise.resolve(onGrow(instruction, tray.ready)).then(
+      (limit) => {
+        if (limit) restore(attachmentErrorMessage(limit));
+      },
+      () => restore(null)
+    );
+    tray.setError(null);
   };
 
   return (
@@ -118,7 +148,38 @@ export function BranchComposer({
             className="min-h-[110px] w-full min-w-0 resize-none rounded-[26px] border-[1.5px] border-primary-600 bg-surface-secondary px-[18px] py-3.5 text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />
 
+          <PhotoTray photos={tray.photos} trayRef={trayRef} onRemove={tray.removePhoto} />
+          {tray.error && (
+            <p
+              key={tray.errorSeq}
+              role="alert"
+              className="min-w-0 break-words text-[13px] text-accent-900"
+            >
+              {tray.error}
+            </p>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept={ACCEPTED_IMAGE_TYPES.join(',')}
+            onChange={tray.handlePick}
+            className="hidden"
+          />
+
           <div className="flex flex-wrap gap-x-2">
+            <button
+              ref={attachRef}
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={generating || !!unavailableNotice || tray.full}
+              className="flex h-11 items-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500 disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3.5 text-sm text-text-secondary">
+                <ImagePlus className="size-4" />
+                Add photos
+              </span>
+            </button>
             {BRANCH_CHIPS.map((chip) => (
               <button
                 key={chip}

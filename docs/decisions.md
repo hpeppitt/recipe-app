@@ -817,9 +817,9 @@ The `.dark` block overrides the token variables: every 100 to 900 ramp, and the 
 
 The owner's suggestions section moved from above the recipe body to below it (after nutrition, notes and credits, before the branch carousel). The owner is still alerted by the pending-suggestions badge on More and by the Activity tab, and the recipe itself is what people read while cooking.
 
-### Photos on a variation start from the follow-up message (RL-119, 2026-10-19)
+### Photos on a variation start from the follow-up message (RL-119, 2026-10-19) - superseded 2026-10-20
 
-`BranchComposer`, the first screen of `/recipe/:id/vary`, has no attach button, so a photo-based variation is only possible from the follow-up message. Whether it should take photos is deferred to the author (pending row in `backlog/DECISIONS.md`).
+Superseded by the author on 2026-10-20: `BranchComposer` now has the attach button, tray, privacy notice and limits, so a variation can start from a photo. The page passes the photos straight to `sendMessage`; they are never put in navigation state or stored. Original text: `BranchComposer` had no attach button and photos were only possible from the follow-up message.
 
 ### Explore search moved to the /search screen (RL-124, 2026-10-19)
 
