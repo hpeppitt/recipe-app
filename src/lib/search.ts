@@ -97,3 +97,23 @@ export function matchKind(query: string, match: { title: string }): 'same' | 'si
   const inT = q.every((w) => t.includes(w));
   return inQ || inT ? 'same' : 'similar';
 }
+
+/** Cache key for a dedup query: its scoreable words, so case and spacing do not miss the cache. */
+export function dedupKey(query: string): string {
+  return queryWords(query).join(' ');
+}
+
+/** Versions and distinct cooks of one family among rows from several sources, each id counted once. */
+export function familyCounts(
+  rows: { id: string; rootId?: string | null; createdBy?: { uid: string } | null }[],
+  rootId: string
+): { versions: number; cooks: number } {
+  const ids = new Set<string>();
+  const cooks = new Set<string>();
+  for (const r of rows) {
+    if (r.rootId !== rootId || ids.has(r.id)) continue;
+    ids.add(r.id);
+    if (r.createdBy?.uid) cooks.add(r.createdBy.uid);
+  }
+  return { versions: ids.size, cooks: cooks.size };
+}

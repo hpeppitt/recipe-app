@@ -33,6 +33,10 @@ interface ChatInputProps {
   initialValue?: string;
   /** Rendered at the start of the composer row, left of the input pill. */
   leading?: ReactNode;
+  /** Every typed change, for the typing-pause dedup card. */
+  onTextChange?: (value: string) => void;
+  /** On the textarea, so the page can return focus to it. */
+  id?: string;
 }
 
 export function ChatInput({
@@ -43,6 +47,8 @@ export function ChatInput({
   sentImageCount = 0,
   onLayoutChange,
   leading,
+  onTextChange,
+  id,
 }: ChatInputProps) {
   const [value, setValue] = useState(initialValue);
   const {
@@ -168,8 +174,12 @@ export function ChatInput({
         </button>
         <textarea
           ref={inputRef}
+          id={id}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            onTextChange?.(e.target.value);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-label={placeholder}

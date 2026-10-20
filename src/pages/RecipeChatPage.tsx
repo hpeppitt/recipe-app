@@ -10,6 +10,7 @@ import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { BranchComposer, GrowingCard } from '../components/chat/BranchComposer';
+import { DedupCard } from '../components/chat/DedupCard';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Button } from '../components/ui/Button';
@@ -89,6 +90,8 @@ function PillChip({ label, onClick }: { label: string; onClick: () => void }) {
   );
 }
 
+const COMPOSER_ID = 'chat-composer';
+
 export function RecipeChatPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -117,6 +120,10 @@ export function RecipeChatPage() {
     retryGeneration,
     dismissSimilar,
     saveRecipe,
+    typingMatches,
+    typingAnnouncement,
+    previewDuplicates,
+    hideTypingMatches,
   } = useRecipeChat(isVarying ? parentRecipe : undefined);
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -157,13 +164,15 @@ export function RecipeChatPage() {
 
   const scrollToNewest = () => scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   const [slow, setSlow] = useState(false);
+  // The 7a card: the hook only fills it on a new recipe before the first one; the on-send panel replaces it.
+  const showTypingCard = !!typingMatches && !isVarying && !latestRecipe && !isLoading && similarRecipes.length === 0;
   useEffect(() => {
     // After a frame, so the taller loading screen has laid out before we scroll to it.
     const id = requestAnimationFrame(() =>
       scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
     );
     return () => cancelAnimationFrame(id);
-  }, [messages, isLoading, similarRecipes, slow]);
+  }, [messages, isLoading, similarRecipes, slow, showTypingCard]);
 
   const lastAssistantIdx = messages.reduce(
     (acc, msg, i) => (msg.role === 'assistant' ? i : acc),
@@ -207,7 +216,7 @@ export function RecipeChatPage() {
             : 'Generating recipe...'
           : readyTitle !== null
             ? `${readyTitle || 'Your recipe'} is ready`
-            : ''}
+            : typingAnnouncement}
     </p>
   );
 
@@ -549,6 +558,20 @@ export function RecipeChatPage() {
       </main>
 
       <div className="sticky bottom-0 bg-surface pt-1">
+        {/* 7a: in the flow above the composer, so the keyboard pushes it up rather than covering it. */}
+        {showTypingCard && typingMatches && (
+          <div className="px-4">
+            <DedupCard
+              typing={typingMatches}
+              onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: typingMatches.query } })}
+              onHide={() => {
+                hideTypingMatches();
+                // The close button unmounts with the card, so focus would fall to the body.
+                document.getElementById(COMPOSER_ID)?.focus();
+              }}
+            />
+          </div>
+        )}
         {/* Refinements need a recipe to refine and a free composer, so they are
             hidden before the first result and while one is being generated. */}
         {latestRecipe && !isLoading && (
@@ -565,6 +588,8 @@ export function RecipeChatPage() {
           // and the carried-over prompt was silently dropped.
           key={suggestionSeed}
           onSend={sendMessage}
+          onTextChange={previewDuplicates}
+          id={COMPOSER_ID}
           sentImageCount={sentImageCount}
           onLayoutChange={scrollToNewest}
           leading={

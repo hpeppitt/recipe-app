@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-178 Typing-pause dedup card (7a)
+- On a phone, open a new chat and type "banana bread" slowly. After the pause the sage card appears above the composer and stays above the keyboard: "<title> is already growing here", up to three rows with author pill, time and difficulty, and a Branch pill.
+- Branch opens the branch composer for that recipe with the typed text in the instruction box; the match title opens the recipe. Back in a new chat, Send still generates (the on-send panel may still offer matches first).
+- At 320px the meta line wraps under the author pill and the card never takes more than about 40% of the screen with the keyboard up (it scrolls inside). Hide matches puts the cursor back in the composer.
+- Type something unrelated: the card goes on the next pause. Hide matches removes it for the rest of the chat.
+- Network panel: one `recipes` query for the whole chat (first pause), none on later pauses or on Send, and none for a second new chat opened within 5 minutes.
+- VoiceOver: "N similar recipes already here" once, when the card first appears.
+
 ### RL-177 Same/Similar and chip helpers (pure lib)
 - No UI yet (RL-178 to RL-180). Nothing for the human to look at beyond the unit tests.
 
