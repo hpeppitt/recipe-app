@@ -32,7 +32,7 @@ function full(): DataExportInput {
     cloud: {
       ...empty,
       profile: { data: { uid: ME, displayName: 'Me', photoType: 'emoji', photoEmoji: 'x', photoBgColor: null, photoURL: null, recipeCount: 1, followerCount: 1, followingCount: 1, createdAt: 1 } },
-      recipes: { data: [{ id: 'r1', createdAt: 2, createdBy: { uid: ME, displayName: 'Me' }, collaborators: [{ uid: BOB, displayName: 'Bob' }] }] },
+      recipes: { data: [{ id: 'r1', createdAt: 2, createdBy: { uid: ME, displayName: 'Me' }, collaborators: [{ uid: BOB, displayName: 'Bob' }], collaboratorUids: [BOB] }] },
       favorites: { data: [{ id: `${ME}_r9`, uid: ME, recipeId: 'r9', recipeOwnerId: CAL, createdAt: 3 }] },
       follows: {
         data: [
@@ -114,6 +114,8 @@ describe('assembleDataExport', () => {
     expect(s.messages.find((m) => m.fromUid === ME)?.fromDisplayName).toBe('Me');
     expect(s.suggestedBy.uid).toBe(out.cloud!.notifications[0].fromUid);
     expect(out.cloud!.follows.map((f) => f.id)).toContain(`${ME}_${out.cloud!.favorites[0].recipeOwnerId}`);
+    const r = out.cloud!.recipes[0] as unknown as { collaborators: { uid: string }[]; collaboratorUids: string[] };
+    expect(r.collaboratorUids).toEqual([r.collaborators[0].uid]);
   });
 
   it('does not mutate its input', () => {

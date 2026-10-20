@@ -1846,3 +1846,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - At 390px, own profile and another cook's profile: four tiles read Started, Grew, Followers, Saves (Saves shows "–" until recipes load). The own profile has "Following N" in terracotta text under the tiles; tap it to open the list and tap again to close it. Followers still opens its list. The views line no longer repeats saves.
 - Reviewer noted: on a public profile a failed `useUserRecipes` shows 0s in the tiles (pre-existing). The own profile's Following list shows "Not following anyone yet" if its read fails, because `useFollowingList` exposes no error (pre-existing).
 - Check the four tiles at 320px with 4-digit values: nothing should overflow or wrap.
+
+### RL-172 Collaborator uid list
+- No visible change. On the emulator (or after RL-156 deploys, live): Apply a suggestion from another cook and check the recipe document now has `collaboratorUids: [their uid]` beside `collaborators`; Keep as branch gives the new branch the same. Edit and save the recipe afterwards: both fields stay.
+- Download my data on an account with a credited recipe: `collaboratorUids` shows `other-user-N`, never a raw uid.
+
+- Reviewer noted (round 2, low): a recipe with 50 credited cooks can never take another Apply (rules cap; generic error). Create does not drop the owner from collaboratorUids (harmless). The erase script's arrayRemove on collaborators needs an exact object match; its re-check fails loudly if not.

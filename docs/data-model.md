@@ -78,7 +78,7 @@ transaction); everything else, `favorites` included, stays.
 
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
-| `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `createdAt` | The published feed. Read by anyone, signed in or not. |
+| `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `collaboratorUids`, `createdAt` | The published feed. Read by anyone, signed in or not. `collaboratorUids` (RL-172) is the plain uid list of `collaborators`, so a profile can find recipes a cook contributed to with `array-contains` (an object match on `collaborators` breaks when a display name changes). Cloud only: the Dexie `Recipe` does not carry it. Not backfilled: recipes credited before RL-172 lack it until a later Apply on them adds the suggester's uid. |
 | `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, recipeOwnerId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
 | `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected \| applied \| branched` (shown Open, Approved on old documents, Declined, Applied, Branched), optional `edits[]` (`SuggestionEdit`: kind, index, name, from, to, why) and `branchId` (RL-145), `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
@@ -183,7 +183,10 @@ Since RL-080 that delete runs before the local one, and the local subtree is kep
 Since RL-016 a create also needs `createdAt` to be an integer (milliseconds) no more than 60
 seconds ahead of server time, an owner update may not change `createdAt`, and both require
 `title` to be a string of at most 200 characters and `ingredients` and `instructions` to be
-lists of at most 100 entries each, checked on the document as it would be after the write. The
+lists of at most 100 entries each, checked on the document as it would be after the write.
+Since RL-172 (in the repo, not deployed; it ships with the rules file through RL-156 or RL-160)
+`collaboratorUids` must be absent or a list of at most 50 entries, so null or a string is
+denied (emulator-checked 2026-10-21, RL-172 Notes). The
 reason: the feed is ordered by `createdAt` descending, so a far-future value would pin a
 recipe to the top of everyone's feed, and an oversized document is read on every first paint.
 Past `createdAt` values stay allowed because imports keep their original date. The caps are
@@ -254,8 +257,16 @@ rules still allow only `approved` or `rejected`, so the RL-148 client's `applied
 `collaborators` array is Apply (`applySuggestion`), which reads the cloud array and writes it
 back with the suggester added, deduped by uid, in one transaction with the edits and
 `status: 'applied'` (emulator-checked 2026-10-21, RL-148 Notes) (old approvals
-used `arrayUnion`). `publishRecipe` writes it on create only and leaves it out of a
-re-publish, because a merge replaces arrays wholesale and the local copy may be stale (RL-037). Deletion is forbidden
+used `arrayUnion`). The same update adds the suggester to `collaboratorUids` with
+`arrayUnion` (RL-172); neither field changes when the owner applies their own suggestion.
+Keep as branch creates the branch with `collaborators: [suggester]` and
+`collaboratorUids: [suggester uid]` (emulator-checked 2026-10-21, RL-172 Notes).
+`publishRecipe` writes both on create only (`collaboratorUids` derived from the local
+`collaborators`, `[]` when there are none) and leaves both out of a re-publish, because a
+merge replaces arrays wholesale and the local copy may be stale (RL-037). There is no
+backfill of `collaboratorUids`; the 2026-10-18 wipe left almost no credited recipes, and
+Apply unions every credited uid of the recipe (not only the new suggester's), so an older
+recipe gains its whole list the next time a suggestion is applied to it. Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
 records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
 verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the

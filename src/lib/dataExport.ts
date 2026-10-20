@@ -114,11 +114,17 @@ export function assembleDataExport(input: DataExportInput): DataExport {
   };
 
   // A recipe nests whole recipes in chatHistory[].recipe, each with its own credit, so recurse.
-  type Nested = { createdBy?: Person; collaborators?: Person[]; chatHistory?: Array<{ recipe?: Nested }> };
+  type Nested = {
+    createdBy?: Person;
+    collaborators?: Person[];
+    collaboratorUids?: string[];
+    chatHistory?: Array<{ recipe?: Nested }>;
+  };
   const recipeRedact = <T extends Nested>(r: T): T => ({
     ...r,
     ...(r.createdBy ? { createdBy: person(r.createdBy) } : {}),
     ...(r.collaborators ? { collaborators: r.collaborators.map(person) } : {}),
+    ...(Array.isArray(r.collaboratorUids) ? { collaboratorUids: r.collaboratorUids.map(alias) } : {}),
     ...(Array.isArray(r.chatHistory)
       ? { chatHistory: r.chatHistory.map((m) => (m && m.recipe ? { ...m, recipe: recipeRedact(m.recipe) } : m)) }
       : {}),

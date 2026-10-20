@@ -11,6 +11,7 @@ import {
   buildErasePlan,
   chunkPlan,
   summarise,
+  describeOp,
   plain,
   emulatorHosts,
   resolveTarget,
@@ -144,8 +145,8 @@ describe('redactExport', () => {
   const body = {
     profile: doc(`profiles/${U}`, {}), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), rateLimit: null, writeWindows: [], clientErrors: [],
     recipes: {
-      owned: [doc('recipes/r1', { createdBy: { uid: U, displayName: 'T' }, collaborators: [{ uid: O, displayName: 'Omar' }] })],
-      asCollaborator: [doc('recipes/r2', { createdBy: { uid: O, displayName: 'Omar' }, collaborators: [{ uid: U, displayName: 'T' }] })],
+      owned: [doc('recipes/r1', { createdBy: { uid: U, displayName: 'T' }, collaborators: [{ uid: O, displayName: 'Omar' }], collaboratorUids: [O] })],
+      asCollaborator: [doc('recipes/r2', { createdBy: { uid: O, displayName: 'Omar' }, collaborators: [{ uid: U, displayName: 'T' }], collaboratorUids: [U] })],
     },
     favorites: [doc(`favorites/${U}_r2`, { uid: U, recipeId: 'r2', recipeOwnerId: O })],
     follows: [doc(`follows/${O}_${U}`, { followerId: O, followingId: U, followerDisplayName: 'Omar' })],
@@ -161,6 +162,7 @@ describe('redactExport', () => {
     expect(json).not.toContain(O);
     expect(json).not.toContain('Omar');
     expect(r.recipes.owned[0].data.collaborators).toEqual([{ uid: 'other-user-1', displayName: null }]);
+    expect(r.recipes.owned[0].data.collaboratorUids).toEqual(['other-user-1']);
     expect(r.recipes.asCollaborator[0].data.createdBy).toEqual({ uid: 'other-user-1', displayName: null });
     expect(r.follows[0].path).toBe(`follows/other-user-1_${U}`);
     expect(r.follows[0].data.followerDisplayName).toBeNull();
@@ -168,6 +170,7 @@ describe('redactExport', () => {
   });
   it('keeps the requester and all content', () => {
     expect(r.recipes.asCollaborator[0].data.collaborators).toEqual([{ uid: U, displayName: 'T' }]);
+    expect(r.recipes.asCollaborator[0].data.collaboratorUids).toEqual([U]);
     expect(r.suggestions[0].data.suggestedBy).toEqual({ uid: U, displayName: 'T' });
     expect(r.suggestions[0].messages.map((m) => [m.data.fromUid, m.data.fromDisplayName, m.data.text])).toEqual([
       ['other-user-1', null, 'theirs'], [U, 'T', 'mine'],
@@ -196,7 +199,11 @@ describe('buildErasePlan', () => {
     ownRecipes: [doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] })],
     collaboratorRecipes: [
       doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] }),
-      doc('recipes/r2', { createdBy: { uid: O }, collaborators: [{ uid: O, displayName: 'O' }, { uid: U, displayName: 'T' }] }),
+      doc('recipes/r2', { createdBy: { uid: O }, collaborators: [{ uid: O, displayName: 'O' }, { uid: U, displayName: 'T' }], collaboratorUids: [O, U] }),
+      // Legacy credit: no uid list, so none is named (arrayRemove would create the field).
+      doc('recipes/r4', { createdBy: { uid: O }, collaborators: [{ uid: U, displayName: 'T' }] }),
+      // Only the uid list holds the uid.
+      doc('recipes/r5', { createdBy: { uid: O }, collaborators: [], collaboratorUids: [U] }),
     ],
     favorites: [
       doc(`favorites/${U}_r2`, { uid: U, recipeId: 'r2' }),
@@ -279,8 +286,13 @@ describe('buildErasePlan', () => {
   it('removes the uid from other recipes\' collaborators only', () => {
     const removes = updates.filter((o) => o.arrayRemove);
     expect(removes).toEqual([
-      { kind: 'update', path: 'recipes/r2', arrayRemove: { field: 'collaborators', values: [{ uid: U, displayName: 'T' }] } },
+      { kind: 'update', path: 'recipes/r2', arrayRemove: { collaborators: [{ uid: U, displayName: 'T' }], collaboratorUids: [U] } },
+      { kind: 'update', path: 'recipes/r4', arrayRemove: { collaborators: [{ uid: U, displayName: 'T' }] } },
+      { kind: 'update', path: 'recipes/r5', arrayRemove: { collaboratorUids: [U] } },
     ]);
+    expect(describeOp(removes[0])).toBe(
+      `UPDATE recipes/r2 collaborators remove [{"uid":"${U}","displayName":"T"}], collaboratorUids remove ["${U}"]`,
+    );
   });
 
   it('decrements counters with their delete, never below zero and never on deleted docs', () => {

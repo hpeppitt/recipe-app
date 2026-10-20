@@ -19,6 +19,7 @@ import {
   type DocumentData,
   onSnapshot,
   increment,
+  arrayUnion,
   writeBatch,
   serverTimestamp,
   runTransaction,
@@ -69,6 +70,8 @@ import { reportError } from './telemetry';
  * A re-publish also omits `collaborators`. A merge replaces arrays wholesale, and
  * the cloud array is maintained by applySuggestion (and, before RL-148, the
  * approval `arrayUnion`), so writing a stale local copy here would erase credit.
+ * `collaboratorUids` (RL-172) follows the same rule: written on create from the
+ * credited uids, never on a re-publish. The local Recipe does not carry it.
  */
 export async function publishRecipe(recipe: Recipe): Promise<void> {
   if (!firestore) return;
@@ -103,7 +106,13 @@ export async function publishRecipe(recipe: Recipe): Promise<void> {
     recipe.createdBy.uid,
     'recipe',
     ref,
-    { ...content, collaborators: collaborators ?? [], favoriteCount: 0, viewCount: 0 },
+    {
+      ...content,
+      collaborators: collaborators ?? [],
+      collaboratorUids: [...new Set((collaborators ?? []).map((c) => c.uid))],
+      favoriteCount: 0,
+      viewCount: 0,
+    },
     content
   );
 }
@@ -158,6 +167,11 @@ export type PublishedRecipe = SharedRecipe & {
    */
   prompt?: string;
   collaborators?: Collaborator[];
+  /**
+   * RL-172: the credited uids, queryable with `array-contains` where `collaborators`
+   * (objects with a display name) is not. Absent on recipes credited before it shipped.
+   */
+  collaboratorUids?: string[];
   /** RL-162: set only on an original made with "Create New Recipe Anyway". */
   relatedFamilyId?: string | null;
 };
@@ -1020,7 +1034,8 @@ const reviewMessage = (s: Suggestion) => describeEdits(s.edits ?? []) || s.messa
  * reads the recipe and the suggestion, requires the suggestion still pending,
  * checks the edits against the recipe as read (StaleSuggestionError, nothing
  * written, when any no longer matches), and writes the edited recipe with the
- * suggester added to `collaborators` together with `status: 'applied'`. So the
+ * suggester added to `collaborators` and `collaboratorUids` together with
+ * `status: 'applied'`. So the
  * recipe never changes with the suggestion left open, or the reverse. The
  * cache and the notification follow the commit. Without such edits ("Mark
  * applied") only the status and the notification.
@@ -1050,9 +1065,16 @@ export async function applySuggestion(suggestion: Suggestion, recipe: Recipe, re
           uid === cloud.createdBy?.uid || existing.some((c) => c.uid === uid)
             ? existing
             : [...existing, { uid, displayName }];
+        // Every credited uid, so a recipe credited before RL-172 gains the whole list.
+        const creditedUids = [...new Set(collaborators.map((c) => c.uid))].filter((u) => u !== cloud.createdBy?.uid);
         const updatedAt = Date.now();
-        // An update, not publishRecipe, whose re-publish omits collaborators.
-        tx.update(recipeRef, { ...result.patch, collaborators, updatedAt });
+        // An update, not publishRecipe, whose re-publish omits both credit fields.
+        tx.update(recipeRef, {
+          ...result.patch,
+          collaborators,
+          ...(creditedUids.length ? { collaboratorUids: arrayUnion(...creditedUids) } : {}),
+          updatedAt,
+        });
         tx.update(suggestionRef, { status: 'applied' });
         return toLocalRecipe({ ...cloud, ...result.patch, collaborators, updatedAt }, recipe);
       }),
