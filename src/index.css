@@ -279,6 +279,11 @@ body {
   }
 }
 
+/* Compact recipe title bar fades in (RL-129); used under motion-safe only. */
+@keyframes bar-in {
+  from { opacity: 0; }
+}
+
 /* Skeleton pulse between neutral-200 and neutral-300; no animation under reduced motion. */
 @keyframes skeleton-pulse {
   50% {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { screen, fireEvent, within } from '@testing-library/react';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { makeRecipe } from '../../test/factories';
@@ -159,5 +159,46 @@ describe('RecipeHeader menu sheet', () => {
     fireEvent.pointerDown(row);
     fireEvent.click(dlg);
     expect(screen.getByRole('dialog', { name: 'Recipe options' })).toBeInTheDocument();
+  });
+});
+
+describe('RecipeHeader title clamp and compact bar (RL-129)', () => {
+  const longTitle = 'A very long title '.repeat(6).trim();
+  function mockObserver(isIntersecting: boolean) {
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(cb: (e: { isIntersecting: boolean }[]) => void) { cb([{ isIntersecting }]); }
+      observe() {}
+      disconnect() {}
+    });
+  }
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('clamps the h1 to two lines but keeps the full text, on an original and a branch', () => {
+    mockObserver(true);
+    for (const r of [{ ...original, title: longTitle }, { ...branch, title: longTitle }]) {
+      const { unmount } = renderWithProviders(<RecipeHeader {...{ recipe: r, onBack: vi.fn(), showFavorite: false, isFavorite: false, onFavorite: vi.fn(), pendingCount: 0, isOwner: false, canSuggest: false, isSharing: false, shareDisabled: false, onShare: vi.fn(), onDelete: vi.fn(), onSuggest: vi.fn() }} />);
+      const h1 = screen.getByRole('heading', { level: 1 });
+      expect(h1.className).toContain('line-clamp-2');
+      expect(h1.textContent).toBe(longTitle);
+      expect(h1.getAttribute('title')).toBe(longTitle);
+      unmount();
+    }
+  });
+
+  it('shows an aria-hidden bar with the full title once the h1 is out of view, and its back works', () => {
+    mockObserver(false);
+    const props = show({ ...original, title: longTitle });
+    const bar = document.querySelector('[aria-hidden="true"].sticky') as HTMLElement;
+    expect(bar.textContent).toBe(longTitle);
+    const back = bar.querySelector('button') as HTMLButtonElement;
+    expect(back.tabIndex).toBe(-1);
+    fireEvent.click(back);
+    expect(props.onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no bar while the h1 is in view', () => {
+    mockObserver(true);
+    show();
+    expect(document.querySelector('.sticky')).toBeNull();
   });
 });

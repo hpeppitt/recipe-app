@@ -1761,3 +1761,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-166 Most branched ranking
 
 - No visible change yet (the Explore section ships in RL-167). Nothing to check in the browser; the unit tests cover the ranking and the hook.
+
+### RL-129 Two-line titles and the compact title bar
+- At 390 and 320px, open an original and a branch with a 90-character title: the title stops at two lines with an ellipsis, and the family label sits on its own line below.
+- Scroll until the title leaves the top: a bar with Back and the whole title (wrapping) appears pinned to the top, with no page jump. Its Back goes back. Scroll up: it goes away.
+- At 1024px in the pane: the bar pins to the top of the pane, full pane width, and does not cover the list.
+- With Reduce motion on, the bar appears with no fade. VoiceOver reads the title once.
+- Reviewer noted: the full title is not visible on touch while the clamped h1 is on screen (the bar shows only after it leaves); a long title makes the bar about 80px tall at 320px. The bar can cover a heading that a scroll-to or focus jump lands at the very top (no `scroll-pt` added); check the in-page jumps.
