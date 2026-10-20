@@ -13,6 +13,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { RecipeTileRow, MAX_TILES } from '../components/recipe/RecipeTileRow';
+import { MostBranchedList } from '../components/recipe/MostBranchedList';
 import { UserPill } from '../components/ui/UserPill';
 import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
@@ -137,6 +138,8 @@ export function ExplorePage() {
       {tileRecipes.length > 0 && (
         <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} />
       )}
+
+      {rowsAllowed && <MostBranchedList />}
 
       <div className="flex gap-2 overflow-x-auto px-5 pt-3.5 pb-1 scrollbar-none">
         <Chip label="All" active={filter === 'all'} pressed={filter === 'all'} onClick={() => setSelectedFilter('all')} />

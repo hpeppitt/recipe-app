@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { makeRecipe } from '../test/factories';
 
 const getRecent = vi.fn();
@@ -66,16 +66,25 @@ describe('useMostBranched', () => {
     expect(result.current.tiles.map((t) => t.id)).toEqual(['b', 'c', 'd']);
   });
 
-  it('reports a failed read as most-branched, shows none, and retries on the next mount', async () => {
+  it('reports a failed read as most-branched, shows error, and retries on the next mount', async () => {
     getRecent.mockRejectedValueOnce(new Error('boom'));
     const a = renderHook(() => useMostBranched('90'));
-    await waitFor(() => expect(a.result.current.status).toBe('none'));
+    await waitFor(() => expect(a.result.current.status).toBe('error'));
     expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'most-branched');
     a.unmount();
     getRecent.mockResolvedValue([root('a'), kid('k1', 'a', 1)]);
     const b = renderHook(() => useMostBranched('90'));
     await waitFor(() => expect(b.result.current.status).toBe('ready'));
     expect(getRecent).toHaveBeenCalledTimes(2);
+  });
+
+  it('retry() reads again after an error', async () => {
+    getRecent.mockRejectedValueOnce(new Error('boom'));
+    const { result } = renderHook(() => useMostBranched('90'));
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    getRecent.mockResolvedValue([root('a'), kid('k1', 'a', 1)]);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
   });
 
   it('reads nothing in local-only mode', () => {

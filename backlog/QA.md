@@ -1822,3 +1822,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - At 1280x800 and 1024x768 open a recipe from Explore, press Family (footer) and the tree icon (header): a 420px panel slides over the right with "<root> family", Tree / Timeline / Map and Branch from this one pinned at the bottom. Switch all three views; Map's big-family banner switches to Timeline inside the panel.
 - Tap a node, or a stop's Open: the panel closes and that version opens with the list still on the left. Branch from this one goes to the vary page (signed out: the sign-in sheet). Escape and a backdrop click close it, and focus returns to the button.
 - At 1023px Family and the tree icon still go to the tree page; More > See the family goes there at every width. Reopen the panel: it starts on Tree.
+
+### RL-167 Most branched on Explore
+- On Explore at 390px and 1280px, light and dark: below the tile row a "Most branched," heading with a "last 90 days" pill shows up to three families with rank, emoji, author, time and a "+N" tag. Counts should look plausible against the tree pages.
+- Open the pill by touch and by keyboard (arrows, Escape, tap outside): Last 30 days and Last 90 days only. There is no All time row (RL-166 has no all-time read), so the ticket's All time option is not built; say if you want a server-side counter ticket.
+- When the 100-recipe read does not reach back far enough, a "Counts only the newest 100 recipes" line shows under the heading.
+- It is absent under a tag chip, under Following and in local-only mode.
