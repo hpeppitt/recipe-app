@@ -843,6 +843,10 @@ The nav's Create slot now links to `/new`, the Organic 6c sentence builder insid
 
 Explore's "Branching fast this week" runs one query, `where createdAt >= 7 days ago`, `orderBy createdAt desc`, `limit 100`, and tells branches from originals on the device by `parentId`. Filtering on `parentId` in the query would need a composite index and a human deploy, and the single-field `createdAt` index already exists. The result, failures and timeouts included, is cached for the page session so a broken query is not retried on every visit; the row then stays on the Newest fallback until reload. The cost is a hard cap: originals share the 100 rows with branches, so a busy week undercounts. A server-side counter is the upgrade.
 
+### Most branched shares Branching fast's 90 day read and has no all-time range (RL-166, 2026-10-21)
+
+Reviewer finding on cost. A separate `getAllPublishedRecipes(300)` read would add up to 303 reads on every page load on Spark. Instead both Explore sections share one `getRecentPublishedRecipes(90 days, 100)` read (existing `createdAt` index, no deploy): at most about 114 reads per page load, Branching fast filtering it to 7 days and Most branched ranking 30 and 90 days. All time was dropped because a 100-row window cannot honestly claim it (`allTimeAvailable` is always false). The hook exposes `coverageStartMs` and `capped` so the picker can mark an undercounted range. Failures and timeouts are not cached, so they retry on the next mount. Server-side counter remains the upgrade.
+
 ### Wide-screen two-pane mode (RL-116, 2026-10-19)
 
 From 1024px a recipe opened from Explore or Saved shows beside the list, still under `BrowserRouter` with `<Routes>`. The list origin lives in navigation state (`listOrigin`), not the URL. In pane mode `<Routes>` is given the list's location, so the shell and the list are the same elements as on `/` or `/saved` and never remount. Choosing a row pushes a history entry, so Back steps through the recipes viewed. A reload keeps the panes, because the browser keeps `history.state`; only a direct visit or shared link shows the recipe alone.

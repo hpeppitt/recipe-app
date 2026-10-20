@@ -1757,3 +1757,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Settings shows an Account card with a person icon, "Sign in" and "Save, branch and follow cooks", and no Sign out, no Notify me when card. Appearance, Your data and Legal work as before. Switch to Dark.
 - Tap Sign in: the sign-in sheet opens over Settings. Finish the email link: you land back on Settings with the Account card showing your name and email.
 - Reviewer noted: the guest helper copy says "recipes" in Settings but "bookmarks" on the profile; the signed-out You tab has no h1 (pre-existing).
+
+### RL-166 Most branched ranking
+
+- No visible change yet (the Explore section ships in RL-167). Nothing to check in the browser; the unit tests cover the ranking and the hook.
