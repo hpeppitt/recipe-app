@@ -1860,3 +1860,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Recipes credited before RL-172 will not appear until a later Apply on them (no backfill).
 
 - Reviewer noted (round 2, low): SegmentedControl with a value matching no option has no tab stop (no caller does this today); RecipeTileGrid's bare 'Nothing here yet.' fallback on Started/Grew; role=alert inside the polite live region may announce twice.
+
+### RL-174 Forest layout (pure lib)
+- No UI yet (the page is RL-175). Nothing for the human to look at beyond the unit tests.
