@@ -51,13 +51,16 @@ interface PaneProps {
   id?: string;
   /** Pane only: called with the title each time a recipe is shown, for the shell's announcement. */
   onShown?: (title: string) => void;
+  /** Pane only: true beside the list (lg and up); false below lg, where it fills the screen as its own route does. */
+  beside?: boolean;
 }
 
-export function RecipeDetailPage({ id: paneId, onShown }: PaneProps = {}) {
+export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PaneProps = {}) {
   const params = useParams<{ id: string }>();
   const id = paneId ?? params.id;
-  const inPane = paneId !== undefined;
-  const Main = inPane ? 'div' : 'main';
+  // In the shell at any width the tag stays a div, so a resize across lg never remounts the page.
+  const Main = paneId !== undefined ? 'div' : 'main';
+  const inPane = paneId !== undefined && beside;
   const navigate = useNavigate();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
