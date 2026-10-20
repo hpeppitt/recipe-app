@@ -1675,3 +1675,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Tapping an unread row opens its target even offline; the read mark is no longer awaited.
 - Reviewer noted: a dropped notification (window full, offline, unverified sender, parent only local) leaves no telemetry.
 - Reviewer noted: the row shows the parent's title while the tap opens the branch.
+
+### RL-154 Activity filter chips and day headers
+
+- On Activity at 390 and 320px: All, Branches, Suggestions, Follows chips filter the rows; an empty chip says "Nothing here yet."; leaving and returning resets to All.
+- Headers read Today, Yesterday, a weekday name (2 to 6 days ago), then a date like "12 Oct". With a filter on, Mark all read still clears everything; VoiceOver announces the chip as pressed.
+- Chips are plain toggle buttons with the Chip look, not the `Chip` component, because its selected colour is primary-600 and the spec wants text-primary.
+- Reviewer noted: the fetch error state still has no Retry (pre-existing); check the chip row at a real 320px.

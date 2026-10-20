@@ -50,12 +50,13 @@ beforeEach(() => {
 });
 
 describe('ActivityPage', () => {
-  it('splits into Today and Earlier and omits an empty group label', () => {
+  it('groups under day headers and omits an empty group label', () => {
     const old = Date.now() - 3 * 86400_000;
     setHook([notif({ id: 'a' }), notif({ id: 'b', createdAt: old })]);
     const first = renderWithProviders(<ActivityPage />);
     const today = screen.getByRole('heading', { name: 'Today' }).parentElement!;
-    const earlier = screen.getByRole('heading', { name: 'Earlier' }).parentElement!;
+    const weekday = new Date(old).toLocaleDateString('en-GB', { weekday: 'long' });
+    const earlier = screen.getByRole('heading', { name: weekday }).parentElement!;
     expect(within(today).getAllByRole('button')).toHaveLength(1);
     expect(within(earlier).getAllByRole('button')).toHaveLength(1);
 
@@ -63,7 +64,39 @@ describe('ActivityPage', () => {
     setHook([notif({ id: 'a' })]);
     renderWithProviders(<ActivityPage />);
     expect(screen.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Earlier' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: weekday })).toBeNull();
+  });
+
+  it('filters by chip, shows an empty state, and Mark all read says all types', () => {
+    setHook([
+      notif({ id: 'f', type: 'follow', recipeId: undefined, read: false }),
+      notif({ id: 'b', type: 'branch' }),
+      notif({ id: 's', type: 'suggestion' }),
+    ]);
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Mark all read' })).toBeInTheDocument();
+    const rows = () => screen.getAllByRole('listitem').length;
+    expect(rows()).toBe(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Branches' }));
+    expect(rows()).toBe(1);
+    expect(screen.getByRole('button', { name: 'Branches' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Mark all read (all types)' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Suggestions' }));
+    expect(rows()).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Follows' }));
+    expect(rows()).toBe(1);
+  });
+
+  it('shows Nothing here yet under a chip with no rows', () => {
+    setHook([notif({ id: 'a' })]);
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Follows' }));
+    expect(screen.getByText('No follows yet')).toBeInTheDocument();
+    expect(screen.getByText('Nothing here yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('listitem')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('renders the verb for every type with an exact accessible name', () => {
@@ -199,6 +232,6 @@ describe('ActivityPage', () => {
     expect(detail('r')).toHaveTextContent(/^"thanks"/);
     expect(detail('e')).toHaveTextContent(/^Someone: 2 g salt \u2192 1 g/);
     expect(detail('w')).not.toHaveTextContent(':');
-    expect(screen.getAllByRole('button')[0]).toHaveAccessibleDescription(/Sami: 150 g|Applied|Kept|thanks/);
+    expect(screen.getAllByRole('listitem')[0].querySelector('button')).toHaveAccessibleDescription(/Sami: 150 g|Applied|Kept|thanks/);
   });
 });

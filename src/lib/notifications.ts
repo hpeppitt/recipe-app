@@ -37,14 +37,50 @@ export const NOTIF_VERBS: Record<string, string> = {
   branch: 'branched your recipe',
 };
 
-/** Split items (any order kept) into those created since local midnight of `now` and the rest. */
-export function groupByDay<T extends { createdAt: number }>(
+export type ActivityChip = 'all' | 'branches' | 'suggestions' | 'follows';
+
+const CHIP_TYPES: Record<Exclude<ActivityChip, 'all'>, string[]> = {
+  branches: ['branch', 'suggestion_branched'],
+  suggestions: ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied'],
+  follows: ['follow'],
+};
+
+/** Rows for a chip. `favorite` and unknown types appear under All only. */
+export function filterByChip<T extends { type: string }>(items: T[], chip: ActivityChip): T[] {
+  return chip === 'all' ? items : items.filter((i) => CHIP_TYPES[chip].includes(i.type));
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Group items under Today, Yesterday, a weekday (2 to 6 days ago), then a date
+ * ("12 Oct", with the year when not the current one). Days are local calendar
+ * days, counted through Date.UTC of the local Y/M/D so a 23 or 25 hour DST day
+ * still counts as one. Input order is kept within and between groups; a future
+ * timestamp (clock skew) counts as Today.
+ */
+export function groupByDays<T extends { createdAt: number }>(
   items: T[],
   now: number = Date.now()
-): { today: T[]; earlier: T[] } {
-  const midnight = new Date(now).setHours(0, 0, 0, 0);
-  return {
-    today: items.filter((i) => i.createdAt >= midnight),
-    earlier: items.filter((i) => i.createdAt < midnight),
-  };
+): { label: string; items: T[] }[] {
+  const n = new Date(now);
+  const today = Date.UTC(n.getFullYear(), n.getMonth(), n.getDate());
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const d = new Date(item.createdAt);
+    const days = Math.round((today - Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400_000);
+    const label =
+      days <= 0
+        ? 'Today'
+        : days === 1
+          ? 'Yesterday'
+          : days <= 6
+            ? WEEKDAYS[d.getDay()]
+            : `${d.getDate()} ${MONTHS[d.getMonth()]}${d.getFullYear() === n.getFullYear() ? '' : ` ${d.getFullYear()}`}`;
+    const group = groups.get(label);
+    if (group) group.push(item);
+    else groups.set(label, [item]);
+  }
+  return [...groups].map(([label, items]) => ({ label, items }));
 }
