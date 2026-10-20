@@ -1,6 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { MessageCircle } from '../ui/icons';
+import { Ellipsis, GitBranch, MessageCircle } from '../ui/icons';
+import { Sheet } from '../ui/Sheet';
+import { SuggestionDiffRow } from './SuggestionDiffRow';
+import { describeEdit, hasApplicableEdits } from '../../lib/suggestion';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { UserPill } from '../ui/UserPill';
 import { pluralize, timeAgo } from '../../lib/utils';
@@ -10,14 +13,16 @@ interface SuggestionListProps {
   /** Already filtered: the owner's list is everything, anyone else's is their own. */
   suggestions: Suggestion[];
   isOwner: boolean;
-  /** The suggestion being approved or declined; disables every review button. */
+  /** The suggestion being reviewed; disables every review button. */
   reviewingId: string | null;
   reviewError: string | null;
-  onReview: (id: string, action: 'approve' | 'reject', message: string) => void;
+  onApply: (id: string) => void;
+  onKeepAsBranch: (id: string) => void;
+  onDecline: (id: string) => void;
 }
 
 const actionButton =
-  'inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 font-heading text-sm whitespace-nowrap transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
+  'inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 font-heading text-sm leading-tight transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 const secondary = `${actionButton} border border-border text-text-primary hover:bg-surface-secondary`;
 
 const closedTag = {
@@ -28,6 +33,15 @@ const closedTag = {
   pending: { label: 'Open', cls: 'bg-accent-100 text-accent-800' },
 } as const;
 
+/** The note under the diff rows: the general edit, else the whys, else the old free-text message. */
+function noteOf(s: Suggestion): string {
+  const edits = s.edits ?? [];
+  const general = edits.find((e) => e.kind === 'general');
+  if (general) return general.to;
+  const whys = edits.map((e) => e.why?.trim()).filter(Boolean);
+  return whys.length ? whys.join(' ') : edits.length ? '' : s.message;
+}
+
 /**
  * The suggestions section under the recipe body. The owner's attention is kept
  * by the pending badge on More (RL-100), so this no longer sits above the body.
@@ -37,11 +51,25 @@ export function SuggestionList({
   isOwner,
   reviewingId,
   reviewError,
-  onReview,
+  onApply,
+  onKeepAsBranch,
+  onDecline,
 }: SuggestionListProps) {
   const [declining, setDeclining] = useState<{ id: string; message: string } | null>(null);
+  // Which button was pressed, so "Working…" shows on that one only.
+  const [pressed, setPressed] = useState<'apply' | 'branch' | 'decline'>('apply');
+  const [moreFor, setMoreFor] = useState<string | null>(null);
+  const working = (id: string, kind: typeof pressed) => reviewingId === id && pressed === kind;
   const navigate = useNavigate();
+  const alertRef = useRef<HTMLParagraphElement>(null);
+  // A failed review leaves focus on a disabled or closed control; move it to the message.
+  useEffect(() => {
+    if (!reviewError) return;
+    alertRef.current?.focus();
+    alertRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [reviewError]);
   if (suggestions.length === 0) return null;
+  const nameOf = (s: Suggestion) => s.suggestedBy.displayName || 'Someone';
 
   const open = suggestions.filter((s) => s.status === 'pending');
   const closed = suggestions.filter((s) => s.status !== 'pending');
@@ -64,13 +92,13 @@ export function SuggestionList({
       </div>
       {/* A failed review used to be entirely silent: the row stayed pending. */}
       {reviewError && (
-        <p role="alert" className="mb-2 text-xs text-danger-600">
+        <p ref={alertRef} tabIndex={-1} role="alert" className="mb-2 text-xs text-danger-600 focus:outline-none">
           {reviewError}
         </p>
       )}
       <div className="space-y-3">
         {open.map((s) => (
-          <div key={s.id} className="flex flex-col gap-2.5 rounded-[28px] bg-surface p-3.5 shadow-md">
+          <div key={s.id} aria-busy={reviewingId === s.id} className="flex flex-col gap-2.5 rounded-[28px] bg-surface p-3.5 shadow-md">
             <div className="flex items-center gap-2 text-[13px]">
               {/* The ring is on the wrapper: the wrapper clips, so a ring on the link would be cut. */}
               <span className="min-w-0 overflow-hidden rounded-full focus-within:ring-2 focus-within:ring-primary-500">
@@ -86,38 +114,61 @@ export function SuggestionList({
                 Open
               </span>
             </div>
-            <p className="break-words text-sm text-text-primary">{s.message || '(No message)'}</p>
-            <div className="flex gap-2">
-              {isOwner && (
+            {(s.edits ?? []).map((e, i) => (
+              <SuggestionDiffRow key={i} edit={e} />
+            ))}
+            <p className="break-words text-sm text-text-primary">{noteOf(s) || '(No message)'}</p>
+            <Link
+              to={`/recipe/${s.recipeId}/suggestion/${s.id}`}
+              className="inline-flex min-h-11 items-center gap-1 self-start text-[13px] font-semibold text-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0" />
+              {isOwner ? 'Replies' : 'Reply'}
+            </Link>
+            {isOwner && (
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setDeclining({ id: s.id, message: s.message })}
+                  onClick={() => {
+                    setPressed('decline');
+                    setDeclining({ id: s.id, message: s.message });
+                  }}
                   disabled={reviewingId !== null}
-                  className={secondary}
+                  aria-label={working(s.id, 'decline') ? 'Working…' : `Decline suggestion from ${nameOf(s)}`}
+                  className={`${secondary} ${working(s.id, 'decline') ? '!px-1' : ''}`}
                 >
-                  Decline
+                  {working(s.id, 'decline') ? 'Working…' : 'Decline'}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => openThread(s)}
-                className={secondary}
-              >
-                <MessageCircle className="h-4 w-4 shrink-0 max-[399px]:hidden" />
-                {isOwner ? 'Replies' : 'Reply'}
-              </button>
-              {isOwner && (
                 <button
                   type="button"
-                  // Applies the suggestion (RL-148); RL-149 adds Keep as branch here.
-                  onClick={() => onReview(s.id, 'approve', s.message)}
+                  onClick={() => {
+                    setPressed('apply');
+                    onApply(s.id);
+                  }}
                   disabled={reviewingId !== null}
-                  className={`${actionButton} bg-primary-600 text-on-accent hover:bg-primary-700 ${reviewingId === s.id ? '!px-1' : ''}`}
+                  aria-label={
+                    working(s.id, 'apply')
+                      ? 'Working…'
+                      : `${hasApplicableEdits(s.edits ?? []) ? 'Apply' : 'Mark applied'} suggestion from ${nameOf(s)}`
+                  }
+                  className={`${actionButton} bg-primary-600 text-on-accent hover:bg-primary-700 ${working(s.id, 'apply') ? '!px-1' : ''}`}
                 >
-                  {reviewingId === s.id ? 'Working…' : 'Apply'}
+                  {working(s.id, 'apply') ? 'Working…' : hasApplicableEdits(s.edits ?? []) ? 'Apply' : 'Mark applied'}
                 </button>
-              )}
-            </div>
+                {hasApplicableEdits(s.edits ?? []) && (
+                  <button
+                    type="button"
+                    aria-label={working(s.id, 'branch') ? 'Working…' : `More options for ${nameOf(s)}'s suggestion`}
+                    aria-haspopup="dialog"
+                    onClick={() => setMoreFor(s.id)}
+                    disabled={reviewingId !== null}
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border text-text-primary transition-colors hover:bg-surface-secondary disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  >
+                    <Ellipsis className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -125,13 +176,13 @@ export function SuggestionList({
         <div className="mt-2 flex flex-col gap-0.5">
           {closed.map((s) => {
             const tag = closedTag[s.status];
-            const message = s.message || '(No message)';
+            const message = s.edits?.length ? describeEdit(s.edits[0]) : s.message || '(No message)';
             return (
               <div key={s.id}>
                 <button
                   type="button"
-                  onClick={() => openThread(s)}
-                  aria-label={`${message}, ${tag.label}`}
+                  onClick={() => (s.status === 'branched' && s.branchId ? navigate(`/recipe/${s.branchId}`) : openThread(s))}
+                  aria-label={`${nameOf(s)}: ${message}, ${tag.label}${s.status === 'branched' && s.branchId ? ', opens branch' : ''}`}
                   className="flex min-h-11 w-full items-center gap-2.5 px-1 py-2.5 text-left text-sm"
                 >
                   <span className="min-w-0 max-w-[40%] shrink-0 overflow-hidden">
@@ -148,12 +199,30 @@ export function SuggestionList({
           })}
         </div>
       )}
+      <Sheet open={moreFor !== null} onClose={() => setMoreFor(null)} labelledBy="suggestion-more-title">
+        <h2 id="suggestion-more-title" className="sr-only">
+          More options
+        </h2>
+        <button
+          type="button"
+          onClick={() => {
+            const id = moreFor;
+            setMoreFor(null);
+            setPressed('branch');
+            if (id) onKeepAsBranch(id);
+          }}
+          className="flex min-h-11 w-full items-center gap-3 rounded-full px-4 py-3 text-left text-sm text-text-primary transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+        >
+          <GitBranch className="h-5 w-5 shrink-0" />
+          Keep as branch
+        </button>
+      </Sheet>
       <DeclineSuggestionDialog
         message={declining?.message ?? null}
         onConfirm={() => {
           const target = declining;
           setDeclining(null);
-          if (target) onReview(target.id, 'reject', target.message);
+          if (target) onDecline(target.id);
         }}
         onCancel={() => setDeclining(null)}
       />

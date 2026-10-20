@@ -611,7 +611,7 @@ describe('RecipeDetailPage suggestions', () => {
     applyMock.mockResolvedValue(undefined);
     suggestionRows = [row('a', 'u1', 'More garlic')];
     open();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Mark applied suggestion from/ }));
     await waitFor(() => expect(applyMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), recipe));
     expect(navigateSpy).not.toHaveBeenCalledWith('/recipe/r1/vary', expect.anything());
   });
@@ -621,7 +621,7 @@ describe('RecipeDetailPage suggestions', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     suggestionRows = [row('a', 'u1', 'More garlic')];
     open();
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Mark applied suggestion from/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't apply that suggestion. Please try again.");
   });
 
@@ -630,7 +630,7 @@ describe('RecipeDetailPage suggestions', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     suggestionRows = [row('a', 'u1', 'More garlic')];
     open();
-    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Decline suggestion from/ }));
     expect(rejectMock).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Decline this suggestion?' })).getByRole('button', { name: 'Decline' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't decline that suggestion. Please try again.");
