@@ -10,7 +10,7 @@ import { isFirebaseConfigured } from '../services/firebase';
 import { canManageRecipe } from '../lib/ownership';
 import { trackRecipeUpdated } from '../services/analytics';
 import { reportError } from '../services/telemetry';
-import { withTimeout } from '../lib/utils';
+import { formatTime, withTimeout } from '../lib/utils';
 import {
   recipeToDraft,
   validateDraft,
@@ -26,8 +26,7 @@ import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { Clock, Gauge, GitBranch, Pencil, Plus, UserRound, X } from '../components/ui/icons';
+import { ChevronDown, Clock, Gauge, GitBranch, Pencil, Plus, UserRound, X } from '../components/ui/icons';
 
 /** How long a verified owner's save waits for the cloud check and publish. */
 const CLOUD_SAVE_TIMEOUT_MS = 5000;
@@ -40,6 +39,20 @@ const DIFFICULTIES = [
   { value: 'medium' as const, label: 'Medium' },
   { value: 'hard' as const, label: 'Hard' },
 ];
+
+const SERVINGS_OPTIONS = Array.from({ length: 24 }, (_, i) => ({
+  value: String(i + 1),
+  label: `${i + 1} ${i === 0 ? 'serving' : 'servings'}`,
+}));
+// A stored minutes value that is not a whole non-negative number shows raw, not "NaN min".
+const minutesLabel = (prefix: string, v: string) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? `${prefix} ${formatTime(n)}` : `${prefix} ${v}`;
+};
+const MINUTES = [...Array.from({ length: 13 }, (_, i) => i * 5), 75, 90, 105, 120, 150, 180, 210, 240];
+const timeOptions = (prefix: string) => MINUTES.map((m) => ({ value: String(m), label: `${prefix} ${formatTime(m)}` }));
+const PREP_OPTIONS = timeOptions('Prep');
+const COOK_OPTIONS = timeOptions('Cook');
 
 /**
  * Pill field styling. Width is deliberately absent: it is set per field, because
@@ -92,12 +105,17 @@ function firstInvalidId(errors: DraftErrors, draft: RecipeDraft): string | null 
   return null;
 }
 
-/** A labelled pill holding a number input: icon, short visible label, input. */
-function FactPill({
+/**
+ * A pill that is a native select: icon, value, chevron. The option list is fixed;
+ * a current value that is not on it is added so opening and saving never loses it.
+ */
+function PickPill({
   id,
   label,
   icon,
   value,
+  options,
+  extraLabel,
   onChange,
   error,
 }: {
@@ -105,29 +123,35 @@ function FactPill({
   label: string;
   icon: ReactNode;
   value: string;
+  options: { value: string; label: string }[];
+  extraLabel?: (value: string) => string;
   onChange: (value: string) => void;
   error?: string;
 }) {
+  const shown = options.some((o) => o.value === value) ? options : [...options, { value, label: value ? (extraLabel?.(value) ?? value) : 'Not set' }];
   return (
     <div className="min-w-0">
-      <label
-        htmlFor={id}
-        className={`flex min-h-11 items-center gap-1.5 rounded-full border bg-neutral-100 px-3 py-1.5 text-[13px] text-text-secondary focus-within:ring-2 focus-within:ring-primary-500 ${FOCUS_SCROLL} ${error ? 'border-danger-500' : 'border-neutral-400'}`}
-      >
-        {icon}
-        <span>{label}</span>
-        <input
+      <div className="relative">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">{icon}</span>
+        <select
           id={id}
-          inputMode="numeric"
+          aria-label={label}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
-          className="w-12 min-w-0 bg-transparent text-center text-[13px] font-bold text-text-primary focus:outline-none"
-        />
-      </label>
+          className={`min-h-11 appearance-none rounded-full bg-neutral-100 py-1.5 pl-9 pr-8 text-[13px] font-bold text-text-primary ring-inset focus:outline-none focus-visible:ring-[3px] ${FOCUS_SCROLL} ${error ? 'ring-[1.5px] ring-danger-500 focus-visible:ring-danger-500' : 'ring-[1.5px] ring-neutral-400 focus-visible:ring-primary-500'}`}
+        >
+          {shown.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
+      </div>
       {error && (
-        <p id={`${id}-error`} role="alert" className="mt-1 px-3 text-sm text-danger-700">
+        <p id={`${id}-error`} role="alert" className="mt-1 max-w-[220px] px-3 text-sm text-danger-700">
           {error}
         </p>
       )}
@@ -436,28 +460,16 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            <FactPill id="edit-servings" label="Servings" icon={<UserRound className="h-4 w-4" />} value={draft.servings} onChange={(v) => update('servings', v)} error={errors.servings} />
-            <FactPill id="edit-prep" label="Prep (min)" icon={<Clock className="h-4 w-4" />} value={draft.prepTime} onChange={(v) => update('prepTime', v)} error={errors.prepTime} />
-            <FactPill id="edit-cook" label="Cook (min)" icon={<Clock className="h-4 w-4" />} value={draft.cookTime} onChange={(v) => update('cookTime', v)} error={errors.cookTime} />
+            <PickPill id="edit-servings" label="Servings" icon={<UserRound className="h-4 w-4" />} value={draft.servings} options={SERVINGS_OPTIONS} extraLabel={(v) => `${v} servings`} onChange={(v) => update('servings', v)} error={errors.servings} />
+            <PickPill id="edit-prep" label="Prep" icon={<Clock className="h-4 w-4" />} value={draft.prepTime} options={PREP_OPTIONS} extraLabel={(v) => minutesLabel('Prep', v)} onChange={(v) => update('prepTime', v)} error={errors.prepTime} />
+            <PickPill id="edit-cook" label="Cook" icon={<Clock className="h-4 w-4" />} value={draft.cookTime} options={COOK_OPTIONS} extraLabel={(v) => minutesLabel('Cook', v)} onChange={(v) => update('cookTime', v)} error={errors.cookTime} />
+            <PickPill id="edit-difficulty" label="Difficulty" icon={<Gauge className="h-4 w-4" />} value={draft.difficulty} options={DIFFICULTIES} onChange={(v) => update('difficulty', v as Recipe['difficulty'])} />
           </div>
           {/* Total is derived, so it is stated rather than editable: three
               independently editable time fields can disagree with each other. */}
           <p className="-mt-2 text-xs text-text-tertiary">
             Total time is prep plus cook, worked out for you.
           </p>
-
-          <div className="space-y-1.5">
-            <span className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
-              <Gauge className="h-4 w-4" />
-              Difficulty
-            </span>
-            <SegmentedControl
-              label="Difficulty"
-              options={DIFFICULTIES}
-              value={draft.difficulty}
-              onChange={(value) => update('difficulty', value)}
-            />
-          </div>
 
           <section className="space-y-2">
             <h3 className="mt-1.5 font-heading text-xl text-text-primary">Ingredients</h3>
