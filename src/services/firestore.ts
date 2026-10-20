@@ -29,7 +29,7 @@ import { auth, firestore } from './firebase';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
 import { collectSubtreeIds } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
-import { truncateNotificationMessage } from '../lib/notifications';
+import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
 import { normalizeTags } from '../lib/library';
@@ -938,6 +938,38 @@ export function subscribeNotifications(
   );
 }
 
+/** The owner's "Notify me when" document; `null` when it does not exist (all on). */
+export function subscribeNotificationPrefs(
+  uid: string,
+  callback: (prefs: NotificationPrefs | null) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!firestore) {
+    // Nothing to read: report "no document" so the caller is not left waiting.
+    queueMicrotask(() => callback(null));
+    return () => {};
+  }
+  return onSnapshot(
+    doc(firestore, 'notificationPrefs', uid),
+    (snap) => {
+      const d = snap.data();
+      callback(
+        d && typeof d.branch === 'boolean' && typeof d.suggestion === 'boolean' && typeof d.follow === 'boolean'
+          ? { branch: d.branch, suggestion: d.suggestion, follow: d.follow }
+          : null
+      );
+    },
+    // Not deployed until RL-156: a denied read leaves everything on.
+    (err) => onError?.(err)
+  );
+}
+
+/** Writes the whole document; the rules require exactly these keys and a server `updatedAt`. */
+export async function setNotificationPrefs(uid: string, prefs: NotificationPrefs): Promise<void> {
+  if (!firestore) throw new Error('Firebase is not configured');
+  await setDoc(doc(firestore, 'notificationPrefs', uid), { ...prefs, updatedAt: serverTimestamp() });
+}
+
 export async function markNotificationRead(
   notificationId: string
 ): Promise<void> {
@@ -1336,7 +1368,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, writeWindows: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), where(field, '==', uid));
@@ -1372,7 +1404,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, writeWindows] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows] = await Promise.all([
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -1391,6 +1423,13 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
       const snap = await getDoc(doc(fs, 'termsAcceptance', uid));
       return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
     }),
+    // Owner read needs a verified email under the rules, like suggestions.
+    emailVerified
+      ? exportSection('notificationPrefs', async () => {
+          const snap = await getDoc(doc(fs, 'notificationPrefs', uid));
+          return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
+        })
+      : Promise.resolve<Section<CloudDoc | null>>({ error: VERIFY_NOTE }),
     // Ids are exact and a missing document reads as absent, never denied (RL-026).
     exportSection<CloudDoc[]>('writeWindows', async () => {
       const snaps = await Promise.all(
@@ -1399,5 +1438,5 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
       return { data: snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...exportFields(s.data()!) }) as CloudDoc) };
     }),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, writeWindows };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows };
 }

@@ -6,6 +6,7 @@ import { STORAGE_KEYS } from '../../lib/constants';
 import { reloadConsent } from '../../services/analytics';
 
 vi.mock('../../services/firebase', () => ({ isFirebaseConfigured: false }));
+vi.mock('../../services/firestore', () => ({ subscribeNotificationPrefs: () => () => {} }));
 vi.mock('../../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null, updateAvatar: vi.fn() }) }));
 
 import { ConsentBanner } from './ConsentBanner';
@@ -77,19 +78,19 @@ describe('ConsentBanner', () => {
         <SettingsPage />
       </>
     );
-    const toggle = screen.getByRole('switch');
+    const toggle = screen.getByRole('switch', { name: 'Privacy: allow analytics' });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
     fireEvent.click(toggle);
     expect(stored().analytics).toBe('granted');
     expect(screen.queryByRole('region', { name: 'Analytics consent' })).toBeNull();
-    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(screen.getByRole('switch'));
+    expect(screen.getByRole('switch', { name: 'Privacy: allow analytics' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('switch', { name: 'Privacy: allow analytics' }));
     expect(stored().analytics).toBe('denied');
   });
 
   it('Settings hides the toggle without a key', () => {
     vi.stubEnv('VITE_POSTHOG_KEY', '');
     renderWithProviders(<SettingsPage />);
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Privacy: allow analytics' })).toBeNull();
   });
 });

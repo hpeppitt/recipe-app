@@ -142,7 +142,7 @@ describe('resolveTarget', () => {
 
 describe('redactExport', () => {
   const body = {
-    profile: doc(`profiles/${U}`, {}), termsAcceptance: null, rateLimit: null, writeWindows: [], clientErrors: [],
+    profile: doc(`profiles/${U}`, {}), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), rateLimit: null, writeWindows: [], clientErrors: [],
     recipes: {
       owned: [doc('recipes/r1', { createdBy: { uid: U, displayName: 'T' }, collaborators: [{ uid: O, displayName: 'Omar' }] })],
       asCollaborator: [doc('recipes/r2', { createdBy: { uid: O, displayName: 'Omar' }, collaborators: [{ uid: U, displayName: 'T' }] })],
@@ -190,6 +190,7 @@ describe('buildErasePlan', () => {
     authUser: { uid: U },
     profile: doc(`profiles/${U}`, {}),
     termsAcceptance: doc(`termsAcceptance/${U}`, {}),
+    notificationPrefs: doc(`notificationPrefs/${U}`, {}),
     rateLimit: null,
     writeWindows: [doc(`writeWindows/${U}_reply`, {})],
     ownRecipes: [doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] })],
@@ -294,7 +295,7 @@ describe('buildErasePlan', () => {
   it('deletes everything else once', () => {
     expect(deletes).toEqual(expect.arrayContaining([
       'recipes/r1', `favorites/${O}_r1`, `follows/${U}_${O}`, `follows/${O}_${U}`, 'notifications/n1', 'notifications/n2',
-      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `writeWindows/${U}_reply`,
+      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `notificationPrefs/${U}`, `writeWindows/${U}_reply`,
     ]));
     expect(new Set(deletes).size).toBe(deletes.length);
     expect(plan.deleteAuthUser).toBe(true);

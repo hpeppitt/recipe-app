@@ -6,6 +6,7 @@ import { Routes, Route, Link } from 'react-router-dom';
 import { LEGAL_DOCUMENTS } from '../lib/legal';
 
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: false }));
+vi.mock('../services/firestore', () => ({ subscribeNotificationPrefs: () => () => {} }));
 vi.mock('../hooks/useProfile', () => ({ useOwnProfile: () => ({ profile: null, updateAvatar: vi.fn() }) }));
 
 import { LegalPage } from './LegalPage';

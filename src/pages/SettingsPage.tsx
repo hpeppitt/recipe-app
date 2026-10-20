@@ -8,6 +8,8 @@ import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useTheme } from '../hooks/useTheme';
 import { useConsent } from '../hooks/useConsent';
+import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
+import type { NotificationPrefs } from '../lib/notifications';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { useOwnProfile } from '../hooks/useProfile';
@@ -24,10 +26,10 @@ const ROW =
   'flex w-full min-h-11 items-center justify-between gap-3 py-3.5 text-left text-[15px] text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:opacity-50';
 const CARD = 'rounded-[28px] bg-surface-secondary px-4 py-1';
 
-function Group({ label, children }: { label: string; children: ReactNode }) {
+function Group({ label, id, children }: { label: string; id?: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-1.5 ml-1.5 text-xs font-semibold text-text-tertiary">{label}</h2>
+      <h2 id={id} className="mb-1.5 ml-1.5 text-xs font-semibold text-text-tertiary">{label}</h2>
       {children}
     </section>
   );
@@ -37,6 +39,12 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 function Row({ children }: { children: ReactNode }) {
   return <div className="border-b border-border last:border-b-0">{children}</div>;
 }
+
+const NOTIFY_ROWS: [keyof NotificationPrefs, string][] = [
+  ['branch', 'Someone branches my recipe'],
+  ['suggestion', 'I get a suggestion'],
+  ['follow', 'Someone follows me'],
+];
 
 function Help({ children }: { children: ReactNode }) {
   return <p className="pb-2 text-xs text-text-tertiary">{children}</p>;
@@ -55,6 +63,7 @@ export function SettingsPage() {
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured, signOut } = useAuth();
   const { profile, updateAvatar } = useOwnProfile();
+  const notify = useNotificationPrefs();
   const [editingAvatar, setEditingAvatar] = useState(false);
   // Same test as useOwnRecipesSync: for these users own recipes reload from the account.
   const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
@@ -219,6 +228,44 @@ export function SettingsPage() {
                 Add an email to keep your recipes.
               </p>
             )}
+          </Group>
+        )}
+
+        {notify.enabled && (
+          <Group label="Notify me when" id="notify-heading">
+            <div role="group" aria-labelledby="notify-heading" className={CARD}>
+              {NOTIFY_ROWS.map(([key, label]) => (
+                <Row key={key}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={notify.prefs[key]}
+                    disabled={!notify.loaded || notify.readFailed || notify.pending.length > 0}
+                    aria-busy={!notify.loaded}
+                    onClick={() => notify.setPref(key, !notify.prefs[key])}
+                    className={ROW}
+                  >
+                    {label}
+                    <span
+                      aria-hidden
+                      className={`relative h-[26px] w-11 flex-shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 ${notify.prefs[key] ? 'bg-accent-2-600' : 'bg-neutral-400 ring-1 ring-inset ring-neutral-500'}`}
+                    >
+                      <span
+                        className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface motion-safe:transition-[left] motion-safe:duration-150 ${notify.prefs[key] ? 'left-[21px]' : 'left-[3px]'}`}
+                      />
+                    </span>
+                  </button>
+                </Row>
+              ))}
+            </div>
+            <p className="mt-2 ml-1.5 text-xs text-text-tertiary">
+              Switched-off types are still received and come back when you switch them on. Outcomes of your suggestions and saves always show.
+            </p>
+            <p role="status" data-notify-status className="ml-1.5 text-xs text-danger-700">
+              {notify.readFailed
+                ? "Couldn't load your choices. Reopen Settings to try again."
+                : notify.failedKey && `Couldn't save that. Try again. (${NOTIFY_ROWS.find(([k]) => k === notify.failedKey)![1]})`}
+            </p>
           </Group>
         )}
 

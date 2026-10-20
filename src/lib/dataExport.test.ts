@@ -20,6 +20,7 @@ const empty: CloudInput = {
   suggestions: { data: [] },
   notifications: { data: [] },
   termsAcceptance: { data: null },
+  notificationPrefs: { data: null },
   writeWindows: { data: [] },
 };
 
@@ -53,6 +54,7 @@ function full(): DataExportInput {
       },
       notifications: { data: [{ id: 'n1', recipientUid: ME, type: 'follow', fromUid: BOB, fromDisplayName: 'Bob', message: null, read: false, createdAt: 9 }] },
       termsAcceptance: { data: { id: ME, version: 'v', acceptedAt: 1 } },
+      notificationPrefs: { data: { id: ME, branch: true, suggestion: true, follow: false } },
       writeWindows: { data: [{ id: `${ME}_recipe`, count: 1 }] },
     },
   };
@@ -71,6 +73,7 @@ describe('assembleDataExport', () => {
     expect(out.cloud?.follows).toHaveLength(2);
     expect(out.cloud?.suggestions[0].messages.map((m) => m.text)).toEqual(['thanks', 'ok']);
     expect(out.cloud?.termsAcceptance).not.toBeNull();
+    expect(out.cloud?.notificationPrefs).toMatchObject({ follow: false });
     expect(out.cloud?.writeWindows).toHaveLength(1);
   });
 

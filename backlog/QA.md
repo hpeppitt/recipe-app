@@ -1682,3 +1682,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Headers read Today, Yesterday, a weekday name (2 to 6 days ago), then a date like "12 Oct". With a filter on, Mark all read still clears everything; VoiceOver announces the chip as pressed.
 - Chips are plain toggle buttons with the Chip look, not the `Chip` component, because its selected colour is primary-600 and the spec wants text-primary.
 - Reviewer noted: the fetch error state still has no Retry (pre-existing); check the chip row at a real 320px.
+
+### RL-155 Settings "Notify me when"
+
+- Needs RL-156's rules on the emulator (`npm run emulators` plus `npm run dev:emulated`), verified account, 390px. Live, a toggle flips then reverts with "Couldn't save that. Try again." until the deploy.
+- Switch Someone follows me off, have a second account follow you: no row and no badge. Switch it on: the row and badge appear (hidden types are only filtered, never deleted).
+- Keyboard Tab and Space on the switches, VoiceOver reads name and on or off; dark theme track contrast. Card is hidden signed out and for guests.
+- Placed between Account and Appearance (the ticket did not say where). Mark all read also marks hidden rows read.
+- Download my data now has `cloud.notificationPrefs`; the file version stays 1.
+- Reviewer noted: three components each open a prefs listener (a shared context would dedupe); Mark all read also marks hidden rows read; last write wins across devices.
+- Switches are disabled until the stored document (or a failed read) arrives; the off track has a ring for 3:1 contrast in the light theme. A fully hidden Activity says "Some notifications are turned off" with a Settings link.
+- Reviewer noted: the Activity "Nothing here yet." fallback is still an ad hoc `<p>` and its error state has no Retry (pre-existing).
+- A failed read of the stored choices keeps the switches disabled with "Couldn't load your choices. Reopen Settings to try again."; the three switches also disable while any save is in flight.

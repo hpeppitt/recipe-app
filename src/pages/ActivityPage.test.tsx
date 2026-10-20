@@ -36,6 +36,7 @@ function setHook(notifications: AppNotification[], over: Record<string, unknown>
     unreadCount: notifications.filter((n) => !n.read).length,
     isLoading: false,
     error: false,
+    prefs: { branch: true, suggestion: true, follow: true },
     markRead,
     markAllRead,
     ...over,
@@ -97,6 +98,20 @@ describe('ActivityPage', () => {
     expect(screen.queryByRole('listitem')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('says some notifications are turned off, with a Settings link, when a pref hides everything', () => {
+    setHook([], { prefs: { branch: true, suggestion: true, follow: false } });
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByText('Some notifications are turned off')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Notification settings' })).toHaveAttribute('href', '/settings');
+  });
+
+  it('says so under a chip whose pref is off', () => {
+    setHook([notif({ id: 'a' })], { prefs: { branch: true, suggestion: true, follow: false } });
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Follows' }));
+    expect(screen.getByText('Some notifications are turned off')).toBeInTheDocument();
   });
 
   it('renders the verb for every type with an exact accessible name', () => {

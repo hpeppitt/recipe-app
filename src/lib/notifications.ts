@@ -50,6 +50,30 @@ export function filterByChip<T extends { type: string }>(items: T[], chip: Activ
   return chip === 'all' ? items : items.filter((i) => CHIP_TYPES[chip].includes(i.type));
 }
 
+export interface NotificationPrefs {
+  branch: boolean;
+  suggestion: boolean;
+  follow: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = { branch: true, suggestion: true, follow: true };
+
+const PREF_TYPES: Record<keyof NotificationPrefs, string[]> = {
+  branch: ['branch'],
+  suggestion: ['suggestion', 'suggestion_reply'],
+  follow: ['follow'],
+};
+
+/**
+ * Drops the types the person switched off. Outcome types and `favorite` always
+ * show. Notifications are still written for every event; this is read-side only,
+ * so switching a type back on shows the old ones again.
+ */
+export function visibleFor<T extends { type: string }>(items: T[], prefs: NotificationPrefs): T[] {
+  const hidden = new Set((Object.keys(PREF_TYPES) as (keyof NotificationPrefs)[]).filter((k) => !prefs[k]).flatMap((k) => PREF_TYPES[k]));
+  return hidden.size ? items.filter((i) => !hidden.has(i.type)) : items;
+}
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

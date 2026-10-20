@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { truncateNotificationMessage, NOTIFICATION_MESSAGE_MAX, groupByDays, filterByChip } from './notifications';
+import { truncateNotificationMessage, NOTIFICATION_MESSAGE_MAX, groupByDays, filterByChip, visibleFor, DEFAULT_NOTIFICATION_PREFS } from './notifications';
 import type { AppNotification } from '../types/social';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
@@ -113,4 +113,17 @@ describe('firestore.rules notification types', () => {
   it('the rules allow a branch notification (RL-152)', () => {
     expect(ruleTypes).toContain('branch');
   });
+});
+
+describe('visibleFor', () => {
+  const types = ['branch', 'suggestion', 'suggestion_reply', 'follow', 'favorite', 'suggestion_applied', 'suggestion_branched', 'suggestion_approved', 'suggestion_rejected'];
+  const rows = types.map((type) => ({ type }));
+  const shown = (p: Partial<typeof DEFAULT_NOTIFICATION_PREFS>) => visibleFor(rows, { ...DEFAULT_NOTIFICATION_PREFS, ...p }).map((r) => r.type);
+  it('shows everything by default', () => expect(shown({})).toEqual(types));
+  it('branch off hides branch only', () => expect(shown({ branch: false })).toEqual(types.filter((t) => t !== 'branch')));
+  it('suggestion off hides suggestion and suggestion_reply, not outcomes', () =>
+    expect(shown({ suggestion: false })).toEqual(types.filter((t) => t !== 'suggestion' && t !== 'suggestion_reply')));
+  it('follow off hides follow only', () => expect(shown({ follow: false })).toEqual(types.filter((t) => t !== 'follow')));
+  it('all off still shows favorite and outcomes', () =>
+    expect(shown({ branch: false, suggestion: false, follow: false })).toEqual(['favorite', 'suggestion_applied', 'suggestion_branched', 'suggestion_approved', 'suggestion_rejected']));
 });
