@@ -37,7 +37,7 @@ presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 `notifications/`, `layout/`, `tree/`) plus a shared `ui/` primitive set (Button, Input, Chip,
 Skeleton, EmptyState, ConfirmDialog, Sheet, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary, EmojiBlob, UserPill, IconButton). Every icon comes from `ui/icons.tsx`: Lucide
 paths (ISC licence) copied into one inline-SVG wrapper at stroke width 2.75, with no icon
-dependency. **`hooks/`**
+dependency. **`hooks/`** (`useBranchEntry` gates every branch entry point on `canGenerate`, opening the 5a sheet instead of navigating)
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
 the tests live. **`services/`** wrap the outside world: Firebase init, Firestore CRUD,
 Gemini, localStorage, analytics. `services/storage.ts` never throws: reads fall back to their

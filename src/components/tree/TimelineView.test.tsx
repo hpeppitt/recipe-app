@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, it, expect } from 'vitest';
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { cleanup, screen, fireEvent } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { TimelineView, CHAR_W } from './TimelineView';
 import { makeIngredient, makeRecipe } from '../../test/factories';
+import { renderWithProviders } from '../../test/renderWithProviders';
 import type { Recipe } from '../../types/recipe';
 
 const rec = (id: string, parent: Recipe | null, o: Partial<Recipe> = {}) =>
@@ -11,13 +12,11 @@ const rec = (id: string, parent: Recipe | null, o: Partial<Recipe> = {}) =>
 
 const Where = () => <p data-testid="where">{useLocation().pathname}</p>;
 const draw = (recipes: Recipe[], currentId?: string) =>
-  render(
-    <MemoryRouter>
-      <Routes>
-        <Route path="/" element={<TimelineView recipes={recipes} currentId={currentId} />} />
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>
+  renderWithProviders(
+    <Routes>
+      <Route path="/" element={<TimelineView recipes={recipes} currentId={currentId} />} />
+      <Route path="*" element={<Where />} />
+    </Routes>
   );
 
 beforeEach(() => {

@@ -1,5 +1,6 @@
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRecipeTree } from '../hooks/useRecipeTree';
+import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useRecipe } from '../hooks/useRecipe';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -35,6 +36,7 @@ function BackButton() {
 export function VersionTreePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { branch, signUp } = useBranchEntry();
   const [searchParams, setSearchParams] = useSearchParams();
   const { recipe, isLoading: recipeLoading, cloudError, retry } = useRecipe(id);
   const { tree, recipes, isLoading: treeLoading } = useRecipeTree(recipe?.rootId);
@@ -148,12 +150,13 @@ export function VersionTreePage() {
       {showTree && (
         <div className="sticky bottom-0 z-30">
           <div className="max-w-lg mx-auto bg-surface shadow-lg border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <Button fullWidth className="min-w-0" onClick={() => navigate(`/recipe/${recipe.id}/vary`)}>
+            <Button fullWidth className="min-w-0" onClick={() => branch(`/recipe/${recipe.id}/vary`)}>
               <span className="truncate">{`Branch from "${recipe.title}"`}</span>
             </Button>
           </div>
         </div>
       )}
+      {signUp}
     </div>
   );
 }

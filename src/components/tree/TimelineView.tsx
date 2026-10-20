@@ -4,6 +4,7 @@ import type { Recipe } from '../../types/recipe';
 import { layoutTimeline } from '../../lib/timelineLayout';
 import { diffRecipes, summariseChanges } from '../../lib/recipeDiff';
 import { timeAgo } from '../../lib/utils';
+import { useBranchEntry } from '../../hooks/useBranchEntry';
 import { Button } from '../ui/Button';
 
 interface TimelineViewProps {
@@ -28,6 +29,7 @@ const colour = (token: string) => `var(--color-${token})`;
 
 export function TimelineView({ recipes, currentId }: TimelineViewProps) {
   const navigate = useNavigate();
+  const { branch, signUp } = useBranchEntry();
   const layout = useMemo(() => layoutTimeline(recipes), [recipes]);
   const byId = useMemo(() => new Map(recipes.map((r) => [r.id, r])), [recipes]);
   const stopById = useMemo(() => new Map(layout.stops.map((s) => [s.id, s])), [layout]);
@@ -221,13 +223,14 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
               <Button variant="secondary" fullWidth className="border-border-strong!" onClick={() => go(`/recipe/${selected.id}`)}>
                 Open
               </Button>
-              <Button fullWidth onClick={() => go(`/recipe/${selected.id}/vary`)}>
+              <Button fullWidth onClick={() => branch(`/recipe/${selected.id}/vary`)}>
                 Branch here
               </Button>
             </div>
           </div>
         )}
       </dialog>
+      {signUp}
     </>
   );
 }

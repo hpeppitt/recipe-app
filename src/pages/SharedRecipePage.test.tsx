@@ -117,6 +117,13 @@ describe('SharedRecipePage /shared/:id', () => {
     expect(screen.getByRole('button', { name: 'Suggest a change' })).toBeTruthy();
   });
 
+  it('signed out, Make it yours opens the sign-in sheet and does not navigate', async () => {
+    open('/shared/r1', null);
+    fireEvent.click(await screen.findByRole('button', { name: 'Make it yours' }));
+    expect(screen.getByRole('dialog', { name: 'Sign in to branch this recipe' })).toBeTruthy();
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
   it('labels the footer toggle Saved when on', async () => {
     cloudOn = true;
     open('/shared/r1');

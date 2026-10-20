@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode, type Ref } from 'react';
 import { Button } from '../ui/Button';
-import { Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
+import { GitBranchPlus, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
 
 /**
  * What the visitor was doing when the sheet opened (RL-108). It names the headline
@@ -12,6 +12,7 @@ export type AuthAction =
   | { kind: 'follow'; name?: string | null }
   | { kind: 'share' }
   | { kind: 'suggest' }
+  | { kind: 'branch' }
   | { kind: 'edit-profile' };
 
 function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?: string }) => ReactNode } {
@@ -24,6 +25,8 @@ function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?:
       return { text: 'share this recipe', Icon: Link };
     case 'suggest':
       return { text: 'suggest a change', Icon: MessageCircle };
+    case 'branch':
+      return { text: 'branch this recipe', Icon: GitBranchPlus };
     case 'edit-profile':
       return { text: 'edit your profile', Icon: UserRound };
     default:
