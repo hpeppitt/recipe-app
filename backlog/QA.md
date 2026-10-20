@@ -1798,3 +1798,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Open a family with 4+ lines in Timeline at 390px: each lane's name shows at the left edge for 2 s, then collapses to a coloured dot that stays. Scroll sideways: the dots stay at the left edge. Switch to Tree and back: the names show again.
 - Turn on reduced motion: same, but the names disappear without animation. The dots and names never block taps on stops.
 - Reviewer noted: the collapsed dots sit over stops scrolled under the left edge (visual only, taps pass through). Lines that share a lane show side-by-side dots and one joined name.
+
+### RL-139 Spinner stops spinning under reduced motion
+- With Reduce motion on (macOS or iOS), open a lazy page on a slow connection: the ring shows still, without turning. With Reduce motion off it still spins.
