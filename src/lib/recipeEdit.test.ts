@@ -4,6 +4,7 @@ import {
   validateDraft,
   draftToPatch,
   isDraftDirty,
+  moveItem,
   EMPTY_INGREDIENT,
   EMPTY_INSTRUCTION,
   MAX_TITLE_LENGTH,
@@ -287,5 +288,27 @@ describe('isDraftDirty', () => {
   it('does not report a phantom change for numeric fields', () => {
     const recipe = baseRecipe({ servings: 4, prepTime: 0 });
     expect(isDraftDirty(recipeToDraft(recipe), recipe)).toBe(false);
+  });
+});
+
+describe('moveItem', () => {
+  const list = ['a', 'b', 'c', 'd'];
+  it('moves forward and backward', () => {
+    expect(moveItem(list, 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveItem(list, 3, 1)).toEqual(['a', 'd', 'b', 'c']);
+  });
+  it('moves to the ends', () => {
+    expect(moveItem(list, 1, 0)).toEqual(['b', 'a', 'c', 'd']);
+    expect(moveItem(list, 2, 3)).toEqual(['a', 'b', 'd', 'c']);
+  });
+  it('returns the list unchanged for the same or an out-of-range index', () => {
+    expect(moveItem(list, 1, 1)).toBe(list);
+    expect(moveItem(list, -1, 2)).toBe(list);
+    expect(moveItem(list, 0, 4)).toBe(list);
+    expect(moveItem(list, 4, 0)).toBe(list);
+  });
+  it('does not mutate its input', () => {
+    moveItem(list, 0, 3);
+    expect(list).toEqual(['a', 'b', 'c', 'd']);
   });
 });

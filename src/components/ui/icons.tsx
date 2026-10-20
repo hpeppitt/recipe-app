@@ -27,6 +27,12 @@ export const ChevronLeft = ({ className }: P) => (
 export const ChevronDown = ({ className }: P) => (
   <Icon className={className}><path d="m6 9 6 6 6-6" /></Icon>
 );
+export const GripVertical = ({ className }: P) => (
+  <Icon className={className}>
+    <circle cx="9" cy="12" r="1" /><circle cx="9" cy="5" r="1" /><circle cx="9" cy="19" r="1" />
+    <circle cx="15" cy="12" r="1" /><circle cx="15" cy="5" r="1" /><circle cx="15" cy="19" r="1" />
+  </Icon>
+);
 export const Plus = ({ className }: P) => (
   <Icon className={className}><path d="M5 12h14" /><path d="M12 5v14" /></Icon>
 );

@@ -1,4 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
+import { flushSync } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Recipe } from '../types/recipe';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
@@ -18,6 +19,7 @@ import {
   isDraftDirty,
   EMPTY_INGREDIENT,
   EMPTY_INSTRUCTION,
+  moveItem,
   type RecipeDraft,
   type DraftErrors,
 } from '../lib/recipeEdit';
@@ -26,7 +28,7 @@ import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { ChevronDown, Clock, Gauge, GitBranch, Pencil, Plus, UserRound, X } from '../components/ui/icons';
+import { ChevronDown, Clock, Gauge, GitBranch, GripVertical, Pencil, Plus, UserRound, X } from '../components/ui/icons';
 
 /** How long a verified owner's save waits for the cloud check and publish. */
 const CLOUD_SAVE_TIMEOUT_MS = 5000;
@@ -283,6 +285,17 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const emojiRef = useRef<HTMLInputElement>(null);
+  // Draft-only row keys, kept beside the draft so isDraftDirty and draftToPatch never see them.
+  const nextKey = useRef(recipe.ingredients.length);
+  const [ingKeys, setIngKeys] = useState<number[]>(() => recipe.ingredients.map((_, i) => i));
+  const [methodOpen, setMethodOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const ingListRef = useRef<HTMLDivElement>(null);
+  const focusGrip = useRef<number | null>(null);
+  const dragFrom = useRef<number | null>(null);
+  const moveInFlight = useRef(false);
+  const ingCount = useRef(recipe.ingredients.length);
+  const [dragKey, setDragKey] = useState<number | null>(null);
   // Direct children only. While the tree loads nothing is shown, never a wrong count.
   const lineage = useRecipeLineage(recipe);
 
@@ -291,6 +304,69 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
 
   const update = <K extends keyof RecipeDraft>(key: K, value: RecipeDraft[K]) => {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
+  };
+
+  const moveIngredient = (from: number, to: number) => {
+    // Functional updaters so rows and keys always move together, on the latest state.
+    if (moveInFlight.current || from === to || to < 0 || to >= ingCount.current) return false;
+    moveInFlight.current = true;
+    setIngKeys((k) => moveItem(k, from, to));
+    setDraft((d) => ({ ...d, ingredients: moveItem(d.ingredients, from, to) }));
+    return true;
+  };
+
+  // A row moved by keyboard keeps focus on its handle (the same DOM node, new index).
+  useLayoutEffect(() => {
+    // A new render means the DOM matches the draft again, so the next drag step may measure it.
+    moveInFlight.current = false;
+    ingCount.current = draft.ingredients.length;
+    if (focusGrip.current === null) return;
+    document.getElementById(`ingredient-${focusGrip.current}-grip`)?.focus();
+    focusGrip.current = null;
+  });
+
+  const onGripKey = (e: KeyboardEvent, index: number) => {
+    const to = e.key === 'ArrowUp' ? index - 1 : e.key === 'ArrowDown' ? index + 1 : null;
+    if (to === null) return;
+    e.preventDefault();
+    const name = draft.ingredients[index].name.trim() || `Ingredient ${index + 1}`;
+    const total = draft.ingredients.length;
+    // The trailing nbsp alternates so a repeated message is still announced.
+    const say = (text: string) => setAnnouncement((a) => (a.endsWith('\u00a0') ? text : `${text}\u00a0`));
+    if (moveIngredient(index, to)) {
+      focusGrip.current = to;
+      say(`${name} moved to position ${to + 1} of ${total}`);
+    } else {
+      say(`${name} is already ${to < 0 ? 'first' : 'last'}`);
+    }
+  };
+
+  const endDrag = () => {
+    dragFrom.current = null;
+    setDragKey(null);
+  };
+
+  const onGripPointerMove = (e: PointerEvent) => {
+    const from = dragFrom.current;
+    if (from === null) return;
+    const rows = ingListRef.current?.querySelectorAll('[data-ing-row]');
+    const mid = (i: number) => {
+      const r = rows?.[i]?.getBoundingClientRect();
+      return r ? r.top + r.height / 2 : null;
+    };
+    // Keep the dragged row's neighbours reachable by touch: scroll near the sticky header and footer.
+    if (e.clientY < 80) window.scrollBy?.(0, -12);
+    else if (e.clientY > window.innerHeight - 80) window.scrollBy?.(0, 12);
+    const HYSTERESIS = 6; // px past the midpoint, so a row does not flicker at the boundary
+    const above = from > 0 ? mid(from - 1) : null;
+    const below = mid(from + 1);
+    const to =
+      above !== null && e.clientY < above - HYSTERESIS
+        ? from - 1
+        : below !== null && e.clientY > below + HYSTERESIS
+          ? from + 1
+          : from;
+    if (to !== from && moveIngredient(from, to)) dragFrom.current = to;
   };
 
   const handleBack = () => {
@@ -308,6 +384,8 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
     setErrors(found);
     if (Object.keys(found).length > 0) {
       setSaveError(null);
+      // The error must not stay hidden: open the method, committed before the focus below.
+      if (found.instructions) flushSync(() => setMethodOpen(true));
       // The ids are static, so the field exists before the error text renders. Centred so
       // neither the header nor the sticky footer covers it; jsdom has no scrollIntoView.
       const target = document.getElementById(firstInvalidId(found, draft) ?? '');
@@ -478,6 +556,9 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                 {errors.ingredients}
               </p>
             )}
+            <p id="ingredient-move-hint" className="sr-only">Use the up and down arrow keys to move</p>
+            <div role="status" aria-live="polite" className="sr-only">{announcement}</div>
+            <div ref={ingListRef} className="space-y-2">
             {draft.ingredients.map((row, index) => {
               const setField = (field: 'name' | 'amount' | 'unit' | 'notes', value: string) => {
                 const next = [...draft.ingredients];
@@ -490,10 +571,31 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                   ? { 'aria-invalid': true as const, 'aria-describedby': 'edit-ingredients-error' }
                   : {};
               return (
-                <div key={index} className="space-y-2">
+                <div key={ingKeys[index]} data-ing-row className={`space-y-2 ${dragKey === ingKeys[index] ? 'rounded-2xl bg-surface-secondary shadow-md' : ''}`}>
                   {/* Wraps instead of squeezing: at 320px the name and remove button
                       drop to a second line rather than leaving a 68px name field. */}
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      id={`ingredient-${index}-grip`}
+                      aria-label={`Move ingredient ${index + 1}, ${row.name.trim() || 'unnamed'}`}
+                      aria-describedby="ingredient-move-hint"
+                      onKeyDown={(e) => onGripKey(e, index)}
+                      aria-roledescription="reorder handle"
+                      onPointerDown={(e) => {
+                        if (!e.isPrimary || e.button !== 0) return;
+                        e.currentTarget.setPointerCapture?.(e.pointerId);
+                        dragFrom.current = index;
+                        setDragKey(ingKeys[index]);
+                      }}
+                      onPointerMove={onGripPointerMove}
+                      onPointerUp={endDrag}
+                      onPointerCancel={endDrag}
+                      style={{ touchAction: 'none' }}
+                      className={`${FOCUS_SCROLL} -mx-2 flex h-11 w-11 shrink-0 cursor-grab select-none items-center justify-center text-neutral-500 rounded-full focus:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500`}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
                     <input
                       id={`ingredient-${index}-amount`}
                       aria-label={`Ingredient ${index + 1} amount`}
@@ -523,12 +625,13 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                       />
                       <RemoveRowButton
                         label={`Remove ingredient ${index + 1}${row.name.trim() ? `, ${row.name.trim()}` : ''}`}
-                        onClick={() =>
+                        onClick={() => {
+                          setIngKeys((k) => k.filter((_, i) => i !== index));
                           update(
                             'ingredients',
                             draft.ingredients.filter((_, i) => i !== index)
-                          )
-                        }
+                          );
+                        }}
                       />
                     </div>
                   </div>
@@ -542,16 +645,35 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                 </div>
               );
             })}
+            </div>
             <DashedAddButton
               id="add-ingredient"
-              onClick={() => update('ingredients', [...draft.ingredients, { ...EMPTY_INGREDIENT }])}
+              onClick={() => {
+                setIngKeys((k) => [...k, nextKey.current++]);
+                update('ingredients', [...draft.ingredients, { ...EMPTY_INGREDIENT }]);
+              }}
             >
               Add ingredient
             </DashedAddButton>
           </section>
 
           <section className="space-y-2">
-            <h3 className="mt-1.5 font-heading text-xl text-text-primary">Instructions</h3>
+            <h3 className="mt-1.5 font-heading text-xl text-text-primary">
+              <button
+                type="button"
+                aria-expanded={methodOpen}
+                aria-controls="edit-method"
+                onClick={() => setMethodOpen((o) => !o)}
+                className="flex min-h-11 w-full items-center justify-between text-left"
+              >
+                Method
+                <span className="flex items-center gap-1 font-sans text-[13px] font-normal text-neutral-700">
+                  {draft.instructions.length} {draft.instructions.length === 1 ? 'step' : 'steps'}
+                  <ChevronDown className={`h-4 w-4 transition-transform ${methodOpen ? 'rotate-180' : ''}`} />
+                </span>
+              </button>
+            </h3>
+            <div id="edit-method" hidden={!methodOpen} className="space-y-2">
             {errors.instructions && (
               <p id="edit-instructions-error" role="alert" className="text-sm text-danger-700">
                 {errors.instructions}
@@ -598,6 +720,7 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
             >
               Add step
             </DashedAddButton>
+            </div>
           </section>
 
           <section className="space-y-2">
