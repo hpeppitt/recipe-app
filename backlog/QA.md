@@ -1863,3 +1863,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-174 Forest layout (pure lib)
 - No UI yet (the page is RL-175). Nothing for the human to look at beyond the unit tests.
+
+### RL-175 Forest view
+- Open your own profile and tap the trees icon beside the cog, then another cook's profile and tap the trees icon at the right of the Back row. Check both at 390px and 1280px, light and dark. Headline "Planted N recipes. M branches have grown from them." with N in terracotta and M in sage; legend "Yours" or "<Name>'s" and "Other cooks'".
+- Each tile's drawing matches that recipe's tree page, your versions in terracotta; tapping a tile opens its tree (your original if you planted it, else your first version). Planted tiles are tinted, grew-in tiles say "Grew N on <owner>'s".
+- Cost: per family shown (max 12) one read of at most 40 docs plus one count; other cook adds one list read (max 100), plus the profile read. Over 12 families shows "and N more". Block the network: error with Try again, never "Nothing planted yet"; one failing family shows "Some branches couldn't load" with Retry. Follow works from the header (sign-up prompt when signed out). Check the dots and lines are readable in light mode, and a tile reads "Grew N versions on X's recipe" in a screen reader.
+- Reviewer noted (RL-175, low): the list read is an arbitrary 100 for cooks with more than 100 recipes; the 5 minute cache can show a stale count right after publishing; the auth-loading skeleton has no header or back button.

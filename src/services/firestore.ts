@@ -301,6 +301,28 @@ export async function getPublishedRecipeTree(rootId: string): Promise<PublishedR
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
 }
 
+/** Most versions of one family the Forest view reads (RL-175). */
+export const FOREST_FAMILY_READ = 40;
+
+/**
+ * RL-175: one family for a Forest tile, bounded. At most `FOREST_FAMILY_READ` documents (no
+ * orderBy, so no new index; which ones come back is arbitrary when the family is larger) plus one
+ * count query. `count` falls back to the documents read when the count fails.
+ */
+export async function getForestFamily(rootId: string): Promise<{ recipes: PublishedRecipe[]; count: number }> {
+  if (!firestore) return { recipes: [], count: 0 };
+  const q = query(collection(firestore, 'recipes'), where('rootId', '==', rootId));
+  // The root is read by id too (1 read) so a family larger than the cap is never drawn without it.
+  const [snap, count, rootSnap] = await Promise.all([
+    getDocs(query(q, limit(FOREST_FAMILY_READ))),
+    getCountFromServer(q).then((n) => n.data().count, () => null),
+    getDoc(doc(firestore, 'recipes', rootId)).catch(() => null),
+  ]);
+  const recipes = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+  if (rootSnap?.exists() && !recipes.some((r) => r.id === rootId)) recipes.push({ id: rootId, ...rootSnap.data() } as PublishedRecipe);
+  return { recipes, count: Math.max(count ?? 0, recipes.length) };
+}
+
 /** RL-143: how many recipes (the original included) share this rootId. */
 export async function getFamilyCount(rootId: string): Promise<number> {
   if (!firestore) return 0;
@@ -1498,11 +1520,12 @@ export async function incrementRecipeViews(recipeId: string): Promise<void> {
 
 // --- User Recipes ---
 
-export async function getUserRecipes(uid: string): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }>> {
+export async function getUserRecipes(uid: string, max?: number): Promise<Array<SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number }>> {
   if (!firestore) return [];
   const q = query(
     collection(firestore, 'recipes'),
-    where('createdBy.uid', '==', uid)
+    where('createdBy.uid', '==', uid),
+    ...(max ? [limit(max)] : [])
   );
   const snap = await getDocs(q);
   const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SharedRecipe & { id: string; favoriteCount: number; viewCount: number; createdAt: number });

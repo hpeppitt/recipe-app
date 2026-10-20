@@ -145,6 +145,17 @@ describe('OwnProfile avatar sheet', () => {
   });
 });
 
+describe('Forest view button (RL-175)', () => {
+  it('links to the own forest', () => {
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('link', { name: 'Forest view' })).toHaveAttribute('href', '/profile/forest');
+  });
+  it('shows on another cook\'s profile', () => {
+    renderAt('/profile/chef', fakeUser);
+    expect(screen.getByRole('link', { name: 'Forest view' })).toHaveAttribute('href', '/profile/chef/forest');
+  });
+});
+
 describe('OwnProfile sign out (moved to Settings, RL-093)', () => {
   it.each([
     ['verified', fakeUser],
