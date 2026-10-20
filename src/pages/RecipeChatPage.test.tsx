@@ -398,7 +398,7 @@ describe('RecipeChatPage branch composer (/recipe/:id/vary)', () => {
     const u = userEvent.setup();
     await u.click(screen.getByRole('button', { name: 'Vegan' }));
     await u.click(screen.getByRole('button', { name: 'Grow this branch' }));
-    expect(sendMessage).toHaveBeenCalledWith('vegan');
+    expect(sendMessage).toHaveBeenCalledWith('vegan', []);
   });
 
   it('/create has no composer', () => {

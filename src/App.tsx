@@ -9,8 +9,7 @@ import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { TermsGate } from './components/auth/TermsUpdateDialog';
 import { useTheme } from './hooks/useTheme';
 import { useOwnRecipesSync } from './hooks/useOwnRecipesSync';
-import { useMediaQuery } from './hooks/useMediaQuery';
-import { paneMode, WIDE_QUERY } from './lib/paneMode';
+import { paneMode } from './lib/paneMode';
 import { RecipePaneContext } from './contexts/RecipePaneContext';
 
 // Explore stays eager so first paint is unchanged; every other page is its own chunk.
@@ -36,14 +35,15 @@ function OwnRecipesSync() {
 }
 
 /**
- * The route table. On a wide screen a recipe opened from Explore or Saved renders the
- * shell against the list's location, so the list stays mounted and AppShell shows the
- * recipe beside it (RL-116). Everywhere else, and always below lg, it is the plain table.
+ * The route table. A recipe opened from Explore or Saved renders the shell against the
+ * list's location at every width, so the list and the recipe are the same elements on
+ * both sides of lg: AppShell shows them side by side from lg (RL-116) and the recipe alone
+ * below it, and a resize changes only the layout (2026-10-20). Everywhere else it is the
+ * plain table.
  */
 export function AppRoutes() {
   const location = useLocation();
-  const wide = useMediaQuery(WIDE_QUERY);
-  const pane = paneMode(location.pathname, location.state, wide);
+  const pane = paneMode(location.pathname, location.state, true);
   return (
     <RecipePaneContext.Provider value={pane?.recipeId ?? null}>
       <Routes location={pane ? { ...location, pathname: pane.listPath } : location}>

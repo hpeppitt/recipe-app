@@ -99,7 +99,7 @@ export function ExplorePage() {
   // or in local-only mode (no shared feed).
   const rowsAllowed = pagedExplore && !isLoading && filter === 'all' && !tag;
   const branching = useBranchingThisWeek(rowsAllowed, exploreFeed ?? NO_ROWS);
-  // Newest is the fallback when the week has nothing; while the query runs neither row shows.
+  // Newest is the fallback when the week has nothing; while the query runs a fixed-height placeholder holds the space.
   const tileRecipes =
     rowsAllowed && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
@@ -120,6 +120,17 @@ export function ExplorePage() {
         </Link>
       </header>
 
+      {rowsAllowed && branching.status === 'loading' && (
+        // Holds the tile row's height (20 top padding, heading, 200px tiles, title and author lines)
+        // so the Recipes list does not jump down when the row mounts.
+        <div aria-hidden="true" className="h-[280px] pt-5 pl-5">
+          <Skeleton className="mb-2.5 h-5 w-48 rounded-md" />
+          <div className="flex gap-3 overflow-hidden">
+            <Skeleton className="size-[200px] shrink-0 rounded-[30px]" />
+            <Skeleton className="size-[200px] shrink-0 rounded-[30px]" />
+          </div>
+        </div>
+      )}
       {rowsAllowed && branching.status === 'ready' && (
         <RecipeTileRow title="Branching fast this week" recipes={branching.tiles} />
       )}

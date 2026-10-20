@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { Recipe } from '../../types/recipe';
 import { collapseLineage } from '../../lib/tree';
+import { carriedListOrigin } from '../../lib/paneMode';
 import { ChevronRight, Diff } from '../ui/icons';
 
 interface LineageStripProps {
@@ -25,6 +26,8 @@ function Sep() {
 
 /** The 17a sage strip on a branch: collapsible breadcrumb, the prompt as a sentence, See what changed. */
 export function LineageStrip({ recipe, ancestors }: LineageStripProps) {
+  // Opened from a list: crumbs stay in the shell beside it (2026-10-20).
+  const origin = carriedListOrigin(useLocation().state);
   // Tied to the recipe, so navigating to another branch collapses it again.
   const [expandedFor, setExpandedFor] = useState<string | null>(null);
   const expanded = expandedFor === recipe.id;
@@ -61,6 +64,7 @@ export function LineageStrip({ recipe, ancestors }: LineageStripProps) {
               ) : (
                 <Link
                   to={`/recipe/${entry.item.id}`}
+                  state={origin}
                   title={entry.item.title.trim() || undefined}
                   aria-label={entry.item.title.trim() || 'Untitled recipe'}
                   ref={expanded && entry.item === ancestors[1] ? firstMiddle : undefined}

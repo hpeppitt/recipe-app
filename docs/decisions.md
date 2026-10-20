@@ -117,6 +117,14 @@ and no schema field was added. The author's confirmation is taken from RL-118 ha
 approved at `/groom`; it was not asked separately, so correct this line if that reading is
 wrong.
 
+2026-10-20: the author confirmed photo input is fine because photos are in-memory generation input only, sent once to Gemini via Firebase AI Logic to write the recipe and never stored (not in Dexie, Firestore, the data export, or history state); only the generated text recipe is saved.
+
+2026-10-20 (spec-v1 /groom sign-off): **reversed for stored photos.** The author said "photos
+are ok" for the design spec's photo features (the Phase 1 cook photo that can become the
+recipe photo, washed, with the emoji as fallback). Per the consequence above, this is a phase
+of its own, not a field: it still needs Storage, upload UX and a moderation answer, decided
+when that phase is groomed. v1 tickets stay emoji-only.
+
 ### 4. The merged feed was an accident, so split it
 
 `/` used to merge every published cloud recipe with the local library. Roadmap 3.1 split
@@ -817,9 +825,9 @@ The `.dark` block overrides the token variables: every 100 to 900 ramp, and the 
 
 The owner's suggestions section moved from above the recipe body to below it (after nutrition, notes and credits, before the branch carousel). The owner is still alerted by the pending-suggestions badge on More and by the Activity tab, and the recipe itself is what people read while cooking.
 
-### Photos on a variation start from the follow-up message (RL-119, 2026-10-19)
+### Photos on a variation start from the follow-up message (RL-119, 2026-10-19) - superseded 2026-10-20
 
-`BranchComposer`, the first screen of `/recipe/:id/vary`, has no attach button, so a photo-based variation is only possible from the follow-up message. Whether it should take photos is deferred to the author (pending row in `backlog/DECISIONS.md`).
+Superseded by the author on 2026-10-20: `BranchComposer` now has the attach button, tray, privacy notice and limits, so a variation can start from a photo. The page passes the photos straight to `sendMessage`; they are never put in navigation state or stored. Original text: `BranchComposer` had no attach button and photos were only possible from the follow-up message.
 
 ### Explore search moved to the /search screen (RL-124, 2026-10-19)
 
@@ -835,4 +843,6 @@ Explore's "Branching fast this week" runs one query, `where createdAt >= 7 days 
 
 ### Wide-screen two-pane mode (RL-116, 2026-10-19)
 
-From 1024px a recipe opened from Explore or Saved shows beside the list, still under `BrowserRouter` with `<Routes>`. The list origin lives in navigation state (`listOrigin`), not the URL. In pane mode `<Routes>` is given the list's location, so the shell and the list are the same elements as on `/` or `/saved` and never remount. Choosing a row pushes a history entry, so Back steps through the recipes viewed. A resize across 1024px switches layouts by remounting the recipe and list pages. A reload keeps the panes, because the browser keeps `history.state`; only a direct visit or shared link shows the recipe alone.
+From 1024px a recipe opened from Explore or Saved shows beside the list, still under `BrowserRouter` with `<Routes>`. The list origin lives in navigation state (`listOrigin`), not the URL. In pane mode `<Routes>` is given the list's location, so the shell and the list are the same elements as on `/` or `/saved` and never remount. Choosing a row pushes a history entry, so Back steps through the recipes viewed. A reload keeps the panes, because the browser keeps `history.state`; only a direct visit or shared link shows the recipe alone.
+
+2026-10-20: a resize across 1024px now keeps all state, because the author asked ("Ideally don't reset filters or screens, just change layout and sizing"). Until then the resize remounted the recipe and list pages. A recipe opened from a list now renders through `AppShell` at every width (alone and without the shell's chrome below lg), so the same elements live on both sides of the breakpoint and only classes change. Chosen over an in-memory store of list and recipe UI state, which would have had to name every piece of state across many components (servings, ticks, suggest draft, open sheets and dialogs) and would miss whatever is added next. Below lg ordinary navigation still unmounts the list behind a recipe, so Back gives a fresh list as before; only when the window narrows beside a recipe does the list stay mounted, hidden, until it shows again. The same day the branch carousel and lineage links began passing the list origin on, because a hop between recipes would otherwise leave the shell below lg (a remount, a skeleton flash and lost state) and, from lg, drop the list; until then an in-pane link showed the recipe alone.

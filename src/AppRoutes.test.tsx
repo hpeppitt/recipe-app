@@ -1,19 +1,23 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, MemoryRouter, useNavigate, useParams } from 'react-router-dom';
 
 // The real AppShell and route table run; pages and the shell's chrome are stand-ins.
-const mounts = vi.hoisted(() => ({ explore: 0, saved: 0 }));
+const mounts = vi.hoisted(() => ({ explore: 0, saved: 0, recipe: 0 }));
 vi.mock('./pages/ExplorePage', () => ({
   ExplorePage: () => {
     useEffect(() => {
       mounts.explore++;
     }, []);
+    const [tag, setTag] = useState('none');
+    const navigate = useNavigate();
     return (
       <div>
         <p>Explore list</p>
+        <button onClick={() => setTag('pasta')}>Tag: {tag}</button>
+        <button onClick={() => navigate(1)}>Forward</button>
         <Link to="/recipe/r1" state={{ listOrigin: '/' }}>Row r1</Link>
         <Link to="/recipe/r2" state={{ listOrigin: '/' }}>Row r2</Link>
         <Link to="/recipe/boom" state={{ listOrigin: '/' }}>Row boom</Link>
@@ -39,6 +43,10 @@ vi.mock('./pages/RecipeDetailPage', () => ({
     const params = useParams();
     const navigate = useNavigate();
     const shown = id ?? params.id;
+    const [servings, setServings] = useState(1);
+    useEffect(() => {
+      mounts.recipe++;
+    }, []);
     useEffect(() => {
       if (shown) onShown?.(`Title ${shown}`);
     }, [shown, onShown]);
@@ -46,6 +54,8 @@ vi.mock('./pages/RecipeDetailPage', () => ({
     return (
       <div>
         <h1>Recipe {id ?? params.id}</h1>
+        <p>{id ? 'In the shell' : 'Own route'}</p>
+        <button onClick={() => setServings((n) => n + 1)}>Servings {servings}</button>
         <button onClick={() => navigate(-1)}>Back</button>
       </div>
     );
@@ -74,8 +84,11 @@ function setWide(next: boolean) {
 beforeEach(() => {
   mounts.explore = 0;
   mounts.saved = 0;
+  mounts.recipe = 0;
   wide = false;
   listeners.clear();
+  // jsdom has no scrolling; the shell moves offsets across a resize.
+  vi.stubGlobal('scrollTo', () => {});
   vi.stubGlobal('matchMedia', (query: string) => ({
     get matches() {
       return wide;
@@ -102,8 +115,8 @@ function renderAt(path: string) {
 
 const nav = () => screen.queryByRole('navigation', { name: 'Main' });
 
-describe('AppRoutes below 1024px (unchanged)', () => {
-  it('opens a recipe from Explore on its own page, outside the shell', async () => {
+describe('AppRoutes below 1024px (behaves as before)', () => {
+  it('opens a recipe from Explore alone, without the list or the nav', async () => {
     renderAt('/');
     fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Recipe r1' })).toBeInTheDocument();
@@ -116,6 +129,32 @@ describe('AppRoutes below 1024px (unchanged)', () => {
     fireEvent.click(await screen.findByRole('link', { name: 'Row s1' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Recipe s1' })).toBeInTheDocument();
     expect(screen.queryByText('Saved list')).not.toBeInTheDocument();
+  });
+
+  it('Back to Saved remounts the list too', async () => {
+    renderAt('/saved');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row s1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Saved list')).toBeInTheDocument();
+    expect(mounts.saved).toBe(2);
+  });
+
+  it('a direct visit with no list origin takes the plain route', async () => {
+    renderAt('/recipe/r1');
+    expect(await screen.findByText('Own route')).toBeInTheDocument();
+    expect(nav()).not.toBeInTheDocument();
+  });
+
+  it('Forward after Back opens the recipe alone again, fresh, and unmounts the list', async () => {
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Forward' }));
+    expect(await screen.findByRole('button', { name: 'Servings 1' })).toBeInTheDocument();
+    expect(screen.getByText('In the shell')).toBeInTheDocument();
+    expect(screen.queryByText('Explore list')).not.toBeInTheDocument();
+    expect(mounts.recipe).toBe(2);
   });
 
   it('Back remounts the list, as before', async () => {
@@ -196,17 +235,102 @@ describe('AppRoutes at 1024px and wider', () => {
     expect(mounts.explore).toBe(1);
   });
 
-  it('survives a resize across 1024px in both directions', async () => {
+  it('keeps the list and recipe state across a resize to narrow and back', async () => {
     renderAt('/');
-    fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
-    await screen.findByText('Explore list');
+    fireEvent.click(await screen.findByRole('button', { name: 'Tag: none' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Row r1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
 
     setWide(false);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Recipe r1' })).toBeInTheDocument();
-    expect(screen.queryByText('Explore list')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Recipe r1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    expect(screen.getByText('Explore list')).not.toBeVisible();
+    expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(nav()).not.toBeInTheDocument();
+    expect(screen.getAllByRole('main')).toHaveLength(1);
 
     setWide(true);
-    expect(await screen.findByText('Explore list')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: 'Recipe r1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tag: pasta' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    // The status mounts empty, so the resize is not read out; the next choice is.
+    expect(screen.getByRole('status')).toHaveTextContent('');
+    fireEvent.click(screen.getByRole('link', { name: 'Row r2' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Showing Title r2');
+    expect(mounts).toMatchObject({ explore: 1, recipe: 1 });
+  });
+
+  it('after narrowing, Back shows the list as it was, and the next row opened starts fresh', async () => {
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('button', { name: 'Tag: none' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Row r1' }));
+    await screen.findByRole('heading', { level: 1, name: 'Recipe r1' });
+
+    setWide(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('button', { name: 'Tag: pasta' })).toBeVisible();
+    expect(mounts.explore).toBe(1);
+
+    // Ordinary narrow navigation from here on: the list unmounts behind the recipe, as before.
+    fireEvent.click(screen.getByRole('link', { name: 'Row r2' }));
+    await screen.findByRole('heading', { level: 1, name: 'Recipe r2' });
+    expect(screen.queryByText('Explore list')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('button', { name: 'Tag: none' })).toBeInTheDocument();
+    expect(mounts.explore).toBe(2);
+  });
+
+  it('moves the scroll offsets between the window and the pane across a resize', async () => {
+    const scrollTo = vi.fn();
+    vi.stubGlobal('scrollTo', scrollTo);
+    const scrollWindow = (y: number) => {
+      Object.defineProperty(window, 'scrollY', { value: y, configurable: true });
+      fireEvent.scroll(window);
+    };
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
+    await screen.findByRole('heading', { level: 1, name: 'Recipe r1' });
+    scrollWindow(700);
+    const pane = screen.getByRole('region', { name: 'Recipe' });
+    pane.scrollTop = 300;
+    fireEvent.scroll(pane);
+
+    setWide(false);
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 300);
+    scrollWindow(450);
+
+    setWide(true);
+    expect(pane.scrollTop).toBe(450);
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 700);
+  });
+});
+
+describe('AppRoutes across a resize from narrow', () => {
+  it('keeps the recipe state when widening, and the list joins it', async () => {
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('link', { name: 'Row r1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
+
+    setWide(true);
+    expect(await screen.findByText('Explore list')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    expect(nav()).toBeInTheDocument();
+    expect(mounts.recipe).toBe(1);
+
+    setWide(false);
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    expect(mounts.recipe).toBe(1);
+  });
+
+  it('still starts the list and the recipe fresh on ordinary narrow navigation', async () => {
+    renderAt('/');
+    fireEvent.click(await screen.findByRole('button', { name: 'Tag: none' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Row r1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('button', { name: 'Tag: none' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Row r1' }));
+    expect(await screen.findByRole('button', { name: 'Servings 1' })).toBeInTheDocument();
+    expect(mounts).toMatchObject({ explore: 2, recipe: 2 });
   });
 });

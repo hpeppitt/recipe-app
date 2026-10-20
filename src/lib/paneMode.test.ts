@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { paneMode, listOriginState } from './paneMode';
+import { paneMode, listOriginState, carriedListOrigin } from './paneMode';
 
 describe('paneMode', () => {
   it('pairs a recipe with the Explore list on a wide screen', () => {
@@ -35,5 +35,15 @@ describe('paneMode', () => {
   it('decodes the id the way useParams does', () => {
     expect(paneMode('/recipe/a%20b', listOriginState('/'), true)?.recipeId).toBe('a b');
     expect(paneMode('/recipe/a%E0', listOriginState('/'), true)?.recipeId).toBe('a%E0');
+  });
+});
+
+describe('carriedListOrigin', () => {
+  it('passes on a valid origin and nothing else', () => {
+    expect(carriedListOrigin(listOriginState('/saved'))).toEqual({ listOrigin: '/saved' });
+    expect(carriedListOrigin({ listOrigin: '/', saved: 'cloud' })).toEqual({ listOrigin: '/' });
+    expect(carriedListOrigin({ listOrigin: '/activity' })).toBeUndefined();
+    expect(carriedListOrigin(null)).toBeUndefined();
+    expect(carriedListOrigin('x')).toBeUndefined();
   });
 });
