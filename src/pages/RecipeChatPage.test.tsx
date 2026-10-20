@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
@@ -37,6 +37,8 @@ type Chat = {
   similarRecipes?: import('../hooks/useRecipeChat').SimilarRecipe[];
   typingMatches?: import('../hooks/useRecipeChat').TypingMatches | null;
   typingAnnouncement?: string;
+  pendingQuery?: string | null;
+  dismissSimilar?: () => void;
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -131,6 +133,50 @@ describe('RecipeChatPage similar recipes', () => {
     };
     view();
     expect(screen.getByText('Mia Stone')).toBeTruthy();
+  });
+});
+
+describe('RecipeChatPage on-send sheet (RL-179)', () => {
+  const match = (id: string, title: string) => ({
+    id, rootId: id, emoji: '🍌', title, description: '', totalTime: 75, difficulty: 'easy',
+    author: { uid: 'u9', name: 'Mia Stone' }, cloudOrigin: null,
+  });
+  const dismissSimilar = vi.fn();
+  const open = () => {
+    chat = {
+      messages: [], isLoading: false, latestRecipe: null, pendingQuery: 'banana bread', dismissSimilar,
+      similarRecipes: [match('c1', 'Chocolate loaf'), match('b1', 'Banana bread')],
+    };
+    return view();
+  };
+
+  it('opens with Same and Similar tags and branches the first Same match', async () => {
+    open();
+    const sheet = screen.getByRole('dialog');
+    expect(within(sheet).getByText("Someone's already baked this")).toBeTruthy();
+    expect(within(sheet).getByText('Same')).toBeTruthy();
+    expect(within(sheet).getByText('Similar')).toBeTruthy();
+    await userEvent.setup().click(within(sheet).getByRole('button', { name: /Branch Banana bread/ }));
+    expect(screen.getByText('elsewhere')).toBeTruthy();
+  });
+
+  it('write-anyway calls dismissSimilar', async () => {
+    dismissSimilar.mockReset();
+    open();
+    await userEvent.setup().click(screen.getByRole('button', { name: "Mine's different, write a new one" }));
+    expect(dismissSimilar).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape closes the sheet without generating and keeps the query', async () => {
+    sendMessage.mockReset();
+    dismissSimilar.mockReset();
+    open();
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }));
+    expect(screen.getByText(/banana bread/i, { selector: 'p' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show similar recipes' })).toBeTruthy();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(dismissSimilar).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(screen.getByRole('textbox'));
   });
 });
 

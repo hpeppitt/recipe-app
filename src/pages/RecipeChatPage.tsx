@@ -11,33 +11,19 @@ import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { BranchComposer, GrowingCard } from '../components/chat/BranchComposer';
 import { DedupCard } from '../components/chat/DedupCard';
+import { SimilarSheet } from '../components/chat/SimilarSheet';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Button } from '../components/ui/Button';
-import { UserPill } from '../components/ui/UserPill';
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { REFINEMENT_CHIPS, SUGGESTION_CHIPS } from '../lib/constants';
-import { queryWords } from '../lib/search';
 import { canGenerate } from '../lib/generation';
 import { useEffect, useRef, useState } from 'react';
 import type { GeneratedRecipe } from '../types/api';
 import type { ChatMessage } from '../types/recipe';
-import { Bookmark, ChevronDown, GitBranch, Sparkles, X } from '../components/ui/icons';
-
-/**
- * The query words this match actually shares, so the panel can say why it is
- * showing you something instead of just asserting similarity.
- */
-function matchedWords(
-  query: string | null,
-  recipe: { title: string; description: string }
-): string[] {
-  if (!query) return [];
-  const haystack = `${recipe.title} ${recipe.description}`.toLowerCase();
-  return queryWords(query).filter((w) => haystack.includes(w));
-}
+import { Bookmark, ChevronDown, Sparkles, X } from '../components/ui/icons';
 
 /**
  * The user message that produced the assistant message at `index`.
@@ -129,6 +115,8 @@ export function RecipeChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
   const [showDiscard, setShowDiscard] = useState(false);
+  // The match list the user closed the 7b sheet on; a new list opens it again.
+  const [dismissedSimilar, setDismissedSimilar] = useState<typeof similarRecipes | null>(null);
   // Cards the user has opened or closed by hand, by message index (the list is
   // append-only, so an index is a stable id). Any card not in here follows the
   // default: the newest is open, every older one is closed. A new card therefore
@@ -164,6 +152,11 @@ export function RecipeChatPage() {
 
   const scrollToNewest = () => scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   const [slow, setSlow] = useState(false);
+  // After the dialog has closed (the page behind it is inert until then); the browser's own
+  // focus return lands on a composer that was disabled while checking.
+  useEffect(() => {
+    if (dismissedSimilar) document.getElementById(COMPOSER_ID)?.focus();
+  }, [dismissedSimilar]);
   // The 7a card: the hook only fills it on a new recipe before the first one; the on-send panel replaces it.
   const showTypingCard = !!typingMatches && !isVarying && !latestRecipe && !isLoading && similarRecipes.length === 0;
   useEffect(() => {
@@ -424,94 +417,12 @@ export function RecipeChatPage() {
             </div>
           ))}
 
-          {/* Similar recipes found */}
-          {similarRecipes.length > 0 && !isLoading && (
-            <div className="rounded-[24px] bg-accent-2-100 px-3.5 py-3 text-[13px] text-accent-2-900 space-y-3">
-              <div className="space-y-1">
-                <p className="flex items-center gap-2 text-sm font-medium">
-                  <GitBranch className="size-4 flex-shrink-0" />
-                  {isVarying
-                    ? 'Similar variations already exist'
-                    : 'Similar recipes already exist'}
-                </p>
-                <p>
-                  Open one, branch a new version from it, or carry on with yours.
-                </p>
-              </div>
-              <div className="space-y-2">
-                {similarRecipes.map((r) => {
-                  const matched = matchedWords(pendingQuery, r);
-                  return (
-                    <div
-                      key={r.id}
-                      className="bg-surface text-text-primary rounded-[20px] p-3 space-y-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl" aria-hidden="true">{r.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-text-primary truncate">
-                            {r.title}
-                          </p>
-                          <p className="text-xs text-text-tertiary line-clamp-1">
-                            {r.description}
-                          </p>
-                          {/* Why this was surfaced. Without it the panel asserts
-                              similarity and leaves the user to guess at it. */}
-                          {matched.length > 0 && (
-                            <p className="text-xs text-text-secondary mt-0.5">
-                              Matches: {matched.join(', ')}
-                            </p>
-                          )}
-                          {r.cloudOrigin && (
-                            <p className="text-xs text-text-secondary mt-0.5">
-                              {r.cloudOrigin.isOwn ? (
-                                'Your recipe, not on this device'
-                              ) : r.cloudOrigin.creatorUid ? (
-                                <>
-                                  Shared library, by{' '}
-                                  <UserPill uid={r.cloudOrigin.creatorUid} name={r.cloudOrigin.creatorName} wrap />
-                                </>
-                              ) : (
-                                'In the shared library'
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {/* Branching is the whole point of the app and the panel
-                          did not offer it — the only choices were abandon your
-                          idea or duplicate an existing recipe. Carrying
-                          pendingQuery through means the typed prompt is not lost
-                          either way. */}
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => navigate(`/recipe/${r.id}`)}
-                        >
-                          Open
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            navigate(`/recipe/${r.id}/vary`, {
-                              state: { suggestion: pendingQuery ?? '' },
-                            })
-                          }
-                        >
-                          Branch from this
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <Button
-                fullWidth
-                variant="secondary"
-                onClick={dismissSimilar}
-              >
-                Create New {isVarying ? 'Variation' : 'Recipe'} Anyway
+          {/* Dismissed 7b sheet: the sent text lives in pendingQuery, so offer the way back. */}
+          {similarRecipes.length > 0 && !isLoading && dismissedSimilar === similarRecipes && (
+            <div className="rounded-[24px] bg-accent-2-100 px-3.5 py-3 text-sm text-accent-2-900 space-y-2">
+              <p className="break-words">Similar recipes found for &ldquo;{pendingQuery}&rdquo;.</p>
+              <Button fullWidth variant="secondary" onClick={() => setDismissedSimilar(null)}>
+                Show similar recipes
               </Button>
             </div>
           )}
@@ -633,6 +544,20 @@ export function RecipeChatPage() {
           }
         />
       </div>
+
+      {similarRecipes.length > 0 && (
+      <SimilarSheet
+        open={!isLoading && dismissedSimilar !== similarRecipes}
+        matches={similarRecipes}
+        query={pendingQuery ?? ''}
+        isVarying={isVarying}
+        onClose={() => {
+          setDismissedSimilar(similarRecipes);
+        }}
+        onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: pendingQuery ?? '' } })}
+        onWriteAnyway={dismissSimilar}
+      />
+      )}
 
       <ConfirmDialog
         open={showDiscard}
