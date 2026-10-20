@@ -20,7 +20,7 @@ const { publishRecipe, notifyBranched, navigate, reportError, config } = vi.hois
 vi.mock('../services/firestore', () => ({
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
   notifyBranched: (...a: unknown[]) => notifyBranched(...a),
-  searchPublishedRecipes: vi.fn(),
+  getAllPublishedRecipes: vi.fn(),
   searchPublishedVariations: vi.fn(),
 }));
 vi.mock('../services/firebase', () => ({
@@ -39,7 +39,8 @@ vi.mock('../db/recipes', async (importOriginal) => {
 
 import { useRecipeChat } from './useRecipeChat';
 import { createRecipeChat } from '../services/gemini';
-import { searchPublishedRecipes } from '../services/firestore';
+import { getAllPublishedRecipes } from '../services/firestore';
+import { clearPublishedWindow } from '../services/publishedWindow';
 import { buildRecipe } from '../db/recipes';
 import { IMAGE_ONLY_PROMPT, type ImageAttachment } from '../lib/imageAttachments';
 
@@ -64,6 +65,7 @@ const published = () => publishRecipe.mock.calls.map((c) => (c[0] as Recipe).id)
 beforeEach(async () => {
   vi.clearAllMocks();
   config.firebase = true;
+  clearPublishedWindow();
   await db.recipes.clear();
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -234,7 +236,7 @@ describe('useRecipeChat records the related family after Create anyway (RL-162)'
     publishRecipe.mockResolvedValue(undefined);
     session.mockResolvedValue(generated('Soup'));
     vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([
       makeRecipe({ id: 'v2', rootId: 'fam-1', title: 'Soup' }) as never,
       makeRecipe({ id: 'other', rootId: 'fam-2', title: 'Soup two' }) as never,
     ]);
@@ -258,7 +260,7 @@ describe('useRecipeChat records the related family after Create anyway (RL-162)'
   });
 
   it('is not set when there was no match to create past', async () => {
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
     const { result } = renderChat();
     await act(() => result.current.sendMessage('soup'));
     await act(() => result.current.saveRecipe());
@@ -273,7 +275,7 @@ describe('useRecipeChat records the related family after Create anyway (RL-162)'
     await act(() => result.current.dismissSimilar());
     expect(result.current.error).not.toBeNull();
 
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
     await act(() => result.current.sendMessage('pancakes'));
     await act(() => result.current.saveRecipe());
 
@@ -281,7 +283,7 @@ describe('useRecipeChat records the related family after Create anyway (RL-162)'
   });
 
   it('records nothing when the first match is a branch with no rootId', async () => {
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([
       { ...makeRecipe({ id: 'br', parentId: 'p', title: 'Soup' }), rootId: undefined } as never,
     ]);
     const { result } = renderChat();
@@ -298,7 +300,8 @@ describe('useRecipeChat records the related family after Create anyway (RL-162)'
     await act(() => first.result.current.sendMessage('soup'));
     await act(() => first.result.current.dismissSimilar());
 
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    clearPublishedWindow();
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
     const { result } = renderChat();
     await act(() => result.current.sendMessage('soup'));
     await act(() => result.current.saveRecipe());
@@ -334,7 +337,7 @@ describe('useRecipeChat photos as generation input (RL-118)', () => {
   beforeEach(() => {
     session.mockResolvedValue(generated('Soup'));
     vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([]);
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
   });
 
   it('passes the images to the session with the text', async () => {
@@ -362,21 +365,21 @@ describe('useRecipeChat photos as generation input (RL-118)', () => {
 
     await act(() => result.current.sendMessage('  ', [photo()]));
 
-    expect(searchPublishedRecipes).not.toHaveBeenCalled();
+    expect(getAllPublishedRecipes).not.toHaveBeenCalled();
     expect(session).toHaveBeenCalledWith(IMAGE_ONLY_PROMPT, [photo()]);
     const [user] = result.current.messages;
     expect(user).toEqual({ role: 'user', content: IMAGE_ONLY_PROMPT, timestamp: expect.any(Number) });
   });
 
   it('a send with text and photos dedups on the text, and Create New Anyway resends the photos', async () => {
-    vi.mocked(searchPublishedRecipes).mockResolvedValue([
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([
       makeRecipe({ id: 'cloud-1', title: 'Soup' }) as never,
     ]);
     const { result } = renderChat();
 
     await act(() => result.current.sendMessage('soup', [photo(1), photo(2)]));
 
-    expect(searchPublishedRecipes).toHaveBeenCalledWith('soup');
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(1);
     expect(session).not.toHaveBeenCalled();
     expect(result.current.similarRecipes).toHaveLength(1);
 
@@ -476,7 +479,7 @@ describe('useRecipeChat photos as generation input (RL-118)', () => {
   });
 
   it('a dedup match that is never continued costs no photos', async () => {
-    vi.mocked(searchPublishedRecipes)
+    vi.mocked(getAllPublishedRecipes)
       .mockResolvedValueOnce([makeRecipe({ id: 'cloud-1', title: 'Soup' }) as never])
       .mockResolvedValue([]);
     const { result } = renderChat();
@@ -547,5 +550,174 @@ describe('useRecipeChat photos as generation input (RL-118)', () => {
       expect(json).not.toContain(B64);
       expect(json).not.toContain('data:image');
     }
+  });
+});
+
+describe('useRecipeChat typing-pause dedup card (RL-178)', () => {
+  const session = vi.fn();
+  const window200 = [
+    makeRecipe({ id: 'bb', rootId: 'bb', title: 'Banana bread', createdBy: { uid: 'u2', displayName: 'Mia' } }),
+    makeRecipe({ id: 'bb2', rootId: 'bb', parentId: 'bb', title: 'Vegan banana bread', createdBy: { uid: 'u3', displayName: null } }),
+  ];
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    session.mockResolvedValue(generated('Banana bread'));
+    vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue(window200 as never);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const type = (r: { current: ReturnType<typeof useRecipeChat> }, text: string) =>
+    act(() => r.current.previewDuplicates(text));
+  const pause = (ms = 700) => act(() => vi.advanceTimersByTimeAsync(ms));
+
+  it('waits 700 ms after the last keystroke of at least 3 characters', async () => {
+    const { result } = renderChat();
+    await type(result, 'ba');
+    await pause(1000);
+    expect(getAllPublishedRecipes).not.toHaveBeenCalled();
+    expect(result.current.typingMatches).toBeNull();
+
+    await type(result, 'banana');
+    await pause(500);
+    await type(result, 'banana bread');
+    await pause(699);
+    expect(result.current.typingMatches).toBeNull();
+    await pause(1);
+
+    expect(result.current.typingMatches?.matches.map((m) => m.id)).toEqual(['bb', 'bb2']);
+    expect(result.current.typingMatches?.family).toEqual({ versions: 2, cooks: 2 });
+    expect(result.current.typingAnnouncement).toBe('2 similar recipes already here');
+  });
+
+  it('reads the cloud window once across pauses and the send check', async () => {
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    await type(result, 'vegan banana bread');
+    await pause();
+    await act(() => result.current.sendMessage('banana bread'));
+
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(1);
+    expect(result.current.similarRecipes.map((m) => m.id)).toEqual(['bb', 'bb2']);
+    expect(result.current.typingMatches).toBeNull();
+    expect(result.current.typingAnnouncement).toBe('');
+  });
+
+  it('hides when the text no longer matches', async () => {
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    expect(result.current.typingMatches).not.toBeNull();
+    await type(result, 'fish tacos');
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+  });
+
+  it('a stale lookup does not overwrite a newer one', async () => {
+    let release: (v: never) => void = () => {};
+    vi.mocked(getAllPublishedRecipes).mockReturnValue(new Promise((r) => (release = r)));
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    await type(result, 'fish tacos');
+    await act(async () => release(window200 as never));
+    // The banana lookup finished after "fish tacos" was typed, before its own pause.
+    expect(result.current.typingMatches).toBeNull();
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+  });
+
+  it('Hide matches dismisses it for the rest of the chat', async () => {
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    act(() => result.current.hideTypingMatches());
+    expect(result.current.typingMatches).toBeNull();
+    await type(result, 'vegan banana bread');
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+  });
+
+  it('send is not delayed by a pending pause and generates when nothing matches', async () => {
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await act(() => result.current.sendMessage('banana bread'));
+    expect(session).toHaveBeenCalledTimes(1);
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+  });
+
+  it('a failed window read is retried once by the next caller, then the chat stays local-only', async () => {
+    vi.mocked(getAllPublishedRecipes).mockRejectedValueOnce(new Error('offline'));
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+
+    await type(result, 'banana bread ');
+    await pause();
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(2);
+    expect(result.current.typingMatches?.matches.map((m) => m.id)).toEqual(['bb', 'bb2']);
+    expect(result.current.typingMatches?.query).toBe('banana bread');
+  });
+
+  it('stops reading after two failures in one chat', async () => {
+    vi.mocked(getAllPublishedRecipes).mockRejectedValue(new Error('offline'));
+    const { result } = renderChat();
+    for (const text of ['banana bread', 'vegan banana bread', 'banana loaf']) {
+      await type(result, text);
+      await pause();
+    }
+    await act(() => result.current.sendMessage('banana bread'));
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(2);
+    expect(session).toHaveBeenCalledTimes(1);
+  });
+
+  it('a second chat within the TTL reuses the window', async () => {
+    const first = renderChat();
+    await type(first.result, 'banana bread');
+    await pause();
+    const second = renderChat();
+    await type(second.result, 'banana bread');
+    await pause();
+    expect(second.result.current.typingMatches).not.toBeNull();
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(1);
+  });
+
+  it('a local read failure clears the card', async () => {
+    const { result } = renderChat();
+    await type(result, 'banana bread');
+    await pause();
+    expect(result.current.typingMatches).not.toBeNull();
+    vi.spyOn(db.recipes, 'toArray').mockRejectedValueOnce(new Error('idb'));
+    await type(result, 'vegan banana bread');
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+  });
+
+  it('never shows on a variation, after the first recipe, or in local-only mode', async () => {
+    const parent = makeRecipe({ id: 'p' });
+    const vary = renderHook(() => useRecipeChat(parent), { wrapper });
+    await type(vary.result, 'banana bread');
+    await pause();
+    expect(vary.result.current.typingMatches).toBeNull();
+
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('soup'));
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue(window200 as never);
+    await type(result, 'banana bread');
+    await pause();
+    expect(result.current.typingMatches).toBeNull();
+
+    config.firebase = false;
+    const local = renderChat();
+    await type(local.result, 'banana bread');
+    await pause();
+    expect(local.result.current.typingMatches).toBeNull();
+    expect(getAllPublishedRecipes).toHaveBeenCalledTimes(1);
   });
 });

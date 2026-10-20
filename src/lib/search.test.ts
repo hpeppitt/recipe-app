@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  dedupKey,
+  familyCounts,
   matchKind,
   mergeDedupById,
   queryWords,
@@ -163,5 +165,24 @@ describe('matchKind', () => {
   it('is similar otherwise', () => {
     expect(matchKind('banana bread', { title: 'chocolate banana loaf' })).toBe('similar');
     expect(matchKind('', { title: 'x' })).toBe('similar');
+  });
+});
+
+describe('dedupKey', () => {
+  it('ignores case, spacing and short words', () => {
+    expect(dedupKey('  Banana   BREAD of ')).toBe(dedupKey('banana bread'));
+  });
+});
+
+describe('familyCounts', () => {
+  it('counts each version once across sources and each cook once', () => {
+    const rows = [
+      { id: 'a', rootId: 'r', createdBy: { uid: 'u1' } },
+      { id: 'b', rootId: 'r', createdBy: { uid: 'u2' } },
+      { id: 'a', rootId: 'r', createdBy: { uid: 'u1' } },
+      { id: 'c', rootId: 'r', createdBy: { uid: 'u1' } },
+      { id: 'x', rootId: 'other', createdBy: { uid: 'u3' } },
+    ];
+    expect(familyCounts(rows, 'r')).toEqual({ versions: 3, cooks: 2 });
   });
 });

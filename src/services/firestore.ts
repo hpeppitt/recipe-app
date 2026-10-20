@@ -29,7 +29,7 @@ import {
 } from 'firebase/firestore';
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
 import { auth, firestore } from './firebase';
-import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
+import { rankByQuery, variationHaystack } from '../lib/search';
 import { collectSubtreeIds, MAX_FAMILY_MOVE, MAX_MOVED_CHILDREN, planFamilyMove, type FamilyMoveResult } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
@@ -232,10 +232,11 @@ export async function getPublishedRecipesPage(
 }
 
 /**
- * The newest slice of the shared library, for callers that need a window rather
- * than a page: the dedup check, and the library's first paint.
+ * The newest slice of the shared library, for new-recipe dedup. Its one caller is
+ * `services/publishedWindow.ts`, which shares it across chats for 5 minutes (RL-178).
  *
- * Still bounded, and still an accepted limit — see `searchPublishedRecipes`.
+ * Still bounded, and still an accepted limit: dedup scores this window client-side
+ * (Firestore has no full-text search), so recipes past it are not considered.
  */
 export async function getAllPublishedRecipes(limitTo = 200): Promise<PublishedRecipe[]> {
   if (!firestore) return [];
@@ -265,26 +266,6 @@ export async function getRecentPublishedRecipes(sinceMs: number, max = 100): Pro
     query(collection(firestore, 'recipes'), where('createdAt', '>=', sinceMs), orderBy('createdAt', 'desc'), limit(max))
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
-}
-
-/**
- * Dedup check against the shared cloud library.
- *
- * Firestore has no full-text search, so this scores the most recent published
- * recipes client-side over the same window the library feed uses. Recipes past
- * that window are not considered — an accepted limit until dedup moves server-side.
- */
-export async function searchPublishedRecipes(
-  prompt: string,
-  maxResults = 5
-): Promise<PublishedRecipe[]> {
-  if (!firestore) return [];
-  const all = await getAllPublishedRecipes();
-  return rankByQuery(all, prompt, {
-    haystack: recipeHaystack,
-    threshold: 0.5,
-    limit: maxResults,
-  });
 }
 
 /**

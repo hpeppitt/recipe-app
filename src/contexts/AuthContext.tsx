@@ -38,6 +38,7 @@ import {
 import { TERMS_VERSION } from '../lib/legal';
 import { onConsentChange, trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 import { reportError } from '../services/telemetry';
+import { clearPublishedWindow } from '../services/publishedWindow';
 
 /** Rechecks after a failed Terms read, per session; each needs an online or tab-visible event. */
 const TERMS_CHECK_RETRIES = 3;
@@ -437,6 +438,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearTermsAcceptance();
     // Same for an unrun sign-in intent (RL-136): it must not run for the next person.
     clearPendingAction();
+    // The shared dedup window (RL-178) is public data, but the next person reads their own.
+    clearPublishedWindow();
     const current = auth?.currentUser;
     const verifiedUid = current && !current.isAnonymous && current.emailVerified ? current.uid : null;
     await signOut();

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Routes, Route, Link } from 'react-router-dom';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import type { GeneratedRecipe } from '../types/api';
@@ -24,6 +24,8 @@ vi.mock('../hooks/useRecipe', () => ({
 
 const sendMessage = vi.fn();
 const saveRecipe = vi.fn();
+const previewDuplicates = vi.fn();
+const hideTypingMatches = vi.fn();
 type Chat = {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -33,6 +35,8 @@ type Chat = {
   attachmentPreviews?: Record<number, string[]>;
   sentImageCount?: number;
   similarRecipes?: import('../hooks/useRecipeChat').SimilarRecipe[];
+  typingMatches?: import('../hooks/useRecipeChat').TypingMatches | null;
+  typingAnnouncement?: string;
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -55,6 +59,10 @@ vi.mock('../hooks/useRecipeChat', async () => {
       retryGeneration: vi.fn(),
       dismissSimilar: vi.fn(),
       saveRecipe,
+      typingMatches: null,
+      typingAnnouncement: '',
+      previewDuplicates,
+      hideTypingMatches,
     ...state,
     };
   },
@@ -94,6 +102,8 @@ const toggles = () =>
 
 beforeEach(() => {
   sendMessage.mockReset();
+  previewDuplicates.mockReset();
+  hideTypingMatches.mockReset();
   parent = undefined;
   parentLoading = false;
   parentError = null;
@@ -114,12 +124,82 @@ describe('RecipeChatPage similar recipes', () => {
       similarRecipes: [
         {
           id: 'c1', rootId: 'c1', emoji: '🍲', title: 'Stew', description: 'Hearty',
+          totalTime: 60, difficulty: 'easy', author: { uid: 'u9', name: 'Mia Stone' },
           cloudOrigin: { isOwn: false, creatorName: 'Mia Stone', creatorUid: 'u9' },
         },
       ],
     };
     view();
     expect(screen.getByText('Mia Stone')).toBeTruthy();
+  });
+});
+
+describe('RecipeChatPage typing-pause dedup card (RL-178)', () => {
+  const match = (id: string, title: string) => ({
+    id, rootId: 'bb', emoji: '🍌', title, description: '', totalTime: 75, difficulty: 'easy',
+    author: { uid: 'u9', name: 'Mia Stone' }, cloudOrigin: null,
+  });
+  const typing = {
+    matches: [match('bb', 'Banana bread'), match('bb2', 'Vegan banana bread')],
+    family: { versions: 7, cooks: 5 },
+    query: 'banana bread',
+  };
+
+  it('hands every keystroke to the hook', async () => {
+    view();
+    await userEvent.setup().type(screen.getByRole('textbox'), 'ban');
+    expect(previewDuplicates.mock.calls.map((c) => c[0])).toEqual(['b', 'ba', 'ban']);
+  });
+
+  it('shows the top title, family counts, author pills and meta, and announces once', () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, typingMatches: typing, typingAnnouncement: '2 similar recipes already here' };
+    view();
+    const card = screen.getByRole('region', { name: 'Similar recipes' });
+    expect(card.textContent).toContain('Banana bread is already growing here · 7 versions by 5 cooks');
+    expect(screen.getAllByText('Mia Stone')).toHaveLength(2);
+    expect(screen.getAllByText('1h 15m · easy')).toHaveLength(2);
+    expect(screen.getByRole('status').textContent).toBe('2 similar recipes already here');
+  });
+
+  it('Hide matches dismisses and returns focus to the composer', async () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, typingMatches: typing };
+    view();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Hide matches' }));
+    expect(hideTypingMatches).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(screen.getByRole('textbox'));
+  });
+
+  it('Branch opens the vary route carrying the typed text; the title links to the recipe', async () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, typingMatches: typing };
+    function Probe() {
+      const loc = useLocation();
+      return <p>{`${loc.pathname} ${(loc.state as { suggestion?: string } | null)?.suggestion}`}</p>;
+    }
+    renderWithProviders(
+      <Routes>
+        <Route path="/create" element={<RecipeChatPage />} />
+        <Route path="*" element={<Probe />} />
+      </Routes>,
+      { route: '/create' }
+    );
+    expect(screen.getByRole('link', { name: 'Banana bread' }).getAttribute('href')).toBe('/recipe/bb');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Branch Vegan banana bread' }));
+    expect(screen.getByText('/recipe/bb2/vary banana bread')).toBeTruthy();
+  });
+
+  it('Send still works while the card shows', async () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, typingMatches: typing };
+    view();
+    const u = userEvent.setup();
+    await u.type(screen.getByRole('textbox'), 'banana bread');
+    await u.click(screen.getByRole('button', { name: 'Send' }));
+    expect(sendMessage).toHaveBeenCalledWith('banana bread', []);
+  });
+
+  it('is not shown once a recipe exists', () => {
+    chat = { ...withRecipes('Pasta'), typingMatches: typing };
+    view();
+    expect(screen.queryByRole('region', { name: 'Similar recipes' })).toBeNull();
   });
 });
 

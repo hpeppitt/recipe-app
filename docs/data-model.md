@@ -116,6 +116,17 @@ it in the query would need a composite index. Cost: one read per document return
 per session, plus at most 8 `getDoc` reads for family roots not already loaded. A week with more
 than 100 new recipes counts only the newest 100.
 
+New-recipe dedup (RL-178) reads `getAllPublishedRecipes` (`orderBy createdAt desc`, `limit
+200`, the same automatic index) through `services/publishedWindow.ts`, a module cache shared by
+every chat in the page session for 5 minutes and dropped on sign-out. A chat asks for it on its
+first typing pause or first send, whichever comes first, and `useRecipeChat` scores it in memory
+for every later pause and for the send check. Cost: at most 200 reads per 5 minutes of
+new-recipe chats, however many chats or abandoned drafts, and none per keystroke; a chat that
+never pauses on 3 or more characters and never sends reads nothing. Only successes are kept: a
+failed read is retried by the chat's next pause or send, once, after which that chat is
+local-only. Variation dedup is unchanged (`searchPublishedVariations`, one tree query per send
+check).
+
 `useMostBranched` (RL-166, Explore's Most branched) shares one `getRecentPublishedRecipes` read
 with Branching fast this week (`hooks/recentPublished.ts`): `createdAt >= 90 days ago`, `limit
 100`, the same automatic single-field index, so no new index. The 30 and 90 day windows are ranked

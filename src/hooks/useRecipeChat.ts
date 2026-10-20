@@ -1,20 +1,22 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
 import {
   buildRecipe,
   cacheRecipe,
   createRecipe,
+  getRecipeTree,
   searchRecipes,
   searchVariations,
 } from '../db/recipes';
 import {
   notifyBranched,
   publishRecipe,
-  searchPublishedRecipes,
   searchPublishedVariations,
+  type PublishedRecipe,
 } from '../services/firestore';
-import { mergeDedupById } from '../lib/search';
+import { readPublishedWindow } from '../services/publishedWindow';
+import { dedupKey, familyCounts, mergeDedupById, rankByQuery, recipeHaystack } from '../lib/search';
 import { withTimeout } from '../lib/utils';
 import {
   describeGenerationError,
@@ -39,6 +41,9 @@ import {
 /** How long a save waits for the cloud publish before reporting a failure. */
 const PUBLISH_TIMEOUT_MS = 4000;
 
+/** The typing pause after which a new-recipe chat looks for similar recipes (7a, RL-178). */
+export const TYPING_PAUSE_MS = 700;
+
 /** A dedup match, which may live only in the shared cloud library. */
 export type SimilarRecipe = {
   id: string;
@@ -47,6 +52,10 @@ export type SimilarRecipe = {
   emoji: string;
   title: string;
   description: string;
+  totalTime: number;
+  difficulty: string;
+  /** Who made it, for a UserPill. Null for a recipe saved on this device with no account. */
+  author: { uid: string; name: string | null } | null;
   /** Set when the match was found in the cloud and is not on this device. */
   cloudOrigin: { isOwn: boolean; creatorName: string | null; creatorUid: string | null } | null;
 };
@@ -58,9 +67,20 @@ function toSimilar(recipes: Recipe[]): SimilarRecipe[] {
     emoji: r.emoji,
     title: r.title,
     description: r.description,
+    totalTime: r.totalTime,
+    difficulty: r.difficulty,
+    author: r.createdBy.uid === 'local' ? null : { uid: r.createdBy.uid, name: r.createdBy.displayName },
     cloudOrigin: null,
   }));
 }
+
+/** The 7a card: up to three matches, and the top match's family size when known. */
+export type TypingMatches = {
+  matches: SimilarRecipe[];
+  family: { versions: number; cooks: number } | null;
+  /** The text that produced them, carried into Branch like the on-send panel does. */
+  query: string;
+};
 
 /**
  * Dedup for a brand-new recipe, checking the local library and the shared cloud
@@ -70,20 +90,29 @@ function toSimilar(recipes: Recipe[]): SimilarRecipe[] {
  */
 async function searchSimilarRecipes(
   text: string,
-  currentUid: string | undefined
-): Promise<SimilarRecipe[]> {
+  currentUid: string | undefined,
+  cloudWindow: () => Promise<PublishedRecipe[] | null>
+): Promise<{ matches: SimilarRecipe[]; cloud: PublishedRecipe[] | null }> {
   const local = toSimilar(await searchRecipes(text));
-  if (!isFirebaseConfigured) return local;
+  if (!isFirebaseConfigured) return { matches: local, cloud: null };
 
-  const published = await searchPublishedRecipes(text).catch(() => []);
-  return mergeDedupById(local, published.map((r) => toCloudSimilar(r, currentUid)), {
+  // Firestore has no full-text search, so the newest published window is scored
+  // client-side. Recipes past that window are not considered: an accepted limit.
+  const cloud = await cloudWindow();
+  const published = rankByQuery(cloud ?? [], text, {
+    haystack: recipeHaystack,
+    threshold: 0.5,
+    limit: 5,
+  });
+  const matches = mergeDedupById(local, published.map((r) => toCloudSimilar(r, currentUid)), {
     limit: 5,
     maxFromSecondary: 2,
   });
+  return { matches, cloud };
 }
 
 function toCloudSimilar(
-  r: { id: string; rootId?: string; parentId?: string | null; emoji: string; title: string; description: string; createdBy?: { uid: string; displayName: string | null } },
+  r: { id: string; rootId?: string; parentId?: string | null; emoji: string; title: string; description: string; totalTime: number; difficulty: string; createdBy?: { uid: string; displayName: string | null } },
   currentUid: string | undefined
 ): SimilarRecipe {
   return {
@@ -93,6 +122,9 @@ function toCloudSimilar(
     emoji: r.emoji,
     title: r.title,
     description: r.description,
+    totalTime: r.totalTime,
+    difficulty: r.difficulty,
+    author: r.createdBy ? { uid: r.createdBy.uid, name: r.createdBy.displayName } : null,
     cloudOrigin: {
       // A cloud match can be the user's own recipe published from another
       // device, which is a different message than someone else's recipe.
@@ -169,8 +201,95 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   // The first shown match's family, held from "Create New Recipe Anyway" for the
   // rest of this chat and recorded on the original it saves (RL-162).
   const relatedFamilyRef = useRef<string | null>(null);
+  // The published window, read on the first typing pause or first send and shared
+  // by both checks (and, through readPublishedWindow, by chats within its TTL). A
+  // failure is not kept: the next caller retries once, then the chat is local-only.
+  const cloudWindowRef = useRef<Promise<PublishedRecipe[] | null> | null>(null);
+  const windowFailsRef = useRef(0);
+  const cloudWindow = useCallback(() => {
+    if (!cloudWindowRef.current) {
+      if (windowFailsRef.current >= 2) return Promise.resolve(null);
+      const read: Promise<PublishedRecipe[] | null> = readPublishedWindow().then((rows) => {
+        if (rows) return rows;
+        windowFailsRef.current++;
+        if (cloudWindowRef.current === read) cloudWindowRef.current = null;
+        return null;
+      });
+      cloudWindowRef.current = read;
+    }
+    return cloudWindowRef.current;
+  }, []);
+  // The 7a typing-pause card (RL-178). Results are cached by normalised query and
+  // a stale lookup is dropped by sequence number.
+  const [typingMatches, setTypingMatches] = useState<TypingMatches | null>(null);
+  const [typingAnnouncement, setTypingAnnouncement] = useState('');
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const typingSeqRef = useRef(0);
+  const typingCacheRef = useRef(new Map<string, Omit<TypingMatches, 'query'> | null>());
+  const typingDismissedRef = useRef(false);
+  const typingAnnouncedRef = useRef(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  useEffect(() => () => clearTimeout(typingTimerRef.current), []);
+
+  /** Clears the card and drops any pending or in-flight lookup. */
+  const clearTyping = useCallback(() => {
+    clearTimeout(typingTimerRef.current);
+    typingSeqRef.current++;
+    setTypingMatches(null);
+  }, []);
+
+  /**
+   * Called on every composer change. After TYPING_PAUSE_MS without another call
+   * it ranks local recipes and the cached cloud window. Never touches sending.
+   */
+  const previewDuplicates = useCallback(
+    (text: string) => {
+      clearTimeout(typingTimerRef.current);
+      const seq = ++typingSeqRef.current;
+      if (parentRecipe || generatedOnceRef.current || typingDismissedRef.current || !isFirebaseConfigured) return;
+      if (text.trim().length < 3) {
+        setTypingMatches(null);
+        return;
+      }
+      typingTimerRef.current = setTimeout(async () => {
+        const key = dedupKey(text);
+        let result = typingCacheRef.current.get(key);
+        if (result === undefined) {
+          try {
+            const found = key ? await searchSimilarRecipes(text, user?.uid, cloudWindow) : null;
+            const matches = found?.matches.slice(0, 3) ?? [];
+            const rootId = matches[0]?.rootId;
+            const family = rootId
+              ? familyCounts([...(await getRecipeTree(rootId)), ...(found?.cloud ?? [])], rootId)
+              : null;
+            result = matches.length ? { matches, family } : null;
+            // A local-only result after a failed window read is shown but not kept.
+            if (!found || found.cloud) typingCacheRef.current.set(key, result);
+          } catch {
+            // A local read failed: show nothing, as the send check would.
+            if (seq === typingSeqRef.current) setTypingMatches(null);
+            return;
+          }
+        }
+        if (seq !== typingSeqRef.current) return;
+        setTypingMatches(result && { ...result, query: text.trim() });
+        if (result && !typingAnnouncedRef.current) {
+          typingAnnouncedRef.current = true;
+          const n = result.matches.length;
+          setTypingAnnouncement(`${n} similar ${n === 1 ? 'recipe' : 'recipes'} already here`);
+        }
+      }, TYPING_PAUSE_MS);
+    },
+    [parentRecipe, user?.uid, cloudWindow]
+  );
+
+  /** "Hide matches": no more typing-pause cards in this chat. */
+  const hideTypingMatches = useCallback(() => {
+    typingDismissedRef.current = true;
+    clearTyping();
+  }, [clearTyping]);
 
   const generateRecipe = useCallback(
     async (text: string, images?: ImageAttachment[]) => {
@@ -246,6 +365,9 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       if (photos && photos.length > MAX_IMAGES_PER_MESSAGE) return 'message-limit';
       if (photos && chatImageCountRef.current + photos.length > MAX_IMAGES_PER_CHAT) return 'chat-limit';
       sendingRef.current = true;
+      // The composer empties on send, so the typing card and its announcement go with it.
+      clearTyping();
+      setTypingAnnouncement('');
 
       try {
         // Photos with no text still need a meaningful `prompt` once saved.
@@ -276,7 +398,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
           try {
             const matches = parentRecipe
               ? await searchSimilarVariations(parentRecipe, text, user?.uid)
-              : await searchSimilarRecipes(text, user?.uid);
+              : (await searchSimilarRecipes(text, user?.uid, cloudWindow)).matches;
 
             if (matches.length > 0) {
               setSimilarRecipes(matches);
@@ -297,7 +419,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         sendingRef.current = false;
       }
     },
-    [parentRecipe, generateRecipe, user?.uid]
+    [parentRecipe, generateRecipe, user?.uid, clearTyping, cloudWindow]
   );
 
   /**
@@ -445,5 +567,11 @@ export function useRecipeChat(parentRecipe?: Recipe) {
     retryGeneration,
     dismissSimilar,
     saveRecipe,
+    /** The 7a card's matches after a typing pause; null when there is nothing to show. */
+    typingMatches,
+    /** Polite text for the card's first appearance in this chat, cleared on send. */
+    typingAnnouncement,
+    previewDuplicates,
+    hideTypingMatches,
   };
 }
