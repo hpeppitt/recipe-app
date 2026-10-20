@@ -44,8 +44,10 @@ describe('BranchCarousel', () => {
     expect(within(slides[0]).getByText('add blueberries')).toBeInTheDocument();
     expect(within(slides[0]).getByText('1 branch')).toBeInTheDocument();
     expect(within(slides[0]).getByText(/^\+ .*blueberries/)).toBeInTheDocument();
-    expect(within(slides[0]).getByText('Blueberry · Sam')).toBeInTheDocument();
-    expect(within(slides[1]).getByText('Plain · Anonymous')).toBeInTheDocument();
+    expect(within(slides[0]).getByText(/^Blueberry/)).toBeInTheDocument();
+    expect(within(slides[0]).getByText('Sam')).toBeInTheDocument();
+    expect(within(slides[1]).getByText('Plain')).toBeInTheDocument();
+    expect(within(slides[1]).queryByText('Anonymous')).toBeNull();
     expect(within(slides[1]).queryByText(/branch/)).toBeNull();
     expect(screen.getByRole('region', { name: 'Branches of Pancakes' })).toHaveAttribute('aria-roledescription', 'carousel');
   });

@@ -13,6 +13,7 @@ import { BranchComposer, GrowingCard } from '../components/chat/BranchComposer';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { EmailLinkingForm } from '../components/auth/EmailLinkingForm';
 import { Button } from '../components/ui/Button';
+import { UserPill } from '../components/ui/UserPill';
 import { Spinner } from '../components/ui/Spinner';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { REFINEMENT_CHIPS, SUGGESTION_CHIPS } from '../lib/constants';
@@ -436,11 +437,16 @@ export function RecipeChatPage() {
                           )}
                           {r.cloudOrigin && (
                             <p className="text-xs text-text-secondary mt-0.5">
-                              {r.cloudOrigin.isOwn
-                                ? 'Your recipe, not on this device'
-                                : r.cloudOrigin.creatorName
-                                  ? `Shared library, by ${r.cloudOrigin.creatorName}`
-                                  : 'In the shared library'}
+                              {r.cloudOrigin.isOwn ? (
+                                'Your recipe, not on this device'
+                              ) : r.cloudOrigin.creatorUid ? (
+                                <>
+                                  Shared library, by{' '}
+                                  <UserPill uid={r.cloudOrigin.creatorUid} name={r.cloudOrigin.creatorName} wrap />
+                                </>
+                              ) : (
+                                'In the shared library'
+                              )}
                             </p>
                           )}
                         </div>

@@ -125,6 +125,14 @@ describe('BranchComposer', () => {
     expect(screen.getByRole('button', { name: /Branching this recipe/ })).toBeTruthy();
   });
 
+  it('shows the parent author as a pill unless the recipe is local', () => {
+    show({ parent: makeRecipe({ title: 'Soup', createdBy: { uid: 'u1', displayName: 'Ana Lee' } }) });
+    expect(screen.getByText('Ana Lee')).toBeTruthy();
+    cleanup();
+    show();
+    expect(screen.queryByText('Anonymous')).toBeNull();
+  });
+
   it('the parent pill toggles the preview and exposes that state', async () => {
     show();
     const pill = screen.getByRole('button', { name: 'Branching Banana bread' });
