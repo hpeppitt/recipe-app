@@ -35,7 +35,7 @@ flowchart TD
 **`pages/`** own routing-level state and compose components. **`components/`** are
 presentational, grouped by domain (`recipe/`, `chat/`, `auth/`, `profile/`,
 `notifications/`, `layout/`, `tree/`) plus a shared `ui/` primitive set (Button, Input, Chip,
-Skeleton, EmptyState, ConfirmDialog, Sheet, Spinner, PageFallback, Avatar, SegmentedControl, ErrorBoundary, EmojiBlob, UserPill, IconButton). Every icon comes from `ui/icons.tsx`: Lucide
+Skeleton, EmptyState, ConfirmDialog, Sheet, Spinner, LoadingScreen, PageFallback, Avatar, SegmentedControl, ErrorBoundary, EmojiBlob, UserPill, IconButton). Every icon comes from `ui/icons.tsx`: Lucide
 paths (ISC licence) copied into one inline-SVG wrapper at stroke width 2.75, with no icon
 dependency. **`hooks/`** (`useBranchEntry` gates every branch entry point on `canGenerate`, opening the 5a sheet instead of navigating)
 hold all data access and effects. **`lib/`** is pure, dependency-free logic and is where
