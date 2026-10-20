@@ -1632,3 +1632,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: an Apply that times out on the client can still commit late; the recipe then changes without a success message, and the Dexie row fills from the own-recipe sync (RL-078).
 - Reviewer noted: the `branched` status write can race a Decline from a second device; the decline wins and the published branch is left orphaned (very unlikely).
 - Reviewer noted: a suggestion already reviewed elsewhere now shows "This suggestion was already reviewed. Refresh to see it." on Apply or Keep as branch.
+
+### RL-149 Suggestion cards show diff rows and the owner's Apply, Decline and Keep as branch
+
+- Emulator only (two verified accounts); the live rules deny `applied` and `branched` until RL-156.
+- At 390 and 320px as owner and suggester: a suggestion with two ingredient edits, a step and a note shows one diff row each (new amount bold, old amount struck) and the note below. The suggester sees only a Reply link.
+- Owner: Apply closes it and shows an Applied tag. Another one: More options (the three dots), Keep as branch opens the new branch; the closed row reads Branched and opens that branch.
+- An old free-text suggestion shows Mark applied and no More options button.
+- Dark theme: the struck amount and the tags are readable.
+- Screen reader: a diff row reads "Change light brown sugar from 150 g to 100 g".
+- Replies is now a link, not a button.
+- Reviewer noted: check the action row (Decline, Mark applied, More options) at a real 320px viewport; Mark applied now wraps inside the 44px height.

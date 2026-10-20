@@ -126,7 +126,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
   const savedOutcome = savedState?.saved;
   const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
-  const { reviewingId, reviewError, review: handleReview } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
+  const { reviewingId, reviewError, apply: handleApply, keepAsBranch: handleKeepAsBranch, decline: handleDecline } = useSuggestionReview(recipe, suggestions, { apply, keepAsBranch, reject });
   const [introState, setIntroState] = useState(getIntroState);
 
   // Fails closed: while the recipe is still resolving, `source` is undefined and
@@ -584,7 +584,9 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             isOwner={isOwner}
             reviewingId={reviewingId}
             reviewError={reviewError}
-            onReview={handleReview}
+            onApply={(sid) => void handleApply(sid)}
+            onKeepAsBranch={(sid) => void handleKeepAsBranch(sid)}
+            onDecline={(sid) => void handleDecline(sid)}
           />
 
           {/* The count existed on the document and was never shown anywhere, so a
