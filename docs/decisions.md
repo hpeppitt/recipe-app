@@ -872,3 +872,7 @@ The recipe owner can **Apply**, **Decline** or **Keep as branch**. Approve is no
 - Existing `approved` suggestions and the collaborators they added are left as they are.
 
 Unparseable new ingredient amounts ("a pinch") are applied as amount and unit null with the text kept in the ingredient's `notes`. The rules, write paths and screens follow in RL-146 to RL-151.
+
+### Suggestion edit text is checked with matches(), not size() (RL-146, 2026-10-21)
+
+A request may evaluate at most 1000 rule expressions, and the suggestion create shares that budget with the `writeWindows` write in the same transaction. With `is string` plus `size()` on each text field, the emulator denied a create of 7 or more full edits on that limit alone, below the 10 the model allows. `matches('(?s).{0,N}')` is one call that also fails on a non-string, and with it 10 full edits pass, with either a new or an existing window. The cost: `matches()` counts code points and `size()` counts UTF-16 units, so text in emoji can reach twice the cap in UTF-16 units. The client caps by UTF-16 length, so it is never denied by the difference. Rejected: capping edits at 6 (the model and the spec say 10), and dropping the type checks (a list or map would pass a bare `size()`). Any new check on suggestion create must be re-probed with 10 full edits.

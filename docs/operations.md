@@ -292,6 +292,12 @@ Deploy rules alone with `--only firestore:rules` only when `firestore.indexes.js
 unchanged, so a stale index file cannot ride along unnoticed. When a change adds indexes
 that a new query needs, deploy them on their own first.
 
+**Structured-suggestion rules (RL-146, deployed by RL-156).** Deploy them only after the
+RL-147 and RL-148 client is live. Before that, the current Approve adds the suggester to
+`collaborators`, then its `status: 'approved'` write is denied, leaving a stray collaborator
+on a suggestion that stays Open. After the deploy, re-run a 10-edit suggestion against the
+real project: the rules' expression budget for it was probed on the emulator only.
+
 **The pending release order (RL-022 and RL-051, combined).** `firestore.rules` deploys as
 one unit. Every rules change merged so far rides along with the next
 `firebase deploy --only firestore:rules`, including the RL-047 acceptance guards on recipe,

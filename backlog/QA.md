@@ -1600,3 +1600,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - No visible change. Pure model, tests and a decision entry only; RL-147 to RL-150 add the screens.
 - Reviewer noted: a bare number replacing "1 cup" drops the unit (per spec).
 - Reviewer noted: rules still only allow approved/rejected until RL-146.
+
+### RL-146 Suggestion rules for edits and outcomes
+
+- No visible change. Rules in the repo only; RL-156 deploys them. Probe codes are in the ticket's Notes.
+- After RL-156 deploys, the current Approve button fails until RL-147 and RL-148 replace it.
+- Reviewer noted: `branchId` only proves the branch is the owner's own child of the recipe, not that the suggestion's edits were applied to it.
+- Reviewer noted: `suggestion_applied` and `suggestion_branched` notifications are not tied to a real suggestion (the same is true of the existing suggestion types; rate limited).

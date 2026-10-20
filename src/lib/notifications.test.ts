@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { truncateNotificationMessage, NOTIFICATION_MESSAGE_MAX, groupByDay } from './notifications';
+import type { AppNotification } from '../types/social';
+// ?raw rather than node:fs, as in rateLimit.test.ts.
+import rules from '../../firestore.rules?raw';
 
 describe('truncateNotificationMessage', () => {
   it('leaves text under the limit unchanged', () => {
@@ -38,5 +41,29 @@ describe('groupByDay', () => {
     const { today, earlier } = groupByDay(items, now);
     expect(today).toEqual([items[0], items[1]]);
     expect(earlier).toEqual([items[2], items[3]]);
+  });
+});
+
+describe('firestore.rules notification types', () => {
+  // A Record over the union, so a type added to AppNotification fails to compile until listed here.
+  const clientTypes: Record<AppNotification['type'], true> = {
+    favorite: true,
+    follow: true,
+    suggestion: true,
+    suggestion_reply: true,
+    suggestion_approved: true,
+    suggestion_rejected: true,
+  };
+  const ruleTypes = [...rules.matchAll(/request\.resource\.data\.type in \[([^\]]+)\]/g)].flatMap((m) =>
+    [...m[1].matchAll(/'([^']+)'/g)].map((t) => t[1]),
+  );
+
+  it('the rules allow every type the client knows', () => {
+    for (const type of Object.keys(clientTypes)) expect(ruleTypes).toContain(type);
+  });
+
+  it('the rules allow the suggestion outcome types (RL-146)', () => {
+    expect(ruleTypes).toContain('suggestion_applied');
+    expect(ruleTypes).toContain('suggestion_branched');
   });
 });

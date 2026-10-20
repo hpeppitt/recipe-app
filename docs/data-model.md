@@ -183,10 +183,27 @@ lacks are added to Dexie as `{ uid, recipeId, createdAt }` with the cloud `creat
 may create one for someone else's recipe, and it must be stamped with their own uid and `status: 'pending'`. Its `recipeOwnerId` must
 match the recipe's `createdBy.uid`, checked with a `get()` on the recipe, so each create costs
 three document reads in the rules (the recipe, the `termsAcceptance` document for `acceptedTerms()`, and the `writeWindows` window's `getAfter()` from RL-048) plus the client's window read in its transaction; a wrong owner would leave a suggestion nobody can review or delete.
-Only the recipe owner, with a verified email, may update, and
-only the `status` field, and only to `approved` or `rejected`. On approval the client adds the
-suggester to the recipe's `collaborators` first, then writes `status`, then notifies, so a
-failed collaborator write leaves the suggestion pending. That `arrayUnion` is the only write
+**Structured edits and outcomes (RL-146, in the repo 2026-10-21, deployed by RL-156).** A
+create may hold only the keys `createSuggestion` writes (`recipeId`, `recipeOwnerId`,
+`recipeTitle`, `recipeEmoji`, `suggestedBy`, `message`, `status`, `createdAt`) plus `edits`, so
+a suggester cannot pre-set `branchId` or any other field. It may carry `edits`: if present, a list of 1 to 10 maps, each with only the keys `kind`,
+`index`, `name`, `from`, `to`, `why`; `kind` one of `ingredient`, `step`, `general`; `from` a
+string of at most 500 characters; `to` a string of 1 to 1000; optional `index` an integer 0 to
+99; optional `name` and `why` strings of at most 200. Rules cannot loop, so each of the ten
+indexes is checked explicitly. The text checks use `matches()`, which counts code points, not
+`size()`, which counts UTF-16 units: with `size()` a create of 7 or more full edits ran into the
+1000-expressions-per-request limit (shared with the window write in the same transaction) and
+was denied, so text in emoji may run to twice the cap in UTF-16 units. The caps must equal
+`MAX_EDITS` and `MAX_EDIT_*` in `src/lib/suggestion.ts`; `suggestion.test.ts` fails when they
+differ. Only the recipe owner, with a verified email, may update, only a `pending` suggestion,
+and only `status` and `branchId`: to `rejected` (shown as Declined) or `applied` without
+changing `branchId`, or to `branched` with a string `branchId` naming a recipe whose `parentId` is the
+suggested recipe and whose `createdBy.uid` is the owner (one extra document read). `approved`
+is no longer writable, old approved documents stay as they are, and a closed suggestion cannot
+change. Emulator-checked 2026-10-21 (ticket RL-146 Notes). Until RL-156 deploys this the live
+rules still allow only `approved` or `rejected`; the current client's approve path (which adds
+the suggester to the recipe's `collaborators` first, then writes `status`, then notifies) is
+replaced by Apply and Keep as branch in RL-147 and RL-148. That `arrayUnion` is the only write
 that changes a published `collaborators` array: `publishRecipe` writes it on create only and
 leaves it out of a re-publish, because a merge replaces arrays wholesale and the local copy may
 be stale (RL-037). Deletion is forbidden
@@ -203,7 +220,7 @@ whole, even for the owner.
 `get()` on the parent), only with your own `fromUid`, with a verified email, a current Terms
 acceptance (RL-047) and a reply-window move (RL-048), and immutable once sent. A reply costs
 three document reads in the rules (the parent suggestion, `termsAcceptance`, and the window's
-`getAfter()`) plus the client's window read in its transaction. Replies stay allowed after approval or rejection on purpose.
+`getAfter()`) plus the client's window read in its transaction. Replies stay allowed after the suggestion is closed on purpose.
 Readable by the same two parties, with a verified email, checked with the same `get()` on
 the parent, so opening a thread costs one extra document read on top of its messages.
 
@@ -213,8 +230,10 @@ and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoj
 `fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
 Since RL-049 a create also needs a notification-window move (at most 60 per hour per
 sender, see writeWindows below), so a notification costs 2 extra document reads.
-`type` must be one of the six: `favorite` and `follow` require `message` null; the four
-suggestion types allow null or a string of at most 500 characters, counted as UTF-16 units
+`type` must be one of the eight: `favorite` and `follow` require `message` null; the six
+suggestion types (`suggestion`, `suggestion_reply`, `suggestion_approved`,
+`suggestion_rejected`, and since RL-146, in the repo and deployed by RL-156,
+`suggestion_applied` and `suggestion_branched`) allow null or a string of at most 500 characters, counted as UTF-16 units
 (an emoji is two). Suggestion and reply text has no length cap of its own, so the client cuts the
 notification copy with `truncateNotificationMessage` in `src/lib/notifications.ts`; the
 suggestion and message documents keep the full text.
