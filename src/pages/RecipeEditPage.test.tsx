@@ -252,9 +252,10 @@ describe('RecipeEditPage layout and guard', () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     try {
+      // Selects cannot produce a bad value, so a bad stored value is the way in.
+      recipe.servings = 0;
       renderEdit();
       fireEvent.change(screen.getByLabelText('Ingredient 1 amount'), { target: { value: '-2' } });
-      fireEvent.change(screen.getByLabelText('Servings'), { target: { value: 'abc' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
       // Servings comes before ingredients on the page, so it wins.
@@ -262,7 +263,7 @@ describe('RecipeEditPage layout and guard', () => {
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
       expect(scrollIntoView.mock.instances[0]).toBe(screen.getByLabelText('Servings'));
       // Focus lands before the re-render adds aria-describedby, so the message must be an alert.
-      expect(screen.getAllByRole('alert').map((n) => n.textContent)).toContain('Must be a number.');
+      expect(screen.getAllByRole('alert').map((n) => n.textContent)).toContain('Must serve at least one.');
 
       fireEvent.change(screen.getByLabelText('Servings'), { target: { value: '2' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -272,6 +273,7 @@ describe('RecipeEditPage layout and guard', () => {
       expect(screen.getByRole('alert').textContent).toBe("Amounts can't be negative.");
       expect(publishRecipe).not.toHaveBeenCalled();
     } finally {
+      recipe.servings = 2;
       delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     }
   });
@@ -335,15 +337,16 @@ describe('RecipeEditPage layout and guard', () => {
 
   it('focuses prep, cook, the first step and the empty-list add buttons', () => {
     const fail = () => fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    recipe.prepTime = -1;
+    recipe.cookTime = -1;
     renderEdit();
-    fireEvent.change(screen.getByLabelText('Prep (min)'), { target: { value: 'x' } });
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Soup 2' } });
     fail();
-    expect(document.activeElement).toBe(screen.getByLabelText('Prep (min)'));
-    fireEvent.change(screen.getByLabelText('Prep (min)'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('Cook (min)'), { target: { value: '-1' } });
+    expect(document.activeElement).toBe(screen.getByLabelText('Prep'));
+    fireEvent.change(screen.getByLabelText('Prep'), { target: { value: '5' } });
     fail();
-    expect(document.activeElement).toBe(screen.getByLabelText('Cook (min)'));
-    fireEvent.change(screen.getByLabelText('Cook (min)'), { target: { value: '' } });
+    expect(document.activeElement).toBe(screen.getByLabelText('Cook'));
+    fireEvent.change(screen.getByLabelText('Cook'), { target: { value: '0' } });
     fireEvent.change(screen.getByLabelText('Step 1'), { target: { value: ' ' } });
     fail();
     expect(document.activeElement).toBe(screen.getByLabelText('Step 1'));
@@ -353,5 +356,48 @@ describe('RecipeEditPage layout and guard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove ingredient 1, water' }));
     fail();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add ingredient' }));
+    recipe.prepTime = 10;
+    recipe.cookTime = 20;
+  });
+});
+
+describe('RecipeEditPage fact pickers', () => {
+  it('each select writes its draft field and saves the parsed value', async () => {
+    renderEdit(anon);
+    fireEvent.change(screen.getByLabelText('Servings'), { target: { value: '8' } });
+    fireEvent.change(screen.getByLabelText('Prep'), { target: { value: '15' } });
+    fireEvent.change(screen.getByLabelText('Cook'), { target: { value: '90' } });
+    fireEvent.change(screen.getByLabelText('Difficulty'), { target: { value: 'hard' } });
+    expect((screen.getByLabelText('Cook') as HTMLSelectElement).selectedOptions[0].textContent).toBe('Cook 1h 30m');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('saved:cloud');
+    const stored = await db.recipes.get('r1');
+    expect([stored?.servings, stored?.prepTime, stored?.cookTime, stored?.totalTime, stored?.difficulty]).toEqual([8, 15, 90, 105, 'hard']);
+  });
+
+  it('shows a negative stored time raw, not as a formatted time', () => {
+    recipe.prepTime = -1;
+    try {
+      renderEdit();
+      expect((screen.getByLabelText('Prep') as HTMLSelectElement).selectedOptions[0].textContent).toBe('Prep -1');
+    } finally {
+      recipe.prepTime = 10;
+    }
+  });
+
+  it('keeps an off-list value as a selected extra option', () => {
+    recipe.prepTime = 37;
+    recipe.servings = 30;
+    try {
+      renderEdit();
+      const prep = screen.getByLabelText('Prep') as HTMLSelectElement;
+      const servings = screen.getByLabelText('Servings') as HTMLSelectElement;
+      expect(prep.value).toBe('37');
+      expect(servings.value).toBe('30');
+      expect(prep.selectedOptions[0].textContent).toBe('Prep 37 min');
+    } finally {
+      recipe.prepTime = 10;
+      recipe.servings = 2;
+    }
   });
 });

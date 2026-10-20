@@ -27,6 +27,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): a browser Back or Forward to a recipe from the other list while the list is kept hidden mounts that page hidden (an unneeded read). The scroll hand-off uses refs fed by scroll events, so a clamped window offset at the exact moment of a resize may jump slightly; check on a device. EmailLinkStatus remounts on a resize (judged unreachable mid-flow).
 - Explore at 390px and 1280px, on a throttled network: no list jump while the Branching fast this week query runs (a grey placeholder holds the row's space, then the row or Newest replaces it).
 
+### RL-132 Edit page fact pills are native pickers
+
+- On iOS Safari and Android Chrome at 390px, open a recipe's Edit page: Servings, Prep, Cook and Difficulty are four pills in one wrapping row, each opening the native picker, with the chevron visible and a focus ring on keyboard focus. Check the ring contrast in dark theme.
+- A recipe with 37 minutes prep or 30 servings shows that value selected; save keeps it unless you pick another.
+- Reviewer noted (low): the resting ring (neutral-400) is about 1.7:1 in light (spec-mandated). An off-list value cannot be reselected after changing it (per ticket). Check native option colours in dark on Windows Chrome.
+
 ### RL-128 The 17b version pill replaces the breadcrumb
 
 - At 390x844 and 320px open a depth-3 branch: the pill reads "Generation 4 · from <parent>" on one line (ellipsis with a long parent title, no wrap), dots with the last in terracotta. Open Path: check the dot rings, the connecting lines, "you are here" on the last row.
