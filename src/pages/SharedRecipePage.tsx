@@ -10,6 +10,7 @@ import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
+import { useBranchEntry } from '../hooks/useBranchEntry';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
@@ -51,6 +52,7 @@ function SharedRecipeView() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isConfigured } = useAuth();
+  const { branch, signUp: branchSignUp } = useBranchEntry();
   const [recipe, setRecipe] = useState<FullSharedRecipe | null>(null);
   // 'not-found' is a permanent dead end (bad or corrupted link); 'failed' is a
   // fetch that blew up and is worth retrying. Conflating them told users with a
@@ -366,7 +368,7 @@ function SharedRecipeView() {
                 )}
                 <button
                   type="button"
-                  onClick={() => navigate(`/recipe/${paramId}/vary`)}
+                  onClick={() => branch(`/recipe/${paramId}/vary`)}
                   className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
                 >
                   <GitBranchPlus className="h-4 w-4 shrink-0" />
@@ -418,6 +420,8 @@ function SharedRecipeView() {
         onAuthenticated={() => setShowAuth(false)}
         onDismiss={() => setShowAuth(false)}
       />
+
+      {branchSignUp}
 
       <SignUpDialog
         open={showSuggestSignUp}

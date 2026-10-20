@@ -25,6 +25,7 @@ import { Button } from '../components/ui/Button';
 import { GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/icons';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
+import { useBranchEntry } from '../hooks/useBranchEntry';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { SuggestionList } from '../components/recipe/SuggestionList';
@@ -63,6 +64,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const inPane = paneId !== undefined && beside;
   const navigate = useNavigate();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
+  const { branch, signUp: branchSignUp } = useBranchEntry();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   const location = useLocation();
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
@@ -645,7 +647,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           )}
           <button
             type="button"
-            onClick={() => navigate(`/recipe/${recipe.id}/vary`)}
+            onClick={() => branch(`/recipe/${recipe.id}/vary`)}
             className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
           >
             <GitBranchPlus className="h-4 w-4 shrink-0" />
@@ -655,6 +657,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       </div>
 
       {deleteDialogs}
+
+      {branchSignUp}
 
       <AuthModal
         open={showAuth}

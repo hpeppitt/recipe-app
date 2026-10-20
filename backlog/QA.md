@@ -1549,3 +1549,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Check the neutral pills' contrast if dark mode returns. The chat card passes no tags, so it gets macros but no diet pill.
 - Reviewer noted: the chat card shows macros but no diet pill (out of scope, it passes no tags).
 - Reviewer noted: the order test does not assert servings or prep/cook after protein.
+
+### RL-134 Branch entry points open the sign-in sheet
+
+- At 390 px, signed out and as an anonymous guest: tap Branch this recipe (recipe page), Make it yours (shared link), the tree page "Branch from" bar and a Timeline stop's Branch here. Each opens "Sign in to branch this recipe" and does not navigate. Not now closes it and leaves the page as it was.
+- Signed in with a verified email: the same four taps go straight to the branch screen with no sheet flash.
+- Visiting /recipe/:id/vary directly while signed out still shows the full-page sign-up screen.
+- Reviewer noted: after Not now on a Timeline Branch here, the stop sheet stays open with no hint why Branch did nothing (intentional).
+- Reviewer noted: the Timeline view mounts two SignUpDialog instances (one in TimelineView, one on the page); harmless.

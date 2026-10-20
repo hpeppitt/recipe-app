@@ -467,6 +467,13 @@ describe('RecipeDetailPage footer', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/vary');
   });
 
+  it('signed out, Branch this recipe opens the sign-in sheet and does not navigate', () => {
+    show(null);
+    fireEvent.click(screen.getByRole('button', { name: 'Branch this recipe' }));
+    expect(screen.getByRole('dialog', { name: 'Sign in to branch this recipe' })).toBeInTheDocument();
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
   it('non-owner on a cloud recipe: Suggest and Branch this recipe, no Edit', () => {
     source = 'cloud';
     show();
