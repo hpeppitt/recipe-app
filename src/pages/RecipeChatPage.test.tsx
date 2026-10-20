@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route, Link } from 'react-router-dom';
@@ -28,6 +28,7 @@ type Chat = {
   messages: ChatMessage[];
   isLoading: boolean;
   latestRecipe: GeneratedRecipe | null;
+  loadingPhase?: 'checking' | 'generating';
   error?: { message: string; retryable?: boolean } | null;
   attachmentPreviews?: Record<number, string[]>;
   sentImageCount?: number;
@@ -356,6 +357,60 @@ describe('RecipeChatPage close and gate', () => {
   });
 });
 
+describe('RecipeChatPage long generation', () => {
+  const dots = (c: HTMLElement) => c.querySelector('.motion-safe\\:animate-bounce');
+  const tree = (c: HTMLElement) => c.querySelector('svg[viewBox="0 0 300 380"]');
+  const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.matchMedia = ((q: string) => ({ matches: true, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as never;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('shows dots before 4 s, the silent tree after, and neither once the reply lands', () => {
+    chat = { messages: [user('a')], isLoading: true, latestRecipe: null };
+    const { container } = view();
+    wait(3900);
+    expect(dots(container)).toBeTruthy();
+    expect(tree(container)).toBeNull();
+    wait(200);
+    expect(dots(container)).toBeNull();
+    expect(tree(container)?.closest('[aria-hidden="true"]')).toBeTruthy();
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    act(() => setChat(withRecipes('Pasta')));
+    expect(tree(container)).toBeNull();
+    expect(dots(container)).toBeNull();
+  });
+
+  it('restarts the timer on a new send', () => {
+    chat = { messages: [user('a')], isLoading: true, latestRecipe: null };
+    const { container } = view();
+    wait(5000);
+    act(() => setChat(withRecipes('Pasta')));
+    act(() => setChat({ ...withRecipes('Pasta'), isLoading: true }));
+    wait(3900);
+    expect(tree(container)).toBeNull();
+    wait(200);
+    expect(tree(container)).toBeTruthy();
+  });
+
+  it('unmounting while waiting clears the timer', () => {
+    chat = { messages: [user('a')], isLoading: true, latestRecipe: null };
+    const { unmount } = view();
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('never shows the tree during the checking phase', () => {
+    chat = { messages: [user('a')], isLoading: true, latestRecipe: null, loadingPhase: 'checking' };
+    const { container } = view();
+    wait(10000);
+    expect(tree(container)).toBeNull();
+    expect(dots(container)).toBeTruthy();
+  });
+});
+
 describe('RecipeChatPage announcements', () => {
   const live = () => screen.getByRole('status').textContent;
 
@@ -441,6 +496,20 @@ describe('RecipeChatPage branch composer (/recipe/:id/vary)', () => {
     await u.click(screen.getByRole('button', { name: 'Vegan' }));
     await u.click(screen.getByRole('button', { name: 'Grow this branch' }));
     expect(sendMessage).toHaveBeenCalledWith('vegan', []);
+  });
+
+  it('the first variation turn never swaps the growing card for the tree', () => {
+    vi.useFakeTimers();
+    try {
+      parent = makeRecipe({ title: 'Banana bread' });
+      const { container } = vary();
+      act(() => setChat({ messages: [user('vegan')], isLoading: true, latestRecipe: null }));
+      act(() => void vi.advanceTimersByTime(10000));
+      expect(container.querySelector('svg[viewBox="0 0 300 380"]')).toBeNull();
+      expect(screen.getAllByText('Growing your branch…').length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('/create has no composer', () => {

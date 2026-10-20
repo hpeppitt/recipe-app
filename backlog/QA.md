@@ -1609,6 +1609,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: Caprasimo may flash the system font on the cold-start caption.
 - Reviewer noted: the full variant scrolls in short landscape.
 
+### RL-142 Inline loading screen on long generations
+
+- At 390px ask for a new recipe and wait: after about 4 s the dots become the growing tree above the composer and loop until the card arrives. Check it does not push the composer off screen at 320px.
+- Watch one cycle in light and dark (trunk, branches, leaves, canopy, emoji, captions, bar, fade, restart), then again with Reduce motion on (still grown tree, captions still change).
+- With VoiceOver or TalkBack: only "Generating recipe..." is spoken, once.
+- Reviewer noted: the swap jumps from about 40px to about 270px. A long wait announces "Generating recipe..." once only. Check the bar track contrast in dark.
+
 ### RL-145 Structured suggestions model
 
 - No visible change. Pure model, tests and a decision entry only; RL-147 to RL-150 add the screens.

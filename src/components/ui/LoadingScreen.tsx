@@ -73,9 +73,11 @@ interface LoadingScreenProps {
   variant: 'full' | 'inline';
   /** Accessible name; defaults to "Loading". */
   label?: string;
+  /** Hidden from assistive tech, for a page whose own live region already speaks. */
+  decorative?: boolean;
 }
 
-export function LoadingScreen({ variant, label = 'Loading' }: LoadingScreenProps) {
+export function LoadingScreen({ variant, label = 'Loading', decorative = false }: LoadingScreenProps) {
   const reduced = usePrefersReducedMotion();
   const els = useRef<Els>({});
   const reg = (k: string) => (n: Element | null) => {
@@ -116,14 +118,15 @@ export function LoadingScreen({ variant, label = 'Loading' }: LoadingScreenProps
 
   return (
     <div
-      role="status"
-      aria-label={label}
+      role={decorative ? undefined : 'status'}
+      aria-label={decorative ? undefined : label}
+      aria-hidden={decorative || undefined}
       className={cn(
         'flex flex-col items-center',
         inline ? 'gap-4 py-4' : 'min-h-dvh justify-center gap-7 bg-surface'
       )}
     >
-      <span className="sr-only">{label}</span>
+      {!decorative && <span className="sr-only">{label}</span>}
       <svg
         aria-hidden="true"
         viewBox="0 0 300 380"
