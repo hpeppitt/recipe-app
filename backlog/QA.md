@@ -18,6 +18,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-177 Same/Similar and chip helpers (pure lib)
+- No UI yet (RL-178 to RL-180). Nothing for the human to look at beyond the unit tests.
+
 ### RL-176 Avatar editor takes the 14b layout
 
 - At 390px, light and dark, open the editor from the You tab avatar and from Settings' Account row. Check Cancel and Save on top, the 170px blob preview, six swatches (selected one ringed), five-column emoji grid, and the "Use a photo" and "Initials" footer.

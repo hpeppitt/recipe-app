@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useNotificationPrefs, useMediaQuery...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, forest, createPrompt, paneMode, diet]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, forest, createPrompt, paneMode, diet, branchChips]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
@@ -288,6 +288,7 @@ Places designed to be replaced, worth knowing before you change them:
   cycling words and the prompt they build for the chat, so the options or the sentence change in one module.
 - **`lib/diet.ts`** (`dietLabel`, RL-130): the diet pill's label from `recipe.tags`, so there is no diet field
   and a new diet is one line in one module.
+- **`lib/branchChips.ts`** — pure chip rules (RL-177): `promptMatchesChip`, `orderChips` by the family's past prompts, `splitChips` into untried and already-a-branch. `search.ts` also has `matchKind` (Same or Similar). No UI yet.
 - **`lib/search.ts`** — scoring extracted from both dedup paths, so a real search index
   would replace one module.
 
