@@ -1,5 +1,15 @@
 import type { Recipe } from '../types/recipe';
 
+/**
+ * Most other cooks' direct children a version may have and still be deleted in
+ * one cloud batch (RL-158). Each moved child is read by the rules, and a batch
+ * may access 20 documents; the emulator passed 18 and denied 19. Held at 8
+ * until RL-160 re-probes production, which may bill get and getAfter
+ * separately; then raise it to the measured max minus one. Rules parity:
+ * re-probe after changing isReparentAfterParentDelete() or isMovedNotice().
+ */
+export const MAX_MOVED_CHILDREN = 8;
+
 export interface TreeNode {
   recipe: Recipe;
   children: TreeNode[];

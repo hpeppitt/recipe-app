@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle } from './tree';
+import { MAX_MOVED_CHILDREN, ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle } from './tree';
 import { makeRecipe } from '../test/factories';
+import rules from '../../firestore.rules?raw';
+
+describe('MAX_MOVED_CHILDREN', () => {
+  // Emulator passed 18, denied 19 (RL-158 Notes); held at 8 until RL-160 probes production.
+  it('stays at the conservative cap until production is probed', () => expect(MAX_MOVED_CHILDREN).toBe(8));
+  it('is named in firestore.rules', () => expect(rules).toContain('MAX_MOVED_CHILDREN'));
+});
 
 describe('collectSubtreeIds', () => {
   const nodes = [
