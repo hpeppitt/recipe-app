@@ -1813,3 +1813,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Edit avatar, Emoji mode: pick each of the six swatches, Save, and check the avatar in Light and Dark (the swatch now shifts with the theme). An avatar saved before this change still shows its colour, and its swatch shows pressed in the editor.
 - Android Chrome: the browser bar colour follows Light and Dark in Settings.
 - Reviewer noted: legacy hex avatars stay light in dark mode until re-saved. `photoBgColor` is not constrained by rules (harmless; consider a length cap at the next rules change).
+
+### RL-143 Shared banner and lineage card
+- Signed out at 390 and 320px: open `/shared/<branch id>`. The banner says Get the app (taps to home). The card reads "<author> asked for "prompt" on <parent author>'s Banana bread. See all N versions"; tap the link, then Back returns to the shared page.
+- Open `/shared/<original with branches>`: the card reads "N versions grow from this recipe. See all N versions". An original alone shows no card. A `/shared#r=` link keeps its old sentence and no link.

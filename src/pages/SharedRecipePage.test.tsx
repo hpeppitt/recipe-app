@@ -8,6 +8,7 @@ import { hashShareUrl } from '../lib/share';
 import type { AppUser } from '../types/recipe';
 
 const getPublishedRecipe = vi.fn();
+const getFamilyCount = vi.fn();
 const createRecipe = vi.fn();
 const navigateSpy = vi.fn();
 const submitMock = vi.fn();
@@ -20,6 +21,7 @@ let cloudError: string | null = null;
 vi.mock('../services/firestore', () => ({
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
   incrementRecipeViews: vi.fn(),
+  getFamilyCount: (...a: unknown[]) => getFamilyCount(...a),
 }));
 vi.mock('../db/recipes', () => ({ createRecipe: (...a: unknown[]) => createRecipe(...a) }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
@@ -91,17 +93,18 @@ beforeEach(() => {
   localOn = false;
   cloudError = null;
   getPublishedRecipe.mockResolvedValue(cloudDoc());
+  getFamilyCount.mockResolvedValue(1);
   createRecipe.mockResolvedValue({ id: 'copy-1' });
   submitMock.mockResolvedValue(undefined);
 });
 
 describe('SharedRecipePage /shared/:id', () => {
-  it('shows the banner with the author and a link to the app, and the title block', async () => {
+  it('shows the banner with the author and a Get the app link, and the title block', async () => {
     open('/shared/r1');
     expect(await screen.findByRole('heading', { level: 1, name: 'Soup' })).toBeTruthy();
     expect(screen.getByText('Shared by')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Ada Lovelace' }).getAttribute('href')).toBe('/profile/ada');
-    expect(screen.getByRole('link', { name: 'Open Recipe Lab' }).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Get the app' }).getAttribute('href')).toBe('/');
     // The banner has no favourite control: the footer Save is the only one.
     expect(screen.getAllByRole('button', { name: 'Save' })).toHaveLength(1);
   });
@@ -185,13 +188,50 @@ describe('SharedRecipePage /shared/:id', () => {
   });
 
   it('a branch shows the sage line with the author and the prompt', async () => {
-    getPublishedRecipe.mockResolvedValue(cloudDoc({ parentId: 'p1', prompt: 'less salt' }));
+    getPublishedRecipe.mockImplementation(async (id: string) => {
+      if (id === 'p1') throw new Error('offline');
+      return cloudDoc({ parentId: 'p1', prompt: 'less salt' });
+    });
     open('/shared/r1');
     expect(await screen.findByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'Ada Lovelace asked for "less salt".')).toBeTruthy();
   });
 
+  it('a branch names the parent once loaded and links to all versions', async () => {
+    getPublishedRecipe.mockImplementation(async (id: string) =>
+      id === 'p1'
+        ? cloudDoc({ id: 'p1', title: 'Banana bread', createdBy: { uid: 'h', displayName: 'Hana' } })
+        : cloudDoc({ parentId: 'p1', rootId: 'p1', prompt: 'less sugar' })
+    );
+    getFamilyCount.mockResolvedValue(7);
+    open('/shared/r1');
+    expect(
+      await screen.findByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'Ada Lovelace asked for "less sugar" on Hana\u2019s Banana bread. See all 7 versions')
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'See all 7 versions of Soup' }).getAttribute('href')).toBe('/recipe/r1/tree');
+  });
+
+  it('a branch without a prompt says branched, and a lone branch has no link', async () => {
+    getPublishedRecipe.mockImplementation(async (id: string) =>
+      id === 'p1' ? cloudDoc({ id: 'p1', title: 'Banana bread', createdBy: { uid: 'h', displayName: 'Hana' } }) : cloudDoc({ parentId: 'p1', rootId: 'p1' })
+    );
+    open('/shared/r1');
+    expect(await screen.findByText((_, el) => el?.tagName === 'SPAN' && el.textContent === 'Ada Lovelace branched Hana\u2019s Banana bread.')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /See all/ })).toBeNull();
+  });
+
+  it('an original with a family shows the count card, alone shows none', async () => {
+    getPublishedRecipe.mockResolvedValue(cloudDoc({ rootId: 'r1' }));
+    getFamilyCount.mockResolvedValue(3);
+    open('/shared/r1');
+    expect(await screen.findByText(/3 versions grow from this recipe\./)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'See all 3 versions of Soup' }).getAttribute('href')).toBe('/recipe/r1/tree');
+  });
+
   it('a branch with no author says Someone and with a blank prompt skips the prompt', async () => {
-    getPublishedRecipe.mockResolvedValue(cloudDoc({ parentId: 'p1', prompt: '  ', createdBy: undefined }));
+    getPublishedRecipe.mockImplementation(async (id: string) => {
+      if (id === 'p1') throw new Error('offline');
+      return cloudDoc({ parentId: 'p1', prompt: '  ', createdBy: undefined });
+    });
     open('/shared/r1');
     expect(await screen.findByText('Someone made this variation.')).toBeTruthy();
   });
@@ -280,6 +320,8 @@ describe('SharedRecipePage hash link', () => {
     expect(screen.queryByRole('button', { name: 'Make it yours' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Suggest a change' })).toBeNull();
     expect(getPublishedRecipe).not.toHaveBeenCalled();
+    expect(getFamilyCount).not.toHaveBeenCalled();
+    expect(screen.queryByRole('link', { name: /See all/ })).toBeNull();
   });
 
   it('saves one copy keeping the original author, then offers Open in my library', async () => {

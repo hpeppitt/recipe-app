@@ -287,6 +287,13 @@ export async function getPublishedRecipeTree(rootId: string): Promise<PublishedR
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
 }
 
+/** RL-143: how many recipes (the original included) share this rootId. */
+export async function getFamilyCount(rootId: string): Promise<number> {
+  if (!firestore) return 0;
+  const n = await getCountFromServer(query(collection(firestore, 'recipes'), where('rootId', '==', rootId)));
+  return n.data().count;
+}
+
 export type RelatedFamily = {
   id: string;
   emoji: string;
