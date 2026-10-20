@@ -149,4 +149,24 @@ describe('ActivityPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't mark those as read. Try again.");
   });
+
+  it('words the detail line per type: name and change, bare outcome, quoted otherwise', () => {
+    setHook([
+      notif({ id: 's', type: 'suggestion', fromDisplayName: 'Sami Jones', message: '150 g light brown sugar \u2192 100 g' }),
+      notif({ id: 'a', type: 'suggestion_applied', message: 'Applied: 2 edits' }),
+      notif({ id: 'b', type: 'suggestion_branched', message: 'Kept as a branch' }),
+      notif({ id: 'r', type: 'suggestion_reply', message: 'thanks' }),
+      notif({ id: 'e', type: 'suggestion', fromDisplayName: '  ', message: ' 2 g salt \u2192 1 g ' }),
+      notif({ id: 'w', type: 'suggestion', message: '   ' }),
+    ]);
+    renderWithProviders(<ActivityPage />);
+    const detail = (id: string) => document.getElementById(`n-${id}-detail`)!;
+    expect(detail('s')).toHaveTextContent(/^Sami: 150 g light brown sugar \u2192 100 g/);
+    expect(detail('a')).toHaveTextContent(/^Applied: 2 edits/);
+    expect(detail('b')).toHaveTextContent(/^Kept as a branch/);
+    expect(detail('r')).toHaveTextContent(/^"thanks"/);
+    expect(detail('e')).toHaveTextContent(/^Someone: 2 g salt \u2192 1 g/);
+    expect(detail('w')).not.toHaveTextContent(':');
+    expect(screen.getAllByRole('button')[0]).toHaveAccessibleDescription(/Sami: 150 g|Applied|Kept|thanks/);
+  });
 });
