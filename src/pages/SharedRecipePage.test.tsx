@@ -162,7 +162,8 @@ describe('SharedRecipePage /shared/:id', () => {
   it('Suggest enters suggest mode for a verified user, sends, and toasts', async () => {
     open('/shared/r1');
     fireEvent.click(await screen.findByRole('button', { name: 'Suggest a change' }));
-    fireEvent.change(await screen.findByLabelText('Note for Ada Lovelace (optional)'), { target: { value: 'More heat' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'General note' }));
+    fireEvent.change(screen.getByLabelText('General note text'), { target: { value: 'More heat' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send to Ada' }));
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     expect(submitMock.mock.calls[0][0]).toMatchObject({
@@ -170,6 +171,7 @@ describe('SharedRecipePage /shared/:id', () => {
       recipeOwnerId: 'ada',
       recipeTitle: 'Soup',
       message: 'More heat',
+      edits: [{ kind: 'general', from: '', to: 'More heat' }],
     });
     expect((await screen.findByRole('status')).textContent).toBe('Sent to Ada Lovelace');
     expect(screen.getByRole('heading', { level: 1, name: 'Soup' })).toBeTruthy();
@@ -179,7 +181,7 @@ describe('SharedRecipePage /shared/:id', () => {
     open('/shared/r1', anon);
     fireEvent.click(await screen.findByRole('button', { name: 'Suggest a change' }));
     expect(await screen.findByRole('dialog', { name: 'Sign in to suggest a change' })).toBeTruthy();
-    expect(screen.queryByLabelText('Note for Ada Lovelace (optional)')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'General note' })).toBeNull();
   });
 
   it('a branch shows the sage line with the author and the prompt', async () => {
@@ -242,10 +244,10 @@ describe('SharedRecipePage /shared/:id', () => {
     );
     open('/shared/r1', fakeUser, '/shared/r2');
     fireEvent.click(await screen.findByRole('button', { name: 'Suggest a change' }));
-    await screen.findByLabelText('Note for Ada Lovelace (optional)');
+    await screen.findByRole('button', { name: 'General note' });
     fireEvent.click(screen.getByRole('link', { name: 'next link' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Stew' })).toBeTruthy();
-    expect(screen.queryByLabelText('Note for Ada Lovelace (optional)')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'General note' })).toBeNull();
   });
 
   it('a send that lands after moving to another recipe does not toast', async () => {
@@ -256,7 +258,8 @@ describe('SharedRecipePage /shared/:id', () => {
     );
     open('/shared/r1', fakeUser, '/shared/r2');
     fireEvent.click(await screen.findByRole('button', { name: 'Suggest a change' }));
-    fireEvent.change(await screen.findByLabelText('Note for Ada Lovelace (optional)'), { target: { value: 'More heat' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'General note' }));
+    fireEvent.change(screen.getByLabelText('General note text'), { target: { value: 'More heat' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send to Ada' }));
     fireEvent.click(screen.getByRole('link', { name: 'next link' }));
     await screen.findByRole('heading', { level: 1, name: 'Stew' });

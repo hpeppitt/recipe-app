@@ -173,6 +173,25 @@ describe('createSuggestion (RL-048)', () => {
   });
 });
 
+describe('createSuggestion edits (RL-147)', () => {
+  const edits = [
+    { kind: 'ingredient' as const, index: 0, name: 'salt', from: '1 tsp', to: '2 tsp' },
+    { kind: 'general' as const, from: '', to: 'Hotter' },
+  ];
+
+  it('writes edits with the message and notifies with describeEdits', async () => {
+    await createSuggestion({ ...suggestionParams, edits });
+    expect(ops[0].data).toMatchObject({ message: 'More salt', edits });
+    expect(addDoc.mock.calls[0][1]).toMatchObject({ message: '1 tsp salt → 2 tsp and 1 more' });
+  });
+
+  it('writes no edits key and notifies with the message when there are none', async () => {
+    await createSuggestion(suggestionParams);
+    expect(ops[0].data).not.toHaveProperty('edits');
+    expect(addDoc.mock.calls[0][1]).toMatchObject({ message: 'More salt' });
+  });
+});
+
 describe('one window bump names one document (RL-048 fix round)', () => {
   it('each call writes exactly one content document and points last at it', async () => {
     await createSuggestion(suggestionParams);

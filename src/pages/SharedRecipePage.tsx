@@ -7,6 +7,7 @@ import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCloudFavorite, useFavorite } from '../hooks/useFavorites';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
+import type { SuggestionEdit } from '../types/social';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -214,7 +215,7 @@ function SharedRecipeView() {
     if (savedId) openSavedRef.current?.focus();
   }, [savedId]);
 
-  const handleSubmitSuggestion = async (message: string) => {
+  const handleSubmitSuggestion = async ({ message, edits }: { message: string; edits: SuggestionEdit[] }) => {
     if (!recipe || !paramId) return;
     await submitSuggestion({
       recipeId: paramId,
@@ -222,6 +223,7 @@ function SharedRecipeView() {
       recipeTitle: recipe.title,
       recipeEmoji: recipe.emoji,
       message,
+      edits,
     });
   };
 

@@ -544,7 +544,7 @@ describe('RecipeDetailPage suggest mode', () => {
     submitMock.mockResolvedValue(undefined);
     show();
     fireEvent.click(screen.getByRole('button', { name: 'Suggest' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to garlic' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to 2 clove garlic' }));
     fireEvent.change(screen.getByLabelText('New amount'), { target: { value: '4 cloves' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send to Ada' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Sent to Ada Lovelace'));
@@ -554,6 +554,7 @@ describe('RecipeDetailPage suggest mode', () => {
       recipeTitle: 'Soup',
       recipeEmoji: '🍳',
       message: 'Change 2 clove garlic to 4 cloves.',
+      edits: [{ kind: 'ingredient', index: 0, name: 'garlic', from: '2 clove', to: '4 cloves' }],
     });
     expect(screen.getByRole('button', { name: 'Branch this recipe' })).toBeInTheDocument();
   });
