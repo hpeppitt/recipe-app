@@ -213,6 +213,13 @@ export const ChevronRight = ({ className }: P) => (
     <path d="m9 18 6-6-6-6" />
   </Icon>
 );
+export const Refrigerator = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M5 6a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
+    <path d="M5 10h14" />
+    <path d="M15 7v6" />
+  </Icon>
+);
 export const ChevronUp = ({ className }: P) => (
   <Icon className={className}>
     <path d="m18 15-6-6-6 6" />
