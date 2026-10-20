@@ -157,6 +157,8 @@ export type PublishedRecipe = SharedRecipe & {
    */
   prompt?: string;
   collaborators?: Collaborator[];
+  /** RL-162: set only on an original made with "Create New Recipe Anyway". */
+  relatedFamilyId?: string | null;
 };
 
 /** Page size for the shared feed. Small enough that a first paint is cheap. */

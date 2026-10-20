@@ -79,6 +79,7 @@ export const ImportedRecipeSchema = GeneratedRecipeSchema.extend({
   createdBy: CreatedBySchema.default({ uid: 'local', displayName: null }),
   collaborators: z.array(CreatedBySchema).default([]),
   prompt: z.string().default(''),
+  relatedFamilyId: z.string().nullable().optional(),
   chatHistory: z.array(ChatMessageSchema).default([]),
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),

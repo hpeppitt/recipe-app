@@ -43,6 +43,16 @@ describe('toLocalRecipe', () => {
     const row = own({ chatHistory: [{ role: 'user', content: 'hi', timestamp: 1 }] });
     expect(toLocalRecipe(asDoc(row), row).chatHistory).toEqual(row.chatHistory);
   });
+
+  it('carries relatedFamilyId, and leaves it off when the doc has none (RL-162)', () => {
+    expect(toLocalRecipe(asDoc(own({ id: 'a', relatedFamilyId: 'fam' }))).relatedFamilyId).toBe('fam');
+    expect(toLocalRecipe(asDoc(own({ id: 'b' })))).not.toHaveProperty('relatedFamilyId');
+  });
+
+  it('a synced doc with relatedFamilyId equal to the row plans no put', () => {
+    const r = own({ id: 'a', relatedFamilyId: 'fam' });
+    expect(planOwnRecipeSync(ME, [r], [asDoc(r)], []).put).toEqual([]);
+  });
 });
 
 describe('planOwnRecipeSync', () => {
