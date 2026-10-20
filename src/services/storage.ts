@@ -57,6 +57,16 @@ export function setUnitSystem(system: UnitSystem): void {
   safeSet(STORAGE_KEYS.UNIT_SYSTEM, system);
 }
 
+/** Opt-in: show spoons and liquids as estimated grams. Off unless the key is '1'. */
+export function getWeighVolumes(): boolean {
+  return safeGet(STORAGE_KEYS.WEIGH_VOLUMES) === '1';
+}
+
+export function setWeighVolumes(on: boolean): void {
+  if (on) safeSet(STORAGE_KEYS.WEIGH_VOLUMES, '1');
+  else safeRemove(STORAGE_KEYS.WEIGH_VOLUMES);
+}
+
 // --- Device + Anonymous Identity Persistence ---
 
 // Held in memory too, so with blocked storage one session still has one id.

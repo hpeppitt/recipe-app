@@ -896,3 +896,7 @@ Every notification is still written; `notificationPrefs/{uid}` decides what the 
 ### Avatar swatches store token references (RL-140, 2026-10-21)
 
 The emoji avatar's background is saved as `var(--color-...)`, not a hex, so it follows the theme and no hex copy lives outside the token sheet. A viewer sees the colour in their own theme, not the owner's. Legacy hex values are left as they are until a migration; the editor maps the six old values to their swatch so it shows pressed.
+
+### Weighing spoons and liquids is an opt-in estimate (RL-183, 2026-10-21)
+
+The default still refuses to guess a density: with the toggle off, amounts that cannot be converted exactly stay as written. The Settings toggle "Weigh spoons and liquids" opts in to `estimateGrams`, which uses the density table when it knows the ingredient and water density when it does not, and marks every estimate with "≈" (original amount in the row title and a screen-reader phrase). This reverses the "leave unconvertible amounts as written" rule only while the toggle is on, on the author's 2026-10-20 roadmap. It is a local setting, not synced to the account. Suggest mode and the edit page never show estimates.

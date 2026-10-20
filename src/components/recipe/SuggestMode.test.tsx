@@ -48,6 +48,17 @@ const edit = (n: string, v: string) => {
 };
 
 describe('SuggestMode', () => {
+  it('always shows stored amounts, even with weigh spoons and liquids on (RL-183)', () => {
+    vi.stubGlobal('localStorage', { getItem: () => '1', setItem: () => {}, removeItem: () => {} });
+    try {
+      setup();
+      expect(screen.queryByText(/≈/)).toBeNull();
+      expect(row('salt').textContent).toContain('tsp');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('shows the banner, title line and author-first send label', () => {
     setup();
     expect(screen.getByText('Tap any line to suggest a change')).toBeInTheDocument();

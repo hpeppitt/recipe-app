@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import type { Ingredient } from '../../types/recipe';
 import { useUnitSystem } from '../../hooks/useUnitSystem';
-import { convertAmount, formatUnit } from '../../lib/units';
+import { useWeighVolumes } from '../../hooks/useWeighVolumes';
+import { convertAmount, estimateGrams, formatUnit } from '../../lib/units';
 import { formatAmount } from '../../lib/amount';
 import { Check } from '../ui/icons';
 
@@ -26,6 +27,7 @@ export function IngredientList({ ingredients, checkable = false, headingAside, b
   // right now"; restoring yesterday's ticks would be actively misleading.
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const { unitSystem } = useUnitSystem();
+  const { weighVolumes } = useWeighVolumes();
 
   const toggle = (key: string) =>
     setChecked((prev) => {
@@ -66,12 +68,29 @@ export function IngredientList({ ingredients, checkable = false, headingAside, b
               // so a converted value gets the agreement its own number implies.
               const shownUnit = formatUnit(converted ? converted.unit : ing.unit, shownAmount);
 
+              // Opt-in estimate, from what is shown (after scaling and conversion).
+              const est = weighVolumes
+                ? estimateGrams({ amount: shownAmount, unit: converted ? converted.unit : ing.unit, name: ing.name })
+                : null;
+
               // Amount and unit in one column so the names line up; bold, terracotta when scaled.
               const amount = (
-                <span className={`min-w-[62px] flex-shrink-0 font-bold ${scaled ? 'text-accent-700' : ''}`}>
-                  {shownAmount != null && formatAmount(shownAmount)}
-                  {shownAmount != null && shownUnit ? ' ' : ''}
-                  {shownUnit}
+                <span
+                  className={`min-w-[62px] flex-shrink-0 font-bold ${scaled ? 'text-accent-700' : ''}`}
+                  title={est ? est.from : undefined}
+                >
+                  {est ? (
+                    <>
+                      ≈{formatAmount(est.grams)} g
+                      <span className="sr-only"> (estimated from {est.from})</span>
+                    </>
+                  ) : (
+                    <>
+                      {shownAmount != null && formatAmount(shownAmount)}
+                      {shownAmount != null && shownUnit ? ' ' : ''}
+                      {shownUnit}
+                    </>
+                  )}
                 </span>
               );
               const name = (

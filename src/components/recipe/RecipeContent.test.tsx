@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -317,5 +317,33 @@ describe('RecipeContent method and nutrition', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
     await user.click(btn);
     expect(screen.getByText('Calories')).toBeTruthy();
+  });
+});
+
+describe('RecipeContent weigh spoons and liquids (RL-183)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('shows stored amounts by default', () => {
+    renderWithProviders(<RecipeContent recipe={withIngredients()} />);
+    expect(screen.getByText('1 tbsp')).toBeTruthy();
+    expect(screen.queryByText(/≈/)).toBeNull();
+  });
+
+  it('shows ≈ grams with the original on the row, follows scaling, and leaves counts alone', async () => {
+    store.set('recipe-lab-weigh-volumes', '1');
+    const user = userEvent.setup();
+    renderWithProviders(<RecipeContent recipe={withIngredients()} />);
+    const honey = screen.getByText(/≈20 g/);
+    expect(honey.getAttribute('title')).toBe('1 tbsp');
+    expect(honey.textContent).toContain('(estimated from 1 tbsp)');
+    expect(screen.getByRole('checkbox', { name: /eggs/ }).closest('label')!.textContent).toContain('2');
+    await user.click(screen.getByRole('button', { name: 'One more serving' }));
+    await user.click(screen.getByRole('button', { name: 'One more serving' }));
+    expect(screen.getByText(/≈40 g/).getAttribute('title')).toBe('2 tbsp');
   });
 });

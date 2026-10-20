@@ -6,6 +6,7 @@ import { assembleDataExport, VERIFY_NOTE } from '../lib/dataExport';
 import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
+import { useWeighVolumes } from '../hooks/useWeighVolumes';
 import { useTheme } from '../hooks/useTheme';
 import { useConsent } from '../hooks/useConsent';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
@@ -60,6 +61,7 @@ export function SettingsPage() {
   const [dataStatus, setDataStatus] = useState<{ busy?: boolean; failed?: boolean; message: string } | null>(null);
   const downloading = useRef(false);
   const { unitSystem, setUnitSystem } = useUnitSystem();
+  const { weighVolumes, setWeighVolumes } = useWeighVolumes();
   const { theme, setTheme } = useTheme();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured, signOut } = useAuth();
@@ -330,8 +332,30 @@ export function SettingsPage() {
             <p className="mt-2 text-xs text-text-tertiary">
               Converts ingredient amounts and oven temperatures as they're displayed. Anything
               that can't be converted exactly — a cup of flour into grams, "2 onions" — is left
-              as written rather than guessed.
+              as written rather than guessed, unless you turn on Weigh spoons and liquids below.
             </p>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={weighVolumes}
+              aria-labelledby="weigh-label"
+              aria-describedby="weigh-desc"
+              onClick={() => setWeighVolumes(!weighVolumes)}
+              className="mt-3 flex min-h-11 w-full items-center justify-between gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              <span>
+                <span id="weigh-label" className="block text-[15px] text-text-primary">Weigh spoons and liquids</span>
+                <span id="weigh-desc" className="block text-[13px] text-neutral-700">Show tbsp, tsp, cups and ml as estimated grams</span>
+              </span>
+              <span
+                aria-hidden
+                className={`relative h-[26px] w-11 flex-shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 ${weighVolumes ? 'bg-accent-2-600' : 'bg-neutral-400 ring-1 ring-inset ring-neutral-500'}`}
+              >
+                <span
+                  className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface motion-safe:transition-[left] motion-safe:duration-150 ${weighVolumes ? 'left-[21px]' : 'left-[3px]'}`}
+                />
+              </span>
+            </button>
           </div>
         </Group>
 
