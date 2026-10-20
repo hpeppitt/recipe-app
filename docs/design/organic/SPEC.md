@@ -14,7 +14,7 @@ Where this spec and a shipped author decision disagree, the shipped decision sta
 - Timeline stays time-scaled with its current lane spacing (7.3).
 - Routes keep their current names: `/new` is the Create tab, `/create` the chat, `/profile/:uid`, `/recipe/:id/suggestion/:sid`, avatar editor as a sheet (4).
 - Sign-in stays email link only. No Google, Apple, password, invite gate (5d), guest recipes (5e count) or stranded notice (15c). Guests hold device bookmarks only (10).
-- Photos stay out (decision 3). Emoji is the only imagery (2, 3, 5.1).
+- v1 is emoji only. Stored photos are allowed from the phase that adds them (decision 3 reversed 2026-10-20), starting with the Phase 1 cook photo.
 - v1 excludes: Pantry sheet and Most branched (5), profile extras and Forest (9.1), dedup 7a to 7c polish, family-ordered chips, Grow opening What changed (8), weigh-liquids toggle (9.4), import from link (9.6). These are on the roadmap.
 - Delete version reparenting (6.1) and Related family / Move into family (7d) are in v1 but design-first.
 

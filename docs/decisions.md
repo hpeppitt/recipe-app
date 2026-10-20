@@ -119,6 +119,12 @@ wrong.
 
 2026-10-20: the author confirmed photo input is fine because photos are in-memory generation input only, sent once to Gemini via Firebase AI Logic to write the recipe and never stored (not in Dexie, Firestore, the data export, or history state); only the generated text recipe is saved.
 
+2026-10-20 (spec-v1 /groom sign-off): **reversed for stored photos.** The author said "photos
+are ok" for the design spec's photo features (the Phase 1 cook photo that can become the
+recipe photo, washed, with the emoji as fallback). Per the consequence above, this is a phase
+of its own, not a field: it still needs Storage, upload UX and a moderation answer, decided
+when that phase is groomed. v1 tickets stay emoji-only.
+
 ### 4. The merged feed was an accident, so split it
 
 `/` used to merge every published cloud recipe with the local library. Roadmap 3.1 split

@@ -80,8 +80,9 @@ below is planned, not ticketed. Groom an item when it is next.
 is cooking.
 - 25a "I made this" sheet from ticking the last step or a footer **Cooked**: Would make again
   / Needs a tweak (the vote, no stars), optional note, offer to grow the note into a branch.
-  The spec's optional cook photo **conflicts with decision 3** (photos out); decide before
-  grooming.
+  The optional cook photo (becomes the recipe photo when the author has none, washed and
+  credited) is allowed: the author reversed decision 3 on 2026-10-20. Storage, upload and
+  moderation are part of grooming this phase.
 - 25b cook log, public "Made N times" row on the recipe page, Profile Saves tile becomes
   Cooked, footer Suggest · Cooked · Branch, cook mode (screen awake, one step at a time).
 
