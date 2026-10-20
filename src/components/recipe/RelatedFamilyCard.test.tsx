@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { RelatedFamilyCard, RelatedFamilies } from './RelatedFamilyCard';
 import type { RelatedFamily } from '../../services/firestore';
 
-const mocks = vi.hoisted(() => ({ get: vi.fn(), report: vi.fn() }));
-vi.mock('../../services/firestore', () => ({ getRelatedFamilies: mocks.get }));
+const mocks = vi.hoisted(() => ({ get: vi.fn(), report: vi.fn(), move: vi.fn(), mirror: vi.fn() }));
+vi.mock('../../services/firestore', () => ({
+  getRelatedFamilies: mocks.get,
+  moveIntoFamily: mocks.move,
+  FAMILY_MOVE_OTHERS_MESSAGE: "This can't be moved because another cook has a version in it.",
+}));
+vi.mock('../../db/recipes', () => ({ moveFamilyCloudFirst: mocks.mirror }));
 vi.mock('../../services/telemetry', () => ({ reportError: mocks.report }));
 
 const fam = (id: string, over: Partial<RelatedFamily> = {}): RelatedFamily => ({
@@ -19,6 +24,8 @@ const fam = (id: string, over: Partial<RelatedFamily> = {}): RelatedFamily => ({
 });
 
 beforeEach(() => vi.clearAllMocks());
+HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+HTMLDialogElement.prototype.close = function () { this.open = false; };
 
 describe('RelatedFamilyCard', () => {
   it('renders nothing without families', () => {
@@ -71,5 +78,48 @@ describe('RelatedFamilies', () => {
     await waitFor(() => expect(mocks.report).toHaveBeenCalledTimes(1));
     expect(mocks.report.mock.calls[0][1]).toBe('related-families');
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('RelatedFamilies move line (RL-164)', () => {
+  const recipe = { id: 'n', depth: 0, relatedFamilyId: 'root' };
+  const move = (over = {}) => ({
+    mover: { uid: 'me', displayName: 'Me' },
+    othersInFamily: false,
+    branches: 2,
+    onStart: vi.fn(),
+    onDone: vi.fn(),
+    ...over,
+  });
+
+  it('asks before moving, then reports the move to the page', async () => {
+    mocks.get.mockResolvedValue([fam('root')]);
+    mocks.mirror.mockResolvedValue({ changes: [], leftBehind: 1, mirrored: true });
+    const props = move();
+    renderWithProviders(<RelatedFamilies recipe={recipe} move={props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Move it into that family' }));
+    expect(screen.getByText('It becomes a branch of Stew root, with its 2 branches. You stay the author.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    await waitFor(() => expect(props.onDone).toHaveBeenCalledWith(true, 'One branch by another cook stayed behind.'));
+    expect(props.onStart).toHaveBeenCalled();
+    expect(mocks.move).toHaveBeenCalledWith('me', 'Me', 'n', 'root');
+  });
+
+  it('shows an inline error when the move fails', async () => {
+    mocks.get.mockResolvedValue([fam('root')]);
+    mocks.mirror.mockRejectedValue(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    const props = move();
+    renderWithProviders(<RelatedFamilies recipe={recipe} move={props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Move it into that family' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("One version can't be moved; it may be too large.");
+    expect(props.onDone).toHaveBeenCalledWith(false);
+  });
+
+  it('offers no button while another cook has a version in the family', async () => {
+    mocks.get.mockResolvedValue([fam('root')]);
+    renderWithProviders(<RelatedFamilies recipe={recipe} move={move({ othersInFamily: true })} />);
+    expect(await screen.findByText("This can't be moved because another cook has a version in it.")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Move/ })).toBeNull();
   });
 });

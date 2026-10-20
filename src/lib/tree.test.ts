@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MAX_MOVED_CHILDREN, ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle } from './tree';
+import { MAX_MOVED_CHILDREN, ancestorChain, buildTree, collectSubtreeIds, countDescendantsByRoot, familySubtitle, planFamilyMove } from './tree';
 import { makeRecipe } from '../test/factories';
 import rules from '../../firestore.rules?raw';
 
@@ -175,5 +175,40 @@ describe('familySubtitle', () => {
   it('appends the year when it is not this year', () => {
     const old = new Date(2025, 2, 10).getTime();
     expect(familySubtitle([root({ createdAt: old })], now)).toContain('in March 2025');
+  });
+});
+
+describe('planFamilyMove', () => {
+  const root = { id: 'target', rootId: 'target', depth: 0 };
+
+  it('moves a single original under the target', () => {
+    expect(planFamilyMove([{ id: 'n', parentId: null, depth: 0 }], root)).toEqual([
+      { id: 'n', parentId: 'target', rootId: 'target', depth: 1 },
+    ]);
+  });
+
+  it('carries a two-level subtree, keeping each branch under its parent', () => {
+    const subtree = [
+      { id: 'n', parentId: null, depth: 0 },
+      { id: 'a', parentId: 'n', depth: 1 },
+      { id: 'b', parentId: 'a', depth: 2 },
+      { id: 'stray', parentId: 'elsewhere', depth: 1 },
+    ];
+    expect(planFamilyMove(subtree, root)).toEqual([
+      { id: 'n', parentId: 'target', rootId: 'target', depth: 1 },
+      { id: 'a', parentId: 'n', rootId: 'target', depth: 2 },
+      { id: 'b', parentId: 'a', rootId: 'target', depth: 3 },
+    ]);
+  });
+
+  it('uses the root and depth of a target that is a branch', () => {
+    const subtree = [
+      { id: 'n', parentId: null, depth: 0 },
+      { id: 'a', parentId: 'n', depth: 1 },
+    ];
+    expect(planFamilyMove(subtree, { id: 't2', rootId: 'r', depth: 2 })).toEqual([
+      { id: 'n', parentId: 't2', rootId: 'r', depth: 3 },
+      { id: 'a', parentId: 'n', rootId: 'r', depth: 4 },
+    ]);
   });
 });

@@ -1,6 +1,7 @@
 import { db } from './database';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
-import { collectSubtreeIds } from '../lib/tree';
+import { collectSubtreeIds, planFamilyMove, type FamilyMoveResult } from '../lib/tree';
+import { FamilyMoveTimeoutError } from '../lib/errors';
 import { parseImportedRecipes } from '../lib/import';
 import { planOwnRecipeSync } from '../lib/recipeSync';
 import type { Recipe, CreatedBy } from '../types/recipe';
@@ -118,6 +119,54 @@ export async function reparentChildren(childIds: string[], parentId: string): Pr
       if (child) await db.recipes.put({ ...child, parentId, depth: Math.max(0, child.depth - 1) });
     }
   });
+}
+
+/** How long a family move waits on the cloud before reporting failure (RL-164). */
+export const FAMILY_MOVE_TIMEOUT_MS = 10000;
+
+/**
+ * Cloud first, then this device (RL-164, decision 1b): waits up to `ms` for
+ * `cloudMove` (FamilyMoveTimeoutError after that, as it may still land), then
+ * mirrors its changes here in one transaction, get then put. Rows of the old
+ * family that only this device has follow the same plan. A failed cloud move
+ * rethrows and Dexie is not touched. A failed mirror after the commit still
+ * resolves, with `mirrored: false`: the own-recipe sync repairs it.
+ */
+export async function moveFamilyCloudFirst(
+  originalId: string,
+  cloudMove: Promise<FamilyMoveResult>,
+  ms = FAMILY_MOVE_TIMEOUT_MS
+): Promise<FamilyMoveResult & { mirrored: boolean }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new FamilyMoveTimeoutError()), ms);
+  });
+  let result: FamilyMoveResult;
+  try {
+    result = await Promise.race([cloudMove, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+  try {
+    await db.transaction('rw', db.recipes, async () => {
+      const moved = result.changes.find((c) => c.id === originalId);
+      const localOnly = moved
+        ? planFamilyMove(await db.recipes.where('rootId').equals(originalId).toArray(), {
+            id: moved.parentId,
+            rootId: moved.rootId,
+            depth: moved.depth - 1,
+          }).filter((p) => !result.changes.some((c) => c.id === p.id))
+        : [];
+      for (const { id, ...move } of [...result.changes, ...localOnly]) {
+        const row = await db.recipes.get(id);
+        if (row) await db.recipes.put({ ...row, ...move, relatedFamilyId: null });
+      }
+    });
+  } catch (err) {
+    console.error('Mirroring the family move on this device failed', err);
+    return { ...result, mirrored: false };
+  }
+  return { ...result, mirrored: true };
 }
 
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {

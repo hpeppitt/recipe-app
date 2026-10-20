@@ -146,3 +146,47 @@ export function familySubtitle(recipes: Recipe[], now: Date = new Date()): strin
   if (when) text += ` in ${when}`;
   return text;
 }
+
+/**
+ * Most versions one family move may carry (RL-164): a batch holds at most 500
+ * writes, one per moved version. Owner updates read no other document, so the
+ * 20-access limit does not bind.
+ */
+export const MAX_FAMILY_MOVE = 500;
+
+export interface FamilyMoveChange {
+  id: string;
+  parentId: string;
+  rootId: string;
+  depth: number;
+}
+
+/** What a committed family move did (RL-164). */
+export interface FamilyMoveResult {
+  changes: FamilyMoveChange[];
+  /** Versions still in the old family after the commit: another cook branched mid-move. */
+  leftBehind: number;
+}
+
+/**
+ * Where a moving original and its descendants land under `target` (RL-164):
+ * the original becomes the target's child, all join the target's family, and
+ * each goes target depth + 1 + its old depth. The original is the subtree's
+ * entry with no parent; entries not reachable from it are left out.
+ */
+export function planFamilyMove(
+  subtree: Array<{ id: string; parentId: string | null; depth: number }>,
+  target: { id: string; rootId: string; depth: number }
+): FamilyMoveChange[] {
+  const original = subtree.find((r) => r.parentId === null);
+  if (!original) return [];
+  const ids = new Set(collectSubtreeIds(subtree, original.id));
+  return subtree
+    .filter((r) => ids.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      parentId: r === original ? target.id : r.parentId!,
+      rootId: target.rootId,
+      depth: target.depth + 1 + (r === original ? 0 : r.depth),
+    }));
+}

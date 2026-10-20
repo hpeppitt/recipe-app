@@ -29,7 +29,7 @@ import {
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
 import { auth, firestore } from './firebase';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
-import { collectSubtreeIds, MAX_MOVED_CHILDREN } from '../lib/tree';
+import { collectSubtreeIds, MAX_FAMILY_MOVE, MAX_MOVED_CHILDREN, planFamilyMove, type FamilyMoveResult } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
@@ -37,7 +37,7 @@ import { withTimeout } from '../lib/utils';
 import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
-import { RateLimitedError, StaleSuggestionError, SuggestionClosedError, TooManyMovedBranchesError } from '../lib/errors';
+import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, TooManyMovedBranchesError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
@@ -323,8 +323,14 @@ export async function getRelatedFamilies(recipe: {
 }): Promise<RelatedFamily[]> {
   if (!firestore) return [];
   if (recipe.relatedFamilyId) {
-    const r = await getPublishedRecipe(recipe.relatedFamilyId);
-    return r ? [await toRelated(r)] : [];
+    let r = (await getPublishedRecipe(recipe.relatedFamilyId)) as (Partial<PublishedRecipe> & RelatedFamily) | null;
+    // RL-164: the linked original may since have moved into another family; show that family's original.
+    if (r?.parentId != null && typeof r.rootId === 'string' && r.rootId !== r.id) {
+      r = (await getPublishedRecipe(r.rootId)) as (Partial<PublishedRecipe> & RelatedFamily) | null;
+    }
+    // A link into this recipe's own family (it was moved under it) is not a related family.
+    if (!r || r.id === recipe.id || r.rootId === recipe.id) return [];
+    return [await toRelated(r)];
   }
   if (recipe.depth !== 0) return [];
   const snap = await getDocs(
@@ -512,6 +518,86 @@ export async function deletePublishedVersion(uid: string, recipe: Recipe, childI
     if (err instanceof TooManyMovedBranchesError) throw err;
     await attempt(err);
   }
+}
+
+/** Shown when another cook has a version in the family being moved (decision RL-161). */
+export const FAMILY_MOVE_OTHERS_MESSAGE = "This can't be moved because another cook has a version in it.";
+
+const intOr0 = (n: unknown) => (Number.isInteger(n) ? (n as number) : 0);
+
+/**
+ * Move `uid`'s original `originalId`, with its branches, under `targetId` in
+ * another family (RL-164, decision RL-161). One transaction of owner updates:
+ * it re-reads the target and every family document and refuses with
+ * FamilyMoveRefusedError, writing nothing, when the target is gone or invalid,
+ * any version is another cook's or has left the family, the original is not
+ * the caller's original, or there are more than MAX_FAMILY_MOVE versions. An
+ * original already under the target (a late commit after a timeout) returns
+ * its current placement with no second notice. After the commit the target's
+ * author gets the RL-153 `branch` notice (never the mover), and the old family
+ * is re-read: a branch another cook made mid-move stays behind and is counted.
+ */
+export async function moveIntoFamily(
+  uid: string,
+  displayName: string | null,
+  originalId: string,
+  targetId: string
+): Promise<FamilyMoveResult> {
+  const fs = firestore;
+  if (!fs) throw new FamilyMoveRefusedError('Moving needs the cloud.');
+  const [target, original] = await Promise.all([getPublishedRecipe(targetId), getPublishedRecipe(originalId)]);
+  const placeOf = (t: Partial<PublishedRecipe> & { id: string }) => {
+    // A branch without a rootId cannot say which family it is in.
+    if (t.parentId != null && typeof t.rootId !== 'string') throw new FamilyMoveRefusedError('That family is no longer there.');
+    return { id: t.id, rootId: typeof t.rootId === 'string' ? t.rootId : t.id, depth: intOr0(t.depth) };
+  };
+  if (!target) throw new FamilyMoveRefusedError('That family is no longer there.');
+  const place = placeOf(target as Partial<PublishedRecipe> & { id: string });
+  const orig = original as (Partial<PublishedRecipe> & { id: string }) | null;
+  if (!orig || orig.createdBy?.uid !== uid) throw new FamilyMoveRefusedError('This recipe cannot be moved.');
+  if (orig.parentId === place.id && orig.rootId === place.rootId) {
+    const tree = await getPublishedRecipeTree(place.rootId);
+    const ids = new Set(collectSubtreeIds(tree.map((r) => ({ id: r.id, parentId: r.parentId ?? null })), originalId));
+    const changes = tree
+      .filter((r) => ids.has(r.id))
+      .map((r) => ({ id: r.id, parentId: r.parentId as string, rootId: place.rootId, depth: intOr0(r.depth) }));
+    return { changes, leftBehind: 0 };
+  }
+  if (orig.parentId != null || place.rootId === originalId) throw new FamilyMoveRefusedError('This recipe cannot be moved.');
+  const family = await getPublishedRecipeTree(originalId);
+  if (family.some((r) => r.createdBy?.uid !== uid)) throw new FamilyMoveRefusedError(FAMILY_MOVE_OTHERS_MESSAGE);
+  if (family.length > MAX_FAMILY_MOVE) {
+    throw new FamilyMoveRefusedError(`This family has too many versions to move at once (most is ${MAX_FAMILY_MOVE}).`);
+  }
+
+  const changes = await runTransaction(fs, async (tx) => {
+    const [t, ...snaps] = await Promise.all([doc(fs, 'recipes', targetId), ...family.map((r) => doc(fs, 'recipes', r.id))].map((ref) => tx.get(ref)));
+    if (!t.exists()) throw new FamilyMoveRefusedError('That family is no longer there.');
+    const now = placeOf({ id: t.id, ...t.data() });
+    if (now.rootId === originalId) throw new FamilyMoveRefusedError('This recipe cannot be moved.');
+    const rows = snaps.map((snap) => {
+      const d = snap.data();
+      if (!d || d.rootId !== originalId) throw new FamilyMoveRefusedError('The family changed while moving. Try again.');
+      if ((d.createdBy as { uid?: unknown } | undefined)?.uid !== uid) throw new FamilyMoveRefusedError(FAMILY_MOVE_OTHERS_MESSAGE);
+      return { id: snap.id, parentId: (d.parentId as string | null | undefined) ?? null, depth: intOr0(d.depth) };
+    });
+    const plan = planFamilyMove(rows, now);
+    for (const { id, ...move } of plan) tx.update(doc(fs, 'recipes', id), { ...move, relatedFamilyId: null });
+    return plan;
+  });
+
+  const targetUid = target.createdBy?.uid;
+  if (typeof targetUid === 'string' && targetUid !== uid) {
+    notifyBranched({ branch: { id: originalId, prompt: orig.prompt ?? '' }, parent: target, from: { uid, displayName } });
+  }
+  let leftBehind = 0;
+  try {
+    leftBehind = (await getPublishedRecipeTree(originalId)).length;
+  } catch (err) {
+    reportError(err, 'family-move-check');
+  }
+  if (leftBehind > 0) reportError(new Error(`Family move left ${leftBehind} version(s) behind`), 'family-move-left-behind');
+  return { changes, leftBehind };
 }
 
 // --- Cloud Favorites ---
@@ -740,8 +826,8 @@ function notify(fs: Firestore, data: DocumentData & { fromUid: string }): void {
  * owner. The caller skips its own and 'local' parents. Never throws (notify).
  */
 export function notifyBranched({ branch, parent, from }: {
-  branch: Recipe;
-  parent: Recipe;
+  branch: Pick<Recipe, 'id' | 'prompt'>;
+  parent: Pick<Recipe, 'title' | 'emoji'> & { createdBy: { uid: string } };
   from: { uid: string; displayName: string | null };
 }): void {
   if (!firestore) return;

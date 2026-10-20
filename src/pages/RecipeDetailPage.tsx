@@ -123,6 +123,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   } | null>(null);
   // The recipe page to focus the title of once it renders, after a version delete.
   const focusTitleFor = useRef<string | null>(null);
+  // RL-164: what a family move left to say once its line is gone.
+  const [moveNote, setMoveNote] = useState<string | null>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   // Delete state belongs to one recipe: moving to another id (this page stays mounted) drops it.
   const [deleteStateFor, setDeleteStateFor] = useState(id);
@@ -131,6 +133,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     setShowDelete(null);
     setIsDeleting(false);
     setCloudDeleteFailure(null);
+    setMoveNote(null);
   }
   // A delete can outlive the page (back gesture mid-wait); late results check this.
   const mountedRef = useRef(true);
@@ -711,7 +714,40 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             />
           )}
 
-          <RecipeContent recipe={recipe} hideHeader afterMeta={<RelatedFamilies recipe={recipe} />} />
+          <RecipeContent
+            recipe={recipe}
+            hideHeader
+            afterMeta={
+              <>
+                <RelatedFamilies
+                  recipe={recipe}
+                  // RL-164: the verified author of a new original may move it; the family must be loaded to judge it.
+                  move={
+                    isOwner && user?.emailVerified && user.uid === recipe.createdBy?.uid && !treeLoading
+                      ? {
+                          mover: { uid: user.uid, displayName: user.displayName ?? recipe.createdBy.displayName },
+                          othersInFamily,
+                          branches: descendantCount,
+                          onStart: () => {
+                            setMoveNote(null);
+                            focusTitleFor.current = recipe.id;
+                          },
+                          onDone: (moved, note) => {
+                            if (!moved) focusTitleFor.current = null;
+                            setMoveNote(note ?? null);
+                          },
+                        }
+                      : undefined
+                  }
+                />
+                {moveNote && (
+                  <p role="status" className="min-w-0 break-words text-[13px] text-text-secondary">
+                    {moveNote}
+                  </p>
+                )}
+              </>
+            }
+          />
 
           {/* Moved below the body (RL-105); it used to sit above it as the owner's
               action item. The pending badge on More (RL-100) keeps that attention. */}
