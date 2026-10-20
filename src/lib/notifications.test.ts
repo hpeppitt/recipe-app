@@ -55,6 +55,7 @@ describe('firestore.rules notification types', () => {
     suggestion_rejected: true,
     suggestion_applied: true,
     suggestion_branched: true,
+    branch: true,
   };
   const ruleTypes = [...rules.matchAll(/request\.resource\.data\.type in \[([^\]]+)\]/g)].flatMap((m) =>
     [...m[1].matchAll(/'([^']+)'/g)].map((t) => t[1]),
@@ -70,7 +71,6 @@ describe('firestore.rules notification types', () => {
   });
 
   it('the rules allow a branch notification (RL-152)', () => {
-    // Not in AppNotification yet; RL-153 adds it, and then it belongs in clientTypes too.
     expect(ruleTypes).toContain('branch');
   });
 });

@@ -19,6 +19,7 @@ const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell 
   suggestion_rejected: { tint: 'bg-neutral-700', Icon: X },
   suggestion_applied: { tint: 'bg-accent-2-600', Icon: Check },
   suggestion_branched: { tint: 'bg-accent-2-600', Icon: GitBranch },
+  branch: { tint: 'bg-accent-2-600', Icon: GitBranch },
   follow: { tint: 'bg-neutral-700', Icon: UserPlus },
   favorite: { tint: 'bg-neutral-700', Icon: Heart },
 };
@@ -31,8 +32,9 @@ export function ActivityPage() {
   const [showAuth, setShowAuth] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
 
-  const open = async (n: AppNotification) => {
-    if (!n.read) await markRead(n.id);
+  const open = (n: AppNotification) => {
+    // Not awaited: a failed or offline mark must not stop the tap opening its target.
+    if (!n.read) void markRead(n.id).catch(() => {});
     // A follow is about a person; there is no recipe to open.
     navigate(n.recipeId ? `/recipe/${n.recipeId}` : `/profile/${n.fromUid}`);
   };

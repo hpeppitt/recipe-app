@@ -61,7 +61,9 @@ export interface AppNotification {
     | 'suggestion_applied'
     | 'suggestion_branched'
     | 'suggestion_reply'
-    | 'follow';
+    | 'follow'
+    // RL-153: someone branched your recipe; recipeId is the branch, recipeTitle the parent's.
+    | 'branch';
   /**
    * Absent on `follow`, which is about a person rather than a recipe. Optional
    * rather than a separate type so one subscription and one list still cover

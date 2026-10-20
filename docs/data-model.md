@@ -70,7 +70,7 @@ transaction); everything else, `favorites` included, stays.
 | `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, recipeOwnerId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
 | `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected \| applied \| branched` (shown Open, Approved on old documents, Declined, Applied, Branched), optional `edits[]` (`SuggestionEdit`: kind, index, name, from, to, why) and `branchId` (RL-145), `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
-| `notifications/{autoId}` | auto | `AppNotification` | Six types (see [capabilities.md](capabilities.md)). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
+| `notifications/{autoId}` | auto | `AppNotification` | Nine types, listed below and in [capabilities.md](capabilities.md). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings and the maintained counters `followerCount` and `followingCount` (`recipeCount` is stored but no longer bumped, RL-032). Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
 | `notificationPrefs/{uid}` | user uid | `{ branch, suggestion, follow, updatedAt }` (three bools and a server timestamp) | The account's "Notify me when" choices (RL-152 rules, in the repo, deployed by RL-156; RL-155 writes them). **Private**: owner-only read. Applied when the recipient reads Activity, so a writer never reads someone else's preferences. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
@@ -232,7 +232,7 @@ and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoj
 `fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
 Since RL-049 a create also needs a notification-window move (at most 60 per hour per
 sender, see writeWindows below), so a notification costs 2 extra document reads.
-`type` must be one of the eight: `favorite` and `follow` require `message` null; the six
+`type` must be one of the nine: `favorite` and `follow` require `message` null; the six
 suggestion types (`suggestion`, `suggestion_reply`, `suggestion_approved`,
 `suggestion_rejected`, and since RL-146, in the repo and deployed by RL-156,
 `suggestion_applied` and `suggestion_branched`) allow null or a string of at most 500 characters, counted as UTF-16 units
@@ -246,6 +246,8 @@ present and name a branch (its `parentId` a string) whose `createdBy.uid` is the
 `recipientUid` must be the parent recipe's owner and not the sender. So only the branch's
 author can announce it, and only to the owner of the recipe branched. That is two more document
 reads (the branch and its parent). Emulator-checked 2026-10-21 (ticket RL-152 Notes).
+Since RL-153 `saveRecipe` writes it through `notifyBranched` after the branch is published, with
+`recipeTitle` and `recipeEmoji` the parent's and `message` the branch's prompt.
 
 **notificationPrefs** (RL-152, in the repo, deployed by RL-156): read, create and update only
 by the owner with a verified email; delete by the signed-in owner (no verified email needed,

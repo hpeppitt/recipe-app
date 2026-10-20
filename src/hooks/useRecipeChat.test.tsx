@@ -10,14 +10,16 @@ import { fakeUser } from '../test/renderWithProviders';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, navigate, reportError, config } = vi.hoisted(() => ({
+const { publishRecipe, notifyBranched, navigate, reportError, config } = vi.hoisted(() => ({
   publishRecipe: vi.fn(),
+  notifyBranched: vi.fn(),
   navigate: vi.fn(),
   reportError: vi.fn(),
   config: { firebase: true },
 }));
 vi.mock('../services/firestore', () => ({
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
+  notifyBranched: (...a: unknown[]) => notifyBranched(...a),
   searchPublishedRecipes: vi.fn(),
   searchPublishedVariations: vi.fn(),
 }));
@@ -169,6 +171,58 @@ describe('useRecipeChat saveRecipe (cloud first)', () => {
     const [row] = await db.recipes.toArray();
     expect(row.title).toBe('Soup');
     expect(navigate).toHaveBeenCalledWith(`/recipe/${row.id}`, { state: { saved: 'local', note: null } });
+  });
+});
+
+describe('useRecipeChat saveRecipe tells the parent author about a branch (RL-153)', () => {
+  const branchOf = (parent: Recipe) => renderHook(() => useRecipeChat(parent), { wrapper });
+  const save = async (parent: Recipe) => {
+    const { result } = branchOf(parent);
+    await act(() => result.current.saveRecipe({ recipe: generated('Vegan bread'), prompt: 'vegan, no eggs' }));
+  };
+
+  it("notifies after publishing a branch of someone else's recipe", async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    const parent = makeRecipe({ title: 'Banana bread', createdBy: { uid: 'lin', displayName: 'Lin' } });
+
+    await save(parent);
+
+    const [id] = published();
+    expect(notifyBranched).toHaveBeenCalledTimes(1);
+    const [{ branch, parent: p, from }] = notifyBranched.mock.calls[0] as [{ branch: Recipe; parent: Recipe; from: unknown }];
+    expect(branch.id).toBe(id);
+    expect(branch.parentId).toBe(parent.id);
+    expect(branch.prompt).toBe('vegan, no eggs');
+    expect(p).toBe(parent);
+    expect(from).toEqual({ uid: fakeUser.uid, displayName: fakeUser.displayName ?? null });
+    expect(publishRecipe.mock.invocationCallOrder[0]).toBeLessThan(notifyBranched.mock.invocationCallOrder[0]);
+  });
+
+  it('does not notify for your own parent or a local one', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+
+    await save(makeRecipe({ createdBy: { uid: fakeUser.uid, displayName: null } }));
+    await save(makeRecipe({ createdBy: { uid: 'local', displayName: null } }));
+
+    expect(published()).toHaveLength(2);
+    expect(notifyBranched).not.toHaveBeenCalled();
+  });
+
+  it('does not notify when the publish fails', async () => {
+    publishRecipe.mockRejectedValue(new Error('offline'));
+
+    await save(makeRecipe({ createdBy: { uid: 'lin', displayName: 'Lin' } }));
+
+    expect(notifyBranched).not.toHaveBeenCalled();
+  });
+
+  it('does not notify for a new recipe with no parent', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    const { result } = renderChat();
+
+    await act(() => result.current.saveRecipe({ recipe: generated('Soup'), prompt: 'soup' }));
+
+    expect(notifyBranched).not.toHaveBeenCalled();
   });
 });
 
