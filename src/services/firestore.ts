@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   setDoc,
   updateDoc,
@@ -27,7 +28,7 @@ import {
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
 import { auth, firestore } from './firebase';
 import { rankByQuery, recipeHaystack, variationHaystack } from '../lib/search';
-import { collectSubtreeIds } from '../lib/tree';
+import { collectSubtreeIds, MAX_MOVED_CHILDREN } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
@@ -35,7 +36,7 @@ import { withTimeout } from '../lib/utils';
 import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
-import { RateLimitedError, StaleSuggestionError, SuggestionClosedError } from '../lib/errors';
+import { RateLimitedError, StaleSuggestionError, SuggestionClosedError, TooManyMovedBranchesError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
@@ -317,14 +318,18 @@ export async function searchPublishedVariations(
  * already deleted by an earlier attempt) is skipped, because the rules deny a delete
  * of a nonexistent doc and it would count as a failure that "Try again" can never
  * clear. If that read itself fails, the delete is still attempted.
+ *
+ * Since RL-159 it deletes originals only, and an original stays while another
+ * cook has a version in its family (decision RL-157 3b): when any candidate is
+ * another cook's, nothing is deleted and `skipped` counts them.
  */
 export async function deletePublishedRecipeTree(
   uid: string,
   id: string,
   rootId: string,
   extraIds: string[] = []
-): Promise<{ deleted: number; failed: number }> {
-  if (!firestore) return { deleted: 0, failed: 0 };
+): Promise<{ deleted: number; failed: number; skipped: number }> {
+  if (!firestore) return { deleted: 0, failed: 0, skipped: 0 };
 
   let subtreeIds: string[];
   const ownerById = new Map<string, string | undefined>();
@@ -339,8 +344,9 @@ export async function deletePublishedRecipeTree(
     });
     subtreeIds = collectSubtreeIds(nodes, id);
   } catch {
-    // Tree query failed — still make a best effort on what the caller knows.
-    subtreeIds = [id];
+    // Without the family read the "other cooks' versions" guard cannot run, so
+    // nothing is deleted and the page offers Try again (RL-159).
+    return { deleted: 0, failed: 1, skipped: 0 };
   }
 
   const candidates = [...new Set([...subtreeIds, ...extraIds])];
@@ -356,13 +362,103 @@ export async function deletePublishedRecipeTree(
       }
     })
   );
+  const skipped = owners.filter((o) => o != null && o !== uid).length;
+  if (skipped > 0) return { deleted: 0, failed: 0, skipped };
   const targets = candidates.filter((_, i) => owners[i] === uid);
   const results = await Promise.allSettled(
     targets.map((target) => deleteDoc(doc(firestore!, 'recipes', target)))
   );
 
   const failed = results.filter((r) => r.status === 'rejected').length;
-  return { deleted: results.length - failed, failed };
+  return { deleted: results.length - failed, failed, skipped: 0 };
+}
+
+/**
+ * True only when the server says the recipe no longer exists (RL-159: after a
+ * timed-out version delete). Asks the server, not the cache, which may already
+ * show a pending delete; any failure counts as not gone.
+ */
+export async function isRecipeGoneOnServer(id: string): Promise<boolean> {
+  if (!firestore) return false;
+  try {
+    return !(await getDocFromServer(doc(firestore, 'recipes', id))).exists();
+  } catch {
+    return false;
+  }
+}
+
+/** The cloud's direct children of `parentId`, plus any of `knownIds` the query missed. */
+async function readVersionChildren(fs: Firestore, parentId: string, knownIds: string[]) {
+  const snap = await getDocs(query(collection(fs, 'recipes'), where('parentId', '==', parentId)));
+  const found = new Map(snap.docs.map((d) => [d.id, d.data()]));
+  for (const id of knownIds) {
+    if (found.has(id)) continue;
+    const s = await getDoc(doc(fs, 'recipes', id));
+    if (s.exists() && s.data().parentId === parentId) found.set(id, s.data());
+  }
+  return [...found].map(([id, d]) => ({
+    id,
+    // The rules compare against the stored depth; a missing or non-numeric one may be set to 0 (RL-159).
+    depth: Number.isInteger(d.depth) ? (d.depth as number) - 1 : 0,
+    uid: (d.createdBy as { uid?: unknown } | undefined)?.uid,
+    title: d.title as string,
+    emoji: d.emoji as string,
+  }));
+}
+
+/**
+ * Delete one published version and move its direct children up to its parent
+ * in one batch (RL-157, RL-159; rules RL-158). Each other cook's child also
+ * gets a `moved` notice in the same batch; the rules exempt those from the
+ * notification window and bind them to id `moved_{childId}_{deletedId}`. The children's
+ * stored depth is what the rules compare, so it is read from the cloud, not the
+ * device. Throws TooManyMovedBranchesError, having written nothing, above
+ * MAX_MOVED_CHILDREN other cooks' children. A failed commit is retried once,
+ * only when a fresh read finds a different set of children (or the version
+ * gone); there is no fallback to a plain delete, which would orphan them. A
+ * version with no cloud doc has nothing to move. A child whose author is not a
+ * string uid gets no notice.
+ */
+export async function deletePublishedVersion(uid: string, recipe: Recipe, childIds: string[]): Promise<void> {
+  const fs = firestore;
+  const parentId = recipe.parentId;
+  if (!fs) return;
+  if (!parentId) throw new Error('An original is deleted with deletePublishedRecipeTree');
+  const ref = doc(fs, 'recipes', recipe.id);
+  let readIds: string | null = null;
+  const attempt = async (retry?: unknown) => {
+    if (!(await getDoc(ref)).exists()) return;
+    const children = await readVersionChildren(fs, recipe.id, childIds);
+    const ids = children.map((c) => c.id).sort().join(',');
+    if (retry !== undefined && ids === readIds) throw retry;
+    readIds = ids;
+    const others = children.filter((c): c is typeof c & { uid: string } => typeof c.uid === 'string' && c.uid !== uid);
+    if (others.length > MAX_MOVED_CHILDREN) throw new TooManyMovedBranchesError(others.length);
+    const batch = writeBatch(fs);
+    batch.delete(ref);
+    for (const c of children) batch.update(doc(fs, 'recipes', c.id), { parentId, depth: c.depth });
+    for (const c of others) {
+      batch.set(doc(fs, 'notifications', `moved_${c.id}_${recipe.id}`), {
+        recipientUid: c.uid,
+        type: 'moved',
+        recipeId: c.id,
+        recipeTitle: c.title,
+        recipeEmoji: c.emoji,
+        fromUid: uid,
+        fromDisplayName: recipe.createdBy.displayName ?? null,
+        message: recipe.title.slice(0, 200),
+        read: false,
+        createdAt: Date.now(),
+      });
+    }
+    await batch.commit();
+  };
+  try {
+    await attempt();
+  } catch (err) {
+    if (err instanceof TooManyMovedBranchesError) throw err;
+    await attempt(err);
+  }
 }
 
 // --- Cloud Favorites ---

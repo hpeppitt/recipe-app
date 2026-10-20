@@ -20,6 +20,7 @@ const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell 
   suggestion_applied: { tint: 'bg-accent-2-600', Icon: Check },
   suggestion_branched: { tint: 'bg-accent-2-600', Icon: GitBranch },
   branch: { tint: 'bg-accent-2-600', Icon: GitBranch },
+  moved: { tint: 'bg-accent-2-600', Icon: GitBranch },
   follow: { tint: 'bg-neutral-700', Icon: UserPlus },
   favorite: { tint: 'bg-neutral-700', Icon: Heart },
 };
@@ -83,7 +84,7 @@ export function ActivityPage() {
     const who = n.fromDisplayName?.trim() || 'Someone';
     const message = n.message?.trim();
     // Suggestions read "Sami: <change>"; outcomes read the bare message; the rest stay quoted (RL-151).
-    const detail = !message
+    const detail = !message || n.type === 'moved'
       ? null
       : n.type === 'suggestion'
         ? `${who.split(/\s+/)[0]}: ${message}`
@@ -110,7 +111,9 @@ export function ActivityPage() {
           </span>
           <span className="min-w-0 flex-1">
             <span id={`n-${n.id}-text`} className="block break-words text-sm leading-[1.4] text-text-primary">
-              <b>{who}</b> {NOTIF_VERBS[n.type] ?? NOTIF_VERBS.suggestion}
+              <b>{who}</b>{' '}
+              {/* The deleted title is sender-written and unchecked by the rules, so it stays plain, not bold (RL-159). */}
+              {n.type === 'moved' ? `deleted ${message ?? 'a version'}, so` : (NOTIF_VERBS[n.type] ?? NOTIF_VERBS.suggestion)}
               {n.recipeTitle && (
                 <>
                   {' '}
@@ -119,6 +122,7 @@ export function ActivityPage() {
                   </b>
                 </>
               )}
+              {n.type === 'moved' && ' moved up a level'}
             </span>
             <span id={`n-${n.id}-detail`} className="mt-0.5 flex gap-1 text-xs text-text-tertiary">
               {detail && <span className="min-w-0 truncate">{detail}</span>}

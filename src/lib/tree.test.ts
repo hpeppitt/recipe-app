@@ -62,6 +62,15 @@ describe('buildTree', () => {
     expect(buildTree([orphan])).toBeNull();
   });
 
+  it('hangs a recipe whose parent is missing off the root (RL-159)', () => {
+    const root = makeRecipe({ id: 'root', parentId: null });
+    const orphan = makeRecipe({ id: 'o', parentId: 'gone' });
+    const kid = makeRecipe({ id: 'k', parentId: 'o' });
+    const tree = buildTree([root, orphan, kid]);
+    expect(tree?.children.map((c) => c.recipe.id)).toEqual(['o']);
+    expect(tree?.children[0].children.map((c) => c.recipe.id)).toEqual(['k']);
+  });
+
   it('nests children under their parents', () => {
     const root = makeRecipe({ id: 'root' });
     const child = makeRecipe({ id: 'child', parentId: 'root' });

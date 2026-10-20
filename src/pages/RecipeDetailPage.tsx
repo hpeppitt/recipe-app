@@ -6,11 +6,13 @@ import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import type { SuggestionEdit } from '../types/social';
 import { useSuggestionReview } from '../hooks/useSuggestionReview';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteRecipeTree, getSubtreeIds } from '../db/recipes';
+import { deleteRecipeTree, getRecipeTree, getSubtreeIds, reparentChildren } from '../db/recipes';
 import {
   deletePublishedRecipeTree,
+  deletePublishedVersion,
   getPublishedRecipe,
   incrementRecipeViews,
+  isRecipeGoneOnServer,
   publishRecipe,
 } from '../services/firestore';
 import { isFirebaseConfigured } from '../services/firebase';
@@ -35,7 +37,9 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Spinner } from '../components/ui/Spinner';
 import { Avatar } from '../components/ui/Avatar';
 import { canManageRecipe } from '../lib/ownership';
-import { rateLimitMessage } from '../lib/errors';
+import { rateLimitMessage, TooManyMovedBranchesError } from '../lib/errors';
+import { MAX_MOVED_CHILDREN } from '../lib/tree';
+import type { Recipe } from '../types/recipe';
 import { SavedToast } from '../components/recipe/SavedToast';
 import { TreeIntro } from '../components/recipe/TreeIntro';
 import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
@@ -45,6 +49,21 @@ import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboard
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 /** How long Delete waits on the cloud before telling the user copies may remain. */
 const CLOUD_DELETE_TIMEOUT_MS = 10000;
+
+/** A branch delete: the version as it was when the dialog opened, and its direct children's ids. */
+type DeleteFailure = 'too-many' | 'others' | 'pending';
+
+interface VersionDelete {
+  recipe: Recipe;
+  childIds: string[];
+}
+
+/** The 19a dialog body for deleting a version with `n` direct branches. */
+function versionDeleteMessage(n: number, parentTitle = 'the version above it'): string {
+  if (n === 0) return "This can't be undone.";
+  if (n === 1) return `Its branch stays, and moves up to ${parentTitle}.`;
+  return `Its ${n} branches stay, and move up to ${parentTitle}.`;
+}
 
 const footerButton =
   'inline-flex h-[52px] lg:h-12 min-w-0 items-center justify-center gap-1.5 rounded-full px-1.5 font-heading text-[15px] whitespace-nowrap transition-all active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
@@ -75,10 +94,15 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const { isFavorite, toggleFavorite, canFavorite, ready: favoriteReady } = useFavorite(id);
   const { suggestions, apply, keepAsBranch, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
-  // The confirm message, captured on open: the RL-078 sync can remove the recipe
-  // once the cloud delete lands, while the dialog is still open, so it cannot be
-  // read live.
-  const [showDelete, setShowDelete] = useState<string | null>(null);
+  // The confirm copy and target, captured on open: the RL-078 sync can remove the
+  // recipe once the cloud delete lands, while the dialog is still open, so it
+  // cannot be read live. `version` is set for a branch (RL-159).
+  const [showDelete, setShowDelete] = useState<{
+    title: string;
+    message: string;
+    cancelLabel: string;
+    version?: VersionDelete;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   // Set when the cloud delete failed or timed out, so nothing was removed from
   // this device. Holds the same ids so "Try again" repeats exactly that delete.
@@ -86,9 +110,27 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     uid: string;
     rootId: string;
     extraIds: string[];
+    version?: VersionDelete;
     /** null after a timeout, when how many copies remain is unknown. */
     failed: number | null;
+    /**
+     * too-many: more other cooks' branches than one delete can move; others: an
+     * original with another cook's version (both final, OK only). pending: a
+     * version delete timed out and may still land (RL-159).
+     */
+    reason?: DeleteFailure;
   } | null>(null);
+  // The recipe page to focus the title of once it renders, after a version delete.
+  const focusTitleFor = useRef<string | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  // Delete state belongs to one recipe: moving to another id (this page stays mounted) drops it.
+  const [deleteStateFor, setDeleteStateFor] = useState(id);
+  if (deleteStateFor !== id) {
+    setDeleteStateFor(id);
+    setShowDelete(null);
+    setIsDeleting(false);
+    setCloudDeleteFailure(null);
+  }
   // A delete can outlive the page (back gesture mid-wait); late results check this.
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -120,6 +162,16 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   useEffect(() => {
     idRef.current = id;
   }, [id]);
+  // A pending title focus is only for the parent a delete moved to; any other move drops it.
+  useEffect(() => {
+    if (focusTitleFor.current !== id) focusTitleFor.current = null;
+  }, [id]);
+  // After a version delete, the parent's title takes focus once it renders (RL-159).
+  useEffect(() => {
+    if (!recipe || focusTitleFor.current !== recipe.id) return;
+    focusTitleFor.current = null;
+    pageRef.current?.querySelector<HTMLElement>('[data-recipe-title]')?.focus();
+  }, [recipe]);
   // Set by the save flow via navigation state. 'local' means the recipe is on
   // this device but the cloud publish did not land, which the user previously
   // had no way of knowing — it was a console.error and nothing else.
@@ -222,11 +274,26 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     }
   };
 
-  const leaveAfterDelete = () => navigate('/', { replace: true });
+  // A deleted version goes to its parent, which now holds its branches, and
+  // focus goes to that page's title. The dialogs are closed first: the page
+  // stays mounted across the move.
+  const leaveAfterDelete = (version?: VersionDelete) => {
+    setShowDelete(null);
+    setCloudDeleteFailure(null);
+    setIsDeleting(false);
+    if (version) focusTitleFor.current = version.recipe.parentId;
+    navigate(version ? `/recipe/${version.recipe.parentId}` : '/', { replace: true });
+  };
 
-  const deleteLocally = async () => {
+  const deleteLocally = async (version?: VersionDelete) => {
     if (!id) return;
     try {
+      // Moved first, so the subtree deleteRecipeTree removes is the version alone.
+      // The children are read from Dexie now, not the dialog's snapshot.
+      if (version) {
+        const kids = (await getRecipeTree(version.recipe.rootId)).filter((r) => r.parentId === id);
+        await reparentChildren(kids.map((r) => r.id), version.recipe.parentId!);
+      }
       await deleteRecipeTree(id);
     } catch (err) {
       // Nothing was removed locally, so the page stays for another attempt.
@@ -235,7 +302,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       if (mountedRef.current) setIsDeleting(false);
       return;
     }
-    if (mountedRef.current) leaveAfterDelete();
+    if (mountedRef.current && idRef.current === id) leaveAfterDelete(version);
   };
 
   // Cloud first, device second: a recipe left in the cloud would be synced
@@ -244,35 +311,63 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // (the rules deny them); removing those needs a Cloud Function.
   const runCloudDelete = async (target: Omit<NonNullable<typeof cloudDeleteFailure>, 'failed'>) => {
     if (!id) return;
-    const unknown = { deleted: 0, failed: null };
-    const { failed } = await withTimeout(
-      deletePublishedRecipeTree(target.uid, id, target.rootId, target.extraIds).catch(
-        () => unknown
-      ),
+    type Outcome = { failed: number | null; reason?: DeleteFailure };
+    const { version } = target;
+    let outcome = await withTimeout<Outcome>(
+      version
+        ? deletePublishedVersion(target.uid, version.recipe, version.childIds).then(
+            (): Outcome => ({ failed: 0 }),
+            (err): Outcome => ({ failed: null, reason: err instanceof TooManyMovedBranchesError ? 'too-many' : undefined })
+          )
+        : deletePublishedRecipeTree(target.uid, id, target.rootId, target.extraIds).then(
+            ({ failed, skipped }): Outcome => (skipped > 0 ? { failed: null, reason: 'others' } : { failed }),
+            (): Outcome => ({ failed: null })
+          ),
       CLOUD_DELETE_TIMEOUT_MS,
-      unknown
+      { failed: null, reason: version ? 'pending' : undefined }
     );
-    // Left the page mid-delete: no late navigation or local write. If the cloud
-    // delete landed, the RL-078 sync removes the device copy.
-    if (!mountedRef.current) return;
-    if (failed === 0) {
+    // A timed-out batch may still have committed: look once, and if the version
+    // is gone, finish the device half (RL-159).
+    if (version && outcome.reason === 'pending') {
+      const gone = await withTimeout(isRecipeGoneOnServer(version.recipe.id), SHARE_PUBLISH_TIMEOUT_MS, false);
+      if (gone) outcome = { failed: 0 };
+    }
+    // Left the page (or moved to another recipe) mid-delete: no late navigation
+    // or local write. If the cloud delete landed, the RL-078 sync removes the
+    // device copy.
+    if (!mountedRef.current || idRef.current !== id) return;
+    if (outcome.failed === 0) {
       setCloudDeleteFailure(null);
-      await deleteLocally();
+      await deleteLocally(version);
       return;
     }
     setShowDelete(null);
-    setCloudDeleteFailure({ ...target, failed });
+    setCloudDeleteFailure({ ...target, failed: outcome.failed, reason: outcome.reason });
     setIsDeleting(false);
   };
 
+  // Keep it, Esc and OK leave focus on the More button rather than the page
+  // body (the sheet row that opened the dialog is gone). Never steals focus
+  // that already moved, e.g. to the title after a delete.
+  const focusMore = () =>
+    setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body) return;
+      document.querySelector<HTMLButtonElement>('[data-more] button')?.focus();
+    }, 0);
+
   const handleDelete = async () => {
-    if (!id || isDeleting) return;
+    if (!id || isDeleting || !showDelete) return;
+    const { version } = showDelete;
     setIsDeleting(true);
     trackRecipeDeleted(id);
     // Only verified accounts can publish (RL-040), so anyone else has no cloud
     // copy to remove and the delete is local only.
     if (!isFirebaseConfigured || !user?.emailVerified) {
-      await deleteLocally();
+      await deleteLocally(version);
+      return;
+    }
+    if (version) {
+      await runCloudDelete({ uid: user.uid, rootId: version.recipe.rootId, extraIds: [], version });
       return;
     }
     let extraIds: string[];
@@ -297,6 +392,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // canManageRecipe treats anything in this device's library as the user's own,
   // and a suggestion needs a published doc to reference.
   const canSuggest = isConfigured && !isOwner && source === 'cloud';
+  // RL-157 3b: an original stays while any version in its family is another cook's.
+  const othersInFamily = !!recipe && family.some((r) => r.createdBy?.uid !== recipe.createdBy?.uid);
 
   const handleSuggestClick = () => {
     // Suggesting needs a verified email (firestore.rules). Anyone else gets the
@@ -431,33 +528,57 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     : suggestions.filter((s) => s.suggestedBy.uid === user?.uid);
 
   const failedCopies = cloudDeleteFailure?.failed;
+  const failureReason = cloudDeleteFailure?.reason;
+  const finalFailure = failureReason === 'too-many' || failureReason === 'others';
+  const closeFailure = () => {
+    if (isDeleting) return;
+    setCloudDeleteFailure(null);
+    focusMore();
+  };
   // Rendered in every branch: once the local copy is deleted the recipe stops
   // resolving, and the dialogs must survive that.
   const deleteDialogs = (
     <>
       <ConfirmDialog
         open={showDelete !== null}
-        title="Delete Recipe"
-        message={showDelete ?? ''}
+        title={showDelete?.title ?? ''}
+        message={showDelete?.message ?? ''}
         confirmLabel={isDeleting ? 'Deleting...' : 'Delete'}
+        cancelLabel={showDelete?.cancelLabel}
         confirmVariant="danger"
         busy={isDeleting}
         onConfirm={handleDelete}
-        onCancel={() => setShowDelete(null)}
+        onCancel={() => {
+          if (isDeleting) return;
+          setShowDelete(null);
+          focusMore();
+        }}
       />
       <ConfirmDialog
         open={cloudDeleteFailure !== null}
-        title="Couldn't delete this recipe"
-        message={
-          "It's still saved in your account and on this device. Check your connection and try again." +
-          (failedCopies == null
-            ? ''
-            : ` ${failedCopies} ${pluralize(failedCopies, 'copy', 'copies')} couldn't be removed.`)
+        title={
+          failureReason === 'too-many'
+            ? 'Too many branches to move'
+            : failureReason === 'others'
+              ? 'The original stays'
+              : `Couldn't delete this ${cloudDeleteFailure?.version ? 'version' : 'recipe'}`
         }
-        confirmLabel={isDeleting ? 'Trying again...' : 'Try again'}
+        message={
+          failureReason === 'too-many'
+            ? `Other cooks have more than ${MAX_MOVED_CHILDREN} branches on this version, so it can't be deleted.`
+            : failureReason === 'others'
+              ? 'Other cooks have branches here, so the original stays.'
+              : "It's still saved in your account and on this device. Check your connection and try again." +
+                (failureReason === 'pending' ? " It may still finish when you're back online." : '') +
+                (failedCopies == null
+                  ? ''
+                  : ` ${failedCopies} ${pluralize(failedCopies, 'copy', 'copies')} couldn't be removed.`)
+        }
+        confirmLabel={finalFailure ? 'OK' : isDeleting ? 'Trying again...' : 'Try again'}
+        hideCancel={finalFailure}
         busy={isDeleting}
-        onConfirm={handleRetryCloudDelete}
-        onCancel={() => setCloudDeleteFailure(null)}
+        onConfirm={finalFailure ? closeFailure : handleRetryCloudDelete}
+        onCancel={closeFailure}
       />
     </>
   );
@@ -524,7 +645,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
 
   return (
     // In the pane one padding wraps the page, 36px 48px once the pane is 36rem wide (its @container is in AppShell).
-    <div className={`min-h-dvh flex flex-col bg-surface${inPane ? ' px-4 pt-4 @xl:px-12 @xl:pt-9' : ''}`}>
+    <div ref={pageRef} className={`min-h-dvh flex flex-col bg-surface${inPane ? ' px-4 pt-4 @xl:px-12 @xl:pt-9' : ''}`}>
       <RecipeHeader
         inPane={inPane}
         recipe={recipe}
@@ -539,11 +660,25 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         isSharing={isSharing}
         shareDisabled={authLoading}
         onShare={handleShare}
+        deleteBlocked={othersInFamily}
+        deleteDisabled={treeLoading}
         onDelete={() =>
           setShowDelete(
-            descendantCount > 0
-              ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
-              : `Delete "${recipe.title}"? This cannot be undone.`
+            recipe.parentId != null
+              ? {
+                  title: 'Delete this version?',
+                  message: versionDeleteMessage(children.length, family.find((r) => r.id === recipe.parentId)?.title),
+                  cancelLabel: 'Keep it',
+                  version: { recipe, childIds: children.map((c) => c.id) },
+                }
+              : {
+                  title: 'Delete Recipe',
+                  message:
+                    descendantCount > 0
+                      ? `This will delete "${recipe.title}" and all ${descendantCount} variation(s) beneath it. This cannot be undone.`
+                      : `Delete "${recipe.title}"? This cannot be undone.`,
+                  cancelLabel: 'Cancel',
+                }
           )
         }
         onSuggest={handleSuggestClick}

@@ -8,6 +8,9 @@ import type { AppUser } from '../types/recipe';
 
 let recipe = makeRecipe({ id: 'r1', title: 'Soup' });
 let ancestors: ReturnType<typeof makeRecipe>[] = [];
+let lineageChildren: ReturnType<typeof makeRecipe>[] = [];
+let family: ReturnType<typeof makeRecipe>[] = [];
+let treeLoading = false;
 let canFavorite = true;
 let isFavorite = false;
 let source: 'local' | 'cloud' = 'local';
@@ -23,6 +26,10 @@ const firebase = vi.hoisted(() => ({ isFirebaseConfigured: true }));
 const calls: string[] = [];
 const deletePublishedRecipeTree = vi.fn();
 const deleteRecipeTree = vi.fn();
+const deletePublishedVersion = vi.fn();
+const reparentChildren = vi.fn();
+const getRecipeTree = vi.fn();
+const isRecipeGoneOnServer = vi.fn();
 const getSubtreeIds = vi.fn();
 const navigateSpy = vi.fn();
 const submitMock = vi.fn();
@@ -33,11 +40,15 @@ vi.mock('../services/firestore', () => ({
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
   incrementRecipeViews: vi.fn(),
   deletePublishedRecipeTree: (...a: unknown[]) => deletePublishedRecipeTree(...a),
+  deletePublishedVersion: (...a: unknown[]) => deletePublishedVersion(...a),
+  isRecipeGoneOnServer: (...a: unknown[]) => isRecipeGoneOnServer(...a),
 }));
 vi.mock('../db/recipes', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../db/recipes')>()),
   deleteRecipeTree: (...a: unknown[]) => deleteRecipeTree(...a),
   getSubtreeIds: (...a: unknown[]) => getSubtreeIds(...a),
+  reparentChildren: (...a: unknown[]) => reparentChildren(...a),
+  getRecipeTree: (...a: unknown[]) => getRecipeTree(...a),
 }));
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
@@ -58,7 +69,7 @@ vi.mock('../hooks/useRecipe', () => ({
     recipeIds.push(id);
     return { recipe, source, isLoading: false, cloudError: false, retry: () => {} };
   },
-  useRecipeLineage: () => ({ children: [], ancestors, descendantCount: 0, recipes: [], isLoading: false }),
+  useRecipeLineage: () => ({ children: lineageChildren, ancestors, descendantCount: lineageChildren.length, recipes: family, isLoading: treeLoading }),
 }));
 vi.mock('../hooks/useFavorites', () => ({
   useFavorite: () => ({ isFavorite, toggleFavorite: vi.fn(), canFavorite }),
@@ -83,6 +94,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   firebase.isFirebaseConfigured = true;
   ancestors = [];
+  lineageChildren = [];
+  family = [];
+  treeLoading = false;
   canFavorite = true;
   isFavorite = false;
   source = 'local';
@@ -198,12 +212,12 @@ describe('RecipeDetailPage Delete', () => {
   const cloudFails = () =>
     deletePublishedRecipeTree.mockImplementationOnce(async () => {
       calls.push('cloud');
-      return { deleted: 0, failed: 2 };
+      return { deleted: 0, failed: 2, skipped: 0 };
     });
   const cloudSucceeds = () =>
     deletePublishedRecipeTree.mockImplementation(async () => {
       calls.push('cloud');
-      return { deleted: 2, failed: 0 };
+      return { deleted: 2, failed: 0, skipped: 0 };
     });
   const failure = () => screen.queryByRole('heading', { name: "Couldn't delete this recipe" });
 
@@ -256,6 +270,188 @@ describe('RecipeDetailPage Delete', () => {
     await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/', { replace: true }));
     expect(deletePublishedRecipeTree).not.toHaveBeenCalled();
     expect(calls).toEqual(['local']);
+  });
+});
+
+describe('RecipeDetailPage Delete version (RL-159)', () => {
+  const root = makeRecipe({ id: 'r0', title: 'Root Soup', createdBy: { uid: fakeUser.uid, displayName: 'Me' } });
+  const child = (id: string, uid = fakeUser.uid) =>
+    makeRecipe({ id, parentId: 'r1', rootId: 'r0', depth: 2, createdBy: { uid, displayName: null } });
+
+  beforeEach(() => {
+    calls.length = 0;
+    recipe = makeRecipe({ id: 'r1', title: 'Spicy Soup', parentId: 'r0', rootId: 'r0', depth: 1, createdBy: { uid: fakeUser.uid, displayName: 'Me' } });
+    lineageChildren = [child('w1'), child('w2', 'bob'), child('w3', 'cy')];
+    family = [root, recipe, ...lineageChildren];
+    // Dexie holds the version, its own child and one the dialog never saw; not the other cooks' w2, w3.
+    getRecipeTree.mockResolvedValue([root, recipe, child('w1'), child('late'), makeRecipe({ id: 'g', parentId: 'w1', rootId: 'r0' })]);
+    reparentChildren.mockImplementation(async () => void calls.push('reparent'));
+    deleteRecipeTree.mockImplementation(async () => {
+      calls.push('local');
+      return ['r1'];
+    });
+  });
+
+  function openDialog(user: AppUser | null) {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete version' }));
+  }
+
+  it.each([
+    [0, "This can't be undone."],
+    [1, 'Its branch stays, and moves up to Root Soup.'],
+    [3, 'Its 3 branches stay, and move up to Root Soup.'],
+  ])('says what happens to %i branches', async (n, copy) => {
+    lineageChildren = lineageChildren.slice(0, n);
+    openDialog(fakeUser);
+    expect(await screen.findByRole('heading', { name: 'Delete this version?' })).toBeInTheDocument();
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep it' })).toBeInTheDocument();
+  });
+
+  it('deletes in the cloud, then moves the children on the device, then opens the parent', async () => {
+    deletePublishedVersion.mockImplementation(async () => void calls.push('cloud'));
+    openDialog(fakeUser);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/recipe/r0', { replace: true }));
+    expect(calls).toEqual(['cloud', 'reparent', 'local']);
+    expect(deletePublishedVersion).toHaveBeenCalledWith(fakeUser.uid, recipe, ['w1', 'w2', 'w3']);
+    expect(reparentChildren).toHaveBeenCalledWith(['w1', 'late'], 'r0');
+    expect(deletePublishedRecipeTree).not.toHaveBeenCalled();
+  });
+
+  it('closes the dialog and focuses the parent title once it shows', async () => {
+    deletePublishedVersion.mockResolvedValue(undefined);
+    // The page stays mounted across the move; the next render shows the parent.
+    navigateSpy.mockImplementationOnce(() => {
+      recipe = root;
+    });
+    openDialog(fakeUser);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Root Soup' })).toHaveFocus());
+    expect(screen.queryByRole('heading', { name: 'Delete this version?' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deleting...' })).not.toBeInTheDocument();
+  });
+
+  it('Keep it returns focus to the More button', async () => {
+    openDialog(fakeUser);
+    fireEvent.click(await screen.findByRole('button', { name: 'Keep it' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'More options' })).toHaveFocus());
+  });
+
+  it('disables the row while the family is loading', () => {
+    treeLoading = true;
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user: fakeUser }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('button', { name: 'Delete version' })).toBeDisabled();
+  });
+
+  it('after a timeout, finishes on the device when the version turns out gone', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      deletePublishedVersion.mockReturnValue(new Promise(() => {}));
+      isRecipeGoneOnServer.mockResolvedValue(true);
+      openDialog(fakeUser);
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+      await vi.advanceTimersByTimeAsync(10_000);
+      await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/recipe/r0', { replace: true }));
+      expect(calls).toEqual(['reparent', 'local']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('after a timeout with the version still there, says it may still finish', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      deletePublishedVersion.mockReturnValue(new Promise(() => {}));
+      isRecipeGoneOnServer.mockResolvedValue(false);
+      openDialog(fakeUser);
+      fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await screen.findByText(/It may still finish when you're back online\./)).toBeInTheDocument();
+      expect(reparentChildren).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('leaves the device untouched and shows the failure dialog when the cloud batch fails', async () => {
+    deletePublishedVersion.mockRejectedValue(new Error('permission-denied'));
+    openDialog(fakeUser);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('heading', { name: "Couldn't delete this version" })).toBeInTheDocument();
+    expect(reparentChildren).not.toHaveBeenCalled();
+    expect(deleteRecipeTree).not.toHaveBeenCalled();
+    expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('says so, without Try again, when too many other cooks have branches', async () => {
+    const { TooManyMovedBranchesError } = await import('../lib/errors');
+    deletePublishedVersion.mockRejectedValue(new TooManyMovedBranchesError(9));
+    openDialog(fakeUser);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('heading', { name: 'Too many branches to move' })).toBeInTheDocument();
+    expect(screen.getByText("Other cooks have more than 8 branches on this version, so it can't be deleted.")).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(reparentChildren).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'More options' })).toHaveFocus());
+  });
+
+  it('refuses an original when the cloud finds another cook\'s version the page did not', async () => {
+    recipe = root;
+    family = [root];
+    deletePublishedRecipeTree.mockResolvedValue({ deleted: 0, failed: 0, skipped: 2 });
+    getSubtreeIds.mockResolvedValue(['r0']);
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r0', user: fakeUser }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByRole('heading', { name: 'The original stays' })).toBeInTheDocument();
+    expect(deleteRecipeTree).not.toHaveBeenCalled();
+  });
+
+  it('does the local half only for an unverified owner', async () => {
+    openDialog(anon);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(navigateSpy).toHaveBeenCalledWith('/recipe/r0', { replace: true }));
+    expect(deletePublishedVersion).not.toHaveBeenCalled();
+    expect(calls).toEqual(['reparent', 'local']);
+  });
+
+  it('blocks deleting the original while another cook has a version in the family', () => {
+    recipe = root;
+    family = [root, makeRecipe({ id: 'b1', parentId: 'r0', rootId: 'r0', depth: 1, createdBy: { uid: 'bob', displayName: 'Bob' } })];
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r0', user: fakeUser }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    const row = screen.getByRole('button', { name: /^Delete/ });
+    expect(row).toHaveAttribute('aria-disabled', 'true');
+    expect(row).toHaveTextContent('Other cooks have branches here, so the original stays.');
+    fireEvent.click(row);
+    expect(screen.queryByRole('heading', { name: 'Delete Recipe' })).not.toBeInTheDocument();
   });
 });
 

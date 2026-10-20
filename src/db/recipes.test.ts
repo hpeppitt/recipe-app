@@ -12,6 +12,7 @@ import {
   createRecipe,
   applyOwnRecipeSync,
   clearOwnRecipes,
+  reparentChildren,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { Recipe } from '../types/recipe';
@@ -197,6 +198,25 @@ describe('deleteRecipeTree', () => {
 
   it('returns an empty list when the recipe does not exist', async () => {
     expect(await deleteRecipeTree('nope')).toEqual([]);
+  });
+});
+
+describe('reparentChildren', () => {
+  it('moves the children up a level so deleteRecipeTree then removes only the old parent', async () => {
+    await db.recipes.bulkAdd([
+      makeRecipe({ id: 'r1', rootId: 'r1' }),
+      makeRecipe({ id: 'v', rootId: 'r1', parentId: 'r1', depth: 1 }),
+      makeRecipe({ id: 'w', rootId: 'r1', parentId: 'v', depth: 2, title: 'Kept' }),
+      makeRecipe({ id: 'g', rootId: 'r1', parentId: 'w', depth: 3 }),
+    ]);
+
+    await reparentChildren(['w', 'not-here'], 'r1');
+    expect(await deleteRecipeTree('v')).toEqual(['v']);
+
+    const w = await db.recipes.get('w');
+    expect(w).toMatchObject({ parentId: 'r1', depth: 1, title: 'Kept' });
+    expect(await db.recipes.get('g')).toMatchObject({ parentId: 'w', depth: 3 });
+    expect(await db.recipes.count()).toBe(3);
   });
 });
 

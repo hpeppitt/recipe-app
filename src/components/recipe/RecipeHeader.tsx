@@ -22,31 +22,42 @@ interface RecipeHeaderProps {
   shareDisabled: boolean;
   onShare: () => void;
   onDelete: () => void;
+  /** An original with another cook's version in its family cannot be deleted (RL-159, decision RL-157 3b). */
+  deleteBlocked?: boolean;
+  /** True while the family is loading, when whether the original may be deleted is not known yet. */
+  deleteDisabled?: boolean;
   onSuggest: () => void;
   /** In the wide-screen pane (RL-116): the pane pads the page, and sizes follow the pane's width, not the viewport. */
   inPane?: boolean;
 }
 
-function SheetRow({ icon, label, onClick, disabled, danger }: {
+function SheetRow({ icon, label, onClick, disabled, danger, note }: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
+  /** Shown under the label; the row looks disabled and does nothing, but stays focusable so the reason is read out. */
+  note?: string;
 }) {
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={note ? undefined : onClick}
       disabled={disabled}
+      aria-disabled={note ? true : undefined}
       className={`flex min-h-11 w-full items-center gap-[14px] px-1 py-3 text-left text-[16px] disabled:opacity-50 ${
         danger ? 'text-accent-700' : 'text-text-primary'
       }`}
     >
-      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-surface-secondary">
+      {/* A blocked row dims its icon and label only, so the reason stays at full contrast. */}
+      <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-surface-secondary${note ? ' opacity-50' : ''}`}>
         {icon}
       </span>
-      <span className="min-w-0 break-words">{label}</span>
+      <span className="min-w-0 break-words">
+        <span className={note ? 'opacity-50' : undefined}>{label}</span>
+        {note && <span className="block text-[13px] text-text-secondary">{note}</span>}
+      </span>
     </button>
   );
 }
@@ -119,7 +130,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             </EmojiBlob>
           </div>
           <div className={titlePad}>
-            <h1 className={`mt-[14px] break-words font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+            <h1 data-recipe-title="" tabIndex={-1} className={`mt-[14px] break-words font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
             {familyRoot && (
               <p className="mt-1.5 break-words text-[16px] font-bold text-accent-2-700">
                 {familyRoot.emoji} {familyRoot.title} variation
@@ -132,7 +143,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
           {controls}
           <div className={`${titlePad} pt-2`}>
             <div className="mt-1 flex items-start gap-4">
-              <h1 className={`min-w-0 flex-1 break-words font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+              <h1 data-recipe-title="" tabIndex={-1} className={`min-w-0 flex-1 break-words font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
               {/* 96px when wide (RL-116); !important because the size is an inline style. */}
               <EmojiBlob
                 size={76}
@@ -154,7 +165,14 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             <SheetRow label="Edit recipe" icon={<Pencil className="h-[18px] w-[18px]" />} onClick={act(() => navigate(`/recipe/${recipe.id}/edit`))} />
           )}
           {props.isOwner && (
-            <SheetRow danger label="Delete" icon={<X className="h-[18px] w-[18px]" />} onClick={act(props.onDelete)} />
+            <SheetRow
+              danger
+              label={isBranch ? 'Delete version' : 'Delete'}
+              note={!isBranch && props.deleteBlocked ? 'Other cooks have branches here, so the original stays.' : undefined}
+              disabled={props.deleteDisabled}
+              icon={<X className="h-[18px] w-[18px]" />}
+              onClick={act(props.onDelete)}
+            />
           )}
           {props.canSuggest && (
             <SheetRow label="Suggest a change" icon={<MessageCircle className="h-[18px] w-[18px]" />} onClick={act(props.onSuggest)} />

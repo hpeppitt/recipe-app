@@ -146,7 +146,9 @@ following, notifications and profiles stayed open to anonymous accounts.
 and shared links work without an account. Publishing requires a **verified email**, a
 **current Terms acceptance** (`acceptedTerms()`, RL-047, one extra document read), a
 **recipe-window move** (RL-049, at most 30 creates per day, see writeWindows below), and
-stamping your own uid as `createdBy.uid`, with both counters starting at zero. A re-publish
+stamping your own uid as `createdBy.uid`, with both counters starting at zero. The parent of a
+branch need not exist in the cloud: a branch of a locally saved copy of a shared recipe has no
+cloud parent (RL-159 tried requiring one and reverted it; see decisions.md). A re-publish
 is an update and needs no window. Updates are
 allowed only in three exact shapes: a `viewCount` +1 by anyone, a `favoriteCount` ±1 by a
 verified user, or a verified owner update that changes anything *except* `createdBy.uid` and `createdAt`
@@ -172,7 +174,9 @@ original (its `parentId` is a string), the new `parentId` equals P's and that re
 (`exists()`, because P's owner controls P's `parentId`), and the new `depth` is one less. So
 deleting a version can move its direct children, including other cooks', up one level, and
 only in that batch. Only direct children are rewritten: deeper descendants keep their stored
-`depth`, which is then stale, so display must not rely on it. A batch reads P and the new
+`depth`, which is then stale, so display must not rely on it. Since RL-159 a child whose stored
+`depth` is missing or not an integer may be set to `depth` 0 instead, so one malformed child
+cannot make its parent undeletable (emulator 2026-10-21: committed). A batch reads P and the new
 parent once plus each other cook's child; the emulator passed one batch with 18 other-cook
 children (each with its `moved` notice) and one own child, and denied 19. Production may bill `get` and `getAfter` separately, so
 `MAX_MOVED_CHILDREN` in `src/lib/tree.ts` is held at 8 until RL-160 re-probes production;
@@ -269,14 +273,23 @@ Since RL-153 `saveRecipe` writes it through `notifyBranched` after the branch is
 after the version it hung from was deleted (RL-159 writes it). `message` must be a string of at
 most 200 characters; it is the sender's text (the client sends the deleted version's title), not
 checked against P. `recipeId` must name the moved child and the document id must be
-`moved_{recipeId}`, so each child gets at most one such notice ever (a second create of the id
-is an update, which only the recipient's read flip passes). `recipientUid` must be that child's
+`moved_{recipeId}_{deletedId}`, where `deletedId` is the child's stored `parentId` before the
+batch (RL-159; it was `moved_{recipeId}` in RL-158, which denied a second move of the same
+child). So each child gets at most one notice per deleted version (a second create of the id is
+an update, which only the recipient's read flip passes); the `get` is the same child document
+`isMovedChildOf` reads, so it costs no extra access. `recipientUid` must be that child's
 `createdBy.uid` and not the sender, and the child's `parentId` must change in the same batch
 (`getAfter` differs from `get`), which the reparent rule above allows only to the deleted
 version's owner. It is the one type **exempt from the notification window**: a window admits one
 notification per batch (`last` names one document), and a delete moves several children in one
 batch that cannot be split, since each notice must ride with its move. The real move and the id
 binding bound it instead. Emulator-checked 2026-10-21 (ticket RL-158 Notes).
+Since RL-159 `deletePublishedVersion` writes it in the delete batch with `recipeId`,
+`recipeTitle` and `recipeEmoji` the moved child's and `message` the deleted version's title; the
+new parent's title has no field, so Activity says the branch "moved up a level".
+Emulator-checked 2026-10-21 (ticket RL-159 Notes): a child moved by one delete and then by a
+later one commits both times; `moved_{child}`, a wrong deleted id, and a second notice for the
+same child and deleted version are denied.
 
 **notificationPrefs** (RL-152, in the repo, deployed by RL-156): read, create and update only
 by the owner with a verified email; delete by the signed-in owner (no verified email needed,

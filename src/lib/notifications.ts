@@ -40,7 +40,7 @@ export const NOTIF_VERBS: Record<string, string> = {
 export type ActivityChip = 'all' | 'branches' | 'suggestions' | 'follows';
 
 const CHIP_TYPES: Record<Exclude<ActivityChip, 'all'>, string[]> = {
-  branches: ['branch', 'suggestion_branched'],
+  branches: ['branch', 'suggestion_branched', 'moved'],
   suggestions: ['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied'],
   follows: ['follow'],
 };
