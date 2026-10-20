@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Recipe } from '../../types/recipe';
 import { EmojiBlob } from '../ui/EmojiBlob';
@@ -69,6 +69,16 @@ export function RecipeHeader(props: RecipeHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const titleId = useId();
   const controlsRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // True once the h1 has left the viewport; the compact bar shows then (RL-129).
+  const [titleGone, setTitleGone] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setTitleGone(!entry.isIntersecting));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [recipe.id]);
   const isBranch = recipe.parentId != null;
   const variant = isBranch ? 'floating' : 'flat';
   // Wide sizes from lg alone; in the pane only once it is 36rem wide (at 1024px it is about 384px).
@@ -120,6 +130,19 @@ export function RecipeHeader(props: RecipeHeaderProps) {
   );
 
   return (
+    <>
+    {/* The bar is aria-hidden, so its tabIndex -1 back button is out of the tab order and the a11y tree; the real Go back stays. */}
+    {/* Zero height, so showing the bar moves nothing. Sticks to the page, or to the pane's own scroll (RL-129). */}
+    {titleGone && (
+      <div aria-hidden="true" className={`sticky top-0 z-20 h-0 ${props.inPane ? '-mx-4 @xl:-mx-12' : ''}`}>
+        <div className="border-b border-border bg-surface shadow-sm motion-safe:animate-[bar-in_150ms_ease-out]">
+          <div className="mx-auto flex max-w-lg items-center gap-1 px-[14px] pb-2 pt-[calc(8px+env(safe-area-inset-top))] lg:max-w-[720px]">
+            <IconButton variant="flat" label="Go back" tabIndex={-1} onClick={onBack} icon={<ChevronLeft className="h-5 w-5" />} />
+            <p className="min-w-0 flex-1 break-words text-[15px] font-bold text-text-primary">{recipe.title}</p>
+          </div>
+        </div>
+      </div>
+    )}
     <header className="mx-auto max-w-lg lg:max-w-[720px]">
       {isBranch ? (
         <>
@@ -130,7 +153,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             </EmojiBlob>
           </div>
           <div className={titlePad}>
-            <h1 data-recipe-title="" tabIndex={-1} className={`mt-[14px] break-words font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+            <h1 ref={titleRef} title={recipe.title} data-recipe-title="" tabIndex={-1} className={`mt-[14px] line-clamp-2 -mb-[0.15em] break-words pb-[0.15em] font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
             {familyRoot && (
               <p className="mt-1.5 break-words text-[16px] font-bold text-accent-2-700">
                 {familyRoot.emoji} {familyRoot.title} variation
@@ -143,7 +166,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
           {controls}
           <div className={`${titlePad} pt-2`}>
             <div className="mt-1 flex items-start gap-4">
-              <h1 data-recipe-title="" tabIndex={-1} className={`min-w-0 flex-1 break-words font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+              <h1 ref={titleRef} title={recipe.title} data-recipe-title="" tabIndex={-1} className={`min-w-0 flex-1 line-clamp-2 -mb-[0.15em] break-words pb-[0.15em] font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
               {/* 96px when wide (RL-116); !important because the size is an inline style. */}
               <EmojiBlob
                 size={76}
@@ -194,6 +217,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
         </div>
       </Sheet>
     </header>
+    </>
   );
 }
 

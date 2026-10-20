@@ -9,9 +9,10 @@ interface IconButtonProps {
   variant: 'floating' | 'flat';
   href?: string;
   pressed?: boolean;
+  tabIndex?: number;
 }
 
-export function IconButton({ label, icon, onClick, variant, href, pressed }: IconButtonProps) {
+export function IconButton({ label, icon, onClick, variant, href, pressed, tabIndex }: IconButtonProps) {
   const className = cn(
     'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-text-primary transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500',
@@ -19,13 +20,13 @@ export function IconButton({ label, icon, onClick, variant, href, pressed }: Ico
   );
   if (href) {
     return (
-      <Link to={href} aria-label={label} onClick={onClick} className={className}>
+      <Link to={href} tabIndex={tabIndex} aria-label={label} onClick={onClick} className={className}>
         {icon}
       </Link>
     );
   }
   return (
-    <button type="button" aria-label={label} aria-pressed={pressed} onClick={onClick} className={className}>
+    <button type="button" aria-label={label} aria-pressed={pressed} tabIndex={tabIndex} onClick={onClick} className={className}>
       {icon}
     </button>
   );
