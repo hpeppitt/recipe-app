@@ -212,7 +212,11 @@ service cloud.firestore {
           && changedKeys().hasOnly(['parentId', 'depth'])
           && oldParent is string
           && isDeletedParentOf(/databases/$(database)/documents/recipes/$(oldParent))
-          && request.resource.data.depth == resource.data.depth - 1;
+          // A missing or non-integer stored depth may become 0, so one malformed
+          // child cannot make its parent undeletable (RL-159).
+          && (resource.data.get('depth', null) is int
+            ? request.resource.data.depth == resource.data.depth - 1
+            : request.resource.data.depth == 0);
       }
 
       function isDeletedParentOf(path) {
@@ -449,8 +453,10 @@ service cloud.firestore {
       }
 
       // RL-158: "your branch was moved up" after its parent was deleted.
-      // recipeId names the moved child and the id is 'moved_' + recipeId, so
-      // there is one notice per child ever. The recipient must be the child's
+      // recipeId names the moved child and the id is 'moved_' + recipeId + '_'
+      // + the deleted version's id (the child's stored parentId, read before the
+      // batch), so there is one notice per child per delete (RL-159: one per
+      // child ever denied a second move of the same child). The recipient must be the child's
       // author and never the sender, and the child's parentId must change in
       // this same batch, which isReparentAfterParentDelete() limits to the
       // deleted version's owner. message is the sender's text (the client
@@ -464,7 +470,7 @@ service cloud.firestore {
           && d.recipientUid is string
           && d.recipientUid != request.auth.uid
           && d.get('recipeId', null) is string
-          && notificationId == 'moved_' + d.recipeId
+          && notificationId == 'moved_' + d.recipeId + '_' + get(/databases/$(database)/documents/recipes/$(d.recipeId)).data.parentId
           && isMovedChildOf(/databases/$(database)/documents/recipes/$(d.recipeId), d.recipientUid);
       }
 

@@ -123,6 +123,15 @@ describe('ActivityPage', () => {
     }
   });
 
+  it('renders a moved notice with the deleted title as plain text, under Branches (RL-159)', () => {
+    setHook([notif({ id: 'm', type: 'moved', recipeId: 'w', recipeTitle: 'Wild Soup', recipeEmoji: '🥣', message: 'Spicy Soup' })]);
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Branches' }));
+    const row = screen.getByRole('button', { name: 'Ann deleted Spicy Soup, so 🥣 Wild Soup moved up a level' });
+    expect(within(row).queryByText(/Spicy Soup/, { selector: 'b' })).toBeNull();
+    expect(within(row).getByText('🥣 Wild Soup', { selector: 'b' })).toBeInTheDocument();
+  });
+
   it('shows an unread dot and "unread" in the name only for unread rows', () => {
     setHook([
       notif({ id: 'u', read: false, message: 'less salt' }),

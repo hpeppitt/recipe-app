@@ -32,6 +32,17 @@ export class SuggestionClosedError extends Error {
   }
 }
 
+/**
+ * Thrown before writing anything when a version has more other cooks' branches
+ * than one delete batch can move (RL-159, MAX_MOVED_CHILDREN in lib/tree.ts).
+ */
+export class TooManyMovedBranchesError extends Error {
+  constructor(count: number) {
+    super(`Too many other cooks' branches to move: ${count}`);
+    this.name = 'TooManyMovedBranchesError';
+  }
+}
+
 /** The message for a rate-limited write, or null for any other failure. */
 export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;

@@ -10,6 +10,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   /** Disables both actions while the confirmed work is in flight. */
   busy?: boolean;
+  /** One button only, for a message the user can only acknowledge. Esc still calls onCancel. */
+  hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -22,6 +24,7 @@ export function ConfirmDialog({
   confirmVariant = 'primary',
   cancelLabel = 'Cancel',
   busy = false,
+  hideCancel = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -42,6 +45,10 @@ export function ConfirmDialog({
     <dialog
       ref={dialogRef}
       onClose={onCancel}
+      // Esc fires `cancel` before closing; while the confirmed work runs it must not close.
+      onCancel={(e) => {
+        if (busy) e.preventDefault();
+      }}
       aria-labelledby={titleId}
       aria-describedby={messageId}
       className="backdrop:bg-neutral-900/40 dark:backdrop:bg-black/60 bg-surface rounded-card p-[22px] max-w-sm w-[calc(100%-2rem)] shadow-lg m-auto"
@@ -50,13 +57,15 @@ export function ConfirmDialog({
       <h2 id={titleId} className="font-heading text-[22px] text-text-primary">
         {title}
       </h2>
-      <p id={messageId} className="text-sm text-text-secondary">
+      <p id={messageId} className="break-words text-sm text-text-secondary">
         {message}
       </p>
       <div className="mt-2 flex gap-2">
-        <Button variant="secondary" className="flex-1 min-h-12" onClick={onCancel} disabled={busy}>
-          {cancelLabel}
-        </Button>
+        {!hideCancel && (
+          <Button variant="secondary" className="flex-1 min-h-12" onClick={onCancel} disabled={busy}>
+            {cancelLabel}
+          </Button>
+        )}
         {/* Destructive confirms use the dark terracotta primary, not the red danger fill. */}
         <Button
           className={`flex-1 min-h-12 ${confirmVariant === 'danger' ? 'bg-accent-700 hover:bg-accent-800 active:bg-accent-800' : ''}`}

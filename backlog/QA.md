@@ -1699,3 +1699,22 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - No visible change. Rules in the repo only; RL-160 deploys them. Probe codes are in the ticket's Notes.
 - Nothing writes the reparent update or a `moved` notification yet (RL-159).
+
+### RL-159 Delete version moves its branches up
+
+- Needs RL-158's rules on the emulator (`npm run emulators` plus `npm run dev:emulated`) with two verified accounts; live the batch is denied until RL-160 deploys.
+- A makes R and branch V; B branches V as W. On V, More reads "Delete version"; the dialog reads "Delete this version?" and "Its branch stays, and moves up to R." with Keep it and Delete. Delete opens R. W now hangs off R in Tree, Timeline and Map on both accounts, and W's version pill says "from R".
+- B's Activity shows "A deleted V, so W moved up a level" with a sage branch badge, under Branches too. V's title is not bold (sender-written text).
+- Dialog copy with 0 children ("This can't be undone.") and with 3.
+- A opens R: More shows "Delete" greyed with "Other cooks have branches here, so the original stays."; tapping it does nothing. VoiceOver should read the line with the row. A root with only A's versions still deletes the whole family.
+- The row does not name the new parent (no field for it in the rules); the ticket wanted "now branches from <new parent>".
+- Delete V2 (W moves to V1), then delete V1: both succeed, and B gets two moved rows.
+- After Delete the parent's title has focus (VoiceOver reads it) and no dialog lingers. Keep it, Esc and the OK on a refusal put focus back on More.
+- The greyed original row: the reason line is full contrast, only the icon and "Delete" are dimmed. The Delete row is disabled for a moment while the family loads.
+- Too many: "Too many branches to move" with a single OK (needs 9 other cooks' branches on one version, emulator only).
+- Branch a locally saved copy of a shared recipe (Save copy on a shared link) while verified: it publishes.
+- Reviewer noted: Share on a branch whose parent was never published falls back to a self-contained link with no note (pre-existing in kind).
+- Reviewer noted: on the device, the re-read and reparent and then `deleteRecipeTree` run in two transactions, so there is a narrow window between them.
+- Reviewer noted: a stored depth 0 under a non-root parent becomes -1 in the cloud when moved (the rule demands one less), while Dexie clamps it to 0.
+- Reviewer noted: `replace: true` means Back from the parent skips the deleted page (intended, but check it feels right).
+- Reviewer noted: the dialog copy is captured from the lineage at open time; if it is still loading the count can be low (the row is disabled while loading, so this needs a slow cloud read to see). The notice id changed to `moved_{child}_{deleted}` in the repo rules (RL-160 deploys it).

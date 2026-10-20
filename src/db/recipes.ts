@@ -106,6 +106,20 @@ export async function deleteRecipeTree(id: string): Promise<string[]> {
   return toDelete;
 }
 
+/**
+ * Moves the given children up to `parentId`, one level shallower (RL-159), in one
+ * transaction. Ids not on this device are skipped. Run before deleting their old
+ * parent with deleteRecipeTree, whose subtree is then that parent alone.
+ */
+export async function reparentChildren(childIds: string[], parentId: string): Promise<void> {
+  await db.transaction('rw', db.recipes, async () => {
+    for (const id of childIds) {
+      const child = await db.recipes.get(id);
+      if (child) await db.recipes.put({ ...child, parentId, depth: Math.max(0, child.depth - 1) });
+    }
+  });
+}
+
 export async function updateRecipe(id: string, updates: Partial<Recipe>): Promise<void> {
   const recipe = await db.recipes.get(id);
   if (!recipe) return;

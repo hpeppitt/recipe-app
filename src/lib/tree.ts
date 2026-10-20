@@ -55,12 +55,16 @@ export function buildTree(recipes: Recipe[]): TreeNode | null {
   const root = recipes.find((r) => r.parentId === null);
   if (!root) return null;
 
+  // A recipe whose parent is missing from the list hangs off the root, as the timeline
+  // treats it as a root (RL-159), so it is never silently dropped from the map.
+  const ids = new Set(recipes.map((r) => r.id));
   const byParent = new Map<string, Recipe[]>();
   for (const recipe of recipes) {
-    if (recipe.parentId) {
-      const siblings = byParent.get(recipe.parentId) ?? [];
+    if (recipe.parentId && recipe !== root) {
+      const parentId = ids.has(recipe.parentId) && recipe.parentId !== recipe.id ? recipe.parentId : root.id;
+      const siblings = byParent.get(parentId) ?? [];
       siblings.push(recipe);
-      byParent.set(recipe.parentId, siblings);
+      byParent.set(parentId, siblings);
     }
   }
 

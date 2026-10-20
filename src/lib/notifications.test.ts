@@ -70,7 +70,7 @@ describe('groupByDays', () => {
 });
 
 describe('filterByChip', () => {
-  const types = ['favorite', 'follow', 'suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched', 'branch', 'mystery'];
+  const types = ['favorite', 'follow', 'suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied', 'suggestion_branched', 'branch', 'moved', 'mystery'];
   const items = types.map((type) => ({ type }));
   const pick = (chip: Parameters<typeof filterByChip>[1]) => filterByChip(items, chip).map((i) => i.type);
 
@@ -78,7 +78,7 @@ describe('filterByChip', () => {
     expect(pick('all')).toEqual(types);
   });
   it('Branches, Suggestions and Follows pick their types only', () => {
-    expect(pick('branches')).toEqual(['suggestion_branched', 'branch']);
+    expect(pick('branches')).toEqual(['suggestion_branched', 'branch', 'moved']);
     expect(pick('suggestions')).toEqual(['suggestion', 'suggestion_reply', 'suggestion_approved', 'suggestion_rejected', 'suggestion_applied']);
     expect(pick('follows')).toEqual(['follow']);
   });
@@ -96,6 +96,7 @@ describe('firestore.rules notification types', () => {
     suggestion_applied: true,
     suggestion_branched: true,
     branch: true,
+    moved: true,
   };
   const ruleTypes = [...rules.matchAll(/request\.resource\.data\.type in \[([^\]]+)\]/g)].flatMap((m) =>
     [...m[1].matchAll(/'([^']+)'/g)].map((t) => t[1]),
@@ -114,9 +115,13 @@ describe('firestore.rules notification types', () => {
     expect(ruleTypes).toContain('branch');
   });
 
-  // RL-159 adds 'moved' to AppNotification; until then the rules allow it ahead of the client.
   it('the rules allow a moved notification (RL-158)', () => {
     expect(ruleTypes).toContain('moved');
+  });
+
+  // deletePublishedVersion writes `moved_${childId}_${deletedId}`; the rules must build the same id (RL-159).
+  it('the rules bind a moved notice to moved_{childId}_{deletedId}', () => {
+    expect(rules).toContain("notificationId == 'moved_' + d.recipeId + '_' + get(");
   });
 });
 

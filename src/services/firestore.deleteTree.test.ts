@@ -42,25 +42,35 @@ const node = (id: string, parentId: string | null, uid: string): Doc => ({
 beforeEach(() => {
   deleteDoc.mockReset();
   deleteDoc.mockImplementation(async () => {});
-  treeDocs = [
-    node('root', null, 'alice'),
-    node('own-child', 'root', 'alice'),
-    node('foreign-child', 'root', 'bob'),
-  ];
+  treeDocs = [node('root', null, 'alice'), node('own-child', 'root', 'alice')];
   looseDocs = {};
 });
 
 describe('deletePublishedRecipeTree', () => {
-  it('skips a foreign descendant and counts only the own delete that rejects', async () => {
+  // RL-159 (decision RL-157 3b): the original stays while another cook has a version.
+  it('deletes nothing and counts the foreign descendants when another cook has a version', async () => {
+    treeDocs.push(node('foreign-child', 'root', 'bob'));
+
+    const result = await deletePublishedRecipeTree('alice', 'root', 'root');
+
+    expect(result).toEqual({ deleted: 0, failed: 0, skipped: 1 });
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing and reports one failure when the family query fails (RL-159)', async () => {
+    const { getDocs } = await import('firebase/firestore');
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error('unavailable'));
+
+    expect(await deletePublishedRecipeTree('alice', 'root', 'root', ['root'])).toEqual({ deleted: 0, failed: 1, skipped: 0 });
+    expect(deleteDoc).not.toHaveBeenCalled();
+  });
+
+  it('counts only the own delete that rejects', async () => {
     deleteDoc.mockImplementation(async (ref) => {
       if (ref.path === 'recipes/own-child') throw new Error('unavailable');
     });
 
-    const result = await deletePublishedRecipeTree('alice', 'root', 'root');
-
-    expect(result).toEqual({ deleted: 1, failed: 1 });
-    const paths = deleteDoc.mock.calls.map(([ref]) => ref.path);
-    expect(paths).not.toContain('recipes/foreign-child');
+    expect(await deletePublishedRecipeTree('alice', 'root', 'root')).toEqual({ deleted: 1, failed: 1, skipped: 0 });
   });
 
   it('still attempts ids known only from extraIds when they have an own cloud doc', async () => {
@@ -87,14 +97,12 @@ describe('deletePublishedRecipeTree', () => {
 
     const result = await deletePublishedRecipeTree('alice', 'root', 'root', ['never-published']);
 
-    expect(result).toEqual({ deleted: 2, failed: 0 });
+    expect(result).toEqual({ deleted: 2, failed: 0, skipped: 0 });
   });
 
-  it('skips an extraIds entry whose cloud doc belongs to someone else', async () => {
+  it('refuses, deleting nothing, when an extraIds entry belongs to someone else', async () => {
     looseDocs = { stray: { createdBy: { uid: 'bob' } } };
-    await deletePublishedRecipeTree('alice', 'root', 'root', ['stray']);
-
-    const paths = deleteDoc.mock.calls.map(([ref]) => ref.path);
-    expect(paths).not.toContain('recipes/stray');
+    expect(await deletePublishedRecipeTree('alice', 'root', 'root', ['stray'])).toMatchObject({ skipped: 1 });
+    expect(deleteDoc).not.toHaveBeenCalled();
   });
 });

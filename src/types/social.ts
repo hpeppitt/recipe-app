@@ -63,7 +63,10 @@ export interface AppNotification {
     | 'suggestion_reply'
     | 'follow'
     // RL-153: someone branched your recipe; recipeId is the branch, recipeTitle the parent's.
-    | 'branch';
+    | 'branch'
+    // RL-159: the parent of your branch was deleted, so it moved up a level. recipeId and
+    // recipeTitle are your branch; message is the sender's text for the deleted version's title.
+    | 'moved';
   /**
    * Absent on `follow`, which is about a person rather than a recipe. Optional
    * rather than a separate type so one subscription and one list still cover

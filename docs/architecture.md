@@ -100,6 +100,21 @@ the recipe; the id is guessable, so anything else at that id is refused. A sugge
 and notifies `suggestion_branched`. Decline writes `status: 'rejected'`, then notifies. A failed
 cache or notification never fails the review.
 
+Deleting a recipe is cloud first too (RL-080). An original goes with its whole family through
+`deletePublishedRecipeTree` (own documents one by one), and only while every version in the
+family is the owner's; otherwise the page blocks it (decision RL-157), and the function itself
+deletes nothing when its cloud read finds another cook's document, or when that family read fails (one failure, so Try again). A branch goes alone
+(RL-159): `deletePublishedVersion` reads the version's direct children from the cloud (their
+stored `depth` is what the rules compare, so the device's is not used), refuses above
+`MAX_MOVED_CHILDREN` other cooks' children (`TooManyMovedBranchesError`), and commits one
+`writeBatch`: delete the version, set each child's `parentId` to the version's parent and `depth`
+one less, and a `moved_{childId}_{deletedId}` notice per other cook's child. A failed commit is retried once,
+only when a fresh read finds a different child set; there is no fallback to a plain delete, which
+would orphan the children, and the create rule refuses a branch of a missing parent so none can
+appear after the read. A timeout is followed by one server read of the version (`isRecipeGoneOnServer`, `getDocFromServer`, since the cache may already show the pending delete; a failure counts as not gone): gone means it landed.
+On success the page calls `reparentChildren` on the version's children as Dexie holds them,
+then `deleteRecipeTree` (whose subtree is then the version alone), and opens the parent. Deeper descendants keep a stale stored `depth`.
+
 Anonymous, signed-out and local-only users are Dexie only: their saved copies of other
 people's recipes never reach the cloud.
 
