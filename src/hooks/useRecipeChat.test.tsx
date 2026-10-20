@@ -176,6 +176,31 @@ describe('useRecipeChat saveRecipe (cloud first)', () => {
   });
 });
 
+describe('useRecipeChat saveRecipe landing (RL-181)', () => {
+  it('a saved branch opens the recipe, then What changed with the toast state', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    const parent = makeRecipe({ title: 'Banana bread' });
+    const { result } = renderHook(() => useRecipeChat(parent), { wrapper });
+
+    await act(() => result.current.saveRecipe({ recipe: generated('Vegan bread'), prompt: 'vegan' }));
+
+    const [id] = published();
+    expect(navigate.mock.calls).toEqual([
+      [`/recipe/${id}`],
+      [`/recipe/${id}/changes`, { state: { saved: 'cloud', note: null } }],
+    ]);
+  });
+
+  it('a new original still opens the recipe page only', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    const { result } = renderChat();
+
+    await act(() => result.current.saveRecipe({ recipe: generated('Soup'), prompt: 'soup' }));
+
+    expect(navigate).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('useRecipeChat saveRecipe tells the parent author about a branch (RL-153)', () => {
   const branchOf = (parent: Recipe) => renderHook(() => useRecipeChat(parent), { wrapper });
   const save = async (parent: Recipe) => {

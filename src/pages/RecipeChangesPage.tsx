@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useRecipe } from '../hooks/useRecipe';
 import { diffRecipes, type IngredientChange, type StepChange, type TextSpan } from '../lib/recipeDiff';
@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
+import { SavedToast } from '../components/recipe/SavedToast';
 import type { Ingredient, Recipe } from '../types/recipe';
 import { ChevronLeft, CloudOff, RotateCw } from '../components/ui/icons';
 
@@ -243,6 +244,15 @@ export function RecipeChangesPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>('changes');
+  // Set by the save flow (RL-181); same toast and timing as the recipe page.
+  const savedState = location.state as { saved?: 'cloud' | 'local'; note?: string | null } | null;
+  const savedOutcome = savedState?.saved;
+  const [showSavedToast, setShowSavedToast] = useState(!!savedOutcome);
+  useEffect(() => {
+    if (!showSavedToast) return;
+    const timer = setTimeout(() => setShowSavedToast(false), savedOutcome === 'local' ? 8000 : 3000);
+    return () => clearTimeout(timer);
+  }, [showSavedToast, savedOutcome]);
 
   const vs = searchParams.get('vs') || undefined;
   const cur = useRecipe(id);
@@ -265,6 +275,7 @@ export function RecipeChangesPage() {
     <div className="max-w-lg mx-auto min-h-dvh bg-surface">
       {header}
       <div className="px-4">{body}</div>
+      {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
     </div>
   );
 
@@ -409,6 +420,7 @@ export function RecipeChangesPage() {
           </Button>
         </div>
       </div>
+      {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
     </div>
   );
 }
