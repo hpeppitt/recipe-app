@@ -22,6 +22,7 @@ import { trackRecipeViewed, trackRecipeShared, trackRecipeDeleted } from '../ser
 import { TopBar } from '../components/layout/TopBar';
 import { RecipeHeader } from '../components/recipe/RecipeHeader';
 import { RecipeContent } from '../components/recipe/RecipeContent';
+import { RelatedFamilies } from '../components/recipe/RelatedFamilyCard';
 import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
@@ -710,7 +711,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             />
           )}
 
-          <RecipeContent recipe={recipe} hideHeader />
+          <RecipeContent recipe={recipe} hideHeader afterMeta={<RelatedFamilies recipe={recipe} />} />
 
           {/* Moved below the body (RL-105); it used to sit above it as the owner's
               action item. The pending badge on More (RL-100) keeps that attention. */}

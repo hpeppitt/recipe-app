@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocFromServer,
   getDocs,
+  getCountFromServer,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -284,6 +285,56 @@ export async function getPublishedRecipeTree(rootId: string): Promise<PublishedR
     query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+}
+
+export type RelatedFamily = {
+  id: string;
+  emoji: string;
+  title: string;
+  createdBy?: { uid: string; displayName: string | null };
+  /** Absent when the count read failed. */
+  versions?: number;
+};
+
+const RELATED_FAMILY_LIMIT = 3;
+const RELATED_FAMILY_FETCH = 20;
+
+async function toRelated(r: { id: string; emoji: string; title: string; createdBy?: RelatedFamily['createdBy'] }): Promise<RelatedFamily> {
+  const row: RelatedFamily = { id: r.id, emoji: r.emoji, title: r.title, createdBy: r.createdBy };
+  try {
+    const n = await getCountFromServer(query(collection(firestore!, 'recipes'), where('rootId', '==', r.id)));
+    row.versions = Math.max(1, n.data().count);
+  } catch (err) {
+    reportError(err, 'related-families');
+  }
+  return row;
+}
+
+/**
+ * RL-163: a recipe with relatedFamilyId gets that family's original; an original gets up to 3
+ * recipes that point at it, newest first. The equality query has no orderBy (that would need a
+ * composite index), so it reads a bounded page and sorts here.
+ * shortcut: "newest" is among the first 20 matches, upgrade with an index if cousins pass 20.
+ */
+export async function getRelatedFamilies(recipe: {
+  depth: number;
+  relatedFamilyId?: string | null;
+  id: string;
+}): Promise<RelatedFamily[]> {
+  if (!firestore) return [];
+  if (recipe.relatedFamilyId) {
+    const r = await getPublishedRecipe(recipe.relatedFamilyId);
+    return r ? [await toRelated(r)] : [];
+  }
+  if (recipe.depth !== 0) return [];
+  const snap = await getDocs(
+    query(collection(firestore, 'recipes'), where('relatedFamilyId', '==', recipe.id), limit(RELATED_FAMILY_FETCH))
+  );
+  const docs = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe)
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .slice(0, RELATED_FAMILY_LIMIT);
+  return Promise.all(docs.map(toRelated));
 }
 
 /** Dedup check for a new variation, against the published siblings in its tree. */
