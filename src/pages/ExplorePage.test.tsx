@@ -373,7 +373,7 @@ describe('ExplorePage Branching fast this week', () => {
     expect(region('New this week')).not.toBeInTheDocument();
   });
 
-  it('shows neither row while the query is in flight, then falls back to Newest when it fails', async () => {
+  it('shows a placeholder, no row, while the query is in flight, then falls back to Newest when it fails', async () => {
     getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
     let reject!: (e: Error) => void;
     const inFlight = new Promise((_, rj) => (reject = rj));
@@ -382,8 +382,10 @@ describe('ExplorePage Branching fast this week', () => {
     renderWithProviders(<ExplorePage />);
     await screen.findByRole('link', { name: 'Alpha' });
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
+    expect(document.querySelector('.h-\\[280px\\][aria-hidden="true"]')).toBeInTheDocument();
     await act(async () => reject(new Error('x')));
     expect(await screen.findByRole('region', { name: 'New this week' })).toBeInTheDocument();
+    expect(document.querySelector('.h-\\[280px\\][aria-hidden="true"]')).not.toBeInTheDocument();
   });
 
   it('hides under a tag with a non-empty week', async () => {

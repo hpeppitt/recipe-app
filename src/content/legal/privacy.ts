@@ -60,7 +60,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Published recipes',
       paragraphs: [
-        'What: the recipe content, the prompt you typed, your account id and display name, collaborators\' ids and display names, favourite and view counts, and dates. View counts are a simple tally with no record of who viewed.',
+        'What: the recipe content, the prompt you typed, your account id and display name, collaborators\' ids and display names, save and view counts, and dates. View counts are a simple tally with no record of who viewed.',
         'Why: sharing recipes is what the app is for.',
         'Where: Google Cloud Firestore, in Sydney, Australia.',
         'Who sees it: anyone.',
@@ -78,13 +78,13 @@ export const PRIVACY: LegalDocument = {
       ],
     },
     {
-      heading: 'Favourites and follows',
+      heading: 'Saves and follows',
       paragraphs: [
-        'What: which recipes you favourited and when; who you follow, with your display name, and when.',
-        'Why: to keep your favourites and to show you recipes from people you follow.',
+        'What: which recipes you saved and when; who you follow, with your display name, and when.',
+        'Why: to keep your saves and to show you recipes from people you follow.',
         'Where: Google Cloud Firestore.',
-        'Who sees it: your favourites, only you. A follow, you and the person you follow. Favourite and follower counts are public.',
-        'How long: until you unfavourite or unfollow.',
+        'Who sees it: your saves, only you. A follow, you and the person you follow. Save and follower counts are public.',
+        'How long: until you unsave or unfollow.',
       ],
     },
     {
@@ -100,7 +100,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Notifications',
       paragraphs: [
-        'What: when someone favourites your recipe, follows you, suggests a change, replies, or approves or rejects your suggestion, a notification is stored with their account id and display name, the recipe title, and up to about 500 characters of their message.',
+        'What: when someone saves your recipe, follows you, suggests a change, replies, or approves or rejects your suggestion, a notification is stored with their account id and display name, the recipe title, and up to about 500 characters of their message.',
         'Why: to tell you what happened.',
         'Where: Google Cloud Firestore.',
         'Who sees it: the person it is addressed to.',
@@ -150,7 +150,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Product analytics',
       paragraphs: [
-        'What: which features are used, such as creating, viewing, sharing, favouriting or deleting a recipe, with recipe ids; the pages you open and what you click; which AI model made a recipe and how long it took; errors the app runs into; and your browser, device type and approximate location, worked out from your IP address.',
+        'What: which features are used, such as creating, viewing, sharing, saving or deleting a recipe, with recipe ids; the pages you open and what you click; which AI model made a recipe and how long it took; errors the app runs into; and your browser, device type and approximate location, worked out from your IP address.',
         'Who you are: your account id, never your email or name. An anonymous account is known only by its random anonymous account id. What you type to the AI and the recipe text are never sent.',
         'Why: to understand which features are used and to find and fix problems.',
         'Where: PostHog US Cloud, in the United States.',
@@ -184,7 +184,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
-        'Contract: running your account, signing you in, storing and publishing your recipes and profile, favourites, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
+        'Contract: running your account, signing you in, storing and publishing your recipes and profile, saves, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
         'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), limits on how often you can suggest, reply, notify and publish, and a record that we handled a privacy request, so we can show we complied. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
       ],
@@ -214,7 +214,7 @@ export const PRIVACY: LegalDocument = {
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
         `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
-        `Erasure: delete recipes from their page, unfavourite, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
+        `Erasure: delete recipes from their page, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',

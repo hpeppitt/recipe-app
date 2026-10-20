@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### Author decisions 2026-10-20 (legal wording renamed to Saved)
+
+- The Terms and Privacy Policy wording changed from favourite to save (headings, counts, erasure, analytics and notification lines) with no `lastUpdated` date change and no `TERMS_VERSION` bump, so nobody is asked to re-accept. The author will review all policy text before production.
+- Explore at 390px and 1280px, on a throttled network: no list jump while the Branching fast this week query runs (a grey placeholder holds the row's space, then the row or Newest replaces it).
+
 ### RL-117 Dark Organic (Warm night 20a), Light / Dark / System in Settings
 
 - Settings, Appearance: the Theme segment reads Light, Dark, System, with System selected on a fresh profile. Each choice applies at once and survives a reload with no cream flash before the dark page appears.
@@ -60,7 +65,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Your profile and another cook's show "<n> views · <n> saves"; a recipe someone saved shows "1 save" or "<n> saves" under the title.
 - Settings, Delete recipes on this device: the help text says "saves".
 - Share a recipe in the self-contained mode: the note reads "...works without the cloud. Recipients can keep a copy, but they can't suggest changes."
-- Terms and Privacy still say "favourite" on purpose (author to decide).
 
 ### RL-126 Branching fast this week
 
