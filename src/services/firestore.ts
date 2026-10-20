@@ -40,7 +40,8 @@ import { RateLimitedError } from '../lib/errors';
 import { db } from '../db/database';
 import type { Recipe, Collaborator } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
-import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
+import type { Suggestion, SuggestionEdit, SuggestionMessage, AppNotification } from '../types/social';
+import { describeEdits } from '../lib/suggestion';
 import type { UserProfile, Follow } from '../types/profile';
 import { VERIFY_NOTE } from '../lib/dataExport';
 import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, Section } from '../lib/dataExport';
@@ -584,6 +585,7 @@ export async function createSuggestion(params: {
   recipeEmoji: string;
   suggestedBy: { uid: string; displayName: string | null };
   message: string;
+  edits?: SuggestionEdit[];
 }): Promise<void> {
   if (!firestore) return;
 
@@ -596,6 +598,7 @@ export async function createSuggestion(params: {
     recipeEmoji: params.recipeEmoji,
     suggestedBy: params.suggestedBy,
     message: params.message,
+    ...(params.edits?.length ? { edits: params.edits } : {}),
     status: 'pending',
     createdAt: Date.now(),
   });
@@ -610,7 +613,7 @@ export async function createSuggestion(params: {
       recipeEmoji: params.recipeEmoji,
       fromUid: params.suggestedBy.uid,
       fromDisplayName: params.suggestedBy.displayName,
-      message: truncateNotificationMessage(params.message),
+      message: truncateNotificationMessage(params.edits?.length ? describeEdits(params.edits) : params.message),
       read: false,
       createdAt: Date.now(),
     });

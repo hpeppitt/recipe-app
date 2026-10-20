@@ -1607,3 +1607,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - After RL-156 deploys, the current Approve button fails until RL-147 and RL-148 replace it.
 - Reviewer noted: `branchId` only proves the branch is the owner's own child of the recipe, not that the suggestion's edits were applied to it.
 - Reviewer noted: `suggestion_applied` and `suggestion_branched` notifications are not tied to a real suggestion (the same is true of the existing suggestion types; rate limited).
+
+### RL-147 Suggest mode sends structured edits
+
+- On a recipe you do not own (two verified accounts, `npm run dev:emulated`), at 390 and 320px: change an ingredient amount, tap a method step and change its text, write a General note, Send. In the emulator UI the suggestion has `edits` and `message`; the owner's Activity row reads like "1 tsp salt → 2 tsp and 2 more".
+- Type "lots" as an amount: the red help line appears under the card and Send is disabled until fixed or undone. Escape or the X closes a card and returns focus to its row.
+- The old separate note box is gone; the General note row at the bottom shows the first line once written.
+- More than 10 changes shows a message and disables Send (the rules cap).
+- A step over 1000 characters cannot be suggested on: its card shows "This step is too long to suggest on" and Send stays disabled.
+- Reviewer noted: system Back in suggest mode discards drafts (useBlocker was rejected, see docs/decisions.md).
+- Reviewer noted: a Why on an unchanged step is dropped without a hint.
+- Reviewer noted: `composeSuggestionMessage` writes a double period when the step text ends with '.'.

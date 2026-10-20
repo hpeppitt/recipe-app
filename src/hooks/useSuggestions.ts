@@ -9,7 +9,7 @@ import {
 } from '../services/firestore';
 import { addLocalCollaborator } from '../db/recipes';
 import { trackSuggestionSubmitted, trackSuggestionReviewed } from '../services/analytics';
-import type { Suggestion, SuggestionMessage } from '../types/social';
+import type { Suggestion, SuggestionEdit, SuggestionMessage } from '../types/social';
 
 /**
  * `recipeOwnerUid` is the recipe's `createdBy.uid`, or undefined while the
@@ -134,6 +134,7 @@ export function useSubmitSuggestion() {
       recipeTitle: string;
       recipeEmoji: string;
       message: string;
+      edits?: SuggestionEdit[];
     }) => {
       // Throw rather than return. A silent resolve reads as success to every
       // caller: SuggestMode would report the suggestion as sent for a write

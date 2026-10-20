@@ -275,7 +275,7 @@ service cloud.firestore {
       // caps in src/lib/suggestion.ts; src/lib/suggestion.test.ts fails the
       // build when they differ:
       //   edits        10 per suggestion
-      //   from         500 characters
+      //   from         1000 characters
       //   to           1000 characters
       //   index        99 at most
       //   name         200 characters
@@ -315,7 +315,7 @@ service cloud.firestore {
         let i = e.get('index', 0);
         return e.keys().hasOnly(['kind', 'index', 'name', 'from', 'to', 'why'])
           && e.kind in ['ingredient', 'step', 'general']
-          && e.from.matches('(?s).{0,500}')
+          && e.from.matches('(?s).{0,1000}')
           && e.to.matches('(?s).{1,1000}')
           && i is int && i >= 0 && i <= 99
           && e.get('name', '').matches('(?s).{0,200}')

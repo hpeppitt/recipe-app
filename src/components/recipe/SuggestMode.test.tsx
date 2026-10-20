@@ -4,8 +4,9 @@ import { cleanup, render, screen, fireEvent, waitFor, within } from '@testing-li
 import { SuggestMode } from './SuggestMode';
 import { makeRecipe } from '../../test/factories';
 import { RateLimitedError } from '../../lib/errors';
-import { MAX_MESSAGE, MAX_NOTE, MAX_WHY } from '../../lib/suggestion';
+import { MAX_EDIT_FROM, MAX_EDITS, MAX_MESSAGE, MAX_NOTE, MAX_WHY } from '../../lib/suggestion';
 import type { Ingredient } from '../../types/recipe';
+import type { SuggestionEdit } from '../../types/social';
 
 afterEach(cleanup);
 beforeAll(() => {
@@ -21,16 +22,25 @@ const recipe = makeRecipe({
   title: 'Soup',
   createdBy: { uid: 'owner', displayName: 'Ada Lovelace' },
   ingredients: [ing('garlic', 2, 'clove'), ing('salt', 1, 'tsp'), ing('pepper', null, null)],
+  instructions: [
+    { step: 1, text: 'Chop the garlic.', group: null },
+    { step: 2, text: 'Simmer for 20 minutes.', group: null },
+  ],
 });
 
-function setup(over: { onSend?: (m: string) => Promise<void>; r?: typeof recipe } = {}) {
+function setup(over: { onSend?: (s: { message: string; edits: SuggestionEdit[] }) => Promise<void>; r?: typeof recipe } = {}) {
   const onSend = vi.fn(over.onSend ?? (() => Promise.resolve()));
   const onCancel = vi.fn();
   const onSent = vi.fn();
   render(<SuggestMode recipe={over.r ?? recipe} onSend={onSend} onCancel={onCancel} onSent={onSent} />);
   return { onSend, onCancel, onSent };
 }
-const row = (n: string) => screen.getByRole('button', { name: `Suggest a change to ${n}` });
+const row = (n: string) => screen.getByRole('button', { name: new RegExp(`^Suggest a change to (.* )?${n}$`) });
+const stepRow = (n: number) => screen.getByRole('button', { name: new RegExp(`^Suggest a change to step ${n}: `) });
+const writeNote = (v: string) => {
+  fireEvent.click(screen.getByRole('button', { name: /^General note/ }));
+  fireEvent.change(screen.getByLabelText('General note text'), { target: { value: v } });
+};
 const sendBtn = () => screen.getByRole('button', { name: /^Send to/ });
 const edit = (n: string, v: string) => {
   fireEvent.click(row(n));
@@ -44,7 +54,7 @@ describe('SuggestMode', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Soup');
     expect(screen.getByText('by Ada Lovelace · 30 min · 2 servings')).toBeInTheDocument();
     expect(sendBtn().textContent).toBe('Send to Ada');
-    expect(screen.getByText('Note for Ada Lovelace (optional)')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Method' })).toBeInTheDocument();
   });
 
   it('falls back when the author has no name', () => {
@@ -72,6 +82,31 @@ describe('SuggestMode', () => {
     fireEvent.keyDown(screen.getByLabelText('New amount'), { key: 'Escape' });
     expect(screen.queryByLabelText('New amount')).toBeNull();
     expect(document.activeElement).toBe(row('salt'));
+  });
+
+  it('Escape leaves a card with typed text open; the X still undoes it', () => {
+    setup();
+    edit('garlic', '4 cloves');
+    fireEvent.keyDown(screen.getByLabelText('New amount'), { key: 'Escape' });
+    expect(screen.getByLabelText('New amount')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo this change' }));
+    expect(screen.queryByLabelText('New amount')).toBeNull();
+  });
+
+  it('names rows by what they show', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Suggest a change to 2 clove garlic' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Suggest a change to pepper' })).toBeInTheDocument();
+    expect(stepRow(1).getAttribute('aria-label')).toBe('Suggest a change to step 1: Chop the garlic.');
+  });
+
+  it('blocks Send with a reason for a step too long to suggest on', () => {
+    const long = 'x'.repeat(MAX_EDIT_FROM + 1);
+    setup({ r: makeRecipe({ ...recipe, instructions: [{ step: 1, text: long, group: null }] }) });
+    fireEvent.click(stepRow(1));
+    fireEvent.change(screen.getByLabelText('New step text'), { target: { value: 'Short' } });
+    expect(screen.getByRole('alert').textContent).toBe('This step is too long to suggest on');
+    expect(sendBtn()).toBeDisabled();
   });
 
   it('several rows can be open at once, and an ingredient with no amount opens empty', () => {
@@ -102,9 +137,9 @@ describe('SuggestMode', () => {
     expect(sendBtn()).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Undo this change' }));
     expect(sendBtn()).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Note for Ada Lovelace (optional)'), { target: { value: '  ' } });
+    writeNote('  ');
     expect(sendBtn()).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Note for Ada Lovelace (optional)'), { target: { value: 'More heat' } });
+    writeNote('More heat');
     expect(sendBtn()).toBeEnabled();
   });
 
@@ -113,11 +148,17 @@ describe('SuggestMode', () => {
     const { onSend, onSent } = setup({ onSend: () => new Promise<void>((r) => { resolve = r; }) });
     edit('garlic', '4 cloves');
     fireEvent.change(within(screen.getByRole('group', { name: 'Change garlic' })).getByLabelText('Why?'), { target: { value: 'Love it' } });
-    fireEvent.change(screen.getByLabelText('Note for Ada Lovelace (optional)'), { target: { value: 'Bake longer' } });
+    writeNote('Bake longer');
     fireEvent.click(sendBtn());
     fireEvent.click(sendBtn());
     expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend).toHaveBeenCalledWith('Change 2 clove garlic to 4 cloves. Love it\n\nBake longer');
+    expect(onSend).toHaveBeenCalledWith({
+      message: 'Change 2 clove garlic to 4 cloves. Love it\n\nBake longer',
+      edits: [
+        { kind: 'ingredient', index: 0, name: 'garlic', from: '2 clove', to: '4 cloves', why: 'Love it' },
+        { kind: 'general', from: '', to: 'Bake longer' },
+      ],
+    });
     expect(onSent).not.toHaveBeenCalled();
     resolve();
     await waitFor(() => expect(onSent).toHaveBeenCalledTimes(1));
@@ -167,12 +208,14 @@ describe('SuggestMode', () => {
     setup();
     fireEvent.click(row('garlic'));
     expect(screen.getByLabelText('Why?').getAttribute('maxlength')).toBe(String(MAX_WHY));
-    expect(screen.getByLabelText('Note for Ada Lovelace (optional)').getAttribute('maxlength')).toBe(String(MAX_NOTE));
+    fireEvent.click(screen.getByRole('button', { name: /^General note/ }));
+    expect(screen.getByLabelText('General note text').getAttribute('maxlength')).toBe(String(MAX_NOTE));
   });
 
   it('blocks Send with a visible reason when the composed message is too long, and sends again once shortened', () => {
     const { onSend } = setup();
-    const note = screen.getByLabelText('Note for Ada Lovelace (optional)');
+    fireEvent.click(screen.getByRole('button', { name: /^General note/ }));
+    const note = screen.getByLabelText('General note text');
     fireEvent.change(note, { target: { value: 'x'.repeat(MAX_MESSAGE + 1) } });
     expect(sendBtn()).toBeDisabled();
     expect(screen.getByRole('status').textContent).toBe(
@@ -182,7 +225,7 @@ describe('SuggestMode', () => {
     expect(onSend).not.toHaveBeenCalled();
     fireEvent.change(note, { target: { value: 'x'.repeat(MAX_MESSAGE) } });
     expect(sendBtn()).toBeEnabled();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('disables Cancel while a send is in flight', async () => {
@@ -201,7 +244,7 @@ describe('SuggestMode', () => {
 
   it('hints under an editor that has a why but no changed amount', () => {
     setup();
-    const hint = 'Change the amount to include this suggestion, or put it in your note.';
+    const hint = 'Change the amount to include this suggestion, or put it in a general note.';
     fireEvent.click(row('garlic'));
     expect(screen.queryByText(hint)).toBeNull();
     fireEvent.change(screen.getByLabelText('Why?'), { target: { value: 'Love it' } });
@@ -210,5 +253,72 @@ describe('SuggestMode', () => {
     expect(screen.getByText(hint)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('New amount'), { target: { value: '4 cloves' } });
     expect(screen.queryByText(hint)).toBeNull();
+  });
+
+  it('a step edit opens prefilled, counts, sends from and to, and Escape returns focus to the row', () => {
+    const { onSend } = setup();
+    fireEvent.click(stepRow(2));
+    const text = screen.getByLabelText('New step text') as HTMLTextAreaElement;
+    expect(text.value).toBe('Simmer for 20 minutes.');
+    expect(text.getAttribute('maxlength')).toBe('1000');
+    expect(document.activeElement).toBe(text);
+    fireEvent.keyDown(text, { key: 'Escape' });
+    expect(document.activeElement).toBe(stepRow(2));
+    fireEvent.click(stepRow(2));
+    fireEvent.change(screen.getByLabelText('New step text'), { target: { value: 'Simmer for 30 minutes' } });
+    fireEvent.change(screen.getByLabelText('Why?'), { target: { value: 'Thicker' } });
+    expect(screen.getByText('1 change').tagName).toBe('B');
+    fireEvent.click(sendBtn());
+    expect(onSend).toHaveBeenCalledWith({
+      message: 'Change step 2 to: Simmer for 30 minutes. Thicker',
+      edits: [{ kind: 'step', index: 1, from: 'Simmer for 20 minutes.', to: 'Simmer for 30 minutes', why: 'Thicker' }],
+    });
+  });
+
+  it('the general note row shows the first line and counts as a change', () => {
+    setup();
+    writeNote('Needs heat\nand salt');
+    expect(screen.getByText('1 change')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'General note Needs heat' }).textContent).toBe('General note Needs heat');
+    fireEvent.click(screen.getByRole('button', { name: 'Undo this change' }));
+    expect(screen.queryByLabelText('General note text')).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /^General note/ }));
+  });
+
+  it('an amount that does not parse shows the help, blocks Send and is not counted', () => {
+    setup();
+    edit('salt', 'lots');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(sendBtn()).toBeDisabled();
+    fireEvent.blur(screen.getByLabelText('New amount'));
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toBe('Use a number, and a unit if it has one, like 80 g');
+    expect(screen.getByLabelText('New amount').getAttribute('aria-describedby')).toBe(alert.id);
+    expect(screen.getByText('Tap any line to change it')).toBeInTheDocument();
+    writeNote('Fine');
+    expect(sendBtn()).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('New amount'), { target: { value: '80 g' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(sendBtn()).toBeEnabled();
+  });
+
+  it('drops unchanged and blank edits from what is sent', () => {
+    const { onSend } = setup();
+    fireEvent.click(row('garlic'));
+    edit('salt', '  ');
+    fireEvent.click(stepRow(1));
+    edit('pepper', '2 tsp');
+    fireEvent.click(sendBtn());
+    expect(onSend).toHaveBeenCalledWith({
+      message: 'Change pepper to 2 tsp.',
+      edits: [{ kind: 'ingredient', index: 2, name: 'pepper', from: '', to: '2 tsp' }],
+    });
+  });
+
+  it('blocks Send past the edit cap', () => {
+    setup({ r: makeRecipe({ ...recipe, ingredients: Array.from({ length: MAX_EDITS + 1 }, (_, i) => ing(`item${i}`, 1, 'g')) }) });
+    for (let i = 0; i <= MAX_EDITS; i++) edit(`item${i}`, '2 g');
+    expect(sendBtn()).toBeDisabled();
+    expect(screen.getByRole('status').textContent).toBe(`A suggestion can hold ${MAX_EDITS} changes. Undo 1 to send.`);
   });
 });

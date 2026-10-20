@@ -9,7 +9,7 @@ export const MAX_MESSAGE = 2000;
 
 /** Structured edit caps. MUST equal validEdits()/validEdit() in firestore.rules; suggestion.test.ts checks. */
 export const MAX_EDITS = 10;
-export const MAX_EDIT_FROM = 500;
+export const MAX_EDIT_FROM = 1000;
 export const MAX_EDIT_TO = 1000;
 export const MAX_EDIT_INDEX = 99;
 export const MAX_EDIT_NAME = 200;

@@ -1,9 +1,10 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Ingredient, Recipe } from '../../types/recipe';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { ArrowRight, MessageCircle, Send, X } from '../ui/icons';
 import { Spinner } from '../ui/Spinner';
-import { composeSuggestionMessage, MAX_MESSAGE, MAX_NOTE, MAX_WHY, type IngredientEdit } from '../../lib/suggestion';
+import { composeSuggestionMessage, MAX_EDIT_FROM, MAX_EDIT_NAME, MAX_EDIT_TO, MAX_EDITS, MAX_MESSAGE, MAX_NOTE, MAX_WHY, parseAmountText } from '../../lib/suggestion';
+import type { SuggestionEdit } from '../../types/social';
 import { formatAmount } from '../../lib/amount';
 import { formatUnit } from '../../lib/units';
 import { formatTime, pluralize } from '../../lib/utils';
@@ -11,8 +12,8 @@ import { rateLimitMessage } from '../../lib/errors';
 
 interface SuggestModeProps {
   recipe: Recipe;
-  /** Sends the composed message through the existing submit; rejects on failure. */
-  onSend: (message: string) => Promise<void>;
+  /** Sends the structured edits and the composed message through the existing submit; rejects on failure. */
+  onSend: (suggestion: { message: string; edits: SuggestionEdit[] }) => Promise<void>;
   /** Leave without sending. */
   onCancel: () => void;
   /** The send landed. */
@@ -20,7 +21,10 @@ interface SuggestModeProps {
 }
 
 interface Draft {
-  amount: string;
+  /** ingredient: the new amount; step: the new text; general: the note. */
+  text: string;
+  /** What `text` started as, so an untouched card can be dismissed with Escape. */
+  base: string;
   why: string;
 }
 
@@ -33,71 +37,146 @@ function shownAmount(ing: Ingredient): string {
 }
 
 const input = 'min-w-0 bg-surface text-text-primary placeholder:text-text-tertiary focus:outline-none';
+const card =
+  'my-1.5 -mx-2.5 rounded-[24px] bg-accent-100 p-3 text-neutral-800 shadow-[inset_0_0_0_2px_var(--color-accent-700)]';
+const rowClass =
+  'flex min-h-11 w-full items-center gap-3 border-b border-text-primary/8 py-[9px] text-left text-[15px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-700';
+const undoClass =
+  "relative ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface before:absolute before:-inset-1.5 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-700";
+const area = `${input} mt-2 block w-full resize-none rounded-[18px] px-3.5 py-2.5 text-[14px]`;
+/** Firestore rejects undefined, so an empty why is left out. */
+const whyOf = (d: Draft) => (d.why.trim() ? { why: d.why.trim() } : {});
+const AMOUNT_HELP = 'Use a number, and a unit if it has one, like 80 g';
+const STEP_TOO_LONG = 'This step is too long to suggest on';
 
 /**
  * Suggest mode (9b): the recipe page becomes the form. Tap an ingredient to
- * propose a new amount; edits and the note are composed into the free-text
- * message a suggestion already is, so the write path is unchanged. Mount it
+ * propose a new amount, a method step to propose new text, or the General note
+ * row for anything else. The result is structured edits plus the free-text
+ * message they compose to. Draft keys are `i<n>`, `s<n>` and `g`. Mount it
  * with a key of the recipe id so drafts do not carry to another recipe.
  */
 export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModeProps) {
   const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
+  const steps = Array.isArray(recipe.instructions) ? recipe.instructions : [];
   const name = recipe.createdBy?.displayName?.trim();
   const author = name || 'the author';
   const authorFirst = name ? name.split(/\s+/)[0] : author;
-  const [drafts, setDrafts] = useState<Record<number, Draft>>({});
-  const [note, setNote] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const rowRefs = useRef<Record<number, HTMLButtonElement | null>>({});
-  const amountRefs = useRef<Record<number, HTMLInputElement | null>>({});
-  const focusNext = useRef<{ i: number; target: 'row' | 'amount' } | null>(null);
+  // Amount fields the visitor has left, so the parse help does not appear mid-typing.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  const rowRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({});
+  const focusNext = useRef<{ k: string; target: 'row' | 'field' } | null>(null);
 
   // Focus moves after the render that opens or closes an editor.
   useLayoutEffect(() => {
     const next = focusNext.current;
     if (!next) return;
     focusNext.current = null;
-    (next.target === 'amount' ? amountRefs.current[next.i] : rowRefs.current[next.i])?.focus();
+    (next.target === 'field' ? fieldRefs.current[next.k] : rowRefs.current[next.k])?.focus();
   });
 
-  const edits: IngredientEdit[] = Object.entries(drafts).map(([i, d]) => ({
-    name: ingredients[Number(i)].name,
-    oldAmount: shownAmount(ingredients[Number(i)]),
-    newAmount: d.amount,
-    why: d.why,
-  }));
-  const message = composeSuggestionMessage(edits, note);
-  const changes = edits.filter((e) => composeSuggestionMessage([e]) !== '').length;
-  const hasWork = message !== '';
-  const tooLong = message.length > MAX_MESSAGE;
+  // After a failed send, move focus to the message so a screen reader hears it.
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
-  const open = (i: number) => {
-    if (drafts[i]) {
-      amountRefs.current[i]?.focus();
+  const edits: SuggestionEdit[] = [];
+  const invalid = new Map<string, string>();
+  ingredients.forEach((ing, i) => {
+    const d = drafts[`i${i}`];
+    const from = shownAmount(ing);
+    const to = d?.text.trim();
+    if (!to || to === from) return;
+    if (to.length > MAX_EDIT_TO) invalid.set(`i${i}`, `Keep it under ${MAX_EDIT_TO} characters`);
+    else if (!parseAmountText(to)) invalid.set(`i${i}`, AMOUNT_HELP);
+    else edits.push({ kind: 'ingredient', index: i, name: ing.name.slice(0, MAX_EDIT_NAME), from, to, ...whyOf(d) });
+  });
+  steps.forEach((step, i) => {
+    const d = drafts[`s${i}`];
+    const to = d?.text.trim();
+    if (!to || to === step.text.trim()) return;
+    if (step.text.length > MAX_EDIT_FROM) invalid.set(`s${i}`, STEP_TOO_LONG);
+    else if (to.length > MAX_EDIT_TO) invalid.set(`s${i}`, `Keep it under ${MAX_EDIT_TO} characters`);
+    else edits.push({ kind: 'step', index: i, from: step.text, to, ...whyOf(d) });
+  });
+  const noteText = drafts.g?.text.trim();
+  if (noteText) edits.push({ kind: 'general', from: '', to: noteText });
+  const message = composeSuggestionMessage(edits);
+  const changes = edits.length;
+  const hasWork = changes > 0;
+  const tooLong = message.length > MAX_MESSAGE;
+  const tooMany = changes > MAX_EDITS;
+  const blocked = !hasWork || tooLong || tooMany || invalid.size > 0;
+  // Parse help waits for blur; the length problems show at once.
+  const problem = (k: string) => {
+    const m = invalid.get(k);
+    return m && (m !== AMOUNT_HELP || touched[k]) ? m : undefined;
+  };
+  const limitMessage = tooLong
+    ? `Your suggestion is ${message.length} characters, over the ${MAX_MESSAGE} limit. Shorten it to send.`
+    : tooMany
+      ? `A suggestion can hold ${MAX_EDITS} changes. Undo ${changes - MAX_EDITS} to send.`
+      : '';
+
+  const open = (k: string, text: string) => {
+    if (drafts[k]) {
+      fieldRefs.current[k]?.focus();
       return;
     }
-    focusNext.current = { i, target: 'amount' };
-    setDrafts((d) => ({ ...d, [i]: { amount: shownAmount(ingredients[i]), why: '' } }));
+    focusNext.current = { k, target: 'field' };
+    setDrafts((d) => ({ ...d, [k]: { text, base: text, why: '' } }));
   };
-  const undo = (i: number) => {
-    focusNext.current = { i, target: 'row' };
+  const undo = (k: string) => {
+    focusNext.current = { k, target: 'row' };
+    setTouched((t) => ({ ...t, [k]: false }));
     setDrafts((d) => {
-      const { [i]: _removed, ...rest } = d;
+      const { [k]: _removed, ...rest } = d;
       return rest;
     });
   };
-  const patch = (i: number, p: Partial<Draft>) => setDrafts((d) => ({ ...d, [i]: { ...d[i], ...p } }));
+  const patch = (k: string, p: Partial<Draft>) => setDrafts((d) => ({ ...d, [k]: { ...d[k], ...p } }));
+
+  const undoButton = (k: string) => (
+    <button type="button" aria-label="Undo this change" onClick={() => undo(k)} className={undoClass}>
+      <X className="h-4 w-4" />
+    </button>
+  );
+  const whyInput = (k: string) => (
+    <input
+      aria-label="Why?"
+      placeholder="Why? (optional)"
+      value={drafts[k].why}
+      maxLength={MAX_WHY}
+      onChange={(e) => patch(k, { why: e.target.value })}
+      className={`${input} mt-2 block min-h-11 w-full rounded-[18px] px-3.5 py-2.5 text-[14px]`}
+    />
+  );
+  // Escape only dismisses a card with nothing typed in it; the X is the explicit undo.
+  const escape = (k: string) => (e: KeyboardEvent) => {
+    const d = drafts[k];
+    if (e.key === 'Escape' && d && d.text === d.base && !d.why) undo(k);
+  };
+  const setRef = (k: string) => (el: HTMLInputElement | HTMLTextAreaElement | null) => {
+    fieldRefs.current[k] = el;
+  };
+  const setRow = (k: string) => (el: HTMLButtonElement | null) => {
+    rowRefs.current[k] = el;
+  };
 
   const send = async () => {
-    if (!hasWork || tooLong || sendingRef.current) return;
+    if (blocked || sendingRef.current) return;
     sendingRef.current = true;
     setSending(true);
     setError(null);
     try {
-      await onSend(message);
+      await onSend({ message, edits });
       onSent();
     } catch (err) {
       console.error('Submitting the suggestion failed', err);
@@ -108,7 +187,7 @@ export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModePro
     }
   };
 
-  const cancel = () => (sending ? undefined : hasWork ? setConfirmDiscard(true) : onCancel());
+  const cancel = () => (sending ? undefined : Object.keys(drafts).length > 0 && (hasWork || invalid.size > 0) ? setConfirmDiscard(true) : onCancel());
 
   const byLine = [
     recipe.totalTime > 0 ? formatTime(recipe.totalTime) : null,
@@ -141,7 +220,8 @@ export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModePro
         <h2 className="mt-6 font-heading text-[20px] leading-tight text-text-primary">Ingredients</h2>
         <ul className="mt-2">
           {ingredients.map((ing, i) => {
-            const draft = drafts[i];
+            const k = `i${i}`;
+            const draft = drafts[k];
             const old = shownAmount(ing);
             const showGroup = ing.group && ing.group !== ingredients[i - 1]?.group;
             return (
@@ -151,58 +231,42 @@ export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModePro
                 )}
                 <button
                   type="button"
-                  ref={(el) => {
-                    rowRefs.current[i] = el;
-                  }}
-                  aria-label={`Suggest a change to ${ing.name}`}
+                  ref={setRow(k)}
+                  aria-label={`Suggest a change to ${[old, ing.name].filter(Boolean).join(' ')}`}
                   aria-expanded={!!draft}
-                  onClick={() => open(i)}
-                  className="flex min-h-11 w-full items-center gap-3 border-b border-text-primary/8 py-[9px] text-left text-[15px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-700"
+                  onClick={() => open(k, old)}
+                  className={rowClass}
                 >
                   <span className="min-w-[62px] shrink-0 font-bold">{old}</span>
                   <span className="min-w-0 flex-1 break-words text-text-primary">{ing.name}</span>
                 </button>
                 {draft && (
-                  <div
-                    role="group"
-                    aria-label={`Change ${ing.name}`}
-                    className="my-1.5 -mx-2.5 rounded-[24px] bg-accent-100 p-3 text-neutral-800 shadow-[inset_0_0_0_2px_var(--color-accent-700)]"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Escape') undo(i);
-                    }}
-                  >
+                  <div role="group" aria-label={`Change ${ing.name}`} className={card} onKeyDown={escape(k)}>
                     <div className="flex flex-wrap items-center gap-2 text-[15px]">
                       <span className="min-w-0 break-words text-neutral-700 line-through">{old || 'no amount'}</span>
                       <ArrowRight className="h-4 w-4 shrink-0 text-neutral-700" />
                       <input
-                        ref={(el) => {
-                          amountRefs.current[i] = el;
-                        }}
+                        ref={setRef(k)}
                         aria-label="New amount"
-                        value={draft.amount}
-                        onChange={(e) => patch(i, { amount: e.target.value })}
+                        maxLength={MAX_EDIT_TO}
+                        aria-invalid={problem(k) ? true : undefined}
+                        aria-describedby={problem(k) ? `${k}-help` : undefined}
+                        onBlur={() => setTouched((t) => ({ ...t, [k]: true }))}
+                        value={draft.text}
+                        onChange={(e) => patch(k, { text: e.target.value })}
                         className={`${input} h-11 w-[84px] rounded-full px-3 font-bold shadow-[inset_0_0_0_1.5px_var(--color-accent-700)]`}
                       />
-                      <button
-                        type="button"
-                        aria-label="Undo this change"
-                        onClick={() => undo(i)}
-                        className="relative ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface before:absolute before:-inset-1.5 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-700"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      {undoButton(k)}
                     </div>
-                    <input
-                      aria-label="Why?"
-                      placeholder="Why? (optional)"
-                      value={draft.why}
-                      maxLength={MAX_WHY}
-                      onChange={(e) => patch(i, { why: e.target.value })}
-                      className={`${input} mt-2 block min-h-11 w-full rounded-[18px] px-3.5 py-2.5 text-[14px]`}
-                    />
-                    {draft.why.trim() && composeSuggestionMessage([{ name: ing.name, oldAmount: old, newAmount: draft.amount }]) === '' && (
+                    {problem(k) && (
+                      <p id={`${k}-help`} role="alert" className="mt-2 break-words text-[13px] text-danger-700">
+                        {problem(k)}
+                      </p>
+                    )}
+                    {whyInput(k)}
+                    {draft.why.trim() && !invalid.has(k) && !edits.some((e) => e.kind === 'ingredient' && e.index === i) && (
                       <p className="mt-2 break-words text-[13px] text-neutral-700">
-                        Change the amount to include this suggestion, or put it in your note.
+                        Change the amount to include this suggestion, or put it in a general note.
                       </p>
                     )}
                   </div>
@@ -212,34 +276,113 @@ export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModePro
           })}
         </ul>
 
-        <label className="mt-6 block break-words text-[14px] font-semibold text-text-secondary" htmlFor="suggest-note">
-          Note for {author} (optional)
-        </label>
-        <textarea
-          id="suggest-note"
-          rows={3}
-          maxLength={MAX_NOTE}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Anything that is not one line, like a method step"
-          className={`${input} mt-1.5 block w-full resize-none rounded-[18px] border border-border px-3.5 py-2.5 text-[14px] focus-visible:border-accent-700`}
-        />
+        {steps.length > 0 && (
+          <>
+            <h2 className="mt-6 font-heading text-[20px] leading-tight text-text-primary">Method</h2>
+            <ol className="mt-2">
+              {steps.map((step, i) => {
+                const k = `s${i}`;
+                const draft = drafts[k];
+                return (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      ref={setRow(k)}
+                      aria-label={`Suggest a change to step ${i + 1}: ${step.text}`}
+                      aria-expanded={!!draft}
+                      onClick={() => open(k, step.text)}
+                      className={`${rowClass} items-start`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-surface-secondary font-heading text-[14px] text-text-primary"
+                      >
+                        {step.step}
+                      </span>
+                      <span className="min-w-0 flex-1 break-words text-text-primary">{step.text}</span>
+                    </button>
+                    {draft && (
+                      <div role="group" aria-label={`Change step ${i + 1}`} className={card} onKeyDown={escape(k)}>
+                        <div className="flex items-start gap-2">
+                          <p className="min-w-0 flex-1 break-words text-[13px] text-neutral-700 line-through">{step.text}</p>
+                          {undoButton(k)}
+                        </div>
+                        <textarea
+                          ref={setRef(k)}
+                          aria-label="New step text"
+                          rows={3}
+                          maxLength={MAX_EDIT_TO}
+                          value={draft.text}
+                          onChange={(e) => patch(k, { text: e.target.value })}
+                          className={area}
+                        />
+                        {problem(k) && (
+                          <p role="alert" className="mt-2 break-words text-[13px] text-danger-700">
+                            {problem(k)}
+                          </p>
+                        )}
+                        {whyInput(k)}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </>
+        )}
+
+        <div className="mt-2">
+          <button
+            type="button"
+            ref={setRow('g')}
+            aria-expanded={!!drafts.g}
+            onClick={() => open('g', '')}
+            className={rowClass}
+          >
+            <MessageCircle className="h-5 w-5 shrink-0 text-text-secondary" />
+            <span className="min-w-0 flex-1 break-words text-text-primary">
+              <span className="font-bold">General note</span>
+              {noteText && (
+                <>
+                  {' '}
+                  <span className="block truncate text-[13px] text-text-tertiary">{noteText.split('\n')[0]}</span>
+                </>
+              )}
+            </span>
+          </button>
+          {drafts.g && (
+            <div role="group" aria-label={`Note for ${author}`} className={card} onKeyDown={escape('g')}>
+              <div className="flex items-start gap-2">
+                <p className="min-w-0 flex-1 text-[13px] text-neutral-700">Note for {author}</p>
+                {undoButton('g')}
+              </div>
+              <textarea
+                ref={setRef('g')}
+                aria-label="General note text"
+                rows={3}
+                maxLength={MAX_NOTE}
+                placeholder="Anything that is not one line"
+                value={drafts.g.text}
+                onChange={(e) => patch('g', { text: e.target.value })}
+                className={area}
+              />
+            </div>
+          )}
+        </div>
       </main>
 
       <div className="sticky bottom-0 bg-surface px-5 pt-3 pb-[calc(28px+env(safe-area-inset-bottom))] shadow-[0_-1px_0_var(--color-border)]">
         <div className="mx-auto max-w-lg">
-          {tooLong && (
-            <p role="status" className="mb-3 break-words text-sm text-danger-700">
-              Your suggestion is {message.length} characters, over the {MAX_MESSAGE} limit. Shorten it to send.
-            </p>
-          )}
+          <p role="status" className={limitMessage ? 'mb-3 break-words text-sm text-danger-700' : 'sr-only'}>
+            {limitMessage}
+          </p>
           {error && (
-            <p role="alert" className="mb-3 break-words text-sm text-danger-700">
+            <p ref={errorRef} tabIndex={-1} role="alert" className="mb-3 break-words text-sm text-danger-700 focus:outline-none">
               {error}
             </p>
           )}
           <div className="flex items-center gap-2.5">
-            <p className="min-w-0 flex-1 break-words text-[13px] text-text-tertiary">
+            <p aria-live="polite" className="min-w-0 flex-1 break-words text-[13px] text-text-tertiary">
               {changes === 0 ? (
                 'Tap any line to change it'
               ) : (
@@ -254,11 +397,11 @@ export function SuggestMode({ recipe, onSend, onCancel, onSent }: SuggestModePro
             <button
               type="button"
               onClick={send}
-              disabled={!hasWork || tooLong || sending}
+              disabled={blocked || sending}
               className="inline-flex h-[52px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary-600 px-[22px] font-heading text-[15px] whitespace-nowrap text-on-accent hover:bg-primary-700 active:bg-primary-800 disabled:opacity-45 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
             >
               {sending ? <span aria-hidden="true"><Spinner size="sm" /></span> : <Send className="h-4 w-4" />}
-              Send to {authorFirst}
+              Send to <span className="max-w-[9rem] truncate">{authorFirst}</span>
             </button>
           </div>
         </div>

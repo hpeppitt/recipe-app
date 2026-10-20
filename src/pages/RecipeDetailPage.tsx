@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
+import type { SuggestionEdit } from '../types/social';
 import { useSuggestionReview } from '../hooks/useSuggestionReview';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree, getSubtreeIds } from '../db/recipes';
@@ -308,7 +309,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     setSuggestingFor(id ?? null);
   };
 
-  const handleSubmitSuggestion = async (message: string) => {
+  const handleSubmitSuggestion = async ({ message, edits }: { message: string; edits: SuggestionEdit[] }) => {
     if (!recipe || !id) return;
     await submitSuggestion({
       recipeId: id,
@@ -316,6 +317,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       recipeTitle: recipe.title,
       recipeEmoji: recipe.emoji,
       message,
+      edits,
     });
   };
 
