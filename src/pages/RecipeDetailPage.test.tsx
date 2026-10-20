@@ -36,6 +36,7 @@ const submitMock = vi.fn();
 const recipeIds: (string | undefined)[] = [];
 
 vi.mock('../services/firestore', () => ({
+  getRelatedFamilies: async () => [],
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
   incrementRecipeViews: vi.fn(),

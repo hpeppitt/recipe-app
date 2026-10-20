@@ -1726,3 +1726,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - A recipe saved with no match, and a branch made after Create anyway on a variation, show no tag and have no `relatedFamilyId`.
 - Check the pill sits well on narrow screens and in the wide pane, and that VoiceOver reads "New original, similar to an existing recipe family".
 - The rules bound on `relatedFamilyId` is repo only until RL-160 deploys; live publishes work either way.
+
+### RL-163 Related family card
+
+- On the emulator, after RL-162's walk: open the new original. A pale green "Related family" card sits below the metadata pills and above the ingredients, showing the matched family's emoji, title, author and "N versions". Tap it: it opens that recipe.
+- Open the matched original: the card lists the new original (up to 3, newest first). Tap a row to open it. Both links keep the list you came from (check the wide pane).
+- A recipe with neither shows no card. Go offline and reload a recipe: no card, no error.
+- Check the card at 390 and 320px, and in dark mode.
+- Cousins are read as the first 20 matches sorted newest first, so no new index is needed.
+- The card fades in when its read lands, so it can push the ingredients down a little on arrival; check that it does not feel jarring, and that it does not animate with reduced motion on.
+- If the version count read fails, the row shows without "N versions" instead of the card vanishing.

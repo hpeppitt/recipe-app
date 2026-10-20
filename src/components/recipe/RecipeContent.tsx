@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import type { Recipe } from '../../types/recipe';
 import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
@@ -13,6 +13,8 @@ interface RecipeContentProps {
   compact?: boolean;
   /** Omit the emoji, title and description; the recipe page renders them in RecipeHeader. */
   hideHeader?: boolean;
+  /** Rendered between the metadata pills and the ingredients (RL-163). */
+  afterMeta?: ReactNode;
 }
 
 /**
@@ -29,7 +31,7 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false, hideHeader = false }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
@@ -70,6 +72,8 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false }: Reci
         tags={recipe.tags}
         servings={compact ? scaled.servings : undefined}
       />
+
+      {afterMeta}
 
       {/* The stepper sits in the Ingredients heading row, because ingredient
           amounts are the only thing it changes. Hidden in the compact preview,
