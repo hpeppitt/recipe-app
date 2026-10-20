@@ -117,6 +117,8 @@ and no schema field was added. The author's confirmation is taken from RL-118 ha
 approved at `/groom`; it was not asked separately, so correct this line if that reading is
 wrong.
 
+2026-10-20: the author confirmed photo input is fine because photos are in-memory generation input only, sent once to Gemini via Firebase AI Logic to write the recipe and never stored (not in Dexie, Firestore, the data export, or history state); only the generated text recipe is saved.
+
 ### 4. The merged feed was an accident, so split it
 
 `/` used to merge every published cloud recipe with the local library. Roadmap 3.1 split
