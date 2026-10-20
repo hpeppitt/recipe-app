@@ -892,3 +892,7 @@ A request may evaluate at most 1000 rule expressions, and the suggestion create 
 ### Notification preferences filter on read only (RL-155, 2026-10-21)
 
 Every notification is still written; `notificationPrefs/{uid}` decides what the recipient sees. Writer-side suppression was rejected: the writer would have to read someone else's preferences (they are owner-only, so the rules would have to open them), a write would depend on a second read, and a switch turned back on could never show what was skipped. Filtering on read keeps the rules small and makes the choice reversible: old rows come back. The cost is that hidden rows still exist, are still marked read by Mark all read, and still count against the recipient's data; last write wins across devices.
+
+### Avatar swatches store token references (RL-140, 2026-10-21)
+
+The emoji avatar's background is saved as `var(--color-...)`, not a hex, so it follows the theme and no hex copy lives outside the token sheet. A viewer sees the colour in their own theme, not the owner's. Legacy hex values are left as they are until a migration; the editor maps the six old values to their swatch so it shows pressed.

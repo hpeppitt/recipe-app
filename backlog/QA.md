@@ -1801,3 +1801,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-139 Spinner stops spinning under reduced motion
 - With Reduce motion on (macOS or iOS), open a lazy page on a slow connection: the ring shows still, without turning. With Reduce motion off it still spins.
+
+### RL-140 Avatar swatches follow the theme, chrome colour reads the token
+- Edit avatar, Emoji mode: pick each of the six swatches, Save, and check the avatar in Light and Dark (the swatch now shifts with the theme). An avatar saved before this change still shows its colour, and its swatch shows pressed in the editor.
+- Android Chrome: the browser bar colour follows Light and Dark in Settings.
+- Reviewer noted: legacy hex avatars stay light in dark mode until re-saved. `photoBgColor` is not constrained by rules (harmless; consider a length cap at the next rules change).

@@ -6,6 +6,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#f5ead8" />
     <!-- Applies the stored theme before first paint; useTheme keeps it in sync after (RL-117). -->
+    <!-- Runs before the stylesheet, so the literals mirror --color-surface (light #f5ead8, dark #1e1915) in src/index.css. -->
     <script>
       try {
         var t = localStorage.getItem('recipe-app-theme');

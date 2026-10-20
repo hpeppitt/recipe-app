@@ -9,7 +9,9 @@ const DARK_QUERY = '(prefers-color-scheme: dark)';
 function applyTheme(t: Theme) {
   const dark = t === 'dark' || (t === 'system' && typeof window.matchMedia === 'function' && window.matchMedia(DARK_QUERY).matches);
   document.documentElement.classList.toggle('dark', dark);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1e1915' : '#f5ead8');
+  // Read the ground token after the class flips; empty in jsdom, where the meta is left alone.
+  const ground = getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim();
+  if (ground) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', ground);
 }
 
 export function useTheme() {
