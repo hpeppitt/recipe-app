@@ -3,13 +3,15 @@ import type { Recipe } from '../../types/recipe';
 import { RecipeContent } from '../recipe/RecipeContent';
 import { BRANCH_CHIPS } from '../../lib/constants';
 import { appendClause } from '../../lib/utils';
-import { ChevronDown, GitBranchPlus, ImagePlus, ShieldCheck, Sparkles } from '../ui/icons';
+import { orderChips, splitChips } from '../../lib/branchChips';
+import { ArrowUpRight, ChevronDown, GitBranchPlus, ImagePlus, ShieldCheck, Sparkles, Sprout } from '../ui/icons';
 import {
   ACCEPTED_IMAGE_TYPES,
   attachmentErrorMessage,
   type AttachmentRejection,
   type ImageAttachment,
 } from '../../lib/imageAttachments';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { UserPill } from '../ui/UserPill';
 import { PhotoTray } from './PhotoTray';
 import { usePhotoTray } from './usePhotoTray';
@@ -19,6 +21,12 @@ interface BranchComposerProps {
   /** Prefill from approving a suggestion (RL-017). Read once at mount; the page keys on it. */
   seed?: string;
   generating: boolean;
+  /** The parent's family (RL-180): 'loading' shows a placeholder, null (late or failed) the default chips. */
+  family?: { id: string; prompt: string; parentId: string | null }[] | null | 'loading';
+  /** Opens a branch that already does what a chip says. */
+  onOpenBranch?: (id: string) => void;
+  /** Set when the user arrived from a dedup match: shows Change, which goes back to the chat. */
+  onChange?: () => void;
   /** Shown above the form, and disables Grow. */
   unavailableNotice?: ReactNode;
   /** Text may be empty when photos are attached. May resolve to a limit reason: nothing was sent. */
@@ -36,6 +44,9 @@ export function BranchComposer({
   parent,
   seed = '',
   generating,
+  family = null,
+  onOpenBranch,
+  onChange,
   unavailableNotice,
   onGrow,
 }: BranchComposerProps) {
@@ -55,6 +66,48 @@ export function BranchComposer({
   const previewId = useId();
 
   const title = parent.title.trim() || 'This recipe';
+  const rows = Array.isArray(family) ? family : [];
+  const loadingFamily = family === 'loading';
+  const [pendingOpen, setPendingOpen] = useState<string | null>(null);
+  const untriedId = useId();
+  const triedId = useId();
+  const hintId = useId();
+  const ordered = orderChips(
+    BRANCH_CHIPS,
+    rows.map((r) => r.prompt)
+  );
+  const children = rows.filter((r) => r.parentId === parent.id);
+  const split = children.length > 0 ? splitChips(ordered, children) : null;
+  const rank = (c: string) => ordered.indexOf(c);
+  const untried = split ? split.untried : ordered;
+  const tried = split ? [...split.tried].sort((a, b) => rank(a.chip) - rank(b.chip)) : [];
+  const appendChip = (chip: string) => {
+    setText((t) => appendClause(t, chip.toLowerCase()));
+    setCaretTick((n) => n + 1);
+  };
+  const untriedChip = (chip: string) => (
+    <button
+      key={chip}
+      type="button"
+      onClick={() => appendChip(chip)}
+      className="flex h-11 items-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
+    >
+      {split ? (
+        <span className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-accent-2-100 px-3.5 text-sm text-text-primary">
+          <Sprout className="size-3.5 text-accent-2-700" />
+          {chip}
+        </span>
+      ) : (
+        <span className="flex h-9 items-center whitespace-nowrap rounded-full bg-accent-200 px-3.5 text-sm text-accent-900">
+          {chip}
+        </span>
+      )}
+    </button>
+  );
+  const openBranch = (id: string) => {
+    if (text.trim() || tray.photos.length > 0) setPendingOpen(id);
+    else onOpenBranch?.(id);
+  };
   const canGrow =
     (!!text.trim() || tray.ready.length > 0) &&
     !tray.preparing &&
@@ -143,6 +196,16 @@ export function BranchComposer({
                 className={`size-4 flex-shrink-0 text-text-tertiary transition-transform ${expanded ? 'rotate-180' : ''}`}
               />
             </button>
+            {onChange && (
+              <button
+                type="button"
+                onClick={onChange}
+                aria-label="Change recipe"
+                className="min-h-11 px-2 text-[13px] text-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+              >
+                Change
+              </button>
+            )}
             <div
               id={previewId}
               hidden={!expanded}
@@ -164,6 +227,7 @@ export function BranchComposer({
             value={text}
             onChange={(e) => setText(e.target.value)}
             aria-labelledby={headingId}
+            aria-describedby={split ? hintId : undefined}
             placeholder="e.g. less sugar, and add walnuts"
             className="min-h-[110px] w-full min-w-0 resize-none rounded-[26px] border-[1.5px] border-primary-600 bg-surface-secondary px-[18px] py-3.5 text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
           />
@@ -201,22 +265,51 @@ export function BranchComposer({
                 Add photos
               </span>
             </button>
-            {BRANCH_CHIPS.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => {
-                  setText((t) => appendClause(t, chip.toLowerCase()));
-                  setCaretTick((n) => n + 1);
-                }}
-                className="flex h-11 items-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
-              >
-                <span className="flex h-9 items-center whitespace-nowrap rounded-full bg-accent-200 px-3.5 text-sm text-accent-900">
-                  {chip}
-                </span>
-              </button>
-            ))}
+            {loadingFamily && <span aria-hidden="true" className="my-1 h-9 w-48 animate-pulse rounded-full bg-neutral-100" />}
+            {!split && !loadingFamily && (
+              <ul aria-label="Quick changes" className="contents">
+                {untried.map((chip) => (
+                  <li key={chip}>{untriedChip(chip)}</li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {split && (
+            <div className="flex flex-col gap-2">
+              <p id={untriedId} className="text-xs font-semibold text-neutral-700">Nobody's tried these yet</p>
+              <ul role="group" aria-labelledby={untriedId} className="flex flex-wrap gap-x-2">
+                {untried.map((chip) => (
+                  <li key={chip}>{untriedChip(chip)}</li>
+                ))}
+              </ul>
+              {tried.length > 0 && (
+                <>
+                  <p id={triedId} className="mt-1 text-xs font-semibold text-neutral-700">
+                    Already a branch, open it instead
+                  </p>
+                  <ul role="group" aria-labelledby={triedId} className="flex flex-wrap gap-x-2">
+                    {tried.map(({ chip, childId }) => (
+                      <li key={chip}>
+                      <button
+                        type="button"
+                        aria-label={`Open the ${chip} branch`}
+                        onClick={() => openBranch(childId)}
+                        className="flex h-11 items-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary-500"
+                      >
+                        <span className="flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-neutral-100 px-3.5 text-sm text-text-primary">
+                          {chip}
+                          <ArrowUpRight className="size-3.5" />
+                        </span>
+                      </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              <p id={hintId} className="text-[13px] text-text-tertiary">Or describe your change…</p>
+            </div>
+          )}
 
           <p className="flex min-w-0 items-start gap-2.5 text-[13px] text-text-tertiary">
             <ShieldCheck className="mt-0.5 size-4 flex-shrink-0" />
@@ -241,6 +334,19 @@ export function BranchComposer({
           </button>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingOpen !== null}
+        title="Leave this draft?"
+        message="Opening that branch will discard what you have typed or attached here."
+        confirmLabel="Open branch"
+        confirmVariant="danger"
+        onConfirm={() => {
+          const id = pendingOpen;
+          setPendingOpen(null);
+          if (id) onOpenBranch?.(id);
+        }}
+        onCancel={() => setPendingOpen(null)}
+      />
     </>
   );
 }

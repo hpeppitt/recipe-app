@@ -71,6 +71,8 @@ vi.mock('../hooks/useRecipeChat', async () => {
   };
 });
 
+vi.mock('../hooks/useBranchFamily', () => ({ useBranchFamily: () => null }));
+
 const downscale = vi.hoisted(() => vi.fn());
 vi.mock('../services/imageDownscale', () => ({ downscaleToJpeg: downscale }));
 
