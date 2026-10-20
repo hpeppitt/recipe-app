@@ -1594,3 +1594,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - The animated cycle (trunk, four branches, leaves that come and go, canopy, eight emoji, captions in order, bar fills, fade and restart) and the still tree under reduced motion are first visible in the app through RL-142.
 - Reviewer noted: Caprasimo may flash the system font on the cold-start caption.
 - Reviewer noted: the full variant scrolls in short landscape.
+
+### RL-145 Structured suggestions model
+
+- No visible change. Pure model, tests and a decision entry only; RL-147 to RL-150 add the screens.
+- Reviewer noted: a bare number replacing "1 cup" drops the unit (per spec).
+- Reviewer noted: rules still only allow approved/rejected until RL-146.

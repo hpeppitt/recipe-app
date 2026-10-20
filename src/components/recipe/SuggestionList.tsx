@@ -23,6 +23,9 @@ const secondary = `${actionButton} border border-border text-text-primary hover:
 const closedTag = {
   approved: { label: 'Approved', cls: 'bg-accent-2-100 text-accent-2-800' },
   rejected: { label: 'Declined', cls: 'bg-neutral-100 text-neutral-800' },
+  applied: { label: 'Applied', cls: 'bg-accent-2-100 text-accent-2-800' },
+  branched: { label: 'Branched', cls: 'bg-accent-2-100 text-accent-2-800' },
+  pending: { label: 'Open', cls: 'bg-accent-100 text-accent-800' },
 } as const;
 
 /**
@@ -122,7 +125,7 @@ export function SuggestionList({
       {closed.length > 0 && (
         <div className="mt-2 flex flex-col gap-0.5">
           {closed.map((s) => {
-            const tag = closedTag[s.status === 'approved' ? 'approved' : 'rejected'];
+            const tag = closedTag[s.status];
             const message = s.message || '(No message)';
             return (
               <div key={s.id}>

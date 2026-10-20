@@ -19,6 +19,8 @@ const STATUS_TAG = {
   pending: { label: 'Open', cls: 'bg-accent-100 text-accent-800' },
   approved: { label: 'Approved', cls: 'bg-accent-2-100 text-accent-2-800' },
   rejected: { label: 'Declined', cls: 'bg-neutral-100 text-neutral-800' },
+  applied: { label: 'Applied', cls: 'bg-accent-2-100 text-accent-2-800' },
+  branched: { label: 'Branched', cls: 'bg-accent-2-100 text-accent-2-800' },
 } as const;
 
 const ownerButton =
