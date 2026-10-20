@@ -276,7 +276,7 @@ describe('Settings: layout (RL-093)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Test Cook, cook@example.com, edit avatar' }));
     const sheet = await screen.findByRole('dialog', { name: 'Edit avatar' });
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Initials' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updateAvatar).toHaveBeenCalledWith(expect.objectContaining({ photoType: 'generated' })));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull());

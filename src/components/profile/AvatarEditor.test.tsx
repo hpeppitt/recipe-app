@@ -33,40 +33,38 @@ function setup(over: Partial<React.ComponentProps<typeof AvatarEditor>> = {}) {
 }
 
 describe('AvatarEditor', () => {
-  it('orders the modes Photo, Initials, Emoji', () => {
+  it('shows the swatches, the emoji grid and the footer in every mode', () => {
     const { sheet } = setup();
-    expect(within(sheet).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Photo', 'Initials', 'Emoji']);
+    for (const n of SWATCH_NAMES) expect(within(sheet).getByRole('button', { name: `Colour ${n}` })).toBeTruthy();
+    expect(within(sheet).getAllByRole('button').filter((b) => /\p{Extended_Pictographic}/u.test(b.textContent ?? ''))).toHaveLength(15);
+    expect(within(sheet).getByRole('button', { name: 'Use a photo' })).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Initials' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(sheet).queryByRole('radio')).toBeNull();
   });
 
-  it('shows the swatches only in Emoji mode', () => {
-    const { sheet } = setup();
-    expect(within(sheet).queryByRole('button', { name: 'Background Peach' })).toBeNull();
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Emoji' }));
-    for (const n of SWATCH_NAMES) expect(within(sheet).getByRole('button', { name: `Background ${n}` })).toBeTruthy();
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
-    expect(within(sheet).queryByRole('button', { name: 'Background Peach' })).toBeNull();
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Photo' }));
-    expect(within(sheet).queryByRole('button', { name: 'Background Peach' })).toBeNull();
-    expect(within(sheet).getByRole('button', { name: 'Upload a photo' })).toBeTruthy();
+  it('Cancel closes without saving', () => {
+    const { sheet, onClose, onSave } = setup();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it('saves the chosen emoji and the colour token as an emoji avatar', async () => {
     const { sheet, onSave } = setup();
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Emoji' }));
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Background Moss' }));
-    fireEvent.click(within(sheet).getByRole('button', { name: '🍕' }));
-    expect(within(sheet).getByRole('button', { name: 'Background Moss' }).getAttribute('aria-pressed')).toBe('true');
-    expect(within(sheet).getByRole('button', { name: 'Background Peach' }).getAttribute('aria-pressed')).toBe('false');
-    expect(within(sheet).getByRole('button', { name: '🍕' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Colour Moss' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: '🍳' }));
+    expect(within(sheet).getByRole('button', { name: 'Colour Moss' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(sheet).getByRole('button', { name: 'Colour Peach' }).getAttribute('aria-pressed')).toBe('false');
+    expect(within(sheet).getByRole('button', { name: '🍳' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
-      expect(onSave).toHaveBeenCalledWith({ photoType: 'emoji', photoEmoji: '🍕', photoBgColor: 'var(--color-accent-2-300)', photoURL: null })
+      expect(onSave).toHaveBeenCalledWith({ photoType: 'emoji', photoEmoji: '🍳', photoBgColor: 'var(--color-accent-2-300)', photoURL: null })
     );
   });
 
   it('saves Initials as the generated type', async () => {
-    const { sheet, onSave } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍕', currentPhotoBgColor: '#ffc6a5' });
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
+    const { sheet, onSave } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍜', currentPhotoBgColor: '#ffc6a5' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Initials' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
     await waitFor(() =>
       expect(onSave).toHaveBeenCalledWith({ photoType: 'generated', photoEmoji: null, photoBgColor: null, photoURL: null })
@@ -74,15 +72,15 @@ describe('AvatarEditor', () => {
   });
 
   it('presses Peach for an avatar saved with the legacy hex', () => {
-    const { sheet } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍕', currentPhotoBgColor: '#ffe1d0' });
-    expect(within(sheet).getByRole('button', { name: 'Background Peach' }).getAttribute('aria-pressed')).toBe('true');
-    expect(within(sheet).getByRole('button', { name: 'Background Apricot' }).getAttribute('aria-pressed')).toBe('false');
+    const { sheet } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍜', currentPhotoBgColor: '#ffe1d0' });
+    expect(within(sheet).getByRole('button', { name: 'Colour Peach' }).getAttribute('aria-pressed')).toBe('true');
+    expect(within(sheet).getByRole('button', { name: 'Colour Apricot' }).getAttribute('aria-pressed')).toBe('false');
   });
 
   it('presses no swatch for an avatar saved with an older colour', () => {
-    const { sheet } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍕', currentPhotoBgColor: '#EF4444' });
+    const { sheet } = setup({ currentPhotoType: 'emoji', currentPhotoEmoji: '🍜', currentPhotoBgColor: '#EF4444' });
     for (const n of SWATCH_NAMES) {
-      expect(within(sheet).getByRole('button', { name: `Background ${n}` }).getAttribute('aria-pressed')).toBe('false');
+      expect(within(sheet).getByRole('button', { name: `Colour ${n}` }).getAttribute('aria-pressed')).toBe('false');
     }
   });
 
@@ -112,7 +110,7 @@ describe('AvatarEditor', () => {
       <AvatarEditor open={false} onClose={() => {}} uid="u1" name="T" currentPhotoType="generated"
         currentPhotoEmoji={null} currentPhotoBgColor={null} currentPhotoURL={null} onSave={async () => {}} />
     );
-    expect(screen.queryByRole('radio', { hidden: true })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Initials', hidden: true })).toBeNull();
   });
 
   it('Escape (dialog cancel) and a backdrop click both call onClose', () => {
@@ -131,18 +129,18 @@ describe('AvatarEditor', () => {
 
   it('drops an unsaved draft when closed and reopened', () => {
     const props = {
-      onClose: () => {}, uid: 'u1', name: 'T', currentPhotoType: 'emoji' as const, currentPhotoEmoji: '🍕',
+      onClose: () => {}, uid: 'u1', name: 'T', currentPhotoType: 'emoji' as const, currentPhotoEmoji: '🍜',
       currentPhotoBgColor: '#ffc6a5', currentPhotoURL: null, onSave: async () => {},
     };
     const { rerender } = render(<AvatarEditor open {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: '🍔' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Background Sand' }));
-    expect(screen.getByRole('button', { name: '🍔' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: '🍞' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Colour Sand' }));
+    expect(screen.getByRole('button', { name: '🍞' }).getAttribute('aria-pressed')).toBe('true');
     rerender(<AvatarEditor open={false} {...props} />);
     rerender(<AvatarEditor open {...props} />);
-    expect(screen.getByRole('button', { name: '🍔' }).getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByRole('button', { name: '🍕' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Background Apricot' }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByRole('button', { name: 'Background Sand' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: '🍞' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: '🍜' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Colour Apricot' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Colour Sand' }).getAttribute('aria-pressed')).toBe('false');
   });
 });
