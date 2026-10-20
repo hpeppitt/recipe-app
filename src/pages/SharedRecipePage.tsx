@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { decodeRecipeFromHash, type SharedRecipe } from '../lib/share';
-import { getPublishedRecipe } from '../services/firestore';
+import { getPublishedRecipe, getFamilyCount } from '../services/firestore';
 import { createRecipe } from '../db/recipes';
 import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -31,6 +31,7 @@ interface FullSharedRecipe extends SharedRecipe {
   collaborators?: Collaborator[];
   // Cloud documents carry these; a hash link never does (the schema strips them).
   parentId?: string | null;
+  rootId?: string;
   prompt?: string;
 }
 
@@ -82,6 +83,8 @@ function SharedRecipeView() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
+  // RL-143: the parent and family size, read after the recipe. Either may stay unset.
+  const [lineage, setLineage] = useState<{ parent?: { title: string; author?: string }; count?: number; settled?: boolean }>({});
 
   const handleSaveCopy = async () => {
     if (!recipe || savingRef.current || savedId) return;
@@ -163,6 +166,27 @@ function SharedRecipeView() {
       cancelled = true;
     };
   }, [paramId, location.hash, reloadKey]);
+
+  const cloudParentId = recipe?.parentId;
+  const cloudRootId = recipe?.rootId;
+  useEffect(() => {
+    if (status !== 'ready' || !paramId) return;
+    let cancelled = false;
+    const parentP = cloudParentId ? getPublishedRecipe(cloudParentId).catch(() => null) : Promise.resolve(null);
+    const countRoot = cloudRootId ?? paramId;
+    const countP = countRoot ? getFamilyCount(countRoot).catch(() => undefined) : Promise.resolve(undefined);
+    Promise.all([parentP, countP]).then(([p, count]) => {
+      if (cancelled) return;
+      setLineage({
+        parent: p ? { title: p.title, author: p.createdBy?.displayName?.trim() || undefined } : undefined,
+        count,
+        settled: true,
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, paramId, cloudParentId, cloudRootId]);
 
   const handleFavoriteClick = () => {
     if (!user && isConfigured) {
@@ -311,7 +335,7 @@ function SharedRecipeView() {
             to="/"
             className={`${hitArea} inline-flex h-8 items-center rounded-full bg-surface px-3 text-[13px] font-semibold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
           >
-            Open Recipe Lab
+            Get the app
           </Link>
         </div>
       </header>
@@ -324,18 +348,43 @@ function SharedRecipeView() {
               <EmojiBlob size={72} emoji={recipe.emoji} />
             </div>
             <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">{recipe.description}</p>
-            {recipe.parentId && (
+            {lineage.settled && (recipe.parentId || (lineage.count ?? 0) > 1) && (
               <p className="mt-[14px] flex items-start gap-2.5 rounded-[22px] bg-accent-2-100 px-4 py-3 text-[14px] text-accent-2-900">
                 <GitBranch className="mt-0.5 h-4 w-4 shrink-0" />
                 <span className="min-w-0 break-words">
-                  {authorName || 'Someone'}
-                  {prompt ? (
+                  {recipe.parentId ? (
                     <>
-                      {' asked for '}
-                      <i>&quot;{prompt}&quot;</i>.
+                      {authorName || 'Someone'}
+                      {prompt ? (
+                        <>
+                          {' asked for '}
+                          <i className="line-clamp-3">&quot;{prompt}&quot;</i>
+                          {lineage.parent && ` on ${lineage.parent.author || 'Someone'}\u2019s `}
+                          {lineage.parent && <b>{lineage.parent.title}</b>}.
+                        </>
+                      ) : lineage.parent ? (
+                        <>
+                          {` branched ${lineage.parent.author || 'Someone'}\u2019s `}
+                          <b>{lineage.parent.title}</b>.
+                        </>
+                      ) : (
+                        ' made this variation.'
+                      )}
                     </>
                   ) : (
-                    ' made this variation.'
+                    `${lineage.count} versions grow from this recipe.`
+                  )}
+                  {(lineage.count ?? 0) > 1 && (
+                    <>
+                      {' '}
+                      <Link
+                        to={`/recipe/${paramId}/tree`}
+                        aria-label={`See all ${lineage.count} versions of ${recipe.title}`}
+                        className={`${hitArea} inline-flex items-center underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500`}
+                      >
+                        See all {lineage.count} versions
+                      </Link>
+                    </>
                   )}
                 </span>
               </p>
