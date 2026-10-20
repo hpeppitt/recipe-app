@@ -23,6 +23,7 @@ const BOTTOM = 28;
 const BEND = 16;
 const LINE_W = 6;
 const HIT = 44;
+export const LEGEND_MS = 2000;
 
 const laneY = (lane: number) => TOP + lane * LANE;
 const colour = (token: string) => `var(--color-${token})`;
@@ -38,6 +39,18 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Lanes are reused by lines that do not overlap, so the legend has one row per lane.
+  const legendRows = useMemo(() => {
+    const rows = new Map<number, typeof layout.lines>();
+    for (const l of layout.lines) rows.set(l.lane, [...(rows.get(l.lane) ?? []), l]);
+    return [...rows].map(([lane, lines]) => ({ lane, lines }));
+  }, [layout]);
+  // Lane names are pinned for LEGEND_MS after every mount, then collapse to dots that stay as a key.
+  const [legendOpen, setLegendOpen] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLegendOpen(false), LEGEND_MS);
+    return () => clearTimeout(t);
+  }, []);
 
   // A label may run only as far as the next other-line start or stop on its lane, so two labels
   // on a reused lane cannot print over each other. Too little room renders nothing; the stop
@@ -96,6 +109,32 @@ export function TimelineView({ recipes, currentId }: TimelineViewProps) {
         tabIndex={0}
         className="overflow-x-auto rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
       >
+        {/* Zero-size sticky anchor: the legend stays at the left edge while the map scrolls under it. */}
+        <div className="sticky left-0 z-20 h-0 w-0 pointer-events-none" aria-hidden="true" data-legend>
+          {legendRows.map(({ lane, lines }) => (
+            <div key={lane} className="absolute left-2 flex -translate-y-1/2 items-center gap-1" style={{ top: laneY(lane) }}>
+              {lines.map((line) => (
+                <span
+                  key={line.index}
+                  className="size-2.5 shrink-0 rounded-full border border-text-primary/40 ring-2 ring-surface"
+                  style={{ background: colour(line.colour) }}
+                  data-legend-dot={line.index}
+                />
+              ))}
+              <span
+                data-legend-label={lane}
+                data-collapsed={!legendOpen}
+                className={`overflow-hidden motion-safe:transition-[max-width,opacity] motion-safe:duration-250 ${
+                  legendOpen ? 'max-w-[120px] opacity-100' : 'max-w-0 opacity-0'
+                }`}
+              >
+                <span className="ml-1 block max-w-[110px] truncate whitespace-nowrap rounded-full bg-surface/90 px-2 py-0.5 text-xs font-semibold text-text-primary">
+                  {lines.map((l) => l.label).join(', ')}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
         <div className="relative" style={{ width, height }}>
           {/* Paint order: lines, then stops, then label text with a surface halo. */}
           <svg width={width} height={height} aria-hidden="true" className="block">
