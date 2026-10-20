@@ -1660,9 +1660,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Send a suggestion from a second account; the owner's row reads "Sami: 150 g light brown sugar → 100 g" then the time, no quotes, one truncated line at 320px.
 - Applied and Kept as a branch rows show the message with no name; replies, saves and follows keep quotes. Old free-text suggestions use the new format.
 - Reviewer noted: the Activity error state has no Retry and the empty state is an ad hoc `<p>` (pre-existing).
-- Reviewer noted: `open()` awaits `markRead` without a catch, so a failure blocks navigation silently (pre-existing).
+- Reviewer noted: `open()` awaits `markRead` without a catch, so a failure blocks navigation silently (pre-existing; fixed in RL-153).
 
 ### RL-152 Rules for branch notifications and notification preferences
 
 - No visible change. Rules in the repo only; RL-156 deploys them. Probe codes are in the ticket's Notes.
 - Nothing writes a `branch` notification (RL-153) or `notificationPrefs` (RL-155) yet.
+
+### RL-153 Branching someone else's recipe tells its author
+
+- Needs RL-156's rules on the emulator (`npm run emulators` plus `npm run dev:emulated`) with two verified accounts; live it is denied until the deploy.
+- B branches A's recipe and saves. A's Activity shows "B branched your recipe <emoji> <title>", the prompt quoted under it, and a sage badge with a branch icon. Tapping it opens B's branch.
+- B branching B's own recipe, and Keep as branch on a suggestion, notify nobody.
+- Tapping an unread row opens its target even offline; the read mark is no longer awaited.
+- Reviewer noted: a dropped notification (window full, offline, unverified sender, parent only local) leaves no telemetry.
+- Reviewer noted: the row shows the parent's title while the tap opens the branch.

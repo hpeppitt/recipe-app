@@ -34,6 +34,7 @@ export const NOTIF_VERBS: Record<string, string> = {
   // the other replies, so the verb cannot assume which side is reading.
   suggestion_reply: 'replied about',
   follow: 'started following you',
+  branch: 'branched your recipe',
 };
 
 /** Split items (any order kept) into those created since local midnight of `now` and the rest. */

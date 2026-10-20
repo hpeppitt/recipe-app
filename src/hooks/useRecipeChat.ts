@@ -9,6 +9,7 @@ import {
   searchVariations,
 } from '../db/recipes';
 import {
+  notifyBranched,
   publishRecipe,
   searchPublishedRecipes,
   searchPublishedVariations,
@@ -376,6 +377,12 @@ export function useRecipeChat(parentRecipe?: Recipe) {
             "Couldn't save the recipe. Check your connection and try again.",
         });
         return;
+      }
+
+      // Only the parent's author is told, and never yourself (so Keep as branch
+      // stays silent). Fire-and-forget: it cannot fail or delay the save.
+      if (parentRecipe && user && parentRecipe.createdBy.uid !== 'local' && parentRecipe.createdBy.uid !== user.uid) {
+        notifyBranched({ branch: recipe, parent: parentRecipe, from: createdBy });
       }
 
       try {

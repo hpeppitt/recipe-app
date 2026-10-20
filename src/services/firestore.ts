@@ -585,6 +585,31 @@ function notify(fs: Firestore, data: DocumentData & { fromUid: string }): void {
   writeLimited(fs, data.fromUid, 'notification', doc(collection(fs, 'notifications')), data).catch(() => {});
 }
 
+/**
+ * Tells the parent's author that `from` branched it (RL-153). Call only after
+ * `branch` is published: the rules read it to check the sender and the parent's
+ * owner. The caller skips its own and 'local' parents. Never throws (notify).
+ */
+export function notifyBranched({ branch, parent, from }: {
+  branch: Recipe;
+  parent: Recipe;
+  from: { uid: string; displayName: string | null };
+}): void {
+  if (!firestore) return;
+  notify(firestore, {
+    recipientUid: parent.createdBy.uid,
+    type: 'branch',
+    recipeId: branch.id,
+    recipeTitle: parent.title,
+    recipeEmoji: parent.emoji,
+    fromUid: from.uid,
+    fromDisplayName: from.displayName,
+    message: branch.prompt ? truncateNotificationMessage(branch.prompt) : null,
+    read: false,
+    createdAt: Date.now(),
+  });
+}
+
 export async function createSuggestion(params: {
   recipeId: string;
   recipeOwnerId: string;

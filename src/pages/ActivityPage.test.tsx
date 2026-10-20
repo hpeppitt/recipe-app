@@ -100,6 +100,38 @@ describe('ActivityPage', () => {
     expect(markRead).toHaveBeenCalledWith('u');
   });
 
+  it('a branch row names the parent, quotes the prompt, has a sage branch badge and opens the branch (RL-153)', async () => {
+    setHook([
+      notif({ id: 'br', type: 'branch', recipeId: 'branch-1', recipeTitle: 'Banana bread', recipeEmoji: '🍌', fromDisplayName: 'Lin', message: 'vegan, no eggs' }),
+    ]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<ActivityPage />} />
+        <Route path="/recipe/:id" element={<p>Branch page</p>} />
+      </Routes>
+    );
+    const row = screen.getByRole('button', { name: 'Lin branched your recipe 🍌 Banana bread' });
+    expect(row).toHaveAccessibleDescription(/^"vegan, no eggs"/);
+    const badge = row.querySelector('.bg-accent-2-600')!;
+    expect(badge.querySelector('line[x1="6"][y1="3"][y2="15"]')).not.toBeNull(); // GitBranch's trunk
+    fireEvent.click(row);
+    expect(await screen.findByText('Branch page')).toBeInTheDocument();
+  });
+
+  it('still opens the recipe when marking read fails', async () => {
+    markRead.mockRejectedValueOnce(new Error('offline'));
+    setHook([notif({ id: 'u', read: false })]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<ActivityPage />} />
+        <Route path="/recipe/:id" element={<p>Recipe page</p>} />
+      </Routes>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Ann saved/ }));
+    expect(await screen.findByText('Recipe page')).toBeInTheDocument();
+    expect(markRead).toHaveBeenCalledWith('u');
+  });
+
   it('opens the sender profile for a follow', async () => {
     setHook([notif({ id: 'f', type: 'follow', recipeId: undefined, recipeTitle: undefined })]);
     renderWithProviders(
