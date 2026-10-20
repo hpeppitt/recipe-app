@@ -1,6 +1,7 @@
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useRecipe } from '../hooks/useRecipe';
 import { useRecipeChat } from '../hooks/useRecipeChat';
+import { useBranchFamily } from '../hooks/useBranchFamily';
 import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { useAuth } from '../contexts/AuthContext';
 import { IconButton } from '../components/ui/IconButton';
@@ -126,6 +127,8 @@ export function RecipeChatPage() {
   // opens with the suggestion already written out.
   const location = useLocation();
   const suggestionSeed = (location.state as { suggestion?: string } | null)?.suggestion ?? '';
+  const fromDedup = !!(location.state as { fromDedup?: boolean } | null)?.fromDedup;
+  const branchFamily = useBranchFamily(isVarying ? parentRecipe : undefined);
 
   // A generated recipe lives only in component state until saved, so leaving the
   // page destroys it. isSaving excluded because saveRecipe navigates on success.
@@ -286,6 +289,9 @@ export function RecipeChatPage() {
           parent={parentRecipe}
           seed={suggestionSeed}
           generating={isLoading}
+          family={branchFamily}
+          onOpenBranch={(cid) => navigate(`/recipe/${cid}`)}
+          onChange={fromDedup ? goBack : undefined}
           unavailableNotice={generationUnavailable ? <GenerationUnavailableNotice /> : undefined}
           onGrow={sendMessage}
         />
@@ -474,7 +480,7 @@ export function RecipeChatPage() {
           <div className="px-4">
             <DedupCard
               typing={typingMatches}
-              onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: typingMatches.query } })}
+              onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: typingMatches.query, fromDedup: true } })}
               onHide={() => {
                 hideTypingMatches();
                 // The close button unmounts with the card, so focus would fall to the body.
@@ -554,7 +560,7 @@ export function RecipeChatPage() {
         onClose={() => {
           setDismissedSimilar(similarRecipes);
         }}
-        onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: pendingQuery ?? '' } })}
+        onBranch={(rid) => navigate(`/recipe/${rid}/vary`, { state: { suggestion: pendingQuery ?? '', fromDedup: true } })}
         onWriteAnyway={dismissSimilar}
       />
       )}

@@ -1893,3 +1893,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Press Escape or tap the backdrop: nothing generates, focus returns to the composer, and a "Show similar recipes" button in the chat reopens the sheet. On a variation the copy reads "Someone's already made this change" and "Mine's different, make mine".
 - Decision: the composer is cleared on send as before, so the typed text is held in the chat (the "Similar recipes found for ..." line), not in the box.
 - Reviewer noted (RL-179, low): browser Back while the sheet is open leaves the page (nothing is lost; router blocking was rejected in decisions.md).
+
+### RL-180 6b chips learn from the family
+- On a family with a "less sugar" branch, Branch from the original (390px, light and dark): Less sugar sits under "Already a branch, open it instead" with an arrow and opens that branch; the other chips sit under "Nobody's tried these yet" and append text. A family with no branches shows one plain row as before.
+- Arrive from a dedup match (7a Branch button or 7b sheet): the Branching card shows Change, which goes back to the chat. Opening Branch from the recipe page shows no Change.
+- Throttle the network: the chips stay in the default order with no split and do not jump later.
+
+- Reviewer noted (low): the per-parent family cache is session-long, so a branch you create and then return to /vary within the session still shows as untried until reload (clear the cache entry on branch save if this bites); the split layout is taller than the one-row placeholder, so content below shifts once; useBranchFamily has no direct test.

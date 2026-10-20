@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BranchComposer, GrowingCard } from './BranchComposer';
@@ -13,6 +13,10 @@ const NOTICE =
 const jpg = (name = 'a.jpg') => new File(['x'], name, { type: 'image/jpeg' });
 const fileInput = () => document.querySelector('input[type="file"]') as HTMLInputElement;
 
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+});
 beforeEach(() => {
   mocks.downscale.mockReset();
   mocks.downscale.mockImplementation(async (f: File) => ({ mimeType: 'image/jpeg', base64: f.name }));
@@ -260,5 +264,55 @@ describe('GrowingCard', () => {
     expect(container.textContent).toBe('Growing your branch…');
     expect(screen.queryByRole('status')).toBeNull();
     expect((container.firstElementChild as HTMLElement).getAttribute('aria-hidden')).toBe('true');
+  });
+
+  describe('family chips (RL-180)', () => {
+    const kid = (id: string, prompt: string) => ({ id, prompt, parentId: parent.id });
+    const chipNames = () =>
+      screen.getAllByRole('button').map((b) => b.textContent ?? '').filter((t) => /^(Less sugar|Quicker|Vegan|Spicier|Gluten-free)/.test(t));
+
+    it('orders chips by the family prompts and shows no split without children', () => {
+      show({ family: [{ id: 'g', prompt: 'make it spicy', parentId: 'other' }] });
+      expect(chipNames()[0]).toBe('Spicier');
+      expect(screen.queryByText("Nobody's tried these yet")).toBeNull();
+    });
+
+    it('splits a tried chip out, opens its branch and never appends text', async () => {
+      const onOpenBranch = vi.fn();
+      show({ family: [kid('c1', 'less sugar please')], onOpenBranch });
+      const u = userEvent.setup();
+      expect(screen.getByText("Nobody's tried these yet")).toBeTruthy();
+      expect(screen.getByText('Or describe your change…')).toBeTruthy();
+      await u.click(screen.getByRole('button', { name: 'Open the Less sugar branch' }));
+      expect(onOpenBranch).toHaveBeenCalledWith('c1');
+      expect(box().value).toBe('');
+      await u.click(screen.getByRole('button', { name: 'Quicker' }));
+      expect(box().value).toBe('quicker');
+    });
+
+    it('shows a placeholder while the family loads, with no chips', () => {
+      show({ family: 'loading' });
+      expect(screen.queryByRole('button', { name: 'Quicker' })).toBeNull();
+    });
+
+    it('confirms before leaving through a tried chip when there is a draft', async () => {
+      const onOpenBranch = vi.fn();
+      show({ family: [kid('c1', 'less sugar')], onOpenBranch, seed: 'walnuts' });
+      const u = userEvent.setup();
+      await u.click(screen.getByRole('button', { name: 'Open the Less sugar branch' }));
+      expect(onOpenBranch).not.toHaveBeenCalled();
+      await u.click(screen.getByRole('button', { name: 'Open branch' }));
+      expect(onOpenBranch).toHaveBeenCalledWith('c1');
+    });
+
+    it('shows Change only when onChange is given', async () => {
+      const onChange = vi.fn();
+      const { unmount } = show();
+      expect(screen.queryByRole('button', { name: 'Change recipe' })).toBeNull();
+      unmount();
+      show({ onChange });
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Change recipe' }));
+      expect(onChange).toHaveBeenCalled();
+    });
   });
 });

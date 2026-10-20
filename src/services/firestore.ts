@@ -282,6 +282,33 @@ export async function getPublishedRecipeTree(rootId: string): Promise<PublishedR
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
 }
 
+/** RL-180: direct children read for the 6b chip split, and family prompts read for ordering only. */
+export const BRANCH_CHILDREN_READ = 50;
+export const BRANCH_ORDER_READ = 40;
+
+/**
+ * RL-180: the parent's children (limit 50) and up to 40 family docs for chip ordering. No count and
+ * no root read. Only `id`, `prompt` and `parentId` are used by the caller. Single-field queries, so
+ * no new index.
+ */
+export async function getBranchChipFamily(
+  rootId: string,
+  parentId: string
+): Promise<{ id: string; prompt: string; parentId: string | null }[]> {
+  if (!firestore) return [];
+  const recipes = collection(firestore, 'recipes');
+  const [kids, family] = await Promise.all([
+    getDocs(query(recipes, where('parentId', '==', parentId), limit(BRANCH_CHILDREN_READ))),
+    getDocs(query(recipes, where('rootId', '==', rootId), limit(BRANCH_ORDER_READ))),
+  ]);
+  const byId = new Map<string, { id: string; prompt: string; parentId: string | null }>();
+  for (const d of [...family.docs, ...kids.docs]) {
+    const x = d.data();
+    byId.set(d.id, { id: d.id, prompt: x.prompt ?? '', parentId: x.parentId ?? null });
+  }
+  return [...byId.values()];
+}
+
 /** Most versions of one family the Forest view reads (RL-175). */
 export const FOREST_FAMILY_READ = 40;
 
