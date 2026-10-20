@@ -1541,3 +1541,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Icon-only buttons keep their 44 px target and focus ring (Tab through the Library header and recipe page header).
 - Reviewer noted (med, needs your eyes): stroke 2.75 is about 40% heavier than a normal Lucide icon at 14 to 16 px (stepper plus and minus, search clear X, profile pencils, chat chevron, card heart); the 14 px profile badge pencil is most at risk of blobbing. If it looks heavy, the fix is a strokeWidth prop on Icon (about 2.25 for small ones); do not change it before this check.
 - Reviewer noted (low): the filled heart gains about 10 percent of size from the 2.75 outline; BottomNav active state is colour only and slightly weaker against the heavier inactive icons; the chat Send button is 40 px (w-10 h-10) rather than 44 px, probably pre-existing and worth a follow-up ticket.
+
+### RL-130 Macro and diet pills
+
+- At 390 and 320 px open a recipe with nutrition and a "vegetarian" tag. Pills run author, time, difficulty, leaf diet, kcal, carbs, fat, protein, and wrap cleanly.
+- Open a recipe without nutrition: no macro pills. A recipe with no diet tag shows no leaf pill.
+- Check the neutral pills' contrast if dark mode returns. The chat card passes no tags, so it gets macros but no diet pill.
+- Reviewer noted: the chat card shows macros but no diet pill (out of scope, it passes no tags).
+- Reviewer noted: the order test does not assert servings or prep/cook after protein.
