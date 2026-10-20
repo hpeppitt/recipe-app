@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-176 Avatar editor takes the 14b layout
+
+- At 390px, light and dark, open the editor from the You tab avatar and from Settings' Account row. Check Cancel and Save on top, the 170px blob preview, six swatches (selected one ringed), five-column emoji grid, and the "Use a photo" and "Initials" footer.
+- Pick an emoji and a colour, Save, and see it on the profile. Upload a photo (preview, then Save). Tap Initials and Save. Tab through the controls with a keyboard.
+- Known: Initials saves as `generated` (colour from the uid), so the preview does not use the chosen swatch. Emojis from the old grid (for example the pizza) show no selected cell.
+- Reviewer noted: the photo upload has no `img.onerror`, so a HEIC or corrupt file fails silently (pre-existing). An emoji outside the 15-emoji grid shows no selection.
+
 ### Author decisions 2026-10-20 (legal wording renamed to Saved)
 
 - The Terms and Privacy Policy wording changed from favourite to save (headings, counts, erasure, analytics and notification lines) with no `lastUpdated` date change and no `TERMS_VERSION` bump, so nobody is asked to re-accept. The author will review all policy text before production.

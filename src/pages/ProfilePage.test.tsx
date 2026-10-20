@@ -137,8 +137,8 @@ describe('OwnProfile avatar sheet', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Change avatar' }));
     const sheet = await screen.findByRole('dialog', { name: 'Edit avatar' });
-    expect(within(sheet).getByRole('radio', { name: 'Photo' })).toBeInTheDocument();
-    fireEvent.click(within(sheet).getByRole('radio', { name: 'Initials' }));
+    expect(within(sheet).getByRole('button', { name: 'Use a photo' })).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Initials' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(updateAvatar).toHaveBeenCalledWith(expect.objectContaining({ photoType: 'generated' })));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit avatar' })).toBeNull());

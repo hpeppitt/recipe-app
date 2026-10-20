@@ -1,16 +1,10 @@
 import { useId, useRef, useState } from 'react';
 import { Avatar } from '../ui/Avatar';
-import { SegmentedControl } from '../ui/SegmentedControl';
 import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
-import { Image } from '../ui/icons';
+import { Camera } from '../ui/icons';
 
-const FOOD_EMOJIS = [
-  '🍕', '🍔', '🌮', '🍣', '🍜', '🍰', '🧁', '🍩', '🍪', '🍫',
-  '🍓', '🍑', '🥑', '🍋', '🌶️', '🧄', '🥕', '🍄', '🫐', '🍇',
-  '🥘', '🍲', '🥧', '🍝', '🥗', '🍱', '🧇', '🥞', '🍳', '🥐',
-  '👨‍🍳', '👩‍🍳', '🔪', '🥄', '🍽️', '🧑‍🍳', '☕', '🍵', '🧈', '🥨',
-];
+const FOOD_EMOJIS = ['🥐', '🍞', '🍳', '🍜', '🥟', '🍋', '🧄', '🌶️', '🥑', '🍅', '🧀', '🍰', '🥕', '🍄', '🫖'];
 
 // Swatches store token references, so avatars follow the theme.
 const SWATCHES = [
@@ -57,13 +51,14 @@ export function AvatarEditor({ open, onClose, ...rest }: AvatarEditorProps) {
   // The form mounts per open, so a cancelled draft never survives into the next one.
   return (
     <Sheet open={open} onClose={onClose} labelledBy={titleId}>
-      {open && <AvatarForm titleId={titleId} {...rest} />}
+      {open && <AvatarForm titleId={titleId} onClose={onClose} {...rest} />}
     </Sheet>
   );
 }
 
 function AvatarForm({
   titleId,
+  onClose,
   uid,
   name,
   currentPhotoType,
@@ -71,9 +66,9 @@ function AvatarForm({
   currentPhotoBgColor,
   currentPhotoURL,
   onSave,
-}: Omit<AvatarEditorProps, 'open' | 'onClose'> & { titleId: string }) {
+}: Omit<AvatarEditorProps, 'open'> & { titleId: string }) {
   const [mode, setMode] = useState<Mode>(currentPhotoType);
-  const [emoji, setEmoji] = useState(currentPhotoEmoji ?? '👨‍🍳');
+  const [emoji, setEmoji] = useState(currentPhotoEmoji ?? FOOD_EMOJIS[0]);
   const [bgColor, setBgColor] = useState(
     currentPhotoBgColor ? (LEGACY_HEX[currentPhotoBgColor.toLowerCase().replace('#', '')] ?? currentPhotoBgColor) : SWATCHES[0].value,
   );
@@ -100,6 +95,7 @@ function AvatarForm({
       const sy = (img.height - size) / 2;
       ctx.drawImage(img, sx, sy, size, size, 0, 0, 128, 128);
       setImageURL(canvas.toDataURL('image/jpeg', 0.8));
+      setMode('uploaded');
     };
     img.src = URL.createObjectURL(file);
   };
@@ -125,115 +121,116 @@ function AvatarForm({
 
   return (
     <div className="flex flex-col gap-[18px] min-w-0">
-      <h2 id={titleId} className="font-heading text-[22px] text-text-primary text-center">
-        Edit avatar
-      </h2>
-
-      <div className="flex justify-center [&>div]:h-[120px] [&>div]:w-[120px] [&>div]:font-heading [&>div]:text-[52px]">
-        <Avatar
-          uid={uid}
-          name={name}
-          size="xl"
-          photoType={mode}
-          photoEmoji={mode === 'emoji' ? emoji : null}
-          photoBgColor={mode === 'emoji' ? bgColor : null}
-          photoURL={mode === 'uploaded' ? imageURL : null}
-        />
+      <div className="sticky top-0 z-10 flex items-center justify-between bg-surface">
+        <Button variant="ghost" onClick={onClose} disabled={saving}>
+          Cancel
+        </Button>
+        <h2 id={titleId} className="sr-only">
+          Edit avatar
+        </h2>
+        <Button
+          className="min-h-11 px-[18px]"
+          onClick={handleSave}
+          disabled={saving || (mode === 'uploaded' && !imageURL)}
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </Button>
       </div>
 
-      <SegmentedControl
-        label="Avatar type"
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: 'uploaded', label: 'Photo' },
-          { value: 'generated', label: 'Initials' },
-          { value: 'emoji', label: 'Emoji' },
-        ]}
-      />
-
-      {mode === 'generated' && (
-        <p className="text-xs text-text-tertiary text-center">Made from your name</p>
-      )}
-
-      {mode === 'emoji' && (
-        <div className="flex flex-col gap-4">
-          <div>
-            <div className="mb-2.5 text-xs font-semibold text-text-tertiary">Colour</div>
-            <div className="flex justify-between">
-              {SWATCHES.map((c) => (
-                <button
-                  key={c.value}
-                  type="button"
-                  aria-label={`Background ${c.name}`}
-                  aria-pressed={bgColor === c.value}
-                  onClick={() => setBgColor(c.value)}
-                  className="h-11 w-11 shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-500"
-                  // Ring reaches 2px: six 44px swatches leave 2.4px between them at 320px, so a bigger ring would touch its neighbour.
-                  style={{
-                    backgroundColor: c.value,
-                    boxShadow:
-                      bgColor === c.value
-                        ? '0 0 0 1px var(--color-surface), 0 0 0 2px var(--color-text-primary)'
-                        : undefined,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-5 gap-2">
-            {FOOD_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                aria-pressed={emoji === e}
-                onClick={() => setEmoji(e)}
-                className={`aspect-square min-h-11 flex items-center justify-center rounded-full text-[28px] leading-none ${
-                  emoji === e ? 'bg-accent-200 ring-2 ring-primary-600' : 'bg-surface-secondary'
-                }`}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {mode === 'uploaded' && (
-        <div className="space-y-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
+      <fieldset disabled={saving} className="m-0 flex min-w-0 flex-col gap-[18px] border-0 p-0">
+      <div className="flex justify-center">
+        <div
+          className="h-[170px] w-[170px] overflow-hidden [&>div]:h-full [&>div]:w-full [&>div]:rounded-none [&>div]:font-heading [&>div]:text-[84px]"
+          style={{ borderRadius: '58% 42% 52% 48% / 46% 56% 44% 54%' }}
+        >
+          <Avatar
+            uid={uid}
+            name={name}
+            size="xl"
+            photoType={mode}
+            photoEmoji={mode === 'emoji' ? emoji : null}
+            photoBgColor={mode === 'emoji' ? bgColor : null}
+            photoURL={mode === 'uploaded' ? imageURL : null}
           />
-          <Button variant="secondary" fullWidth onClick={() => fileInputRef.current?.click()}>
-            <Image className="mr-2 h-5 w-5" />
-            Upload a photo
-          </Button>
-          {!imageURL && (
-            <p className="text-xs text-text-tertiary text-center">
-              Image will be cropped to a square and scaled to 128x128
-            </p>
-          )}
         </div>
-      )}
+      </div>
+
+      <div className="flex justify-center">
+        {SWATCHES.map((c) => {
+          const on = mode === 'emoji' && bgColor === c.value;
+          return (
+            <button
+              key={c.value}
+              type="button"
+              aria-label={`Colour ${c.name}`}
+              aria-pressed={on}
+              onClick={() => {
+                setBgColor(c.value);
+                setMode('emoji');
+              }}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              <span
+                className="h-9 w-9 rounded-full"
+                style={{
+                  backgroundColor: c.value,
+                  boxShadow: on ? '0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text-primary)' : undefined,
+                }}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-5 justify-items-center gap-y-2">
+        {FOOD_EMOJIS.map((e) => (
+          <button
+            key={e}
+            type="button"
+            aria-pressed={mode === 'emoji' && emoji === e}
+            onClick={() => {
+              setEmoji(e);
+              setMode('emoji');
+            }}
+            className={`flex h-12 w-12 items-center justify-center rounded-full text-[28px] leading-none focus-visible:outline-2 focus-visible:outline-primary-500 ${
+              mode === 'emoji' && emoji === e ? 'bg-accent-100 ring-2 ring-accent-500' : ''
+            }`}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+
+      <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+      <div className="flex gap-2.5">
+        <Button
+          variant="secondary"
+          className="flex-1 aria-pressed:border-accent-500 aria-pressed:bg-accent-100"
+          aria-pressed={mode === 'uploaded'}
+          onClick={() => (mode !== 'uploaded' && imageURL ? setMode('uploaded') : fileInputRef.current?.click())}
+        >
+          <Camera className="mr-2 h-5 w-5" />
+          Use a photo
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex-1 aria-pressed:border-accent-500 aria-pressed:bg-accent-100"
+          aria-pressed={mode === 'generated'}
+          onClick={() => setMode('generated')}
+        >
+          Initials
+        </Button>
+      </div>
+      <p className="text-xs text-text-tertiary text-center">
+        A photo is cropped to a square and scaled to 128x128
+      </p>
+      </fieldset>
 
       {error && (
         <p role="alert" className="text-sm text-danger-600 text-center">
           Couldn't save your avatar. Try again.
         </p>
       )}
-
-      <Button
-        fullWidth
-        style={{ minHeight: 52 }}
-        onClick={handleSave}
-        disabled={saving || (mode === 'uploaded' && !imageURL)}
-      >
-        {saving ? 'Saving...' : 'Save'}
-      </Button>
     </div>
   );
 }
