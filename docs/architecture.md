@@ -13,7 +13,7 @@ undeployed.
 flowchart TD
     UI[React 19 SPA<br/>pages + components]
     Hooks[hooks/<br/>useRecipe*, useFavorites, useNotifications, useNotificationPrefs, useMediaQuery...]
-    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, createPrompt, paneMode, diet]
+    Lib[lib/<br/>pure logic: tree, search, library, units, share, favoritesMigration, rateLimit, recipeDiff, timelineLayout, radialLayout, forest, createPrompt, paneMode, diet]
     Dexie[(IndexedDB<br/>via Dexie)]
     FS[(Firestore<br/>10 collections + messages)]
     Auth[Firebase Auth<br/>anonymous + email link]
