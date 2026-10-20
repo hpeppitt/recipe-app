@@ -23,60 +23,93 @@ function show(depth: number, current: Partial<Recipe> = {}, over?: (i: number) =
   return { recipe, ancestors };
 }
 
-const crumbs = () => {
-  const nav = screen.getByRole('navigation', { name: 'Recipe lineage' });
-  return within(nav).queryAllByRole('link').map((l) => l.getAttribute('href'));
-};
+const pill = () => screen.getByRole('button', { name: /Path/ });
+const dots = () => screen.getByTestId('generation-dots').children;
 
-describe('LineageStrip crumbs', () => {
+describe('LineageStrip pill and Path panel', () => {
   it('renders nothing on an original', () => {
     const { container } = renderWithProviders(<LineageStrip recipe={makeRecipe({ depth: 0 })} ancestors={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('depth 1: root then current, no "+N"', () => {
+  it('says Generation N from the loaded chain, ignoring a stale depth', () => {
+    show(2);
+    expect(screen.getByText(/Generation 3/).closest('span')).toHaveTextContent('Generation 3 · from Title 1');
+    cleanup();
+    show(1, { depth: 7 });
+    expect(screen.getByText(/Generation 2/)).toBeInTheDocument();
+  });
+
+  it('while loading shows Generation depth+1 with no from part', () => {
+    const recipe = makeRecipe({ id: 'cur', depth: 2, parentId: 'p' });
+    renderWithProviders(<LineageStrip recipe={recipe} ancestors={[]} />);
+    expect(screen.getByText(/Generation 3/).closest('span')?.textContent).toBe('Generation 3');
+  });
+
+  it('draws one dot per generation, the last in accent, capped at 6', () => {
+    show(2);
+    expect(dots()).toHaveLength(3);
+    expect(dots()[2]).toHaveClass('bg-accent');
+    expect(dots()[1]).toHaveClass('bg-neutral-500');
+    cleanup();
+    show(8);
+    expect(dots()).toHaveLength(6);
+    expect(dots()[5]).toHaveClass('bg-accent');
+  });
+
+  it('Path toggles the panel with rows root to current', () => {
+    show(2);
+    expect(pill()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('list')).toBeNull();
+    fireEvent.click(pill());
+    expect(pill()).toHaveAttribute('aria-expanded', 'true');
+    const rows = within(screen.getByRole('list')).getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent('🍌 Title 0');
+    expect(rows[0]).toHaveTextContent('Original · Someone');
+    expect(rows[2]).toHaveTextContent('Current');
+    expect(rows[2]).toHaveTextContent('"less salt" · Ana · you are here');
+    fireEvent.click(pill());
+    expect(screen.queryByRole('list')).toBeNull();
+  });
+
+  it('does not label row 0 Original while the lineage loads', () => {
+    renderWithProviders(<LineageStrip recipe={makeRecipe({ id: 'cur', depth: 1, parentId: 'p', prompt: 'x' })} ancestors={[]} />);
+    fireEvent.click(pill());
+    expect(screen.getByRole('list')).not.toHaveTextContent('Original');
+  });
+
+  it('Compare links to every ancestor and not the current row', () => {
+    show(2);
+    fireEvent.click(pill());
+    const hrefs = screen.getAllByRole('link', { name: /^Compare/ }).map((l) => l.getAttribute('href'));
+    expect(hrefs).toEqual(['/recipe/cur/changes?vs=a0', '/recipe/cur/changes?vs=a1']);
+  });
+
+  it('Escape closes the panel and returns focus to Path', () => {
     show(1);
-    expect(crumbs()).toEqual(['/recipe/a0']);
-    expect(screen.getByRole('link', { name: 'Title 0' })).toHaveTextContent('🍌 Title 0');
-    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull();
+    fireEvent.click(pill());
+    fireEvent.keyDown(screen.getByRole('list'), { key: 'Escape' });
+    expect(screen.queryByRole('list')).toBeNull();
+    expect(pill()).toHaveFocus();
   });
 
-  it('depth 2: root, parent, current, no "+N"', () => {
-    show(2);
-    expect(crumbs()).toEqual(['/recipe/a0', '/recipe/a1']);
-    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull();
-  });
-
-  it('depth 5: root, +3, parent, current; pressing +3 shows all', () => {
-    show(5);
-    expect(crumbs()).toEqual(['/recipe/a0', '/recipe/a4']);
-    const more = screen.getByRole('button', { name: 'Show 3 more' });
-    expect(more).toHaveTextContent('+3');
-    fireEvent.click(more);
-    expect(crumbs()).toEqual(['/recipe/a0', '/recipe/a1', '/recipe/a2', '/recipe/a3', '/recipe/a4']);
-    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull();
-  });
-
-  it('marks only the current crumb as the current page', () => {
-    show(2);
-    const nav = screen.getByRole('navigation', { name: 'Recipe lineage' });
-    const current = nav.querySelectorAll('[aria-current="page"]');
-    expect(current).toHaveLength(1);
-    expect(current[0]).toHaveTextContent('Current');
-    expect(current[0].tagName).not.toBe('A');
-  });
-
-  it('truncates long crumb text to 18 characters but keeps the full title in the name', () => {
-    const long = 'A very long recipe title indeed';
-    show(1, {}, () => ({ title: long }));
-    const link = screen.getByRole('link', { name: long });
-    expect(link).toHaveTextContent('🍌 A very long recipe…');
-    expect(link).toHaveAttribute('title', long);
-  });
-
-  it('falls back for a blank title', () => {
-    show(1, {}, () => ({ title: '  ' }));
-    expect(screen.getByRole('link', { name: 'Untitled recipe' })).toBeInTheDocument();
+  it('closes when the recipe changes', () => {
+    const ancestors = chain(1);
+    function Harness() {
+      const [id, setId] = useState('x');
+      return (
+        <>
+          <button onClick={() => setId('y')}>switch</button>
+          <LineageStrip recipe={makeRecipe({ id, depth: 1, parentId: 'a0' })} ancestors={ancestors} />
+        </>
+      );
+    }
+    renderWithProviders(<Harness />);
+    fireEvent.click(pill());
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'switch' }));
+    expect(screen.queryByRole('list')).toBeNull();
   });
 });
 
@@ -108,7 +141,6 @@ describe('LineageStrip sentence and button', () => {
   it('while the lineage has not loaded, withholds the parent part but keeps the button', () => {
     const recipe = makeRecipe({ id: 'cur', depth: 1, parentId: 'p', prompt: 'x', createdBy: { uid: 'u1', displayName: 'Ana' } });
     renderWithProviders(<LineageStrip recipe={recipe} ancestors={[]} />);
-    expect(screen.queryByRole('navigation', { name: 'Recipe lineage' })).toBeNull();
     expect(screen.getByText(/asked for/).closest('p')?.textContent).toBe('Ana asked for "x".');
     expect(screen.getByRole('link', { name: 'See what changed' })).toHaveAttribute('href', '/recipe/cur/changes');
   });
@@ -127,51 +159,7 @@ describe('LineageStrip sentence and button', () => {
   it('parent author falls back to Someone on its own', () => {
     show(1, {}, () => ({ title: 'Soup', createdBy: { uid: 'u0', displayName: null } }));
     expect(screen.getByText(/asked for/).closest('p')?.textContent).toBe('Ana asked for "less salt" on Someone\'s Soup.');
-  });
-
-  it('truncates at exactly 18 characters: 18 whole, 19 cut with an ellipsis', () => {
-    const eighteen = 'a'.repeat(18);
-    show(1, {}, () => ({ title: eighteen }));
-    expect(screen.getByRole('link', { name: eighteen })).toHaveTextContent(`🍌 ${eighteen}`);
-    expect(screen.getByRole('link', { name: eighteen }).textContent).not.toContain('…');
-    cleanup();
-    show(1, {}, () => ({ title: eighteen + 'b' }));
-    expect(screen.getByRole('link', { name: eighteen + 'b' }).textContent).toBe(`🍌 ${eighteen}…`);
-  });
-
-  it('ends the row with the current title at depths 1 and 5', () => {
-    show(1);
-    expect(document.querySelector('[aria-current="page"]')?.textContent).toBe('Current');
-    cleanup();
-    show(5);
-    expect(document.querySelector('[aria-current="page"]')?.textContent).toBe('Current');
-  });
-
-  it('expanding does not duplicate the root and moves focus to the first revealed crumb', () => {
-    show(5);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
-    expect(screen.getAllByRole('link', { name: 'Title 0' })).toHaveLength(1);
-    expect(screen.getByRole('link', { name: 'Title 1' })).toHaveFocus();
-  });
-
-  it('collapses again when the recipe changes', () => {
-    const ancestors = chain(5);
-    function Harness() {
-      const [id, setId] = useState('x');
-      return (
-        <>
-          <button onClick={() => setId('y')}>switch</button>
-          <LineageStrip recipe={makeRecipe({ id, depth: 5, parentId: 'a4' })} ancestors={ancestors} />
-        </>
-      );
-    }
-    renderWithProviders(<Harness />);
-    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
-    expect(screen.queryByRole('button', { name: 'Show 3 more' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'switch' }));
-    expect(screen.getByRole('button', { name: 'Show 3 more' })).toBeInTheDocument();
-  });
-});
+  });});
 
 describe('LineageStrip list origin', () => {
   function State() {
@@ -187,15 +175,17 @@ describe('LineageStrip list origin', () => {
       { route: { pathname: '/recipe/cur', state } }
     );
 
-  it('passes the list origin on a crumb, so the hop stays beside the list', () => {
+  it('passes the list origin on a row title, so the hop stays beside the list', () => {
     renderAt({ listOrigin: '/' });
-    fireEvent.click(screen.getByRole('link', { name: 'Root' }));
+    fireEvent.click(pill());
+    fireEvent.click(screen.getByRole('link', { name: /^[^C]*Root$/ }));
     expect(screen.getByTestId('state')).toHaveTextContent('{"listOrigin":"/"}');
   });
 
   it('passes no state without one', () => {
     renderAt({ saved: 'cloud' });
-    fireEvent.click(screen.getByRole('link', { name: 'Root' }));
+    fireEvent.click(pill());
+    fireEvent.click(screen.getByRole('link', { name: /^[^C]*Root$/ }));
     expect(screen.getByTestId('state')).toHaveTextContent('null');
   });
 });

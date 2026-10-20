@@ -132,12 +132,3 @@ export function familySubtitle(recipes: Recipe[], now: Date = new Date()): strin
   if (when) text += ` in ${when}`;
   return text;
 }
-
-export type LineageEntry<T> = { kind: 'item'; item: T } | { kind: 'more'; count: number };
-
-/** Ancestors root first, parent last. Collapses the middle to "+N" when deeper than two. */
-export function collapseLineage<T>(ancestors: T[], expanded: boolean): LineageEntry<T>[] {
-  const items = ancestors.map((item): LineageEntry<T> => ({ kind: 'item', item }));
-  if (expanded || ancestors.length <= 2) return items;
-  return [items[0], { kind: 'more', count: ancestors.length - 2 }, items[items.length - 1]];
-}

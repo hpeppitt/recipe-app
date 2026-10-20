@@ -27,6 +27,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (low): a browser Back or Forward to a recipe from the other list while the list is kept hidden mounts that page hidden (an unneeded read). The scroll hand-off uses refs fed by scroll events, so a clamped window offset at the exact moment of a resize may jump slightly; check on a device. EmailLinkStatus remounts on a resize (judged unreachable mid-flow).
 - Explore at 390px and 1280px, on a throttled network: no list jump while the Branching fast this week query runs (a grey placeholder holds the row's space, then the row or Newest replaces it).
 
+### RL-128 The 17b version pill replaces the breadcrumb
+
+- At 390x844 and 320px open a depth-3 branch: the pill reads "Generation 4 · from <parent>" on one line (ellipsis with a long parent title, no wrap), dots with the last in terracotta. Open Path: check the dot rings, the connecting lines, "you are here" on the last row.
+- Tap Compare on the root row and read the diff; tap the parent row's title and confirm it opens that recipe and the panel closes. Escape returns focus to Path.
+- Dark theme: the root's ring (primary text colour) and ancestors' accent rings are visible. At 1024px in the pane, opening an ancestor keeps the list beside it.
+- A chain deeper than six shows six dots (the cap is a groomer choice).
+- Reviewer noted (low): a lineage fetch failure looks like loading forever (`useRecipeLineage` has no error flag).
+- Reviewer noted (low): "Generation N · from <title>" truncates at 320px with no title attribute.
+- Reviewer noted (low): `aria-controls` points at an id that is absent while the panel is closed.
+- Reviewer noted (low): the current row has no `aria-current`.
+
 ### RL-117 Dark Organic (Warm night 20a), Light / Dark / System in Settings
 
 - Settings, Appearance: the Theme segment reads Light, Dark, System, with System selected on a fresh profile. Each choice applies at once and survives a reload with no cream flash before the dark page appears.
