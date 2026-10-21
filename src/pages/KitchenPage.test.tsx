@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 
 type Line = { id: string; name: string; amount: number | null; unit: string | null; aisle: string; sources: never[]; done: boolean };
@@ -8,7 +8,15 @@ const line = (name: string): Line => ({ id: name, name, amount: null, unit: null
 let hook: { kitchen: { shopping: Line[]; pantry: { id: string; name: string }[] } | null; loading: boolean; error?: string | null } = { kitchen: null, loading: false };
 let savedLoading = false;
 let saved: { id: string; title: string; emoji: string }[] = [];
+let collections: { id: string; name: string; recipeIds: string[] }[] = [];
 const countUserCooks = vi.fn();
+let collectionsError: string | null = null;
+const retryCollections = vi.fn();
+vi.mock('../hooks/useCollections', () => ({
+  COLLECTIONS_LOAD_FAILED_MESSAGE: 'load failed',
+  useCollections: () => ({ collections, error: collectionsError, retry: retryCollections }),
+}));
+vi.mock('../db/database', () => ({ db: { recipes: { bulkGet: async () => [{ id: 'a', emoji: '🍜' }] } } }));
 vi.mock('../hooks/useKitchen', () => ({ useKitchen: () => hook }));
 vi.mock('../hooks/useSavedFavorites', () => ({ useSavedFavorites: () => ({ rows: saved, isLoading: savedLoading }) }));
 vi.mock('../services/firestore', () => ({ countUserCooks: (...a: unknown[]) => countUserCooks(...a) }));
@@ -19,6 +27,8 @@ import { KitchenPage } from './KitchenPage';
 beforeEach(() => {
   hook = { kitchen: { shopping: [line('milk'), line('eggs')], pantry: [{ id: 'p', name: 'salt' }] }, loading: false };
   saved = [];
+  collections = [];
+  collectionsError = null;
   savedLoading = false;
   countUserCooks.mockReset().mockResolvedValue(14);
 });
@@ -99,5 +109,27 @@ describe('KitchenPage (RL-214)', () => {
     expect(screen.queryByText('Pantry')).toBeNull();
     expect(screen.getByRole('link', { name: 'Dal' })).toBeInTheDocument();
     expect(countUserCooks).not.toHaveBeenCalled();
+  });
+
+  it('shows a retry when the collections listener fails and none are shown', () => {
+    collectionsError = 'load failed';
+    renderWithProviders(<KitchenPage />);
+    expect(screen.getByRole('heading', { name: 'Collections' })).toBeInTheDocument();
+    expect(screen.getByText("Couldn't load collections")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(retryCollections).toHaveBeenCalled();
+  });
+
+  it('lists collections under Saved with a link each, and hides the section when there are none', async () => {
+    renderWithProviders(<KitchenPage />);
+    expect(screen.queryByText('Collections')).toBeNull();
+    cleanup();
+    collections = [{ id: 'c1', name: 'Weeknights', recipeIds: ['a', 'b'] }];
+    renderWithProviders(<KitchenPage />);
+    expect(screen.getByRole('heading', { name: 'Collections' })).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /Weeknights/ });
+    expect(link).toHaveAttribute('href', '/kitchen/c/c1');
+    expect(link).toHaveTextContent('2 recipes');
+    expect(await screen.findByText('🍜', { exact: false })).toBeInTheDocument();
   });
 });

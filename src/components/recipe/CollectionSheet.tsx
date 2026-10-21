@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { COLLECTIONS_LOAD_FAILED_MESSAGE, useCollections } from '../../hooks/useCollections';
-import { db } from '../../db/database';
-import { collectionName } from '../../lib/kitchen';
+import { collectionCount, collectionName } from '../../lib/kitchen';
 import { cn } from '../../lib/utils';
 import type { RecipeCollection } from '../../services/firestore';
-import { reportError } from '../../services/telemetry';
+import { CollectionGlyph } from './CollectionGlyph';
+import { useLocalEmoji } from '../../hooks/useLocalEmoji';
 import { ListAddedToast, type ListToast } from '../ui/ListAddedToast';
 import { Button } from '../ui/Button';
 import { Check, Plus } from '../ui/icons';
@@ -48,8 +48,6 @@ export function CollectionSheet({ open, auto, recipeId, onClose }: CollectionShe
     </>
   );
 }
-
-const count = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
 
 function CollectionSheetBody({
   titleId,
@@ -99,24 +97,7 @@ function CollectionSheetBody({
     touched.current = true;
   };
 
-  // Emoji for each row's 2x2 grid come from this device only; no cloud reads.
-  const [emoji, setEmoji] = useState<Map<string, string>>(new Map());
-  const firstFour = collections.flatMap((c) => c.recipeIds.slice(0, 4));
-  const wanted = [...new Set(firstFour)].join(',');
-  useEffect(() => {
-    if (!wanted) return;
-    let cancelled = false;
-    db.recipes
-      .bulkGet(wanted.split(','))
-      .then((rows) => {
-        if (cancelled) return;
-        setEmoji(new Map(rows.flatMap((r) => (r ? [[r.id, r.emoji] as [string, string]] : []))));
-      })
-      .catch((err) => reportError(err, 'collection-sheet-emoji'));
-    return () => {
-      cancelled = true;
-    };
-  }, [wanted]);
+  const emoji = useLocalEmoji(collections, 'collection-sheet-emoji');
 
   const run = async (label: string, work: () => Promise<unknown>) => {
     if (busy) return;
@@ -267,7 +248,7 @@ function Row({
   return (
     <button
       type="button"
-      aria-label={already ? `Already in ${collection.name}, ${count(n)}` : `Add to ${collection.name}, ${count(n)}`}
+      aria-label={already ? `Already in ${collection.name}, ${collectionCount(n)}` : `Add to ${collection.name}, ${collectionCount(n)}`}
       disabled={disabled || already}
       onClick={onPick}
       className={cn(
@@ -275,16 +256,11 @@ function Row({
         chosen ? 'bg-accent-100 shadow-[inset_0_0_0_2px_var(--color-accent)]' : 'bg-surface-secondary'
       )}
     >
-      <span aria-hidden="true" className="grid size-[52px] shrink-0 grid-cols-2 place-items-center rounded-[18px] bg-surface text-sm">
-        {[0, 1, 2, 3].map((i) => {
-          const id = collection.recipeIds[i];
-          return id === undefined ? <span key={i} /> : <span key={i}>{emoji.get(id) ?? <span className="inline-block size-2.5 rounded-full bg-neutral-300" />}</span>;
-        })}
-      </span>
+      <CollectionGlyph collection={collection} emoji={emoji} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-bold text-text-primary">{collection.name}</span>
         <span aria-hidden="true" className="block text-xs text-neutral-700">
-          {count(n)}
+          {collectionCount(n)}
           {already && ' · Already in'}
         </span>
       </span>

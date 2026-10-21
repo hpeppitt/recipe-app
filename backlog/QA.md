@@ -2092,3 +2092,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Signed in and verified, save a recipe (bookmark): "Saved. Add to a collection?" opens. Wait 6 seconds without touching it: it closes. Save another and tap New collection, type a name, Create: toast "Added to <name>". Save a third and tap the existing collection row: toast, sheet closes. Unsave: no sheet. Guest or signed out: no sheet. Same on `/shared/:id`. Touching anything in the sheet (even a scroll or tap on empty space) must stop the countdown. Needs RL-227's collections rules deployed; before that every add and create shows "Couldn't update your collections". 390px, light and dark.
 - Emoji in the row grid come only from recipes on this device; others show a grey dot.
 - With VoiceOver on, save a recipe with the keyboard or its activate gesture: the sheet must stay until you choose or tap Not now. With a mouse or finger tap it closes after 6 seconds untouched.
+
+### RL-224 Collections in Kitchen and the collection page
+- Verified, create two collections (save a recipe, New collection). Kitchen shows "Collections" under Saved with a row each: 2x2 emoji (grey dot for recipes not on this device), name, "N recipes", chevron. With none, the section is absent.
+- Open one: back, Edit, More, the name at 30px, count, tiles. Edit shows an X on each tile (44px); tap one and the recipe leaves, the count drops. Done leaves edit mode.
+- More > Rename: new name shows here and in Kitchen. More > Delete: confirm "Delete <name>? The recipes stay saved."; Delete returns to Kitchen without the row. The recipes are still in Saved.
+- Delete a recipe you own that is in a collection (or use one deleted elsewhere): its tile reads "A deleted recipe" and can be removed. Delete the collection on a second device while open here: "This collection is gone" with a link to Kitchen.
+- Network panel on a collection with recipes not on this device: reads come in batches of 24 and only after Show more. Needs RL-227's rules deployed. 390px, light and dark.
