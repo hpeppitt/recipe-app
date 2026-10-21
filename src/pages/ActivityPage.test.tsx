@@ -9,6 +9,10 @@ import { ActivityPage } from './ActivityPage';
 
 const hook = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 vi.mock('../hooks/useNotifications', () => ({ useNotifications: () => hook.value }));
+const cookbooks = vi.hoisted(() => ({ loading: false, error: false, rows: [] as { collectionId: string; name: string; ownerUid: string; ownerName: string | null; lastAddedAt: number; createdAt: number }[] }));
+const markSeen = vi.fn();
+const retry = vi.fn();
+vi.mock('../hooks/useCookbookUpdates', () => ({ useCookbookUpdates: () => ({ updates: cookbooks.rows, markSeen, retry, loading: cookbooks.loading, error: cookbooks.error }) }));
 
 const markRead = vi.fn(async () => {});
 const markAllRead = vi.fn(async () => {});
@@ -45,6 +49,11 @@ function setHook(notifications: AppNotification[], over: Record<string, unknown>
 
 beforeEach(() => {
   markRead.mockClear();
+  markSeen.mockClear();
+  cookbooks.rows = [];
+  cookbooks.loading = false;
+  cookbooks.error = false;
+  retry.mockClear();
   markAllRead.mockReset();
   markAllRead.mockResolvedValue(undefined);
   setHook([]);
@@ -257,5 +266,58 @@ describe('ActivityPage', () => {
     expect(detail('e')).toHaveTextContent(/^Someone: 2 g salt \u2192 1 g/);
     expect(detail('w')).not.toHaveTextContent(':');
     expect(screen.getAllByRole('listitem')[0].querySelector('button')).toHaveAccessibleDescription(/Sami: 150 g|Applied|Kept|thanks/);
+  });
+
+  it('shows a followed cookbook row in the day groups, under All and Follows only, and opening it marks seen', () => {
+    cookbooks.rows = [{ collectionId: 'cb1', name: 'Soups', ownerUid: 'ann', ownerName: 'Ann', lastAddedAt: Date.now(), createdAt: Date.now() }];
+    setHook([notif({ id: 'b', type: 'branch' })]);
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<ActivityPage />} />
+        <Route path="/c/:id" element={<p>cookbook page</p>} />
+      </Routes>
+    );
+    expect(screen.getByRole('button', { name: /Ann added to Soups.*unread/ })).toBeInTheDocument();
+    expect(within(screen.getByRole('heading', { name: 'Today' }).parentElement!).getAllByRole('button')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Branches' }));
+    expect(screen.queryByRole('button', { name: /added to Soups/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Follows' }));
+    expect(screen.getByRole('button', { name: /added to Soups/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /added to Soups/ }));
+    expect(markSeen).toHaveBeenCalledWith('cb1');
+    expect(screen.getByText('cookbook page')).toBeInTheDocument();
+  });
+
+  it('shows cookbook rows even with no notifications', () => {
+    cookbooks.rows = [{ collectionId: 'cb1', name: 'Soups', ownerUid: 'ann', ownerName: null, lastAddedAt: Date.now(), createdAt: Date.now() }];
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByRole('button', { name: /Someone added to Soups/ })).toBeInTheDocument();
+  });
+
+  it('shows a loading state, not "Nothing here yet", while cookbooks load', () => {
+    cookbooks.loading = true;
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByRole('status', { name: 'Loading notifications' })).toBeInTheDocument();
+    expect(screen.queryByText('Nothing here yet.')).toBeNull();
+  });
+
+  it('shows an inline error with Retry when the cookbook load fails, and no empty line', () => {
+    cookbooks.error = true;
+    renderWithProviders(<ActivityPage />);
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't check followed cookbooks");
+    expect(screen.queryByText('Nothing here yet.')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(retry).toHaveBeenCalled();
+  });
+
+  it('Mark all read also marks every cookbook row seen, even with no unread notifications', async () => {
+    cookbooks.rows = [
+      { collectionId: 'a', name: 'A', ownerUid: 'ann', ownerName: 'Ann', lastAddedAt: Date.now(), createdAt: Date.now() },
+      { collectionId: 'b', name: 'B', ownerUid: 'ann', ownerName: 'Ann', lastAddedAt: Date.now(), createdAt: Date.now() },
+    ];
+    renderWithProviders(<ActivityPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+    await waitFor(() => expect(markSeen).toHaveBeenCalledTimes(2));
+    expect(markAllRead).not.toHaveBeenCalled();
   });
 });

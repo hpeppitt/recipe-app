@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
+import { useCookbookUpdates } from '../hooks/useCookbookUpdates';
 import { DEFAULT_NOTIFICATION_PREFS, filterByChip, groupByDays, NOTIF_VERBS, type ActivityChip } from '../lib/notifications';
 import { timeAgo } from '../lib/utils';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -9,8 +10,9 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { Bell, Check, GitBranch, Heart, MessageCircle, UserPlus, X } from '../components/ui/icons';
+import { BookOpen, Bell, Check, GitBranch, Heart, MessageCircle, UserPlus, X } from '../components/ui/icons';
 import type { AppNotification } from '../types/social';
+import type { CookbookUpdate } from '../lib/cookbookUpdates';
 
 const BADGES: Record<AppNotification['type'], { tint: string; Icon: typeof Bell }> = {
   suggestion: { tint: 'bg-accent', Icon: MessageCircle },
@@ -38,6 +40,8 @@ const CHIP_PREF: Record<Exclude<ActivityChip, 'all'>, keyof typeof DEFAULT_NOTIF
   follows: 'follow',
 };
 
+type Item = { kind: 'n'; n: AppNotification; createdAt: number } | { kind: 'c'; u: CookbookUpdate; createdAt: number };
+
 function TurnedOff() {
   return (
     <EmptyState
@@ -54,6 +58,7 @@ function TurnedOff() {
 export function ActivityPage() {
   const { user, isConfigured } = useAuth();
   const { notifications, unreadCount, isLoading, error, prefs, markRead, markAllRead } = useNotifications();
+  const { updates, markSeen, retry, loading: cbLoading, error: cbError } = useCookbookUpdates(true);
   const navigate = useNavigate();
   const [showAuth, setShowAuth] = useState(false);
   const [markFailed, setMarkFailed] = useState(false);
@@ -69,13 +74,25 @@ export function ActivityPage() {
   const readAll = async () => {
     setMarkFailed(false);
     try {
-      await markAllRead();
+      // Cookbook rows are unread too (RL-259); their writes are fire-and-forget like a row tap.
+      for (const u of updates) markSeen(u.collectionId);
+      if (unreadCount > 0) await markAllRead();
     } catch {
       setMarkFailed(true);
     }
   };
 
+  // Followed cookbooks sit under All and Follows, merged into the same day groups by lastAddedAt (RL-259).
+  const cookbookRows = chip === 'all' || chip === 'follows' ? updates : [];
   const shown = filterByChip(notifications, chip);
+  const items: Item[] = [
+    ...shown.map((n): Item => ({ kind: 'n', n, createdAt: n.createdAt })),
+    ...cookbookRows.map((u): Item => ({ kind: 'c', u, createdAt: u.createdAt })),
+  ].sort((a, b) => b.createdAt - a.createdAt);
+  const openCookbook = (u: CookbookUpdate) => {
+    markSeen(u.collectionId);
+    navigate(`/c/${u.collectionId}`);
+  };
   const anyOff = !prefs.branch || !prefs.suggestion || !prefs.follow;
   const signedOut = !isConfigured || !user || !user.emailVerified;
 
@@ -145,11 +162,44 @@ export function ActivityPage() {
   };
 
 
+  const cookbookRow = (u: CookbookUpdate) => {
+    const who = u.ownerName?.trim() || 'Someone';
+    return (
+      <li key={`c-${u.collectionId}`}>
+        <button
+          type="button"
+          onClick={() => openCookbook(u)}
+          aria-labelledby={`c-${u.collectionId}-text c-${u.collectionId}-unread`}
+          aria-describedby={`c-${u.collectionId}-time`}
+          className="flex min-h-11 w-full items-start gap-3 py-2.5 text-left"
+        >
+          <span className="relative shrink-0 [&>div]:size-10 [&>div]:text-sm">
+            <Avatar uid={u.ownerUid} name={u.ownerName} size="lg" />
+            <span aria-hidden="true" className="absolute -bottom-1 -right-1 flex size-5 items-center justify-center rounded-full bg-accent-2-600 text-on-accent ring-2 ring-surface">
+              <BookOpen className="size-2.5" />
+            </span>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span id={`c-${u.collectionId}-text`} className="block break-words text-sm leading-[1.4] text-text-primary">
+              <b>{who}</b> added to <b>{u.name}</b>
+            </span>
+            <span id={`c-${u.collectionId}-time`} className="mt-0.5 block text-xs text-text-tertiary">{timeAgo(u.lastAddedAt)}</span>
+          </span>
+          <span className="mt-2 size-[9px] shrink-0 rounded-full bg-accent">
+            <span id={`c-${u.collectionId}-unread`} className="sr-only">
+              unread
+            </span>
+          </span>
+        </button>
+      </li>
+    );
+  };
+
   return (
     <div>
       <div className="flex items-baseline px-5 pt-4">
         <h1 className="flex-1 font-heading text-[30px] leading-tight text-text-primary">Activity</h1>
-        {!signedOut && unreadCount > 0 && (
+        {!signedOut && unreadCount + updates.length > 0 && (
           <button
             type="button"
             onClick={readAll}
@@ -164,6 +214,14 @@ export function ActivityPage() {
           Couldn't mark those as read. Try again.
         </p>
       )}
+      {!signedOut && cbError && (
+        <p role="alert" className="px-5 text-sm text-danger-600">
+          Couldn't check followed cookbooks.{' '}
+          <button type="button" onClick={retry} className="min-h-11 font-semibold underline">
+            Retry
+          </button>
+        </p>
+      )}
       {signedOut ? (
         <>
           <EmptyState
@@ -174,7 +232,7 @@ export function ActivityPage() {
           />
           <AuthModal open={showAuth} action={{ kind: 'continue' }} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
         </>
-      ) : isLoading ? (
+      ) : isLoading || (cbLoading && notifications.length === 0 && updates.length === 0) ? (
         <div className="flex flex-col gap-3 px-5 pt-4" role="status" aria-label="Loading notifications">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-14 rounded-[20px]" />
@@ -187,8 +245,8 @@ export function ActivityPage() {
           title="Couldn't load notifications"
           description="The connection failed. Reopen this to try again."
         />
-      ) : notifications.length === 0 ? (
-        anyOff ? <TurnedOff /> : <p className="px-5 py-5 text-sm text-text-tertiary">Nothing here yet.</p>
+      ) : notifications.length === 0 && updates.length === 0 ? (
+        cbError ? null : anyOff ? <TurnedOff /> : <p className="px-5 py-5 text-sm text-text-tertiary">Nothing here yet.</p>
       ) : (
         <>
           <div role="group" aria-label="Filter activity" className="flex gap-2 overflow-x-auto px-3 pb-1 pt-3.5">
@@ -209,9 +267,9 @@ export function ActivityPage() {
               </button>
             ))}
           </div>
-          {shown.length === 0 && chip !== 'all' && !prefs[CHIP_PREF[chip]] ? (
+          {items.length === 0 && chip !== 'all' && !prefs[CHIP_PREF[chip]] ? (
             <TurnedOff />
-          ) : shown.length === 0 ? (
+          ) : items.length === 0 ? (
             <EmptyState
               compact
               icon={<Bell />}
@@ -221,10 +279,10 @@ export function ActivityPage() {
             />
           ) : (
             <div className="px-5">
-              {groupByDays(shown).map(({ label, items }) => (
+              {groupByDays(items).map(({ label, items }) => (
                 <section key={label}>
                   <h2 className="mb-1 mt-2.5 text-xs font-semibold text-text-tertiary">{label}</h2>
-                  <ul>{items.map(row)}</ul>
+                  <ul>{items.map((i) => (i.kind === 'n' ? row(i.n) : cookbookRow(i.u)))}</ul>
                 </section>
               ))}
             </div>

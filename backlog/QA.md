@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-259 Activity shows "added to <cookbook>" for followed cookbooks
+- Fails live until RL-261 deploys the RL-256 rules (no rows appear, nothing breaks); do this walk on the emulators or after RL-261.
+- Account A follows a cookbook owned by B. B adds a recipe to it. A opens Activity: a row "B added to <cookbook>" with B's avatar, a sage book badge and an unread dot appears under Today, and the Activity tab badge counts it. It shows under All and Follows, not Branches or Suggestions.
+- Tap the row: `/c/<id>` opens, back in Activity the row is gone and the badge drops. Reloading keeps it gone.
+- Stop sharing the cookbook as B: A's Activity skips it silently. Reading is one query plus one read per followed cookbook; nothing is written but `lastSeenAt`.
+- Reviewer noted (low): a row dismissed while a load is in flight can reappear until the write lands; the signed-out Activity copy does not mention cookbooks; a failed `lastSeenAt` write is silent (the row returns next visit). Only the first 30 follows (document-id order) are checked.
+
+- Check after RL-261 deploys: the follows query (where uid == + orderBy documentId, limit 30) runs without an index error in the console.
+
 ### RL-258 A shared cookbook page at /c/:id
 - `/c/:id` fails against production until RL-261 deploys the RL-256 rules (it shows "This cookbook isn't available" even for a shared one); do this walk on the emulators or after RL-261.
 - Open a shared cookbook signed out at 390px and at 1280px: slim banner with a back arrow and Get the app, "COOKBOOK · by <name>" kicker (the name opens the profile), name, description, Follow this cookbook with the follower count, then two columns of recipes saying "<prompt> branch" or "Original". More than 20 recipes show 20, then Show more.

@@ -675,6 +675,14 @@ so does erasure. Following is not content, so neither Terms nor a write window a
 batch is 2 to 3. Emulator-checked 2026-10-22 (ticket RL-256 Notes). Not yet in Download my data or the
 erase script.
 
+**Read cost of Activity's cookbook rows** (RL-259, pull, no notifications written): per Activity visit
+1 follows query (`where uid ==`, `limit 30`, so at most 30 reads) plus one `get` per followed collection (at most 30)
+plus one profile read per distinct owner among the new rows (your own cookbooks are skipped), so 1 query + up to 30 + up to 30 reads in the worst case, no listeners. The follows query is `where uid ==` in document-id order, so only the first 30 follows are checked, deterministically (ordering by `lastSeenAt` would need a new composite index). Only permission-denied skips a cookbook; any other read error fails the load (Activity shows an error with Retry) and is not kept. The unread
+badge reads the same once per session (a module-level store in `hooks/useCookbookUpdates.ts`, shared with
+Activity; a successful result, empty included, is kept, a failed load is not). A row is `lastAddedAt > lastSeenAt`;
+a private or deleted cookbook is skipped silently. Opening a row or `/c/:id` as a follower writes
+`lastSeenAt` (one update, no notification) and drops the row at once.
+
 **Collections client cost** (RL-222, `subscribeCollections` and the collection writes in
 `services/firestore.ts`, through `useCollections`): one listener per session for a verified user,
 shared by every caller, on `where ownerUid == uid` with no `orderBy` (equality only, so no

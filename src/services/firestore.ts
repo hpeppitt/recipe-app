@@ -12,6 +12,7 @@ import {
   where,
   orderBy,
   limit,
+  documentId,
   startAfter,
   type QueryConstraint,
   type CollectionReference,
@@ -2119,6 +2120,49 @@ export async function setCookbookFollow(uid: string, collectionId: string, follo
   else batch.delete(followRef);
   if (follow || currentCount > 0) batch.update(doc(firestore, 'collections', collectionId), { followerCount: increment(follow ? 1 : -1) });
   await rejectAfter(batch.commit(), 'Following the cookbook', COLLECTION_WRITE_TIMEOUT_MS);
+}
+
+/** A follow with the collection it points at; `lastSeenAt` is epoch ms (estimated while pending). */
+export interface CookbookFollowRead {
+  collectionId: string;
+  lastSeenAt: number | null;
+}
+
+/** The viewer's cookbook follows, one-shot: one read per follow, capped at `max`, in id order so the cap is deterministic without a new index (orderBy lastSeenAt would need one). The rules need the `uid ==` filter. */
+export async function listCookbookFollows(uid: string, max: number): Promise<CookbookFollowRead[]> {
+  if (!firestore) return [];
+  const snap = await getDocs(query(collection(firestore, 'cookbookFollows'), where('uid', '==', uid), orderBy(documentId()), limit(max)));
+  return snap.docs.map((d) => {
+    const data = d.data({ serverTimestamps: 'estimate' });
+    return {
+      collectionId: String(data.collectionId ?? ''),
+      lastSeenAt: (data.lastSeenAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
+    };
+  });
+}
+
+/** A followed cookbook's name, owner and `lastAddedAt`, or null when it is private or deleted (permission-denied, skipped silently). Other errors reject. */
+export async function readFollowedCookbook(id: string): Promise<{ name: string; ownerUid: string; lastAddedAt: number | null } | null> {
+  if (!firestore) return null;
+  try {
+    const snap = await getDoc(doc(firestore, 'collections', id));
+    const data = snap.data();
+    if (!data || data.visibility !== 'public') return null;
+    return {
+      name: typeof data.name === 'string' ? data.name : '',
+      ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : '',
+      lastAddedAt: (data.lastAddedAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
+    };
+  } catch (err) {
+    if ((err as { code?: string }).code === 'permission-denied') return null;
+    throw err;
+  }
+}
+
+/** Marks a followed cookbook seen: one update of `lastSeenAt` to the server time, the only field the rules allow. */
+export async function markCookbookSeen(uid: string, collectionId: string): Promise<void> {
+  if (!firestore) return;
+  await updateDoc(doc(firestore, 'cookbookFollows', `${uid}_${collectionId}`), { lastSeenAt: serverTimestamp() });
 }
 
 // --- Follows ---
