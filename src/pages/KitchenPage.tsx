@@ -100,8 +100,9 @@ export function KitchenPage() {
           />
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {/* Stubs until RL-216 and RL-220 add the routes; a link would lead to a blank page. */}
+            {/* Pantry and This week stay stubs until RL-220 adds their routes; a link would lead to a blank page. */}
             <Tile
+              to="/kitchen/list"
               title="Shopping list"
               tone="bg-accent-200 text-accent-900"
               icon={<ShoppingBasket className="text-accent-700" />}

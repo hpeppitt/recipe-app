@@ -24,11 +24,12 @@ beforeEach(() => {
 });
 
 describe('KitchenPage (RL-214)', () => {
-  it('shows the counts, with Cook log the only linked tile', async () => {
+  it('shows the counts, with Shopping list and Cook log the linked tiles', async () => {
     renderWithProviders(<KitchenPage />);
     expect(screen.getByText('2 to buy')).toBeInTheDocument();
     expect(screen.getByText('1 thing')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Shopping list|Pantry/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /Shopping list/ })).toHaveAttribute('href', '/kitchen/list');
+    expect(screen.queryByRole('link', { name: /Pantry/ })).toBeNull();
     expect(await screen.findByRole('link', { name: /Cook log.*14 cooks/ })).toHaveAttribute('href', '/kitchen/log');
     expect(countUserCooks).toHaveBeenCalledWith(fakeUser.uid);
   });

@@ -467,3 +467,25 @@ export const CalendarDays = ({ className }: P) => (
     <path d="M16 18h.01" />
   </Icon>
 );
+export const Share = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <path d="m16 6-4-4-4 4" />
+    <path d="M12 2v13" />
+  </Icon>
+);
+export const ShoppingBag = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+    <path d="M3 6h18" />
+    <path d="M16 10a4 4 0 0 1-8 0" />
+  </Icon>
+);
+export const Store = ({ className }: P) => (
+  <Icon className={className}>
+    <path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" />
+    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" />
+    <path d="M2 7h20" />
+  </Icon>
+);

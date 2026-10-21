@@ -180,3 +180,17 @@ export function formatLineAmount(line: Pick<Item, 'amount' | 'unit'>): string {
   const unit = formatUnit(line.unit, line.amount);
   return unit ? `${formatAmount(line.amount)} ${unit}` : formatAmount(line.amount);
 }
+
+/** The plain-text list for sharing; nothing but the list. */
+export function shareText(toBuy: Item[]): string {
+  const body = groupByAisle(toBuy).map(
+    (g) =>
+      `${g.aisle.toUpperCase()}\n${g.lines
+        .map((l) => {
+          const amt = formatLineAmount(l);
+          return `- ${l.name}${amt ? `, ${amt}` : ''}`;
+        })
+        .join('\n')}`
+  );
+  return ['Shopping list', ...body].join('\n\n');
+}
