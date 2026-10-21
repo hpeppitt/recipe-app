@@ -10,9 +10,10 @@ import { fakeUser } from '../test/renderWithProviders';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, notifyBranched, setCookBranch, getTasteProfile, navigate, reportError, config } = vi.hoisted(() => ({
+const { publishRecipe, notifyBranched, setCookBranch, getTasteProfile, saveTasteProfile, navigate, reportError, config } = vi.hoisted(() => ({
   publishRecipe: vi.fn(),
   getTasteProfile: vi.fn(),
+  saveTasteProfile: vi.fn(),
   notifyBranched: vi.fn(),
   setCookBranch: vi.fn(),
   navigate: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('../services/firestore', () => ({
   notifyBranched: (...a: unknown[]) => notifyBranched(...a),
   setCookBranch: (...a: unknown[]) => setCookBranch(...a),
   getTasteProfile: (...a: unknown[]) => getTasteProfile(...a),
+  saveTasteProfile: (...a: unknown[]) => saveTasteProfile(...a),
   getAllPublishedRecipes: vi.fn(),
   searchPublishedVariations: vi.fn(),
 }));
@@ -946,5 +948,74 @@ describe('useRecipeChat sends the stored avoids with a new session (RL-233)', ()
     expect(reportError).toHaveBeenCalled();
     expect(trackRecipeCreated).toHaveBeenCalled();
     expect(sent.toLowerCase()).not.toMatch(/peanut|pork/);
+  });
+});
+
+describe('useRecipeChat first-time avoids card (RL-234)', () => {
+  const session = vi.fn();
+  beforeEach(() => {
+    session.mockResolvedValue(generated('Soup'));
+    vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
+  });
+
+  it('asks once: shown when nothing is stored and never asked, from the one read', async () => {
+    const { result } = renderChat();
+    await act(async () => {});
+    expect(result.current.askAvoids).toBe(true);
+    expect(getTasteProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['avoids exist', { avoids: ['Pork'], hidden: [], askedAt: null }],
+    ['already asked', { avoids: [], hidden: [], askedAt: 5 }],
+  ])('is hidden when %s', async (_n, profile) => {
+    getTasteProfile.mockResolvedValue(profile);
+    const { result } = renderChat();
+    await act(async () => {});
+    expect(result.current.askAvoids).toBe(false);
+  });
+
+  it('is hidden when the read failed', async () => {
+    getTasteProfile.mockRejectedValue(new Error('offline'));
+    const { result } = renderChat();
+    await act(async () => {});
+    expect(result.current.askAvoids).toBe(false);
+  });
+
+  it('Save stores avoids and askedAt, hides the card, and the first generation uses them', async () => {
+    saveTasteProfile.mockImplementation(async (_uid, update) => ({
+      hidden: [],
+      ...update({ avoids: [], hidden: [], askedAt: null }),
+    }));
+    const { result } = renderChat();
+    await act(async () => {});
+    await act(() => result.current.answerAsk(['Pork', 'pork', 'Dairy']));
+
+    expect(saveTasteProfile).toHaveBeenCalledWith(fakeUser.uid, expect.any(Function));
+    expect(saveTasteProfile.mock.results[0].value).resolves.toMatchObject({ avoids: ['Pork', 'Dairy'], askedAt: expect.any(Number) });
+    expect(result.current.askAvoids).toBe(false);
+    await act(() => result.current.sendMessage('satay'));
+    expect(createRecipeChat).toHaveBeenCalledWith(['Pork', 'Dairy']);
+    expect(getTasteProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('Skip stores askedAt only', async () => {
+    saveTasteProfile.mockImplementation(async (_uid, update) => ({ avoids: [], hidden: [], ...update({ avoids: [], hidden: [], askedAt: null }) }));
+    const { result } = renderChat();
+    await act(async () => {});
+    await act(() => result.current.answerAsk([]));
+    expect(await saveTasteProfile.mock.results[0].value).toMatchObject({ avoids: [], askedAt: expect.any(Number) });
+    expect(result.current.askAvoids).toBe(false);
+  });
+
+  it('a failed save rejects and keeps the card', async () => {
+    saveTasteProfile.mockRejectedValue(new Error('boom'));
+    const { result } = renderChat();
+    await act(async () => {});
+    await act(async () => {
+      await expect(result.current.answerAsk(['Pork'])).rejects.toThrow('boom');
+    });
+    expect(result.current.askAvoids).toBe(true);
   });
 });

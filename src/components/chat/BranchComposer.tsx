@@ -29,6 +29,8 @@ interface BranchComposerProps {
   onChange?: () => void;
   /** Shown above the form, and disables Grow. */
   unavailableNotice?: ReactNode;
+  /** Shown above the form without disabling it (the first-time avoids card, RL-234). */
+  above?: ReactNode;
   /** Text may be empty when photos are attached. May resolve to a limit reason: nothing was sent. */
   onGrow: (
     instruction: string,
@@ -48,6 +50,7 @@ export function BranchComposer({
   onOpenBranch,
   onChange,
   unavailableNotice,
+  above,
   onGrow,
 }: BranchComposerProps) {
   const [text, setText] = useState(seed);
@@ -169,6 +172,7 @@ export function BranchComposer({
       <main className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-lg min-w-0 flex-col gap-4 px-[22px] pt-1.5 pb-3">
           {unavailableNotice}
+          {above}
 
           <div className="flex min-w-0 flex-col items-start gap-2">
             <button
@@ -224,6 +228,7 @@ export function BranchComposer({
 
           <textarea
             ref={boxRef}
+            id="chat-composer"
             value={text}
             onChange={(e) => setText(e.target.value)}
             aria-labelledby={headingId}

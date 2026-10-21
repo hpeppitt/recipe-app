@@ -10,6 +10,7 @@ import {
 } from '../db/recipes';
 import {
   getTasteProfile,
+  saveTasteProfile,
   notifyBranched,
   searchPublishedVariations,
   setCookBranch,
@@ -22,6 +23,7 @@ import {
   GENERATION_UNAVAILABLE,
   type FriendlyError,
 } from '../lib/errors';
+import { normaliseAvoids, type TasteProfile } from '../lib/taste';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
@@ -160,15 +162,15 @@ async function searchSimilarVariations(
 }
 
 /**
- * The verified user's stored avoids for a new chat session (RL-233), or null when the read failed.
+ * The verified user's stored taste profile for a new chat session (RL-233), or null when the read failed.
  * One read, bounded by getTasteProfile's 5 s. Permission denied means no profile can be stored yet
  * (rules not deployed, RL-249), so it counts as no avoids, not a failure; other errors are reported.
  */
-async function readAvoids(uid: string): Promise<string[] | null> {
+async function readAvoids(uid: string): Promise<TasteProfile | null> {
   try {
-    return (await getTasteProfile(uid)).avoids;
+    return await getTasteProfile(uid);
   } catch (err) {
-    if ((err as { code?: unknown } | null)?.code === 'permission-denied') return [];
+    if ((err as { code?: unknown } | null)?.code === 'permission-denied') return { avoids: [], hidden: [], askedAt: Date.now() }; // askedAt set so the ask card stays hidden (nothing can be saved)
     reportError(err, 'taste-avoids');
     return null;
   }
@@ -246,16 +248,40 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
   const { user } = useAuth();
   // The avoids read starts on mount so it is usually done by the first send (RL-233).
   const avoidsUid = isFirebaseConfigured && user?.emailVerified ? user.uid : null;
-  const avoidsRef = useRef<{ uid: string; read: Promise<string[] | null> } | null>(null);
+  const avoidsRef = useRef<{ uid: string; read: Promise<TasteProfile | null> } | null>(null);
   const [avoidsUnavailable, setAvoidsUnavailable] = useState(false);
   const startAvoids = useCallback(() => {
     if (!avoidsUid) return null;
     if (avoidsRef.current?.uid !== avoidsUid) avoidsRef.current = { uid: avoidsUid, read: readAvoids(avoidsUid) };
     return avoidsRef.current.read;
   }, [avoidsUid]);
+  // RL-234: the "Anything the kitchen should avoid?" card shows when this same read found nothing stored and no ask yet.
+  // A failed read hides it (do not nag), and so does a permission-denied one, because nothing could be saved.
+  const [askFor, setAskFor] = useState<string | null>(null);
   useEffect(() => {
-    void startAvoids();
-  }, [startAvoids]);
+    let cancelled = false;
+    void startAvoids()?.then((p) => {
+      if (!cancelled && p && p.askedAt === null && p.avoids.length === 0) setAskFor(avoidsUid);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [startAvoids, avoidsUid]);
+  /** Stores the ask (RL-234): `terms` as avoids, or none for Skip; both set askedAt. Rejects on failure so the card can say so. */
+  const answerAsk = useCallback(
+    async (terms: string[]) => {
+      if (!avoidsUid) return;
+      const saved = await saveTasteProfile(avoidsUid, (cur) => ({
+        avoids: normaliseAvoids([...cur.avoids, ...terms]),
+        askedAt: Date.now(),
+      }));
+      // The next session opened uses them; the card shows before the first recipe, so none is open with history to lose.
+      avoidsRef.current = { uid: avoidsUid, read: Promise.resolve(saved) };
+      if (!generatedOnceRef.current) chatRef.current = null;
+      setAskFor(null);
+    },
+    [avoidsUid]
+  );
 
   useEffect(() => () => clearTimeout(typingTimerRef.current), []);
 
@@ -344,7 +370,7 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
           // Avoids live in the session's system prompt, so they are fixed when it opens:
           // a change mid-chat applies from the next chat, never mid-conversation.
           const read = startAvoids();
-          const avoids = read ? await read : [];
+          const avoids = read ? ((await read)?.avoids ?? null) : [];
           setAvoidsUnavailable(avoids === null);
           chat = parentRecipe ? createVariationChat(parentRecipe, avoids ?? []) : createRecipeChat(avoids ?? []);
           // Allergy safety: a session opened without the avoids is used for this send only.
@@ -580,6 +606,9 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
     generationUnavailable: !isFirebaseConfigured,
     /** The newest session opened without the user's avoids because reading them failed (RL-233). */
     avoidsUnavailable,
+    /** True when the first-time avoids card should show (RL-234). */
+    askAvoids: !!avoidsUid && askFor === avoidsUid,
+    answerAsk,
     latestRecipe,
     similarRecipes,
     loadingPhase,

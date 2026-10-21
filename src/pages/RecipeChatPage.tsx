@@ -11,6 +11,7 @@ import { RecipeCardMessage } from '../components/chat/RecipeCardMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { TypingIndicator } from '../components/chat/TypingIndicator';
 import { BranchComposer, GrowingCard } from '../components/chat/BranchComposer';
+import { AvoidsCard } from '../components/chat/AvoidsCard';
 import { DedupCard } from '../components/chat/DedupCard';
 import { SimilarSheet } from '../components/chat/SimilarSheet';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -102,6 +103,8 @@ export function RecipeChatPage() {
     error,
     generationUnavailable,
     avoidsUnavailable,
+    askAvoids,
+    answerAsk,
     latestRecipe,
     similarRecipes,
     loadingPhase,
@@ -218,6 +221,19 @@ export function RecipeChatPage() {
     </p>
   );
 
+  const avoidsCard = askAvoids && messages.length === 0 && (
+    <AvoidsCard
+      onSave={async (terms) => {
+        await answerAsk(terms);
+        document.getElementById(COMPOSER_ID)?.focus();
+      }}
+      onSkip={async () => {
+        await answerAsk([]);
+        document.getElementById(COMPOSER_ID)?.focus();
+      }}
+    />
+  );
+
   const title = isVarying ? 'New variation' : 'New recipe';
 
   // The contribute gate, and the one place it cannot be a rule.
@@ -295,6 +311,7 @@ export function RecipeChatPage() {
           onOpenBranch={(cid) => navigate(`/recipe/${cid}`)}
           onChange={fromDedup ? goBack : undefined}
           unavailableNotice={generationUnavailable ? <GenerationUnavailableNotice /> : undefined}
+          above={avoidsCard || undefined}
           onGrow={sendMessage}
         />
       </div>
@@ -311,6 +328,8 @@ export function RecipeChatPage() {
           {/* Surfaced before composing rather than after. There is nothing the user
               can do about this one — no key to paste any more — so it links nowhere. */}
           {generationUnavailable && <GenerationUnavailableNotice />}
+
+          {avoidsCard}
 
           {/* Why the composer is inert. Each of these three is a distinct
               situation and only one of them is worth retrying. */}
