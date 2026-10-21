@@ -7,9 +7,18 @@ import { CookedSheet } from './CookedSheet';
 import { RateLimitedError, TermsNotAcceptedError } from '../../lib/errors';
 import { makeRecipe } from '../../test/factories';
 
-const mocks = vi.hoisted(() => ({ log: vi.fn(), navigate: vi.fn(), user: { uid: 'u1', displayName: 'Ann' } as unknown }));
+const mocks = vi.hoisted(() => ({
+  log: vi.fn(),
+  navigate: vi.fn(),
+  user: { uid: 'u1', displayName: 'Ann' } as unknown,
+  addCookPhoto: vi.fn(),
+  downscale: vi.fn(),
+  reportError: vi.fn(),
+}));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock('../../services/telemetry', () => ({ reportError: vi.fn() }));
+vi.mock('../../services/telemetry', () => ({ reportError: mocks.reportError }));
+vi.mock('../../services/firestore', () => ({ addCookPhoto: mocks.addCookPhoto }));
+vi.mock('../../services/imageDownscale', () => ({ downscaleToJpeg: mocks.downscale }));
 vi.mock('react-router-dom', async (orig) => ({ ...(await orig<object>()), useNavigate: () => mocks.navigate }));
 
 beforeAll(() => {
@@ -19,6 +28,9 @@ beforeAll(() => {
 beforeEach(() => {
   mocks.log.mockReset().mockResolvedValue('c1');
   mocks.navigate.mockReset();
+  mocks.addCookPhoto.mockReset().mockResolvedValue(undefined);
+  mocks.downscale.mockReset().mockResolvedValue({ mimeType: 'image/jpeg', base64: 'QUJD' });
+  mocks.reportError.mockReset();
   mocks.user = { uid: 'u1', displayName: 'Ann' };
 });
 afterEach(cleanup);
@@ -147,5 +159,123 @@ describe('CookedSheet', () => {
     await screen.findByRole('alert');
     await userEvent.click(screen.getByRole('radio', { name: 'Needs a tweak' }));
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+describe('CookedSheet photo', () => {
+  const photoInput = () => document.querySelector('input[type="file"]') as HTMLInputElement;
+  const jpeg = new File(['x'], 'dinner.jpg', { type: 'image/jpeg' });
+  const pickPhoto = (file = jpeg) => userEvent.upload(photoInput(), file);
+
+  it('offers camera or library without forcing capture', () => {
+    show();
+    expect(photoInput().accept).toBe('image/*');
+    expect(photoInput().hasAttribute('capture')).toBe(false);
+    expect(screen.getByLabelText('Add a photo')).toBe(photoInput());
+  });
+
+  it('downscales to 800px within the 200000-character data URL, previews washed, and removes', async () => {
+    show();
+    await pickPhoto();
+    const img = (await screen.findByRole('img')) as HTMLImageElement;
+    expect(img.src).toBe('data:image/jpeg;base64,QUJD');
+    expect(img.className).toContain('washed');
+    expect(mocks.downscale).toHaveBeenCalledWith(jpeg, { maxSide: 800, maxBytes: 149_982, shrinkToFit: true });
+    expect(img.alt).toBe('Your cook photo');
+    expect(screen.getByLabelText(/Replace photo/)).toBe(photoInput());
+    expect(document.activeElement).toBe(photoInput());
+    expect(screen.getByRole('button', { name: 'Remove photo' }).className).toContain('size-11');
+    expect(screen.getByText(/Food only, please/)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByText(/Food only, please/)).toBeNull();
+  });
+
+  it('says so when the photo cannot be decoded', async () => {
+    mocks.downscale.mockRejectedValue(new Error('The photo could not be decoded'));
+    show();
+    await pickPhoto();
+    expect((await screen.findByRole('alert')).textContent).toBe("That photo didn't work. Try another.");
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('refuses a type it does not accept before decoding', async () => {
+    show();
+    await userEvent.upload(photoInput(), new File(['x'], 'a.gif', { type: 'image/gif' }), { applyAccept: false });
+    expect((await screen.findByRole('alert')).textContent).toBe('Use a JPEG, PNG or WebP photo.');
+    expect(mocks.downscale).not.toHaveBeenCalled();
+  });
+
+  it('writes the cook, then the photo under its id', async () => {
+    const order: string[] = [];
+    mocks.log.mockImplementation(async () => (order.push('cook'), 'c1'));
+    mocks.addCookPhoto.mockImplementation(async () => void order.push('photo'));
+    const { onClose, onSaved } = show();
+    await pickPhoto();
+    await screen.findByRole('img');
+    await userEvent.click(screen.getByRole('radio', { name: 'Would make again' }));
+    await userEvent.click(saveBtn());
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(order).toEqual(['cook', 'photo']);
+    expect(mocks.addCookPhoto).toHaveBeenCalledWith('c1', 'r1', 'data:image/jpeg;base64,QUJD');
+    expect(onSaved).toHaveBeenCalledWith('c1');
+    expect(screen.getByText('Saved to your cook log')).toBeTruthy();
+  });
+
+  it('keeps the cook when the photo write fails, and says the photo did not upload', async () => {
+    const leak = 'data:image/jpeg;base64,' + 'QUJD'.repeat(100);
+    mocks.downscale.mockResolvedValue({ mimeType: 'image/jpeg', base64: 'QUJD'.repeat(100) });
+    mocks.addCookPhoto.mockRejectedValue(new Error(`denied ${leak}`));
+    const { onClose, onSaved } = show();
+    await pickPhoto();
+    await screen.findByRole('img');
+    await userEvent.click(screen.getByRole('radio', { name: 'Would make again' }));
+    await userEvent.click(saveBtn());
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onSaved).toHaveBeenCalledWith('c1');
+    expect(screen.getByText("Saved to your cook log. The photo didn't upload.")).toBeTruthy();
+    expect(mocks.reportError).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(String(mocks.reportError.mock.calls[0][0]))).not.toContain('QUJDQUJD');
+  });
+
+  it('makes no photo write without a photo', async () => {
+    show();
+    await userEvent.click(screen.getByRole('radio', { name: 'Would make again' }));
+    await userEvent.click(saveBtn());
+    await waitFor(() => expect(mocks.log).toHaveBeenCalled());
+    expect(mocks.addCookPhoto).not.toHaveBeenCalled();
+  });
+
+  it('announces preparing, blocks Save, and Remove cancels a photo still being prepared', async () => {
+    let finish: (v: unknown) => void = () => {};
+    mocks.downscale.mockReturnValue(new Promise((r) => (finish = r)));
+    show();
+    await userEvent.click(screen.getByRole('radio', { name: 'Would make again' }));
+    await pickPhoto();
+    expect(screen.getAllByRole('status').some((s) => s.textContent === 'Preparing photo')).toBe(true);
+    expect(saveBtn().disabled).toBe(true);
+    expect(document.getElementById(saveBtn().getAttribute('aria-describedby') ?? '')?.textContent).toBe('Preparing photo');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
+    expect(saveBtn().disabled).toBe(false);
+    finish({ mimeType: 'image/jpeg', base64: 'QUJD' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it.each([
+    ['a photo', false, 'Discard this photo?', "It won't be saved."],
+    ['a note and a photo', true, 'Discard your note and photo?', 'Neither will be saved.'],
+  ])('asks before discarding %s', async (_label, withNote, title, message) => {
+    const { onClose } = show();
+    if (withNote) await userEvent.type(note(), 'hi');
+    await pickPhoto();
+    await screen.findByRole('img');
+    (document.querySelector('dialog') as HTMLDialogElement).dispatchEvent(new Event('cancel', { cancelable: true }));
+    expect(await screen.findByText(title)).toBeTruthy();
+    expect(screen.getByText(message)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Keep editing' })).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

@@ -495,7 +495,7 @@ refused (the document exists, so the write is an update; checked against the emu
 cook, signed in only (so erasure works if verification lapses, as for cooks), or the recipe's owner,
 verified (moderation of a public photo on their recipe; once the recipe is deleted only the cook can
 delete). A cook's deletion does not cascade to its photo (rules cannot cascade): the client deletes
-`cookPhotos/{cookId}` before the cook, tolerating a missing photo, owned by RL-205. Decision 3's size reasoning is met: the cap
+`cookPhotos/{cookId}` before the cook (`deleteCook`, RL-205): it reads the photo (public read) and deletes it only if it exists, because deleting a missing photo is denied. Any error, offline included, stops before the cook is deleted, so a cook is never deleted while its photo might remain. Decision 3's size reasoning is met: the cap
 keeps a photo near 150 KB, well inside the 1 MiB document limit, and the separate collection keeps it
 out of every cook read and count. **Access-call budget**: a create touches `termsAcceptance` and the
 cook (2); the cook's delete touches none, the owner's delete the recipe (1). Emulator-checked

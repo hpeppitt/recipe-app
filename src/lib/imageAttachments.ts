@@ -22,6 +22,14 @@ export const MAX_LONG_SIDE_PX = 1024;
 export const JPEG_QUALITIES = [0.8, 0.6] as const;
 /** Per image after downscale, in decoded bytes (not base64 length). */
 export const MAX_ENCODED_BYTES = 600 * 1024;
+/** The cook photo (RL-205): the rules cap the whole data URL, prefix included, at 200000 characters. */
+export const COOK_PHOTO_MAX_SIDE_PX = 800;
+export const COOK_PHOTO_MAX_URL_LENGTH = 200_000;
+export const JPEG_DATA_URL_PREFIX = 'data:image/jpeg;base64,';
+/** The most JPEG bytes whose data URL fits `maxLength`: base64 is 4 characters per 3 bytes, padded. */
+export function maxBytesForDataUrl(maxLength: number, prefix = JPEG_DATA_URL_PREFIX): number {
+  return Math.floor((maxLength - prefix.length) / 4) * 3;
+}
 /** Sent and stored as the user's text when they send photos with no text. */
 export const IMAGE_ONLY_PROMPT = 'Suggest a recipe based on these photos.';
 
