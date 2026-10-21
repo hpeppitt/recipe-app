@@ -95,8 +95,8 @@ transaction); everything else, `favorites` included, stays.
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
-| `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; no client yet). **Private**: members only, verified. `memberUids` is a list already so RL-237 only adds the invite path. Element shapes are the client's job. |
-| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; no client yet). **Private**: owner only, verified. Public cookbooks are RL-256. |
+| `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: members only, verified. `memberUids` is a list already so RL-237 only adds the invite path. Element shapes are the client's job. |
+| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: owner only, verified. Public cookbooks are RL-256. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -519,6 +519,21 @@ works if verification lapses, as for cooks). Rules cannot iterate a list, so a l
 size only; a 300-item list costs one `size()` per list. A member's `array-contains` query on
 `memberUids` for their own uid is allowed; one for another uid is denied. **Access-call budget**:
 none in any rule.
+
+**Kitchen client cost** (RL-213, `subscribeKitchen` and `updateKitchen` in `services/firestore.ts`,
+through `useKitchen`): one listener per session for a verified user on `kitchens/{uid}`, shared by
+every caller: one read when it attaches (a missing document still bills one read) plus one per
+change. Each mutation is one transaction: one document read and one write (the first write creates
+the document with `memberUids: [uid]`, later ones update only `shopping`, `pantry` and `updatedAt`,
+always `serverTimestamp()`). Before writing, `kitchenFits` (`lib/kitchen.ts`) refuses a list past
+300 items or a serialized document past 900 KB (`KITCHEN_DOC_MAX_BYTES`), so Firestore's 1 MiB
+limit is never the error the user sees; a change that does not grow the lists always passes, so a
+removal is never refused. Bounded at 5 s; cloud only, nothing queued offline. The SDK retries a
+transaction that meets a concurrent write, and each attempt bills its read again. A timed-out
+transaction may still commit, so the hook tells the user "It may have saved. Check your list before
+adding again." rather than inviting a retry. One write runs at a time; a call made meanwhile is
+dropped. A failed listener is reported, retried once after 2 s (refreshing the ID token first on
+permission-denied), and shows `kitchen: null` until a snapshot arrives.
 
 **collections** (RL-211, in the repo, deployed by RL-227): read and update by the owner
 (`ownerUid`), verified, so a `where ownerUid ==` own-uid query is allowed. Create: verified, own

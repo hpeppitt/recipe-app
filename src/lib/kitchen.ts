@@ -41,3 +41,32 @@ export interface PantryItem {
   addedBy: string;
   addedAt: number;
 }
+
+/** Firestore refuses documents over 1 MiB; refuse earlier with our own message (RL-211 review). */
+export const KITCHEN_DOC_MAX_BYTES = 900_000;
+
+export interface KitchenLists {
+  shopping: Item[];
+  pantry: PantryItem[];
+}
+
+/** Thrown before a write that would pass a list cap or the size guard. */
+export class KitchenFullError extends Error {
+  constructor() {
+    super('Kitchen is full');
+    this.name = 'KitchenFullError';
+  }
+}
+
+const bytes = (lists: KitchenLists) => new TextEncoder().encode(JSON.stringify(lists)).length;
+
+/**
+ * Whether the lists fit the rules' item caps and the size guard. JSON length approximates
+ * Firestore's size. A change that does not grow the lists from `before` always fits, so a
+ * removal is never refused.
+ */
+export function kitchenFits(next: KitchenLists, before?: KitchenLists): boolean {
+  const size = bytes(next);
+  if (before && size <= bytes(before)) return true;
+  return next.shopping.length <= KITCHEN_ITEM_CAP && next.pantry.length <= KITCHEN_ITEM_CAP && size <= KITCHEN_DOC_MAX_BYTES;
+}

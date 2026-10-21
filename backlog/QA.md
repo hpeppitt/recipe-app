@@ -2046,3 +2046,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-212 Shopping list helpers
 - Pure helpers in src/lib/shopping.ts, covered by unit tests. Nothing to check in the browser.
+
+### RL-213 useKitchen hook
+- No UI yet, so nothing to see in the app. The hook and service are covered by mocked tests; the first real check comes with the shopping list UI. When it lands, on the emulator: add a recipe on two devices at once and confirm neither loses lines, and confirm offline shows "Couldn't update your kitchen. Check your connection and try again."
