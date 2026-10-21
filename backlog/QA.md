@@ -2060,3 +2060,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Bottom bar at 390px and rail at 1280px: the second slot reads Kitchen with a cooking-pot icon, links to `/kitchen`, and is highlighted on `/kitchen` and on `/saved`.
 - Saved is reachable from Kitchen: See all on the Saved row opens `/saved`; at 1280px a recipe opened from Saved still opens beside the list.
 - Tip, with an existing profile that has at least one bookmark on this device: the first load shows "Saved lives in Kitchen now" in an accent-200 bubble above the bar (flush left at phone widths, measured inside the screen at 320, 360 and 390px; beside Kitchen on the rail), light and dark. Close hides it, and so does tapping Kitchen; a reload does not bring it back. A fresh profile (clear site data) never sees it, even after bookmarking something and reloading.
+
+### RL-216 Shopping list page
+- Open `/kitchen/list` from the Shopping list tile at 390px, light and dark. Needs a way to add recipes (RL-218): add two recipes that share butter and see one summed line with both emoji; tick lines, remove a source chip, and Bought it all (confirm, then the list empties and the pantry grows). Shop mode shows disabled until RL-217. Share on a phone opens the share sheet with only the list; on desktop it copies and shows "Copied". Signed out shows the sign-in card.
+- Not built: the x-N count on chips (lines do not record repeat adds).
