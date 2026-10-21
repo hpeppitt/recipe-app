@@ -1,0 +1,75 @@
+/** Learned taste: computed on the device from the user's own cooks and branches, never stored or sent. */
+import { BRANCH_CHIPS } from './constants';
+import { promptMatchesChip } from './branchChips';
+
+/** `at` is the cook or branch time in epoch ms; it only breaks ties (most recent wins). */
+export interface TasteCooked {
+  title: string;
+  tags: string[];
+  at: number;
+}
+export interface TastePrompt {
+  prompt: string;
+  at: number;
+}
+export interface Taste {
+  cookALot: string[];
+  tendToChange: string[];
+  cookCount: number;
+  branchCount: number;
+}
+
+const MAX_TERMS = 5;
+const MIN_COUNT = 2;
+const DISH_WORDS = ['noodles', 'baking', 'eggs', 'curry', 'soup', 'salad', 'pasta', 'bread', 'rice', 'pizza', 'stew'];
+const CHANGE_PHRASES = [...BRANCH_CHIPS, 'Shorter bake', 'More greens'];
+
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Terms seen in at least MIN_COUNT items, most frequent first, ties by most recent, then A to Z. */
+function top(termsPerItem: { terms: Set<string>; at: number }[], hidden: Set<string>): string[] {
+  const stats = new Map<string, { n: number; at: number }>();
+  for (const { terms, at } of termsPerItem) {
+    for (const t of terms) {
+      const s = stats.get(t) ?? { n: 0, at: 0 };
+      stats.set(t, { n: s.n + 1, at: Math.max(s.at, at) });
+    }
+  }
+  return [...stats]
+    .filter(([t, s]) => s.n >= MIN_COUNT && !hidden.has(t.toLowerCase()))
+    .sort((a, b) => b[1].n - a[1].n || b[1].at - a[1].at || a[0].localeCompare(b[0]))
+    .slice(0, MAX_TERMS)
+    .map(([t]) => sentence(t));
+}
+
+export function learnTaste(input: {
+  cookedRecipes: TasteCooked[];
+  branchPrompts: TastePrompt[];
+  hidden: string[];
+}): Taste {
+  const hidden = new Set(input.hidden.map((h) => h.trim().toLowerCase()));
+  const cooked = input.cookedRecipes.map((r) => {
+    const words = r.title.toLowerCase().split(/[^a-z]+/);
+    const terms = new Set([
+      ...r.tags.map((t) => t.trim().toLowerCase()).filter(Boolean),
+      ...DISH_WORDS.filter((w) => words.includes(w)),
+    ]);
+    return { terms, at: r.at };
+  });
+  const branches = input.branchPrompts.map((b) => ({
+    terms: new Set(CHANGE_PHRASES.filter((c) => promptMatchesChip(b.prompt, c)).map((c) => c.toLowerCase())),
+    at: b.at,
+  }));
+  return {
+    cookALot: top(cooked, hidden),
+    tendToChange: top(branches, hidden),
+    cookCount: cooked.length,
+    branchCount: branches.length,
+  };
+}
+
+export function tasteHeadline(cookCount: number, branchCount: number): string {
+  if (cookCount === 0 && branchCount === 0) return 'Cook and branch a few recipes and this fills in.';
+  const n = (c: number, w: string) => `${c} ${w}${c === 1 ? '' : 's'}`;
+  return `Learned from ${n(cookCount, 'cook')} and ${n(branchCount, 'branch').replace('branchs', 'branches')}.`;
+}
