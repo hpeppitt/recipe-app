@@ -155,6 +155,8 @@ describe('redactExport', () => {
         doc('suggestions/s1/messages/m2', { fromUid: U, fromDisplayName: 'T', text: 'mine' })],
     })],
     notifications: [doc('notifications/n1', { recipientUid: U, fromUid: O, fromDisplayName: 'Omar' })],
+    cooks: [doc('cooks/k1', { uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: O, note: 'good' })],
+    cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
   };
   const r = redactExport(U, body);
   it('replaces every other uid and name, in fields and paths, with one stable alias', () => {
@@ -167,6 +169,10 @@ describe('redactExport', () => {
     expect(r.follows[0].path).toBe(`follows/other-user-1_${U}`);
     expect(r.follows[0].data.followerDisplayName).toBeNull();
     expect(r.notifications[0].data).toMatchObject({ recipientUid: U, fromUid: 'other-user-1', fromDisplayName: null });
+    expect(r.cooks[0].data).toEqual({ uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: 'other-user-1', note: 'good' });
+  });
+  it('keeps the cook photo whole', () => {
+    expect(r.cookPhotos).toEqual(body.cookPhotos);
   });
   it('keeps the requester and all content', () => {
     expect(r.recipes.asCollaborator[0].data.collaborators).toEqual([{ uid: U, displayName: 'T' }]);
@@ -232,6 +238,9 @@ describe('buildErasePlan', () => {
     strayMessages: [doc('suggestions/s1/messages/m1', { fromUid: U }), doc('suggestions/s2/messages/m4', { fromUid: U })],
     notifications: [doc('notifications/n1', {}), doc('notifications/n1', {}), doc('notifications/n2', {})],
     clientErrors: [doc('clientErrors/e1', { uid: U })],
+    cooks: [doc('cooks/k1', { uid: U, recipeId: 'r2', recipeOwnerId: O }), doc('cooks/k2', { uid: U, recipeId: 'r1', recipeOwnerId: U })],
+    cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
+    cooksOnOwn: [doc('cooks/k3', { uid: O, recipeId: 'r1', recipeOwnerId: U })],
     counters: {
       'recipes/r2': { favoriteCount: 3 },
       'recipes/r3': { favoriteCount: 0 },
@@ -276,7 +285,7 @@ describe('buildErasePlan', () => {
   });
 
   it('anonymises the uid\'s suggestion and reply on another recipe, once each, and nothing of the other party', () => {
-    const anon = updates.filter((o) => o.set && !o.path.startsWith('suggestions/s2')).map((o) => [o.path, o.set]);
+    const anon = updates.filter((o) => o.set && o.path.startsWith('suggestions/') && !o.path.startsWith('suggestions/s2')).map((o) => [o.path, o.set]);
     expect(anon).toEqual([
       ['suggestions/s1/messages/m1', { fromUid: PLACEHOLDER_UID, fromDisplayName: null }],
       ['suggestions/s1', { 'suggestedBy.uid': PLACEHOLDER_UID, 'suggestedBy.displayName': null }],
@@ -311,6 +320,19 @@ describe('buildErasePlan', () => {
     ]));
     expect(new Set(deletes).size).toBe(deletes.length);
     expect(plan.deleteAuthUser).toBe(true);
+  });
+
+  it('deletes the uid\'s cook photos before its cooks and anonymises other cooks of own recipes', () => {
+    const paths = ops.map((o) => o.path);
+    expect(paths.indexOf('cookPhotos/k1')).toBeLessThan(Math.min(paths.indexOf('cooks/k1'), paths.indexOf('cooks/k2')));
+    expect(deletes).toEqual(expect.arrayContaining(['cookPhotos/k1', 'cooks/k1', 'cooks/k2']));
+    expect(updates.filter((o) => o.path === 'cooks/k3')).toEqual([{ kind: 'update', path: 'cooks/k3', set: { recipeOwnerId: PLACEHOLDER_UID } }]);
+    expect(deletes).not.toContain('cooks/k3');
+    expect(summarise(plan)).toMatchObject({ 'own cook photo': 1, 'own cook': 2, "another user's cook of an own recipe (kept, owner anonymised)": 1 });
+  });
+
+  it('never prints a photo\'s data URL in the dry-run lines', () => {
+    expect(ops.map(describeOp).join('\n')).not.toContain('base64');
   });
 
   it('is empty for a uid with nothing', () => {

@@ -504,6 +504,20 @@ out of every cook read and count. **Access-call budget**: a create touches `term
 cook (2); the cook's delete touches none, the owner's delete the recipe (1). Emulator-checked
 2026-10-21, including a real 200000-character data URL against the regex (ticket RL-204 Notes).
 
+**Cooks and cook photos in data requests** (RL-207): Download my data reads `cooks` and
+`cookPhotos` where `uid ==` the user (both public read, single-field queries, no index) into
+`cloud.cooks` and `cloud.cookPhotos`, and `writeWindows/{uid}_cook` with the other windows
+(additive, so `DATA_EXPORT_VERSION` stays 1). A cook's `recipeOwnerId` becomes `other-user-N`
+when it is someone else's recipe; the rest of the cook, the user's own name and note
+included, is kept. Each photo row carries its whole data URL, so the file grows by up to about
+200 KB per photo (about 150 KB of JPEG in base64; 201.5 KB for one maximum-size photo in the
+RL-207 emulator run), for example about 10 MB for 50 photos. The photos are read inside the
+same 30 s section timeout as every section; a timeout keeps the photos read so far (pages of
+500) with a warning in the file's `errors`, a failure drops only `cookPhotos`, and the operator
+export is the fallback. Nothing in the export path logs
+a photo's URL. The operator's erase script deletes the user's photos, then their cooks, and
+anonymises other people's cooks of the user's recipes (see docs/operations.md, Data requests).
+
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
 

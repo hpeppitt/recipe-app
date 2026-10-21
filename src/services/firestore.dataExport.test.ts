@@ -54,6 +54,8 @@ describe('fetchCloudDataForExport', () => {
     await fetchCloudDataForExport('u1');
     const shapes = queries.map((q) => `${q.col}:${q.wheres.map((w) => w[0]).join(',')}`).sort();
     expect(shapes).toEqual([
+      'cookPhotos:uid',
+      'cooks:uid',
       'favorites:uid',
       'follows:followerId',
       'follows:followingId',
@@ -77,6 +79,46 @@ describe('fetchCloudDataForExport', () => {
     expect(queries.map((q) => q.col)).toContain('suggestions/s1/messages');
     const s1 = 'data' in out.suggestions ? out.suggestions.data.find((s) => s.id === 's1') : undefined;
     expect(s1?.messages).toHaveLength(1);
+  });
+
+  it("returns the user's cooks and cook photos, and never logs a photo's data URL", async () => {
+    const url = 'data:image/jpeg;base64,' + 'A'.repeat(1000);
+    getDocsImpl = async (q) => {
+      if (q.col === 'cooks') return { docs: [row('k1', { uid: 'u1', recipeOwnerId: 'o1', vote: 'again' })] };
+      if (q.col === 'cookPhotos') return { docs: [row('k1', { uid: 'u1', recipeId: 'r1', url })] };
+      return { docs: [] };
+    };
+    const log = vi.spyOn(console, 'log');
+    const out = await fetchCloudDataForExport('u1');
+    expect('data' in out.cooks && out.cooks.data).toEqual([{ id: 'k1', createdAt: 1, uid: 'u1', recipeOwnerId: 'o1', vote: 'again' }]);
+    expect('data' in out.cookPhotos && out.cookPhotos.data[0].url).toBe(url);
+    const logged = JSON.stringify([...log.mock.calls, ...vi.mocked(console.error).mock.calls]);
+    expect(logged).not.toContain('base64');
+  });
+
+  it('keeps the cook photo pages that arrived when the deadline passes', async () => {
+    vi.useFakeTimers();
+    getDocsImpl = (q) => {
+      if (q.col !== 'cookPhotos') return Promise.resolve({ docs: [] });
+      if (q.after) return new Promise(() => {});
+      return Promise.resolve({ docs: Array.from({ length: 500 }, (_, i) => row(`p${i}`, { uid: 'u1' })) });
+    };
+    const p = fetchCloudDataForExport('u1');
+    await vi.advanceTimersByTimeAsync(30001);
+    const out = await p;
+    vi.useRealTimers();
+    expect('data' in out.cookPhotos && out.cookPhotos.data).toHaveLength(500);
+    expect('warning' in out.cookPhotos && out.cookPhotos.warning).toMatch(/timed out/);
+  });
+
+  it('turns a failed cook photo read into that section error alone', async () => {
+    getDocsImpl = async (q) => {
+      if (q.col === 'cookPhotos') throw Object.assign(new Error('x'), { code: 'unavailable' });
+      return { docs: q.col === 'cooks' ? [row('k1')] : [] };
+    };
+    const out = await fetchCloudDataForExport('u1');
+    expect(out.cookPhotos).toEqual({ error: 'unavailable' });
+    expect('data' in out.cooks && out.cooks.data).toHaveLength(1);
   });
 
   it('turns a rejected read into that section error and still returns the rest', async () => {
@@ -130,7 +172,7 @@ describe('fetchCloudDataForExport', () => {
     getDocImpl = async (p) => (paths.push(p), missing(p));
     await fetchCloudDataForExport('u1');
     expect(paths.sort()).toEqual([
-      'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
+      'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_cook', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
     ]);
   });
 

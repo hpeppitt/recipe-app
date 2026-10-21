@@ -1,5 +1,5 @@
 import type { Recipe, Favorite } from '../types/recipe';
-import type { Suggestion, SuggestionMessage, AppNotification } from '../types/social';
+import type { Suggestion, SuggestionMessage, AppNotification, Cook } from '../types/social';
 import type { UserProfile, Follow } from '../types/profile';
 
 /** Bump when the shape of the file changes. */
@@ -14,6 +14,8 @@ export type CloudDoc = { id: string; [field: string]: unknown };
 export type CloudFollow = Follow & { id: string };
 export type CloudSuggestion = Suggestion & { messages: SuggestionMessage[] };
 export type CloudFavorite = CloudDoc & { uid: string; recipeId: string; recipeOwnerId?: string };
+/** A cook photo (RL-205): `url` is a JPEG data URL of up to 200000 characters. */
+export type CloudCookPhoto = CloudDoc & { uid: string; recipeId: string; url: string };
 
 /**
  * One section's read result. `warning` means the rows are present but incomplete
@@ -31,6 +33,8 @@ export interface CloudInput {
   termsAcceptance: Section<CloudDoc | null>;
   notificationPrefs: Section<CloudDoc | null>;
   writeWindows: Section<CloudDoc[]>;
+  cooks: Section<Cook[]>;
+  cookPhotos: Section<CloudCookPhoto[]>;
 }
 
 export interface DataExportInput {
@@ -61,6 +65,8 @@ export interface DataExport {
     termsAcceptance: CloudDoc | null;
     notificationPrefs: CloudDoc | null;
     writeWindows: CloudDoc[];
+    cooks: Cook[];
+    cookPhotos: CloudCookPhoto[];
   } | null;
   note?: string;
   redaction: string;
@@ -80,6 +86,8 @@ const FAVORITE_KEYS = ['id', 'uid', 'recipeId', 'recipeOwnerId', 'createdAt'];
 const FOLLOW_KEYS = ['id', 'followerId', 'followingId', 'followerDisplayName', 'createdAt'];
 const SUGGESTION_KEYS = ['id', 'recipeId', 'recipeOwnerId', 'recipeTitle', 'recipeEmoji', 'suggestedBy', 'message', 'status', 'createdAt', 'messages'];
 const MESSAGE_KEYS = ['id', 'fromUid', 'fromDisplayName', 'text', 'createdAt'];
+const COOK_KEYS = ['id', 'uid', 'displayName', 'recipeId', 'rootId', 'recipeOwnerId', 'vote', 'note', 'branchId', 'createdAt'];
+const COOK_PHOTO_KEYS = ['id', 'uid', 'recipeId', 'url', 'createdAt'];
 const NOTIFICATION_KEYS = ['id', 'recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'];
 
 const sorted = <T extends { createdAt?: unknown; id?: string }>(rows: T[]): T[] => [...rows].sort(byCreatedAt);
@@ -176,6 +184,11 @@ export function assembleDataExport(input: DataExportInput): DataExport {
       termsAcceptance: take('termsAcceptance', c.termsAcceptance, null),
       notificationPrefs: take('notificationPrefs', c.notificationPrefs, null),
       writeWindows: sorted(take('writeWindows', c.writeWindows, [])),
+      // Both are read where uid == the user, so the only other person is the recipe's owner.
+      cooks: sorted(take('cooks', c.cooks, [])).map((k) =>
+        pick(typeof k.recipeOwnerId === 'string' ? { ...k, recipeOwnerId: alias(k.recipeOwnerId) } : k, COOK_KEYS)
+      ),
+      cookPhotos: sorted(take('cookPhotos', c.cookPhotos, [])).map((p) => pick(p, COOK_PHOTO_KEYS)),
     };
     // Document ids that embed a uid (follows, favourites) are rewritten last,
     // once every other uid has an alias.

@@ -2031,3 +2031,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Delete a cook whose photo is shown: the recipe falls back to the next photo.
 
 - Reviewer noted (low): a cook outside the recipe's newest 20 cooks is not in the Notes sheet, so its photo can only be removed by the recipe owner or by deleting the cook from the cook log; the credit chip contrast was estimated, not measured, so check it over a dark photo in light theme.
+
+### RL-207 Cooks and cook photos in Download my data and the erase script
+- **Needs RL-209 deployed, or the emulators.** Log two cooks, one with a photo, one on someone else's recipe. Settings > Download my data: the file has `cloud.cooks` (2 rows; the other recipe's `recipeOwnerId` reads `other-user-N`), `cloud.cookPhotos` (1 row with the `data:image/jpeg;base64,` URL) and `writeWindows` includes `<uid>_cook`. The file grows by about 200 KB per photo; check it still downloads on a phone. The browser console shows no data URL.
+- Operator script (emulator only): `erase <uid> --emulator` lists `DELETE cookPhotos/...` before `DELETE cooks/...`, an `UPDATE cooks/<id> set {"recipeOwnerId":"deleted-user"}` for another person's cook of your recipe, and counts per kind; no URL is printed.
