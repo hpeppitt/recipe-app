@@ -46,6 +46,18 @@ export function normalizeImportUrl(input: string): string | null {
 }
 
 /** The site a URL belongs to, for display and telemetry: "seriouseats.com". */
+/**
+ * The link in a Web Share Target launch (RL-254). Both params are untrusted: take the first
+ * http(s) URL in `url`, or in `text` when `url` is missing, and run it through the same
+ * normaliser as a pasted link. Null means nothing usable, and the field stays empty.
+ */
+export function sharedImportUrl(params: URLSearchParams): string | null {
+  const source = params.get('url')?.trim() || params.get('text') || '';
+  const found = source.match(/https?:\/\/[^\s<>"']+/i)?.[0];
+  // A sentence often ends right after the link, so drop trailing punctuation.
+  return found ? normalizeImportUrl(found.replace(/[.,;:!?)\]]+$/, '')) : null;
+}
+
 export function importHost(url: string): string {
   try {
     return new URL(url).hostname.toLowerCase().replace(/^www\./, '');

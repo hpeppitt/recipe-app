@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-254 Share a link to Recipe Lab (Android)
+- On an Android phone with Chrome, install Recipe Lab (menu, Install app) after this build is deployed. An already installed copy may need to be removed and reinstalled so the manifest refreshes.
+- In Chrome open a recipe page, tap Share, pick Recipe Lab. The app opens on Add from a link with the link filled in. It must not start reading by itself; tap Read it and the Check the import screen follows.
+- Share from another app that puts the link inside text (for example "Try this https://... yum"): the field holds just the link.
+- Share plain text with no link: the field is empty. Signed out, you see the sign-up screen as usual.
+- iOS has no share target; nothing to check there.
+
 ### RL-253 Imported from <host>
 - Open a recipe saved from Paste a link. Under the title a small line reads "Imported from <host>" with an external-link icon; tap it and the source page opens in a new tab. Check the shared page of an import too. A branch of an import shows no line (only the import itself carries `importedFrom`).
 - The metadata row's author pill reads "via <your name>" on the imported original (the shared page too).
