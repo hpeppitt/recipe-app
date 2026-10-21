@@ -30,6 +30,12 @@ export default defineConfig({
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Android share sheet (RL-254). /import reads the link from url or text; iOS has no share target.
+        share_target: {
+          action: '/import',
+          method: 'GET',
+          params: { title: 'title', text: 'text', url: 'url' },
+        },
       },
       workbox: {
         // Shell and hashed assets only. No runtimeCaching: Firestore, Auth and the
