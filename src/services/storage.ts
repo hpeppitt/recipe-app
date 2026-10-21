@@ -252,3 +252,17 @@ export function claimPendingAction(uid: string, now = Date.now()): void {
 export function clearPendingAction(): void {
   safeRemove(STORAGE_KEYS.PENDING_ACTION);
 }
+
+// --- Kitchen tip (RL-215) ---
+//
+// Kept here, not in STORAGE_KEYS, so the ticket stays inside its files. '1' once the
+// "Saved lives in Kitchen now" tip has been shown or ruled out for a new user.
+const KITCHEN_TIP_KEY = 'recipe-lab-kitchen-tip';
+
+export function getKitchenTipDone(): boolean {
+  return safeGet(KITCHEN_TIP_KEY) === '1';
+}
+
+export function setKitchenTipDone(): void {
+  safeSet(KITCHEN_TIP_KEY, '1');
+}
