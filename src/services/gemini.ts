@@ -7,7 +7,10 @@ import { firebaseApp } from './firebase';
 import { captureAiGeneration } from './analytics';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
-import type { ImageAttachment } from '../lib/imageAttachments';
+import { redactInlineData, type ImageAttachment } from '../lib/imageAttachments';
+import { RECEIPT_ERROR_MESSAGE, RECEIPT_SYSTEM_PROMPT, parseReceiptItems } from '../lib/receipt';
+import { RECEIPT_RESPONSE_SCHEMA } from '../schemas/receipt.responseSchema';
+import { reportError } from './telemetry';
 
 // gemini-2.0-flash was shut down on 2026-06-01 and returns 404. Keep this in
 // step with the Firebase AI Logic supported-models list; a retired model breaks
@@ -167,4 +170,58 @@ export async function importRecipeFromUrl(input: string): Promise<ImportDraft> {
     console.warn('Link import failed for', importHost(url), err instanceof Error ? err.name : 'error');
     return { recipe: null, uncertainCount: 0, error: IMPORT_ERROR_MESSAGE };
   }
+}
+
+/** A receipt read is one AI Logic request (RL-241). */
+export const RECEIPT_TIMEOUT_MS = 30_000;
+
+/**
+ * Reads the food and drink names off one downscaled receipt photo (RL-241).
+ *
+ * The photo lives only in this request: it is not stored, not in analytics, and
+ * any error is redacted before it is reported. Every failure, an empty list
+ * included, throws `RECEIPT_ERROR_MESSAGE`.
+ */
+export async function readReceipt(photo: ImageAttachment): Promise<string[]> {
+  let items: string[];
+  try {
+    if (!firebaseApp) throw new Error('Firebase is not configured, so receipts cannot be read.');
+    const startedAt = performance.now();
+    const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+    const model = getGenerativeModel(
+      ai,
+      {
+        model: MODEL,
+        systemInstruction: RECEIPT_SYSTEM_PROMPT,
+        generationConfig: { responseMimeType: 'application/json', responseSchema: RECEIPT_RESPONSE_SCHEMA },
+      },
+      { timeout: RECEIPT_TIMEOUT_MS }
+    );
+    const result = await model.generateContent([
+      'Read this receipt.',
+      { inlineData: { mimeType: photo.mimeType, data: photo.base64 } },
+    ]);
+    try {
+      items = parseReceiptItems(result.response.text());
+    } catch {
+      // Fixed message: the reply may hold receipt text, which must not reach the console or a report.
+      throw new Error('Receipt reply was not valid');
+    }
+    captureAiGeneration({
+      model: MODEL,
+      sessionId: crypto.randomUUID(),
+      traceId: crypto.randomUUID(),
+      latency: (performance.now() - startedAt) / 1000,
+    });
+  } catch (err) {
+    // A new Error from the redacted message only: no cause, stack or SDK fields that may echo the photo.
+    const redacted = redactInlineData(err);
+    const safe = new Error(redacted instanceof Error ? redacted.message : 'Receipt read failed');
+    safe.name = err instanceof Error ? err.name : 'Error';
+    console.error('Receipt read failed', safe.name, safe.message);
+    reportError(safe, 'read-receipt');
+    throw new Error(RECEIPT_ERROR_MESSAGE);
+  }
+  if (!items.length) throw new Error(RECEIPT_ERROR_MESSAGE);
+  return items;
 }

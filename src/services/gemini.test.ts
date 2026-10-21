@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeRecipe } from '../test/factories';
 
-const { chatSend, generateContent, getGenerativeModel, captureAiGeneration } = vi.hoisted(() => {
+const { chatSend, generateContent, getGenerativeModel, captureAiGeneration, reportError } = vi.hoisted(() => {
   const chatSend = vi.fn();
   const generateContent = vi.fn();
   return {
@@ -9,6 +9,7 @@ const { chatSend, generateContent, getGenerativeModel, captureAiGeneration } = v
     generateContent,
     getGenerativeModel: vi.fn(() => ({ startChat: () => ({ sendMessage: chatSend }), generateContent })),
     captureAiGeneration: vi.fn(),
+    reportError: vi.fn(),
   };
 });
 vi.mock('firebase/ai', async (importOriginal) => ({
@@ -19,8 +20,11 @@ vi.mock('firebase/ai', async (importOriginal) => ({
 }));
 vi.mock('./firebase', () => ({ firebaseApp: {} }));
 vi.mock('./analytics', () => ({ captureAiGeneration }));
+vi.mock('./telemetry', () => ({ reportError }));
 
-import { createRecipeChat, createVariationChat, importRecipeFromUrl, IMPORT_TIMEOUT_MS } from './gemini';
+import { createRecipeChat, createVariationChat, importRecipeFromUrl, IMPORT_TIMEOUT_MS, readReceipt, RECEIPT_TIMEOUT_MS } from './gemini';
+import { RECEIPT_RESPONSE_SCHEMA } from '../schemas/receipt.responseSchema';
+import { RECEIPT_ERROR_MESSAGE, RECEIPT_SYSTEM_PROMPT } from '../lib/receipt';
 import { IMPORT_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
 import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT } from '../lib/prompts';
 import { IMPORT_ERROR_MESSAGE } from '../lib/linkImport';
@@ -187,5 +191,66 @@ describe('importRecipeFromUrl', () => {
     await importRecipeFromUrl(PAGE);
     expect(warn.mock.calls[0]).toEqual(['Link import failed for', 'seriouseats.com', 'TypeError']);
     expect(JSON.stringify(warn.mock.calls[0])).not.toContain('secret-family');
+  });
+});
+
+describe('readReceipt (RL-241)', () => {
+  const PHOTO_DATA = 'Q'.repeat(400);
+  const photo = { mimeType: 'image/jpeg' as const, base64: PHOTO_DATA };
+  const items = (list: unknown[]) => ({ response: { text: () => JSON.stringify({ items: list }) } });
+
+  it('sends the photo inline in one request with the receipt schema and a 30 s bound', async () => {
+    generateContent.mockResolvedValue(items(['Milk', 'milk', 'Visa 4242', 'Eggs']));
+
+    expect(await readReceipt(photo)).toEqual(['Milk', 'Eggs']);
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(generateContent.mock.calls[0][0]).toEqual(['Read this receipt.', { inlineData: { mimeType: 'image/jpeg', data: PHOTO_DATA } }]);
+    const [, params, requestOptions] = getGenerativeModel.mock.calls[0] as unknown as [
+      unknown,
+      { systemInstruction: string; generationConfig: { responseSchema: unknown; responseMimeType: string } },
+      { timeout: number },
+    ];
+    expect(params.systemInstruction).toBe(RECEIPT_SYSTEM_PROMPT);
+    expect(params.generationConfig.responseSchema).toBe(RECEIPT_RESPONSE_SCHEMA);
+    expect(params.generationConfig.responseMimeType).toBe('application/json');
+    expect(requestOptions.timeout).toBe(RECEIPT_TIMEOUT_MS);
+    expect(RECEIPT_TIMEOUT_MS).toBe(30_000);
+  });
+
+  it('keeps the photo out of analytics', async () => {
+    generateContent.mockResolvedValue(items(['Milk']));
+    await readReceipt(photo);
+
+    const fields = captureAiGeneration.mock.calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(fields).sort()).toEqual(['latency', 'model', 'sessionId', 'traceId']);
+    expect(JSON.stringify(captureAiGeneration.mock.calls)).not.toContain(PHOTO_DATA);
+  });
+
+  it('reports a new, redacted error with no cause or extra fields, and throws the one message', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sdk = Object.assign(new Error(`bad request: ${PHOTO_DATA}`, { cause: PHOTO_DATA }), { customErrorData: { body: PHOTO_DATA } });
+    generateContent.mockRejectedValueOnce(sdk);
+
+    await expect(readReceipt(photo)).rejects.toThrow(RECEIPT_ERROR_MESSAGE);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    const reported = reportError.mock.calls[0][0] as Error;
+    expect(reported).not.toBe(sdk);
+    expect(reported.message).toBe('bad request: [redacted]');
+    expect(reported.cause).toBeUndefined();
+    expect(Object.keys(reported)).toEqual(['name']);
+    expect(reported.stack ?? '').not.toContain(PHOTO_DATA);
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(PHOTO_DATA);
+    expect(captureAiGeneration).not.toHaveBeenCalled();
+  });
+
+  it('throws the one message for a malformed reply and for no items, never logging the reply', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    generateContent.mockResolvedValueOnce({ response: { text: () => '{"items": "Hana Smith, 12 High Street"}' } });
+    await expect(readReceipt(photo)).rejects.toThrow(RECEIPT_ERROR_MESSAGE);
+    expect((reportError.mock.calls[0][0] as Error).message).toBe('Receipt reply was not valid');
+    expect(JSON.stringify([consoleError.mock.calls, reportError.mock.calls])).not.toContain('High Street');
+
+    generateContent.mockResolvedValueOnce(items(['1234 5678']));
+    await expect(readReceipt(photo)).rejects.toThrow(RECEIPT_ERROR_MESSAGE);
   });
 });

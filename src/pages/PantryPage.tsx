@@ -1,10 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useKitchen } from '../hooks/useKitchen';
 import { ageingLine, agedItems, itemKey } from '../lib/shopping';
 import { sharedWithLine, type PantryItem } from '../lib/kitchen';
 import { getPantryNudgeDismissed, setPantryNudgeDismissed } from '../services/storage';
+import { readReceipt } from '../services/gemini';
+import { downscaleToJpeg } from '../services/imageDownscale';
+import { canGenerate } from '../lib/generation';
+import { ACCEPTED_IMAGE_TYPES, attachmentErrorMessage, validateImageFile } from '../lib/imageAttachments';
+import { RECEIPT_ERROR_MESSAGE, notInPantry } from '../lib/receipt';
+import { ReceiptSheet } from '../components/kitchen/ReceiptSheet';
 import { Avatar } from '../components/ui/Avatar';
 import { AvatarStack } from '../components/kitchen/KitchenPeople';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -12,7 +18,8 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { Skeleton } from '../components/ui/Skeleton';
-import { ChevronLeft, Clock, CloudOff, Plus, Refrigerator, Sparkles, UserRound, X } from '../components/ui/icons';
+import { Spinner } from '../components/ui/Spinner';
+import { Camera, ChevronLeft, Clock, CloudOff, Plus, Refrigerator, Sparkles, UserRound, X } from '../components/ui/icons';
 
 const DAY_MS = 86_400_000;
 const today = () => new Date().toLocaleDateString('en-CA'); // local YYYY-MM-DD
@@ -36,7 +43,27 @@ export function PantryPage() {
   const [note, setNote] = useState('');
   const [dismissedDay, setDismissedDay] = useState(() => (getPantryNudgeDismissed(today()) ? today() : ''));
   const fieldRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLButtonElement>(null);
+  // State updates are async, so a second pick in the same tick would pass a `reading` check.
+  const readingRef = useRef(false);
+  // Set when the receipt sheet closes; the effect below focuses the camera once the dialog has closed.
+  const refocusCamera = useRef(false);
+  const [reading, setReading] = useState(false);
+  const [readError, setReadError] = useState('');
+  const [receipt, setReceipt] = useState<string[] | null>(null);
+  const [receiptFailed, setReceiptFailed] = useState(false);
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
+  const canRead = verified && canGenerate({ isConfigured, user });
+  useEffect(() => {
+    if (receipt !== null || !refocusCamera.current) return;
+    refocusCamera.current = false;
+    cameraRef.current?.focus();
+  }, [receipt]);
+  const closeReceipt = () => {
+    refocusCamera.current = true;
+    setReceipt(null);
+  };
 
   // useKitchen drops an action started during a write, so lock every control until it settles.
   const run = async (p: () => Promise<void>) => {
@@ -53,7 +80,7 @@ export function PantryPage() {
   // Add the given names in one write; `keep` is the text left in the field afterwards.
   const add = async (raw: string[], keep: string) => {
     const names = raw.map((x) => x.trim()).filter(Boolean);
-    if (!names.length || busy || !kitchen) return;
+    if (!names.length || busy || !kitchen) return false;
     const have = new Set(kitchen.pantry.map((i) => itemKey(i.name)));
     const fresh = new Set<string>();
     const dupes: string[] = [];
@@ -69,6 +96,33 @@ export function PantryPage() {
           .join(' ')
       );
       fieldRef.current?.focus();
+      return true;
+    }
+    return false;
+  };
+
+  // The photo lives only in this handler and the request: never in state, storage or a report (RL-241).
+  const onReceipt = async (file: File | undefined) => {
+    if (!file || readingRef.current || busy || !kitchen) return;
+    setReadError('');
+    const valid = validateImageFile(file, { inMessage: 0, inChat: 0 });
+    if (!valid.ok) return setReadError(attachmentErrorMessage(valid.reason));
+    readingRef.current = true;
+    setReading(true);
+    setNote('Reading the receipt…');
+    try {
+      const items = notInPantry(await readReceipt(await downscaleToJpeg(file, { shrinkToFit: true })), kitchen.pantry);
+      setNote('');
+      if (items.length) {
+        setReceiptFailed(false);
+        setReceipt(items);
+      } else setNote('Everything on that receipt is already in your pantry.');
+    } catch {
+      setNote('');
+      setReadError(RECEIPT_ERROR_MESSAGE);
+    } finally {
+      readingRef.current = false;
+      setReading(false);
     }
   };
 
@@ -159,7 +213,7 @@ export function PantryPage() {
           <div className="flex h-[52px] items-center rounded-full border border-border-strong bg-neutral-100 pl-5 pr-1.5">
             <input
               aria-label="Add things"
-              placeholder="Add things…"
+              placeholder={canRead ? 'Add or snap a receipt…' : 'Add things…'}
               value={draft}
               ref={fieldRef}
               readOnly={busy}
@@ -172,6 +226,35 @@ export function PantryPage() {
               }}
               className="min-w-0 flex-1 bg-transparent text-[16px] text-text-primary outline-none placeholder:text-text-tertiary aria-disabled:opacity-60"
             />
+            {canRead && (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept={ACCEPTED_IMAGE_TYPES.join(',')}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    void onReceipt(file);
+                  }}
+                />
+                <button
+                  ref={cameraRef}
+                  type="button"
+                  aria-label={reading ? 'Reading the receipt' : 'Snap a receipt'}
+                  aria-busy={reading}
+                  // aria-disabled while reading keeps focus here, so the sheet returns focus to it on close.
+                  aria-disabled={reading}
+                  disabled={busy}
+                  onClick={() => !reading && fileRef.current?.click()}
+                  // after: extends the 40px circle to a 44px hit area
+                  className="relative flex size-10 shrink-0 items-center justify-center rounded-full text-text-primary after:absolute after:-inset-0.5 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:opacity-60 aria-disabled:opacity-60"
+                >
+                  <Camera className={`size-5 ${reading ? 'motion-safe:animate-pulse' : ''}`} />
+                </button>
+              </>
+            )}
             <button type="submit" aria-label="Add" disabled={busy} className="flex size-11 shrink-0 items-center justify-center rounded-full text-text-primary disabled:opacity-60">
               <Plus className="size-5" />
             </button>
@@ -201,7 +284,27 @@ export function PantryPage() {
             </button>
           </div>
         )}
-        {error && <p role="alert" className="px-[22px] pt-2 text-[13px] text-danger-600">{error}</p>}
+        {reading && (
+          // Announced through the page's status line; this is the visible copy.
+          <p aria-hidden="true" className="flex items-center gap-2 px-[22px] pt-2 text-[13px] text-text-secondary">
+            <Spinner size="sm" />
+            Reading the receipt…
+          </p>
+        )}
+        {readError && <p role="alert" className="px-[22px] pt-2 text-[13px] text-danger-600">{readError}</p>}
+        <ReceiptSheet
+          items={receipt}
+          busy={busy}
+          error={receiptFailed ? error ?? "Couldn't add those. Try again." : null}
+          onClose={closeReceipt}
+          onAdd={async (names) => {
+            setReceiptFailed(false);
+            if (await add(names, draft)) closeReceipt();
+            else setReceiptFailed(true);
+          }}
+        />
+        {/* While the sheet is open it shows the error itself. */}
+        {error && receipt === null && <p role="alert" className="px-[22px] pt-2 text-[13px] text-danger-600">{error}</p>}
         {pantry.length === 0 ? (
           <EmptyState
             compact
