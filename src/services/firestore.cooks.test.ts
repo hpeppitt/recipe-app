@@ -19,6 +19,13 @@ let stored: Record<string, Record<string, unknown>> = {};
 const queries: unknown[][] = [];
 const updateDoc = vi.fn(async (..._a: unknown[]) => {});
 const deleteDoc = vi.fn(async (..._a: unknown[]) => {});
+const setDoc = vi.fn(async (..._a: unknown[]) => {});
+let photoExists = true;
+const getDoc = vi.fn(async (ref: { path: string }) =>
+  ref.path.startsWith('cookPhotos/')
+    ? { exists: () => photoExists }
+    : { exists: () => termsVersion !== null, data: () => ({ version: termsVersion }) }
+);
 const authState: { currentUser: unknown } = { currentUser: null };
 
 vi.mock('./firebase', () => ({ firestore: { __mock: true }, auth: authState, isFirebaseConfigured: true }));
@@ -49,7 +56,7 @@ vi.mock('firebase/firestore', () => ({
       { id: 'c2', data: () => ({ uid: 'u', vote: 'tweak', createdAt: null }) },
     ],
   }),
-  getDoc: async () => ({ exists: () => termsVersion !== null, data: () => ({ version: termsVersion }) }),
+  getDoc: (ref: { path: string }) => getDoc(ref),
   onSnapshot: (q: unknown, next: (s: unknown) => void) => {
     queries.push(q as unknown[]);
     next({ docs: [{ id: 'c1', data: () => ({ uid: 'u', createdAt: { toMillis: () => 9 } }) }] });
@@ -57,6 +64,7 @@ vi.mock('firebase/firestore', () => ({
   },
   updateDoc: (...a: unknown[]) => updateDoc(...a),
   deleteDoc: (...a: unknown[]) => deleteDoc(...a),
+  setDoc: (...a: unknown[]) => setDoc(...a),
   runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) => {
     const staged: Op[] = [];
     const out = await fn({
@@ -74,7 +82,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-const { logCook, newCookId, getRecipeCookSummary, countUserCooks, subscribeOwnCooks, setCookBranch, deleteCook } = await import('./firestore');
+const { logCook, newCookId, getRecipeCookSummary, countUserCooks, subscribeOwnCooks, setCookBranch, deleteCook, addCookPhoto } = await import('./firestore');
 
 const NOW = 1_800_000_000_000;
 const params = {
@@ -94,7 +102,11 @@ beforeEach(() => {
   hangCounts = false;
   stored = { 'recipes/r2': { rootId: 'r1', createdBy: { uid: 'owner', displayName: 'Owner' } } };
   updateDoc.mockClear();
-  deleteDoc.mockClear();
+  deleteDoc.mockReset().mockResolvedValue(undefined);
+  setDoc.mockReset().mockResolvedValue(undefined);
+  photoExists = true;
+  getDoc.mockClear();
+  authState.currentUser = { uid: 'sam' };
 });
 afterEach(() => vi.useRealTimers());
 
@@ -254,8 +266,49 @@ describe('setCookBranch and deleteCook', () => {
     expect(updateDoc).toHaveBeenCalledWith({ path: 'cooks/c1', id: 'c1' }, { branchId: 'b1' });
   });
 
-  it('deletes the cook', async () => {
+  it('deletes the photo first, then the cook', async () => {
     await deleteCook('c1');
-    expect(deleteDoc).toHaveBeenCalledWith({ path: 'cooks/c1', id: 'c1' });
+    expect(deleteDoc.mock.calls).toEqual([[{ path: 'cookPhotos/c1', id: 'c1' }], [{ path: 'cooks/c1', id: 'c1' }]]);
+  });
+
+  it('skips the photo delete when the cook has no photo', async () => {
+    photoExists = false;
+    await deleteCook('c1');
+    expect(getDoc).toHaveBeenCalledWith({ path: 'cookPhotos/c1', id: 'c1' });
+    expect(deleteDoc.mock.calls).toEqual([[{ path: 'cooks/c1', id: 'c1' }]]);
+  });
+
+  it.each([
+    ['the photo read', 'read'],
+    ['the photo delete', 'delete'],
+  ])('keeps the cook when %s fails, offline or denied', async (_label, step) => {
+    const offline = Object.assign(new Error('offline'), { code: 'unavailable' });
+    if (step === 'read') getDoc.mockRejectedValueOnce(offline);
+    else deleteDoc.mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'permission-denied' }));
+    await expect(deleteCook('c1')).rejects.toThrow(step === 'read' ? 'offline' : 'denied');
+    expect(deleteDoc.mock.calls.some(([ref]) => (ref as { path: string }).path === 'cooks/c1')).toBe(false);
+  });
+});
+
+describe('addCookPhoto', () => {
+  const url = 'data:image/jpeg;base64,' + 'A'.repeat(199_977);
+
+  it('writes cookPhotos/{cookId} with exactly the rules keys', async () => {
+    expect(url.length).toBe(200_000);
+    await addCookPhoto('c1', 'r2', url);
+    expect(setDoc).toHaveBeenCalledWith({ path: 'cookPhotos/c1', id: 'c1' }, { uid: 'sam', recipeId: 'r2', url, createdAt: 'SERVER_TS' });
+  });
+
+  it('refuses a URL over 200000 characters or not a JPEG data URL, writing nothing', async () => {
+    await expect(addCookPhoto('c1', 'r2', url + 'A')).rejects.toThrow();
+    await expect(addCookPhoto('c1', 'r2', 'data:image/png;base64,AAAA')).rejects.toThrow();
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects after 15 s', async () => {
+    setDoc.mockReturnValue(new Promise(() => {}));
+    const p = addCookPhoto('c1', 'r2', url).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(((await p) as Error).message).toMatch(/timed out/);
   });
 });

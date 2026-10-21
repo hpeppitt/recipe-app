@@ -2013,3 +2013,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-204 Cook photos in the rules
 - Nothing to see in the app yet: rules only, in the repo, deployed by RL-209 (client is RL-205 and RL-206). One public JPEG per cook, at most 200000 characters, written by that cook with the current Terms. The cook can delete it (even if verification lapses); the recipe's owner can delete it while the recipe exists. A second photo for the same cook is refused, so replacing one means delete then add. Deleting a cook does not delete its photo in the rules; RL-205 makes the client do it.
+
+### RL-205 Optional cook photo in the I made this sheet
+- **Needs RL-209 deployed (cooks and cookPhotos rules), or the emulators.** On a phone, open I made this on a published recipe: a 96px dashed tile with a camera icon sits left of the note. Tap it: the phone offers camera or library. Take a photo: it fills the tile, washed (desaturated, lifted), with a round remove button, and "Food only, please. No people or personal details. It shows on the recipe for everyone." appears under the note line. Save: the toast reads "Saved to your cook log".
+- In the emulator UI, open `cookPhotos/<cookId>`: keys are uid, recipeId, url, createdAt, and `url` is under 200000 characters. Pick a large panorama: it still saves.
+- Remove the photo, pick another, save. Pick a non-image or a broken file: "That photo didn't work. Try another." (or the JPEG, PNG or WebP message). Go offline after the cook saves to see "Saved to your cook log. The photo didn't upload." (hard to force; the test covers it).
+- A slow photo write can land after the "didn't upload" toast (the write gives up waiting at 15 s, not the SDK). The `cookPhotos` doc then exists, and replacing it later needs a delete first (there is no update rule). Check the emulator for a doc after that toast.
+- While a photo is being prepared the tile shows a spinner, a screen reader hears "Preparing photo", and Save waits; Remove cancels it. Close the sheet with a photo: "Discard this photo?"; with a note too: "Discard your note and photo?".
+- Delete a cook with a photo from Notes from cooks: both documents go. Delete one without a photo: the cook still goes. Offline, the delete fails and the cook stays. Check 320px and dark mode: the tile and note sit side by side without crowding.
+

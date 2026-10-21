@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   ACCEPTED_IMAGE_TYPES,
+  COOK_PHOTO_MAX_URL_LENGTH,
+  JPEG_DATA_URL_PREFIX,
   MAX_SOURCE_BYTES,
+  maxBytesForDataUrl,
   attachmentErrorMessage,
   base64ByteLength,
   planDownscale,
@@ -133,5 +136,22 @@ describe('redactInlineData', () => {
     expect(redactInlineData(`oops ${run}`)).toBe('oops [redacted]');
     const obj = { code: 1 };
     expect(redactInlineData(obj)).toBe(obj);
+  });
+});
+
+describe('maxBytesForDataUrl', () => {
+  // Real base64 of n bytes, so padding is counted as the browser would.
+  const urlOf = (n: number) => JPEG_DATA_URL_PREFIX + btoa('\x07'.repeat(n));
+
+  it('gives the largest byte count whose data URL fits the cook photo cap', () => {
+    const max = maxBytesForDataUrl(COOK_PHOTO_MAX_URL_LENGTH);
+    expect(max).toBe(149_982);
+    expect(urlOf(max).length).toBeLessThanOrEqual(COOK_PHOTO_MAX_URL_LENGTH);
+    expect(urlOf(max + 1).length).toBeGreaterThan(COOK_PHOTO_MAX_URL_LENGTH);
+    expect(base64ByteLength(urlOf(max).slice(JPEG_DATA_URL_PREFIX.length))).toBe(max);
+  });
+
+  it('is below 150 KB, whose data URL the rules would refuse', () => {
+    expect(urlOf(150_000).length).toBeGreaterThan(COOK_PHOTO_MAX_URL_LENGTH);
   });
 });

@@ -101,6 +101,48 @@ describe('downscaleToJpeg', () => {
     await expect(downscaleToJpeg(file)).resolves.toMatchObject({ mimeType: 'image/jpeg' });
   });
 
+  it('takes maxSide and maxBytes options', async () => {
+    toDataURL.mockReturnValueOnce(ofBytes(3003)).mockReturnValueOnce(ofBytes(3000));
+
+    await expect(downscaleToJpeg(file, { maxSide: 800, maxBytes: 3000 })).resolves.toMatchObject({ mimeType: 'image/jpeg' });
+    expect(ctx.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 800, 600);
+    expect(toDataURL.mock.calls).toEqual([['image/jpeg', 0.8], ['image/jpeg', 0.6]]);
+  });
+
+  it('rejects when still over a custom maxBytes', async () => {
+    toDataURL.mockReturnValue(ofBytes(3003));
+
+    await expect(downscaleToJpeg(file, { maxBytes: 3000 })).rejects.toThrow(/too large/);
+  });
+
+  it('with shrinkToFit, redraws at 80% per step at quality 0.5 until it fits', async () => {
+    // Stays over the cap until the canvas is 600px wide or less.
+    toDataURL.mockImplementation(function (this: HTMLCanvasElement) {
+      return this.width <= 600 ? ofBytes(3000) : ofBytes(3003);
+    });
+
+    await expect(downscaleToJpeg(file, { maxSide: 800, maxBytes: 3000, shrinkToFit: true })).resolves.toMatchObject({ mimeType: 'image/jpeg' });
+    expect(ctx.drawImage.mock.calls.map((c) => [c[3], c[4]])).toEqual([[800, 600], [640, 480], [512, 384]]);
+    expect(toDataURL.mock.calls).toEqual([['image/jpeg', 0.8], ['image/jpeg', 0.6], ['image/jpeg', 0.5], ['image/jpeg', 0.5]]);
+    expect(ctx.fillRect).toHaveBeenLastCalledWith(0, 0, 512, 384);
+  });
+
+  it('with shrinkToFit, gives up before the long side drops under 200px', async () => {
+    toDataURL.mockReturnValue(ofBytes(3003));
+
+    await expect(downscaleToJpeg(file, { maxSide: 800, maxBytes: 3000, shrinkToFit: true })).rejects.toThrow(/too large/);
+    const sides = ctx.drawImage.mock.calls.map((c) => c[3] as number);
+    expect(sides).toEqual([800, 640, 512, 410, 328, 262, 210]);
+  });
+
+  it('without shrinkToFit, does not redraw smaller', async () => {
+    toDataURL.mockReturnValue(ofBytes(3003));
+
+    await expect(downscaleToJpeg(file, { maxBytes: 3000 })).rejects.toThrow(/too large/);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    expect(toDataURL).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects when the browser returns PNG instead of JPEG', async () => {
     toDataURL.mockReturnValue('data:image/png;base64,AAAA');
 

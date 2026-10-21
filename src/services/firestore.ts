@@ -36,6 +36,7 @@ import { replyRecipient } from '../lib/suggestions';
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
+import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAttachments';
 import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
@@ -1303,6 +1304,7 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
 const COOK_SUMMARY_TIMEOUT_MS = 6000;
 const COOK_SUMMARY_RECENT = 20;
 const OWN_COOKS_MAX = 200;
+const COOK_PHOTO_TIMEOUT_MS = 15_000;
 
 function toCook(d: QueryDocumentSnapshot): Cook {
   // 'estimate' so the user's own pending cook has a time before the server stamps it.
@@ -1431,9 +1433,45 @@ export async function setCookBranch(cookId: string, branchId: string): Promise<v
   await updateDoc(doc(firestore, 'cooks', cookId), { branchId });
 }
 
+/**
+ * Deletes the cook's photo first (the rules cannot cascade, and the photo's
+ * create rule reads the cook), then the cook. Any failure, offline included,
+ * stops before the cook is deleted, so no photo is left without its cook.
+ */
 export async function deleteCook(cookId: string): Promise<void> {
   if (!firestore) return;
+  await deleteCookPhoto(cookId);
   await deleteDoc(doc(firestore, 'cooks', cookId));
+}
+
+/**
+ * The cook photo (RL-205): one public JPEG data URL per cook, written after the
+ * cook because the rules read it. Replacing is delete then add (no update rule).
+ * The URL is never logged; callers redact errors before reporting them.
+ */
+export async function addCookPhoto(cookId: string, recipeId: string, url: string): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  if (!url.startsWith(JPEG_DATA_URL_PREFIX) || url.length > COOK_PHOTO_MAX_URL_LENGTH) {
+    throw new Error('The cook photo is not a JPEG data URL within the size cap');
+  }
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to add a photo');
+  // 15 s, not the usual bound: up to 200 KB on a phone connection. A timed-out write may still land later.
+  await rejectAfter(
+    setDoc(doc(firestore, 'cookPhotos', cookId), { uid, recipeId, url, createdAt: serverTimestamp() }),
+    'Saving the cook photo',
+    COOK_PHOTO_TIMEOUT_MS
+  );
+}
+
+/**
+ * Deletes the cook's photo if it has one. Reads it first (public read): deleting
+ * a missing photo is denied, since the rule reads the missing doc's uid.
+ */
+export async function deleteCookPhoto(cookId: string): Promise<void> {
+  if (!firestore) return;
+  const ref = doc(firestore, 'cookPhotos', cookId);
+  if ((await getDoc(ref)).exists()) await deleteDoc(ref);
 }
 
 // --- Profiles ---
