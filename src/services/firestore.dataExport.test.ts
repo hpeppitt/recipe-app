@@ -54,6 +54,7 @@ describe('fetchCloudDataForExport', () => {
     await fetchCloudDataForExport('u1');
     const shapes = queries.map((q) => `${q.col}:${q.wheres.map((w) => w[0]).join(',')}`).sort();
     expect(shapes).toEqual([
+      'collections:ownerUid',
       'cookPhotos:uid',
       'cooks:uid',
       'favorites:uid',
@@ -94,6 +95,18 @@ describe('fetchCloudDataForExport', () => {
     expect('data' in out.cookPhotos && out.cookPhotos.data[0].url).toBe(url);
     const logged = JSON.stringify([...log.mock.calls, ...vi.mocked(console.error).mock.calls]);
     expect(logged).not.toContain('base64');
+  });
+
+  it('reads kitchens/{uid} by id and the collections by ownerUid, and skips both for an unverified email', async () => {
+    getDocImpl = async (path) => (path === 'kitchens/u1' ? { id: 'u1', exists: () => true, data: () => ({ ownerUid: 'u1', memberUids: ['u1'], shopping: [], pantry: [], updatedAt: 1 }) } : missing(path));
+    getDocsImpl = async (q) => ({ docs: q.col === 'collections' ? [row('c1', { ownerUid: 'u1', name: 'Dinner' })] : [] });
+    const out = await fetchCloudDataForExport('u1');
+    expect('data' in out.kitchen && out.kitchen.data).toMatchObject({ id: 'u1', ownerUid: 'u1' });
+    expect('data' in out.collections && out.collections.data.map((c) => c.id)).toEqual(['c1']);
+    queries.length = 0;
+    const unverified = await fetchCloudDataForExport('u1', false);
+    expect('error' in unverified.kitchen && 'error' in unverified.collections).toBe(true);
+    expect(queries.some((q) => q.col === 'collections')).toBe(false);
   });
 
   it('keeps the cook photo pages that arrived when the deadline passes', async () => {
@@ -167,12 +180,12 @@ describe('fetchCloudDataForExport', () => {
     expect('warning' in out.notifications && out.notifications.warning).toMatch(/Stopped after 10000/);
   });
 
-  it('reads the four own writeWindows ids and the profile, terms and notificationPrefs by id', async () => {
+  it('reads the four own writeWindows ids and the profile, terms, notificationPrefs and kitchen by id', async () => {
     const paths: string[] = [];
     getDocImpl = async (p) => (paths.push(p), missing(p));
     await fetchCloudDataForExport('u1');
     expect(paths.sort()).toEqual([
-      'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_cook', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
+      'kitchens/u1', 'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_cook', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
     ]);
   });
 
@@ -180,7 +193,7 @@ describe('fetchCloudDataForExport', () => {
     const paths: string[] = [];
     getDocImpl = async (p) => (paths.push(p), missing(p));
     const out = await fetchCloudDataForExport('u1', false);
-    expect(out.notificationPrefs).toEqual({ error: 'Verify your email to include suggestions' });
+    expect(out.notificationPrefs).toEqual({ error: 'Verify your email to include all your online data' });
     expect(paths).not.toContain('notificationPrefs/u1');
   });
 
@@ -199,7 +212,7 @@ describe('fetchCloudDataForExport', () => {
 
   it('skips suggestions for an unverified user with a plain note, and reads the rest', async () => {
     const out = await fetchCloudDataForExport('u1', false);
-    expect(out.suggestions).toEqual({ error: 'Verify your email to include suggestions' });
+    expect(out.suggestions).toEqual({ error: 'Verify your email to include all your online data' });
     expect(queries.some((q) => q.col === 'suggestions')).toBe(false);
     expect(queries.some((q) => q.col === 'favorites')).toBe(true);
   });

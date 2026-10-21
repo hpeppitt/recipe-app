@@ -24,6 +24,8 @@ const empty: CloudInput = {
   writeWindows: { data: [] },
   cooks: { data: [] },
   cookPhotos: { data: [] },
+  kitchen: { data: null },
+  collections: { data: [] },
 };
 
 function full(): DataExportInput {
@@ -83,6 +85,20 @@ describe('assembleDataExport', () => {
     expect(out.cloud?.writeWindows).toHaveLength(1);
     expect(out.cloud?.cooks).toHaveLength(1);
     expect(out.cloud?.cookPhotos).toHaveLength(1);
+  });
+
+  it('exports the kitchen and collections, aliasing any other uid and dropping unknown keys', () => {
+    const input = full();
+    input.cloud!.kitchen = {
+      data: { id: ME, ownerUid: ME, memberUids: [ME, BOB], stray: BOB, shopping: [{ id: 'a', name: 'Egg' }], pantry: [{ id: 'p', name: 'Salt', addedBy: BOB, addedAt: 1 }], updatedAt: 3 },
+    };
+    input.cloud!.collections = { data: [{ id: 'c1', ownerUid: ME, name: 'Dinner', visibility: 'private', recipeIds: ['r1'], createdAt: 1, updatedAt: 2, stray: 1 }] };
+    const out = assembleDataExport(input).cloud!;
+    expect(JSON.stringify(out.kitchen)).not.toContain(BOB);
+    expect(out.kitchen).toMatchObject({ ownerUid: ME, memberUids: [ME, 'other-user-1'], shopping: [{ id: 'a', name: 'Egg' }] });
+    expect((out.kitchen as unknown as { pantry: { addedBy: string }[] }).pantry[0].addedBy).toBe('other-user-1');
+    expect(out.kitchen).not.toHaveProperty('stray');
+    expect(out.collections).toEqual([{ id: 'c1', ownerUid: ME, name: 'Dinner', visibility: 'private', recipeIds: ['r1'], createdAt: 1, updatedAt: 2 }]);
   });
 
   it("keeps the user's cooks and photos whole and aliases the recipe owner of a cook", () => {

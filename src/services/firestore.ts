@@ -2023,7 +2023,7 @@ export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRec
 // list is authorised from its filters and never sees document data (docs/decisions.md):
 // favorites uid, notifications recipientUid, follows followerId and followingId (two
 // queries), suggestions suggestedBy.uid and recipeOwnerId (two queries), messages by
-// parent path, cooks and cookPhotos uid (both public read; RL-207). Recipes and profiles
+// parent path, cooks and cookPhotos uid (both public read; RL-207), collections ownerUid, and kitchens/{uid} by id (RL-226). Recipes and profiles
 // are public. No orderBy, so no composite index. A cook photo row carries its data URL
 // (up to 200000 characters), so it is never logged: a failed read logs the error only.
 
@@ -2118,7 +2118,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error, cooks: error, cookPhotos: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, collections: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
@@ -2155,7 +2155,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos, kitchen, collections] = await Promise.all([
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -2198,6 +2198,16 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
       }]) as Promise<Section<CloudCookPhoto[]>>,
       () => ({ data: photoDocs.map(exportDoc) as CloudCookPhoto[], warning: 'Reading cookPhotos timed out; some photos may be missing' })
     ),
+    // Kitchen and collections need a verified email under the rules (RL-226).
+    emailVerified
+      ? exportSection('kitchen', async () => {
+          const snap = await getDoc(doc(fs, 'kitchens', uid));
+          return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
+        })
+      : Promise.resolve<Section<CloudDoc | null>>({ error: VERIFY_NOTE }),
+    emailVerified
+      ? exportSection<CloudDoc[]>('collections', () => readMerged('collections', [byField('collections', 'ownerUid')]))
+      : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos, kitchen, collections };
 }

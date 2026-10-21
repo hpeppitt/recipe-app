@@ -42,7 +42,7 @@ import { SettingsPage } from './SettingsPage';
 const exportStatus = () => screen.getAllByRole('status').find((e) => !e.hasAttribute('data-notify-status'))!;
 
 const ok = { data: null };
-const allOk = { profile: ok, recipes: { data: [] }, favorites: { data: [] }, follows: { data: [] }, suggestions: { data: [] }, notifications: { data: [] }, termsAcceptance: ok, notificationPrefs: ok, writeWindows: { data: [] }, cooks: { data: [] }, cookPhotos: { data: [] } };
+const allOk = { profile: ok, recipes: { data: [] }, favorites: { data: [] }, follows: { data: [] }, suggestions: { data: [] }, notifications: { data: [] }, termsAcceptance: ok, notificationPrefs: ok, writeWindows: { data: [] }, cooks: { data: [] }, cookPhotos: { data: [] }, kitchen: ok, collections: { data: [] } };
 
 let blobs: Blob[];
 // Real timer captured before any spy, so the stall check can wait in real time.
@@ -155,11 +155,11 @@ describe('Settings: Download my data', () => {
   it('raises an alert when every cloud read failed, and still downloads the local part', async () => {
     user = member;
     const e = { error: 'permission-denied' };
-    fetchCloud.mockResolvedValue({ profile: e, recipes: e, favorites: e, follows: e, suggestions: e, notifications: e, termsAcceptance: e, notificationPrefs: e, writeWindows: e, cooks: e, cookPhotos: e });
+    fetchCloud.mockResolvedValue({ profile: e, recipes: e, favorites: e, follows: e, suggestions: e, notifications: e, termsAcceptance: e, notificationPrefs: e, writeWindows: e, cooks: e, cookPhotos: e, kitchen: e, collections: e });
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/could not be loaded/));
-    expect(JSON.parse(await blobs[0].text()).errors).toHaveLength(11);
+    expect(JSON.parse(await blobs[0].text()).errors).toHaveLength(13);
   });
 
   it('notes a partial failure without an alert', async () => {
@@ -185,10 +185,10 @@ describe('Settings: Download my data', () => {
 
   it('tells an unverified user to verify, in plain words', async () => {
     user = { ...member, emailVerified: false };
-    fetchCloud.mockResolvedValue({ ...allOk, suggestions: { error: 'Verify your email to include suggestions' } });
+    fetchCloud.mockResolvedValue({ ...allOk, suggestions: { error: 'Verify your email to include all your online data' } });
     render();
     fireEvent.click(screen.getByRole('button', { name: 'Download my data' }));
-    await waitFor(() => expect(exportStatus().textContent).toMatch(/Verify your email to include suggestions\./));
+    await waitFor(() => expect(exportStatus().textContent).toMatch(/Verify your email to include all your online data\./));
     expect(exportStatus().textContent).not.toMatch(/Try again later/);
     expect(fetchCloud).toHaveBeenCalledWith('u1', false);
   });

@@ -5,7 +5,7 @@ import type { UserProfile, Follow } from '../types/profile';
 /** Bump when the shape of the file changes. */
 export const DATA_EXPORT_VERSION = 1;
 
-export const VERIFY_NOTE = 'Verify your email to include suggestions';
+export const VERIFY_NOTE = 'Verify your email to include all your online data';
 
 export const ANONYMOUS_NOTE = 'Anonymous accounts keep recipes and bookmarks on this device only';
 
@@ -35,6 +35,9 @@ export interface CloudInput {
   writeWindows: Section<CloudDoc[]>;
   cooks: Section<Cook[]>;
   cookPhotos: Section<CloudCookPhoto[]>;
+  /** kitchens/{uid} (RL-226): shopping list and pantry. Null when none exists. */
+  kitchen: Section<CloudDoc | null>;
+  collections: Section<CloudDoc[]>;
 }
 
 export interface DataExportInput {
@@ -67,6 +70,8 @@ export interface DataExport {
     writeWindows: CloudDoc[];
     cooks: Cook[];
     cookPhotos: CloudCookPhoto[];
+    kitchen: CloudDoc | null;
+    collections: CloudDoc[];
   } | null;
   note?: string;
   redaction: string;
@@ -88,6 +93,8 @@ const SUGGESTION_KEYS = ['id', 'recipeId', 'recipeOwnerId', 'recipeTitle', 'reci
 const MESSAGE_KEYS = ['id', 'fromUid', 'fromDisplayName', 'text', 'createdAt'];
 const COOK_KEYS = ['id', 'uid', 'displayName', 'recipeId', 'rootId', 'recipeOwnerId', 'vote', 'note', 'branchId', 'createdAt'];
 const COOK_PHOTO_KEYS = ['id', 'uid', 'recipeId', 'url', 'createdAt'];
+const KITCHEN_KEYS = ['id', 'memberUids', 'ownerUid', 'shopping', 'pantry', 'updatedAt'];
+const COLLECTION_KEYS = ['id', 'ownerUid', 'name', 'visibility', 'recipeIds', 'createdAt', 'updatedAt'];
 const NOTIFICATION_KEYS = ['id', 'recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'];
 
 const sorted = <T extends { createdAt?: unknown; id?: string }>(rows: T[]): T[] => [...rows].sort(byCreatedAt);
@@ -147,6 +154,23 @@ export function assembleDataExport(input: DataExportInput): DataExport {
     bookmarksOfOtherAccountsOmitted: input.local.bookmarks.length - ownBookmarks.length,
   };
 
+  // Another member's uid (RL-238) becomes an alias, in the member list, the owner and who added a pantry item.
+  const kitchenRedact = (k: CloudDoc | null): CloudDoc | null => {
+    if (!k) return k;
+    const a = (x: unknown) => (typeof x === 'string' ? alias(x) : x);
+    return pick(
+      {
+        ...k,
+        ownerUid: a(k.ownerUid),
+        ...(Array.isArray(k.memberUids) ? { memberUids: k.memberUids.map(a) } : {}),
+        ...(Array.isArray(k.pantry)
+          ? { pantry: k.pantry.map((p) => (p && typeof p === 'object' ? { ...p, addedBy: a((p as { addedBy?: unknown }).addedBy) } : p)) }
+          : {}),
+      },
+      KITCHEN_KEYS
+    );
+  };
+
   let cloud: DataExport['cloud'] = null;
   if (input.cloud) {
     const c = input.cloud;
@@ -189,6 +213,8 @@ export function assembleDataExport(input: DataExportInput): DataExport {
         pick(typeof k.recipeOwnerId === 'string' ? { ...k, recipeOwnerId: alias(k.recipeOwnerId) } : k, COOK_KEYS)
       ),
       cookPhotos: sorted(take('cookPhotos', c.cookPhotos, [])).map((p) => pick(p, COOK_PHOTO_KEYS)),
+      kitchen: kitchenRedact(take('kitchen', c.kitchen, null)),
+      collections: sorted(take('collections', c.collections, [])).map((k) => pick(k, COLLECTION_KEYS)),
     };
     // Document ids that embed a uid (follows, favourites) are rewritten last,
     // once every other uid has an alias.

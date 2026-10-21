@@ -109,6 +109,16 @@ export const PRIVACY: LegalDocument = {
       ],
     },
     {
+      heading: 'Your Kitchen: shopping list, pantry and collections',
+      paragraphs: [
+        'What: your shopping list lines (name, amount, unit, aisle, whether it is ticked, and the recipes each line came from, with their emoji, titles and amounts), your pantry items (name, fresh or cupboard, the account id of who added it and when), and your collections (a name, the ids of the recipes in it, when it was created, and a flag that it is private). We also store your account id as the owner and the time of the last change.',
+        'Why: to keep your shopping list, pantry and collections on all your devices.',
+        'Where: Google Cloud Firestore.',
+        'Who sees it: only you. It is private to your account and no one else can read it, including people you follow.',
+        `How long: until you remove an item or a list in the app, delete a collection from its page, or your account is deleted. Your Kitchen is included in "Download my data" in Settings. Deletion by email request: ${SUPPORT_EMAIL}.`,
+      ],
+    },
+    {
       heading: 'Your profile',
       paragraphs: [
         'What: display name, avatar choice, an uploaded avatar photo if you add one (stored as a small 128 by 128 pixel image), counts, and the date it was created. It holds no email address.',
@@ -253,9 +263,9 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
-        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
+        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry and collections. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
-        `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
+        `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), delete your collections, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',

@@ -616,6 +616,9 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | `cooks` with `uid == uid` (with `displayName` and `note`) | Deleted. Exported with the recipe owner's uid aliased |
 | Other users' `cooks` of the uid's recipes (`recipeOwnerId == uid`) | Kept, anonymised: `recipeOwnerId` becomes `deleted-user`, as for suggestions on own recipes. Their cook photos are theirs and untouched |
 
+| `collections` with `ownerUid == uid` (RL-226) | Deleted. Exported whole (name and recipe ids) |
+| `kitchens/{uid}` (RL-226) | Deleted only when `ownerUid == uid` and `memberUids == [uid]`. Otherwise skipped and listed as `SKIPPED` in the dry run and again after the re-check, and the erase exits 3 (not 0) so it cannot be missed: do not delete a kitchen others share (RL-238 decides what to do). Exported with any other uid aliased. Print counts only, never list contents |
+
 **Not covered**, so say so in the reply to an erasure request:
 
 - Data under an earlier anonymous uid. Someone who used the app before signing in with an

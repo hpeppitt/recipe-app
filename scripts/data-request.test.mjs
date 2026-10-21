@@ -9,6 +9,7 @@ import {
   checkOutPath,
   defaultOutPath,
   buildErasePlan,
+  exitCodeFor,
   chunkPlan,
   summarise,
   describeOp,
@@ -157,6 +158,8 @@ describe('redactExport', () => {
     notifications: [doc('notifications/n1', { recipientUid: U, fromUid: O, fromDisplayName: 'Omar' })],
     cooks: [doc('cooks/k1', { uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: O, note: 'good' })],
     cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
+    kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U, O], shopping: [], pantry: [{ id: 'p', name: 'Salt', addedBy: O, addedAt: 1 }] }),
+    collections: [doc('collections/c1', { ownerUid: U, name: 'Dinner', recipeIds: ['r1'] })],
   };
   const r = redactExport(U, body);
   it('replaces every other uid and name, in fields and paths, with one stable alias', () => {
@@ -170,6 +173,11 @@ describe('redactExport', () => {
     expect(r.follows[0].data.followerDisplayName).toBeNull();
     expect(r.notifications[0].data).toMatchObject({ recipientUid: U, fromUid: 'other-user-1', fromDisplayName: null });
     expect(r.cooks[0].data).toEqual({ uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: 'other-user-1', note: 'good' });
+  });
+  it('aliases other members of the kitchen and keeps the collections whole', () => {
+    expect(r.kitchen.data).toMatchObject({ ownerUid: U, memberUids: [U, 'other-user-1'] });
+    expect(r.kitchen.data.pantry[0].addedBy).toBe('other-user-1');
+    expect(r.collections).toEqual(body.collections);
   });
   it('keeps the cook photo whole', () => {
     expect(r.cookPhotos).toEqual(body.cookPhotos);
@@ -241,6 +249,8 @@ describe('buildErasePlan', () => {
     cooks: [doc('cooks/k1', { uid: U, recipeId: 'r2', recipeOwnerId: O }), doc('cooks/k2', { uid: U, recipeId: 'r1', recipeOwnerId: U })],
     cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
     cooksOnOwn: [doc('cooks/k3', { uid: O, recipeId: 'r1', recipeOwnerId: U })],
+    kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U] }),
+    collections: [doc('collections/c1', { ownerUid: U })],
     counters: {
       'recipes/r2': { favoriteCount: 3 },
       'recipes/r3': { favoriteCount: 0 },
@@ -322,6 +332,20 @@ describe('buildErasePlan', () => {
     expect(plan.deleteAuthUser).toBe(true);
   });
 
+  it('deletes an own sole-member kitchen and its collections, and skips a shared one with a report', () => {
+    expect(deletes).toEqual(expect.arrayContaining([`kitchens/${U}`, 'collections/c1']));
+    expect(plan.skipped).toEqual([]);
+    for (const data of [{ ownerUid: O, memberUids: [O, U] }, { ownerUid: U, memberUids: [U, O] }]) {
+      const p = buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, data) });
+      expect(p.groups).toEqual([]);
+      expect(p.skipped).toHaveLength(1);
+      expect(p.skipped[0]).not.toContain(O);
+    }
+  });
+  it('exits 3 when something was skipped, 0 otherwise', () => {
+    expect(exitCodeFor(plan)).toBe(0);
+    expect(exitCodeFor(buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, { ownerUid: O, memberUids: [O, U] }) }))).toBe(3);
+  });
   it('deletes the uid\'s cook photos before its cooks and anonymises other cooks of own recipes', () => {
     const paths = ops.map((o) => o.path);
     expect(paths.indexOf('cookPhotos/k1')).toBeLessThan(Math.min(paths.indexOf('cooks/k1'), paths.indexOf('cooks/k2')));
@@ -336,7 +360,7 @@ describe('buildErasePlan', () => {
   });
 
   it('is empty for a uid with nothing', () => {
-    expect(buildErasePlan(U, {})).toEqual({ groups: [], deleteAuthUser: false });
+    expect(buildErasePlan(U, {})).toEqual({ groups: [], skipped: [], deleteAuthUser: false });
   });
 
   it('counts per label', () => {
