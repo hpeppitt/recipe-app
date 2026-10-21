@@ -82,7 +82,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-const { logCook, newCookId, getRecipeCookSummary, countUserCooks, subscribeOwnCooks, setCookBranch, deleteCook, addCookPhoto } = await import('./firestore');
+const { logCook, newCookId, getRecipeCookSummary, countUserCooks, getOwnCooksInFamily, subscribeOwnCooks, setCookBranch, deleteCook, addCookPhoto } = await import('./firestore');
 
 const NOW = 1_800_000_000_000;
 const params = {
@@ -310,5 +310,14 @@ describe('addCookPhoto', () => {
     const p = addCookPhoto('c1', 'r2', url).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(15_000);
     expect(((await p) as Error).message).toMatch(/timed out/);
+  });
+});
+
+describe('getOwnCooksInFamily', () => {
+  it('is one equality-only query on uid and rootId, limited to 30', async () => {
+    queries.length = 0;
+    const cooks = await getOwnCooksInFamily('u1', 'root');
+    expect(cooks.map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(queries).toEqual([[['where', 'uid', '==', 'u1'], ['where', 'rootId', '==', 'root'], ['limit', 30]]]);
   });
 });

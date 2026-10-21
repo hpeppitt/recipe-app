@@ -1428,6 +1428,17 @@ export function subscribeOwnCooks(
   return onSnapshot(q, (snap) => onChange(snap.docs.map(toCook)), onError);
 }
 
+/** The user's cooks inside one family, for the "you made this" tag (RL-219): one equality-only query, no composite index. Rejects after 6 s. */
+export async function getOwnCooksInFamily(uid: string, rootId: string, max = 30): Promise<Cook[]> {
+  if (!firestore) return [];
+  const snap = await rejectAfter(
+    getDocs(query(collection(firestore, 'cooks'), where('uid', '==', uid), where('rootId', '==', rootId), limit(max))),
+    'Reading cooks',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return snap.docs.map(toCook);
+}
+
 /** Credit the branch grown from a cook's note. The rules allow this once, to the cook's own published recipe. */
 export async function setCookBranch(cookId: string, branchId: string): Promise<void> {
   if (!firestore) return;
@@ -1551,6 +1562,13 @@ export function subscribeKitchen(
     (snap) => onChange(snap.exists() ? toKitchen(snap.data({ serverTimestamps: 'estimate' })) : null),
     onError
   );
+}
+
+/** The kitchen document once, without a listener (RL-219); null when it does not exist or Firebase is off. Rejects after 6 s. */
+export async function getKitchenOnce(kitchenId: string): Promise<Kitchen | null> {
+  if (!firestore) return null;
+  const snap = await rejectAfter(getDoc(doc(firestore, 'kitchens', kitchenId)), 'Reading your kitchen', COOK_SUMMARY_TIMEOUT_MS);
+  return snap.exists() ? toKitchen(snap.data()) : null;
 }
 
 /**
