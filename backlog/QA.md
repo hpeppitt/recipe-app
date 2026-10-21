@@ -18,6 +18,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-260 Privacy Policy: cookbooks, follows, photo imports
+- Author: sign off the cookbook and photo import wording in /privacy (new sections "Shared cookbooks" and "Importing a recipe from photos", plus edits to "What is public" and "Your Kitchen") before release. The wording is pending your sign-off.
+- Download my data now has `cloud.cookbookFollows`; the erase script deletes follows and decrements `followerCount`. Check on the emulators (`npm run emulators`, then `node scripts/data-request.mjs erase <uid> --emulator`, dry run first): a follow of a live cookbook shows a delete plus a decrement; a follow of a missing cookbook shows only the delete. The Rights paragraphs now name cookbook follows.
+
+- Reviewer noted (data, low): the erase decrement uses a count read before the batch, so a concurrent unfollow can take it one lower (same as favourites and profile follows); privacy.ts "your account id (shown as your display name)" is loose wording for your sign-off. Others' follows of an erased user's cookbooks stay until they unfollow.
+
 ### RL-259 Activity shows "added to <cookbook>" for followed cookbooks
 - Fails live until RL-261 deploys the RL-256 rules (no rows appear, nothing breaks); do this walk on the emulators or after RL-261.
 - Account A follows a cookbook owned by B. B adds a recipe to it. A opens Activity: a row "B added to <cookbook>" with B's avatar, a sage book badge and an unread dot appears under Today, and the Activity tab badge counts it. It shows under All and Follows, not Branches or Suggestions.

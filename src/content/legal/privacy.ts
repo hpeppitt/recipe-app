@@ -34,6 +34,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Published recipes can be read by anyone, including people without an account and anyone with the link. A published recipe includes its full content, the prompt you typed to start it, your display name, and the display names of people whose suggestions you approved. It also carries account ids that the app uses to link recipes to profiles.',
         'Your profile can be read by anyone: display name, avatar (an emoji, a generated picture, or a small photo you upload) and your recipe, follower and following counts.',
+        'A collection you share as a cookbook can be read by anyone too, including its name, description, the recipes in it and its follower count. See Shared cookbooks below.',
         'Cooks you log ("I made this") and any photo you add to one are public too. See the Cooks and Cook photos sections below.',
         'The full AI conversation behind a recipe is not published. It stays on your device.',
       ],
@@ -66,6 +67,16 @@ export const PRIVACY: LegalDocument = {
         'Where: Google, through Firebase AI Logic and the Gemini Developer API, under the same terms as AI recipe generation above.',
         'Who sees it: Google processes the address and the page it points to. Anyone can see the source link on a published recipe.',
         'How long: the source link stays with the recipe until you delete the recipe. Do not import a link that contains a private token, a password or personal information.',
+      ],
+    },
+    {
+      heading: 'Importing a recipe from photos',
+      paragraphs: [
+        'What: up to three photos of a cookbook page or recipe card that you choose to add. Each is made smaller on your device first, which also removes the location and camera details in the file.',
+        'Why: so the app can read the recipe in them.',
+        'Where: Google, through Firebase AI Logic and the Gemini Developer API, under the same terms as AI recipe generation above. The photos are not stored by us, on your device or in the cloud. If the read fails, the error is cleaned of any photo content before it is logged or reported.',
+        'Who sees it: Google processes them to read the recipe, and may use them as described under AI recipe generation. Do not photograph people, addresses or documents with personal details.',
+        'How long: the photos are not kept. Only the recipe you choose to save is kept, and it carries no link to the photos.',
       ],
     },
     {
@@ -111,11 +122,22 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Your Kitchen: shopping list, pantry and collections',
       paragraphs: [
-        'What: your shopping list lines (name, amount, unit, aisle, whether it is ticked, and the recipes each line came from, with their emoji, titles and amounts), your pantry items (name, fresh or cupboard, the account id of who added it and when), and your collections (a name, the ids of the recipes in it, when it was created, and a flag that it is private). We also store your account id as the owner and the time of the last change.',
+        'What: your shopping list lines (name, amount, unit, aisle, whether it is ticked, and the recipes each line came from, with their emoji, titles and amounts), your pantry items (name, fresh or cupboard, the account id of who added it and when), and your collections (a name, the ids of the recipes in it, when it was created, whether it is private or shared as a cookbook, and for a cookbook its description and follower count). We also store your account id as the owner and the time of the last change.',
         'Why: to keep your shopping list, pantry and collections on all your devices.',
         'Where: Google Cloud Firestore.',
-        'Who sees it: your collections, only you. Your shopping list and pantry are shared with the members of your kitchen, if you have invited any (see "Sharing your kitchen with a household" below), and are otherwise only yours. No one else can read them, including people you follow.',
+        'Who sees it: a collection is only you until you share it as a cookbook, and then anyone can read it (see "Shared cookbooks" below). Your shopping list and pantry are shared with the members of your kitchen, if you have invited any (see "Sharing your kitchen with a household" below), and are otherwise only yours. No one else can read them, including people you follow.',
         `How long: until you remove an item or a list in the app, delete a collection from its page, or your account is deleted. Your Kitchen is included in "Download my data" in Settings. Deletion by email request: ${SUPPORT_EMAIL}.`,
+      ],
+    },
+    {
+      heading: 'Shared cookbooks',
+      paragraphs: [
+        'What: you can turn a collection into a public cookbook. It then holds its name, an optional description of up to 280 characters, your account id (shown as your display name), the ids of the recipes in it, when something was last added, and a follower count. You need to have accepted the current Terms of Service to publish one.',
+        'Why: so others can browse a cookbook and follow it to see when it gains recipes.',
+        'Where: Google Cloud Firestore.',
+        'Who sees it: anyone, including people without an account, who can also list all public cookbooks. Do not put personal information in a name or description.',
+        'How long: until you turn sharing off, which makes the collection private again, or delete the collection.',
+        'Following a cookbook: when you follow one, we store your account id, the cookbook id and the times you followed and last looked. Only you can read your follows. The cookbook\'s owner and other people see only the count. Unfollowing deletes the record. Your cookbook follows are included in "Download my data" in Settings, and are deleted if your account is erased.',
       ],
     },
     {
@@ -294,9 +316,9 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
-        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry and collections. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
+        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry, collections and cookbook follows. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
-        `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), delete your collections, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
+        `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), delete your collections, unfollow cookbooks, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',

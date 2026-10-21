@@ -732,6 +732,7 @@ uid in a kitchen (`memberUids`, `ownerUid`, a pantry item's `addedBy`) becomes `
 deletes the collections, the user's invites and a kitchen the uid owns alone; it passes a kitchen
 the uid owns with others to the longest-standing other member, removes the uid from a kitchen they
 belong to, and anonymises pantry items they added (see docs/operations.md, Data requests).
+Since RL-260 Download my data also reads `cookbookFollows where uid ==` the user (`cloud.cookbookFollows`: `id`, `uid`, `collectionId`, `createdAt`, `lastSeenAt`; no verified gate, as the list rule has none), and the erase script deletes them and decrements the cookbook's `followerCount`.
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.

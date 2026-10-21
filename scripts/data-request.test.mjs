@@ -167,6 +167,7 @@ describe('redactExport', () => {
     ]),
     kitchenInvites: [doc('kitchenInvites/code1', { kitchenId: U, ownerUid: U, ownerName: 'T' })],
     collections: [doc('collections/c1', { ownerUid: U, name: 'Dinner', recipeIds: ['r1'] })],
+    cookbookFollows: [doc(`cookbookFollows/${U}_c9`, { uid: U, collectionId: 'c9' })],
   };
   const r = redactExport(U, body);
   it('replaces every other uid and name, in fields and paths, with one stable alias', () => {
@@ -189,6 +190,7 @@ describe('redactExport', () => {
     expect(r.kitchen.data.pantry[0].addedBy).toBe('other-user-1');
     expect(r.kitchen.data).not.toHaveProperty('joinCode');
     expect(r.collections).toEqual(body.collections);
+    expect(r.cookbookFollows).toEqual(body.cookbookFollows);
   });
   it('summarises kitchen membership with role and member count, other members aliased (RL-238)', () => {
     expect(r.kitchenMemberships).toEqual([
@@ -271,7 +273,16 @@ describe('buildErasePlan', () => {
     cooksOnOwn: [doc('cooks/k3', { uid: O, recipeId: 'r1', recipeOwnerId: U })],
     kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U] }),
     collections: [doc('collections/c1', { ownerUid: U })],
+    cookbookFollows: [
+      doc(`cookbookFollows/${U}_cb1`, { uid: U, collectionId: 'cb1' }),
+      doc(`cookbookFollows/${U}_cb0`, { uid: U, collectionId: 'cb0' }),
+      doc(`cookbookFollows/${U}_gone`, { uid: U, collectionId: 'gone' }),
+      doc(`cookbookFollows/${U}_c1`, { uid: U, collectionId: 'c1' }),
+    ],
     counters: {
+      'collections/cb1': { followerCount: 4 },
+      'collections/cb0': { followerCount: 0 },
+      'collections/c1': { followerCount: 1 },
       'recipes/r2': { favoriteCount: 3 },
       'recipes/r3': { favoriteCount: 0 },
       [`profiles/${O}`]: { followerCount: 1, followingCount: 1 },
@@ -340,7 +351,7 @@ describe('buildErasePlan', () => {
     expect(plan.groups.find((g) => g.ops[0].path === `favorites/${U}_r1`).ops).toHaveLength(1);
     expect(plan.groups.find((g) => g.ops[0].path === `favorites/${U}_r3`).ops).toHaveLength(1);
     const incs = updates.filter((o) => o.increment).map((o) => `${o.path}.${o.increment.field}`);
-    expect(incs).toEqual(['recipes/r2.favoriteCount', `profiles/${O}.followerCount`, `profiles/${O}.followingCount`]);
+    expect(incs).toEqual(['recipes/r2.favoriteCount', `profiles/${O}.followerCount`, `profiles/${O}.followingCount`, 'collections/cb1.followerCount']);
   });
 
   it('deletes everything else once', () => {
@@ -355,6 +366,13 @@ describe('buildErasePlan', () => {
   it('deletes an own sole-member kitchen and its collections', () => {
     expect(deletes).toEqual(expect.arrayContaining([`kitchens/${U}`, 'collections/c1']));
     expect(plan.skipped).toEqual([]);
+  });
+
+  it('deletes cookbook follows and decrements only existing, non-zero, not-own cookbooks (RL-260)', () => {
+    expect(deletes).toEqual(expect.arrayContaining([`cookbookFollows/${U}_cb1`, `cookbookFollows/${U}_cb0`, `cookbookFollows/${U}_gone`, `cookbookFollows/${U}_c1`]));
+    const g = plan.groups.find((x) => x.ops[0].path === `cookbookFollows/${U}_cb1`);
+    expect(g.ops[1]).toEqual({ kind: 'update', path: 'collections/cb1', increment: { field: 'followerCount', by: -1 } });
+    for (const id of ['cb0', 'gone', 'c1']) expect(plan.groups.find((x) => x.ops[0].path === `cookbookFollows/${U}_${id}`).ops).toHaveLength(1);
   });
 
   describe('shared kitchens (RL-238)', () => {

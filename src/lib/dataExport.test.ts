@@ -28,6 +28,7 @@ const empty: CloudInput = {
   kitchen: { data: null },
   kitchenMemberships: { data: [] },
   collections: { data: [] },
+  cookbookFollows: { data: [] },
 };
 
 function full(): DataExportInput {
@@ -107,6 +108,21 @@ describe('assembleDataExport', () => {
     expect((out.kitchen as unknown as { pantry: { addedBy: string }[] }).pantry[0].addedBy).toBe('other-user-1');
     expect(out.kitchen).not.toHaveProperty('stray');
     expect(out.collections).toEqual([{ id: 'c1', ownerUid: ME, name: 'Dinner', visibility: 'private', recipeIds: ['r1'], createdAt: 1, updatedAt: 2 }]);
+  });
+
+  it('exports cookbook follows with only their own keys (RL-260)', () => {
+    const input = full();
+    input.cloud!.cookbookFollows = {
+      data: [
+        { id: `${ME}_c2`, uid: ME, collectionId: 'c2', createdAt: 2, lastSeenAt: 3, stray: BOB },
+        { id: `${ME}_c1`, uid: ME, collectionId: 'c1', createdAt: 1, lastSeenAt: 1 },
+      ],
+    };
+    const out = assembleDataExport(input).cloud!;
+    expect(out.cookbookFollows).toEqual([
+      { id: `${ME}_c1`, uid: ME, collectionId: 'c1', createdAt: 1, lastSeenAt: 1 },
+      { id: `${ME}_c2`, uid: ME, collectionId: 'c2', createdAt: 2, lastSeenAt: 3 },
+    ]);
   });
 
   it('summarises kitchen membership with role and member count, other members anonymised (RL-238)', () => {
