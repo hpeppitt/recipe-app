@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CREATE_OPTIONS, DEFAULT_SELECTION, buildCreatePrompt, buildPantryPrompt, cycleWord, type CreateSelection, type CreateSlot } from './createPrompt';
+import { CREATE_OPTIONS, DEFAULT_SELECTION, buildCreatePrompt, buildPantryPrompt, createTerms, cycleWord, keptAvoids, type CreateSelection, type CreateSlot } from './createPrompt';
 
 describe('createPrompt', () => {
   it('builds the default prompt from the first options', () => {
@@ -47,5 +47,35 @@ describe('buildPantryPrompt', () => {
     expect(buildPantryPrompt(['eggs'], '30')).toBe('Something with eggs in under 30 minutes');
     expect(buildPantryPrompt(['eggs'], '60')).toBe('Something with eggs in under an hour');
     expect(buildPantryPrompt([], '15')).toBe('Something with what I have in under 15 minutes');
+  });
+});
+
+describe('profile terms (RL-235)', () => {
+  it('appends none, one or several kept terms', () => {
+    expect(buildCreatePrompt(DEFAULT_SELECTION, [])).toBe('Something quick with chickpeas for two');
+    expect(buildCreatePrompt(DEFAULT_SELECTION, ['no peanuts'])).toBe('Something quick with chickpeas for two, no peanuts');
+    expect(buildCreatePrompt(DEFAULT_SELECTION, ['no peanuts', 'no pork', 'under 30 min'])).toBe(
+      'Something quick with chickpeas for two, no peanuts, no pork, under 30 min'
+    );
+  });
+
+  it('builds "no <avoid>" terms, then "under 30 min" only when Quicker is learned', () => {
+    expect(createTerms([], [])).toEqual([]);
+    expect(createTerms(['Peanuts', 'Pork'], ['Spicier'])).toEqual([
+      { label: 'no peanuts', avoid: 'Peanuts' },
+      { label: 'no pork', avoid: 'Pork' },
+    ]);
+    expect(createTerms(['Peanuts'], ['Vegan', 'Quicker'])).toEqual([
+      { label: 'no peanuts', avoid: 'Peanuts' },
+      { label: 'under 30 min', avoid: null },
+    ]);
+  });
+
+  it('keptAvoids removes only stored avoids, matched case-insensitively', () => {
+    const stored = ['Peanuts', 'Pork', 'Fish'];
+    expect(keptAvoids(stored, undefined)).toEqual(stored);
+    expect(keptAvoids(stored, 'Peanuts')).toEqual(stored);
+    expect(keptAvoids(stored, ['  PEANUTS ', 'fish'])).toEqual(['Pork']);
+    expect(keptAvoids(stored, ['Shellfish', 42, null, { a: 1 }])).toEqual(stored);
   });
 });

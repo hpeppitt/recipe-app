@@ -24,6 +24,7 @@ vi.mock('../services/firestore', () => ({
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 
 import { useTasteProfile, TasteAvoidError } from './useTasteProfile';
+import { reportError } from '../services/telemetry';
 
 const noop = async () => {};
 const wrap = (user: typeof fakeUser | null) =>
@@ -125,5 +126,18 @@ describe('useTasteProfile', () => {
     act(() => result.current.reload());
     await waitFor(() => expect(result.current.loadFailed).toBe(false));
     expect(result.current.avoids).toEqual(['Nuts']);
+  });
+
+  it('reports a failed read but not a permission-denied one; both count as failed (RL-235)', async () => {
+    getProfile.mockRejectedValueOnce(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }));
+    const denied = renderHook(() => useTasteProfile(NO_COOKS), { wrapper: wrap(fakeUser) });
+    await waitFor(() => expect(denied.result.current.loadFailed).toBe(true));
+    expect(reportError).not.toHaveBeenCalled();
+    denied.unmount();
+
+    getProfile.mockRejectedValueOnce(new Error('timed out'));
+    const failed = renderHook(() => useTasteProfile(NO_COOKS), { wrapper: wrap(fakeUser) });
+    await waitFor(() => expect(failed.result.current.loadFailed).toBe(true));
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'taste-profile');
   });
 });
