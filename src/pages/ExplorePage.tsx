@@ -7,6 +7,7 @@ import { useFollowingRecipes } from '../hooks/useUserRecipes';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnline } from '../hooks/useOnline';
 import { useBranchingThisWeek } from '../hooks/useBranchingThisWeek';
+import { useCookedThisWeek, useCookProfiles } from '../hooks/useCookSections';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
@@ -101,8 +102,13 @@ export function ExplorePage() {
   const rowsAllowed = pagedExplore && !isLoading && filter === 'all' && !tag;
   const branching = useBranchingThisWeek(rowsAllowed, exploreFeed ?? NO_ROWS);
   // Newest is the fallback when the week has nothing; while the query runs a fixed-height placeholder holds the space.
+  // Cooks lead (RL-243); with none this week the branch tiles and then the newest row follow as before.
+  const cooked = useCookedThisWeek(rowsAllowed);
+  const cookProfiles = useCookProfiles(cooked.tiles.flatMap((t) => t.cookUids));
+  const cookedShown = rowsAllowed && cooked.status === 'ready';
+  const branchLoading = cooked.status === 'loading' || (cooked.status === 'none' && branching.status === 'loading');
   const tileRecipes =
-    rowsAllowed && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
+    rowsAllowed && !cookedShown && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
   return (
     <div>
@@ -121,7 +127,7 @@ export function ExplorePage() {
         </Link>
       </header>
 
-      {rowsAllowed && branching.status === 'loading' && (
+      {rowsAllowed && branchLoading && (
         // Holds the tile row's height (20 top padding, heading, 200px tiles, title and author lines)
         // so the Recipes list does not jump down when the row mounts.
         <div aria-hidden="true" className="h-[280px] pt-5 pl-5">
@@ -132,7 +138,8 @@ export function ExplorePage() {
           </div>
         </div>
       )}
-      {rowsAllowed && branching.status === 'ready' && (
+      {cookedShown && <RecipeTileRow title="Cooked this week" recipes={cooked.tiles} seeAllTo="/search" profiles={cookProfiles} />}
+      {rowsAllowed && cooked.status === 'none' && branching.status === 'ready' && (
         <RecipeTileRow title="Branching fast this week" recipes={branching.tiles} />
       )}
       {tileRecipes.length > 0 && (

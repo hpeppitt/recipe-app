@@ -1,32 +1,55 @@
 import { useContext, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { useMostBranched, type MostBranchedRange, type MostBranchedTile } from '../../hooks/useMostBranched';
+import { useMostBranched, type MostBranchedRange } from '../../hooks/useMostBranched';
+import { useMostCooked } from '../../hooks/useCookSections';
 import { listOriginState } from '../../lib/paneMode';
 import { formatTime, pluralize } from '../../lib/utils';
 import { RecipePaneContext } from '../../contexts/RecipePaneContext';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
 import { UserPill } from '../ui/UserPill';
-import { Check, ChevronDown, GitBranch } from '../ui/icons';
+import { Check, ChefHat, ChevronDown, GitBranch } from '../ui/icons';
 
 // No "All time" row: the hook has no all-time read (RL-166), so allTimeAvailable is always false.
-const RANGES: { value: MostBranchedRange; label: string; menu: string }[] = [
+const BRANCHED_RANGES: { value: MostBranchedRange; label: string; menu: string }[] = [
   { value: '30', label: 'last 30 days', menu: 'Last 30 days' },
   { value: '90', label: 'last 90 days', menu: 'Last 90 days' },
 ];
+const COOKED_RANGES: typeof BRANCHED_RANGES = [
+  { value: '30', label: 'this month', menu: 'This month' },
+  { value: '90', label: 'last 90 days', menu: 'Last 90 days' },
+];
+/** A ranked row: the family's original, with a branch count or (RL-243) a cook count and the leading branch. */
+type Row = { id: string; emoji: string; title: string; totalTime: number; createdBy?: { uid: string; displayName: string | null }; count: number; cooked?: boolean; sub?: string };
 const RING = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500';
 
-/** Organic 1b's "Most branched" (RL-167). The caller decides when it may show; it hides itself until it has a ranking. */
+/**
+ * Organic 1b's "Most branched" (RL-167), which since RL-243 reads "Most cooked" while the range has
+ * cooks. The caller decides when it may show; it hides itself until it has a ranking.
+ */
 export function MostBranchedList() {
-  const [range, setRange] = useState<MostBranchedRange>('90');
+  const [picked, setPicked] = useState<MostBranchedRange | null>(null);
+  const c30 = useMostCooked('30');
+  const c90 = useMostCooked('90');
+  // Until the user picks, this month leads when it has cooks, else the 90 day range.
+  const range = picked ?? (c30.status === 'ready' ? '30' : '90');
+  const cookedResult = range === '30' ? c30 : c90;
   const [open, setOpen] = useState(false);
   // The last ranking seen, so changing range keeps the section (and its menu) mounted.
-  const [last, setLast] = useState<{ tiles: MostBranchedTile[]; capped: boolean } | null>(null);
+  const [last, setLast] = useState<{ tiles: Row[]; capped: boolean; cooked: boolean } | null>(null);
   // Set once the user picks a range, so the "Showing N families" announcement follows a change only.
   const [changed, setChanged] = useState(false);
   const paneId = useContext(RecipePaneContext);
-  const result = useMostBranched(range);
-  if (result.status === 'ready' && result.tiles !== last?.tiles) setLast({ tiles: result.tiles, capped: result.capped });
+  const branched = useMostBranched(range, cookedResult.status === 'none');
+  // Cooks lead when the range has any; no cooks falls back to branches.
+  const cooked = cookedResult.status === 'ready';
+  const waiting = cookedResult.status === 'loading' || (!picked && c30.status === 'loading');
+  const result = waiting
+    ? ({ status: 'loading', tiles: [] as Row[], capped: false, retry: () => {} } as const)
+    : cooked
+      ? ({ status: 'ready', tiles: cookedResult.rows, capped: false, retry: () => {} } as const)
+      : { ...branched, tiles: branched.tiles as Row[] };
+  if (result.status === 'ready' && result.tiles !== last?.tiles) setLast({ tiles: result.tiles, capped: result.capped, cooked });
   const headingId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLButtonElement>(null);
@@ -43,10 +66,14 @@ export function MostBranchedList() {
   }, [open]);
 
   // A first-load failure or an empty ranking hides the section; once shown it stays so the menu keeps working.
+  // While the first ranking loads, hold its height so the cards below do not jump.
+  if (result.status === 'loading' && !last) return <div aria-hidden="true" className="min-h-[200px]" />;
   if (result.status !== 'ready' && !last) return null;
   const loading = result.status === 'loading';
   const tiles = result.status === 'ready' ? result.tiles : loading ? (last?.tiles ?? []) : [];
   const capped = loading ? !!last?.capped : result.capped;
+  const showCooked = loading ? !!last?.cooked : cooked;
+  const RANGES = showCooked ? COOKED_RANGES : BRANCHED_RANGES;
   const current = RANGES.find((r) => r.value === range)!;
   const announce = loading ? `Loading ${current.label}…` : changed && result.status === 'ready' ? `Showing ${tiles.length} ${pluralize(tiles.length, 'family', 'families')} for ${current.label}` : '';
 
@@ -74,7 +101,8 @@ export function MostBranchedList() {
         }}
       >
         <h2 id={headingId} className="font-heading text-lg text-text-primary">
-          Most branched<span aria-hidden="true">,</span>
+          {showCooked ? 'Most cooked' : 'Most branched'}
+          <span aria-hidden="true">,</span>
         </h2>
         <button
           ref={pillRef}
@@ -112,7 +140,7 @@ export function MostBranchedList() {
                 tabIndex={r.value === range ? 0 : -1}
                 onClick={() => {
                   setChanged(true);
-                  setRange(r.value);
+                  setPicked(r.value);
                   close();
                 }}
                 className={`flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl px-3 text-sm text-text-primary ${RING} ${r.value === range ? 'bg-accent-100 font-bold' : ''}`}
@@ -151,7 +179,7 @@ export function MostBranchedList() {
   );
 }
 
-function Row({ tile, rank, selected }: { tile: MostBranchedTile; rank: number; selected: boolean }) {
+function Row({ tile, rank, selected }: { tile: Row; rank: number; selected: boolean }) {
   const title = tile.title.trim() || 'Untitled recipe';
   const author = tile.createdBy?.displayName?.trim() || 'Anonymous';
   return (
@@ -160,7 +188,7 @@ function Row({ tile, rank, selected }: { tile: MostBranchedTile; rank: number; s
       <Link
         to={`/recipe/${tile.id}`}
         state={listOriginState('/')}
-        aria-label={`${rank}. ${title}, ${tile.count} ${pluralize(tile.count, 'branch', 'branches')}`}
+        aria-label={`${rank}. ${title}, ${tile.count} ${tile.cooked ? pluralize(tile.count, 'cook', 'cooks') : pluralize(tile.count, 'branch', 'branches')}`}
         aria-current={selected ? 'true' : undefined}
         className={`absolute inset-0 rounded-[20px] ${RING}`}
       />
@@ -189,9 +217,17 @@ function Row({ tile, rank, selected }: { tile: MostBranchedTile; rank: number; s
           )}
           <span className="shrink-0">{formatTime(tile.totalTime)}</span>
         </div>
+        {tile.sub && (
+          <p className="mt-0.5 flex min-w-0 gap-1 text-xs text-neutral-700">
+            <span className="shrink-0">most cook the</span>
+            <span className="truncate">&ldquo;{tile.sub}&rdquo;</span>
+            <span className="shrink-0">branch</span>
+          </p>
+        )}
       </div>
       <span aria-hidden="true" className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent-2-100 px-2.5 py-[3px] text-[11px] font-semibold text-accent-2-800">
-        <GitBranch className="size-3" />+{tile.count}
+        {tile.cooked ? <ChefHat className="size-3" /> : <GitBranch className="size-3" />}
+        {tile.cooked ? tile.count : `+${tile.count}`}
       </span>
     </li>
   );

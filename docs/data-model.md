@@ -136,7 +136,7 @@ automatic single-field `createdAt` index. It keeps only `recipeId`, `rootId`, `u
 memory. Cost: at most 200 reads per session, and none while the 6 hour localStorage cache
 (`services/storage.ts`, key `recipe-lab-recent-cooks`) is fresh, because the Spark plan allows 50k
 reads a day. The cache is global to the device, holds only public ids (no names or notes), is never written when empty, and may lag an account erase by up to 6 hours. Counts are distinct people per recipe, so one person cooking a branch repeatedly cannot make it a leader. A failed read returns empty, is reported as `recent-cooks` and is not cached.
-Shortcut in the code: counts only the newest 200 cooks in 90 days, upgrade to a counter. The ranking
+RL-243 adds, per Explore visit, at most 8 recipe reads per cook section (after the shared window and Dexie) and at most 12 profile reads, all cached for the session. Shortcut in the code: counts only the newest 200 cooks in 90 days, upgrade to a counter. The ranking
 helpers are `src/lib/cookRanking.ts` (`cookedThisWeek`, `mostCooked`, `familyLeader`).
 
 New-recipe dedup (RL-178) reads `getAllPublishedRecipes` (`orderBy createdAt desc`, `limit

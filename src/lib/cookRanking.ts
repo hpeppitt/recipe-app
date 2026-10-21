@@ -29,8 +29,8 @@ export function parseRecentCooksCache(raw: unknown, now: number, ttlMs: number):
   return ok ? (cooks as RecentCook[]) : null;
 }
 
-/** Recipes cooked in the last 7 days, most cooks first (ties: newest cook first), at most 8. */
-export function cookedThisWeek(cooks: readonly RecentCook[], now: number) {
+/** Recipes cooked in the last 7 days, most cooks first (ties: newest cook first), at most 8 (`max` asks for spare candidates so a caller can backfill). */
+export function cookedThisWeek(cooks: readonly RecentCook[], now: number, max = COOKED_WEEK_MAX) {
   const by = new Map<string, { recipeId: string; rootId: string; all: Set<string>; last: number }>();
   for (const c of within(cooks, now, 7)) {
     const e = by.get(c.recipeId) ?? { recipeId: c.recipeId, rootId: c.rootId, all: new Set<string>(), last: 0 };
@@ -42,7 +42,7 @@ export function cookedThisWeek(cooks: readonly RecentCook[], now: number) {
   return [...by.values()]
     .map((e) => ({ recipeId: e.recipeId, rootId: e.rootId, count: e.all.size, uids: [...e.all].slice(0, UIDS_MAX), last: e.last }))
     .sort((a, b) => b.count - a.count || b.last - a.last || a.recipeId.localeCompare(b.recipeId))
-    .slice(0, COOKED_WEEK_MAX)
+    .slice(0, max)
     .map(({ recipeId, rootId, count, uids }) => ({ recipeId, rootId, count, uids }));
 }
 
@@ -54,13 +54,13 @@ function versionCounts(cooks: readonly RecentCook[]) {
 }
 
 /** Families by cooks over `days` (30 or 90), top 3, each with its most-cooked version. */
-export function mostCooked(cooks: readonly RecentCook[], now: number, days: 30 | 90) {
+export function mostCooked(cooks: readonly RecentCook[], now: number, days: 30 | 90, max = MOST_COOKED_MAX) {
   const fams = new Map<string, RecentCook[]>();
   for (const c of within(cooks, now, days)) fams.set(c.rootId, [...(fams.get(c.rootId) ?? []), c]);
   return [...fams.entries()]
     .map(([rootId, list]) => ({ rootId, count: new Set(list.map((c) => c.uid)).size, topRecipeId: versionCounts(list)[0][0] }))
     .sort((a, b) => b.count - a.count || a.rootId.localeCompare(b.rootId))
-    .slice(0, MOST_COOKED_MAX);
+    .slice(0, max);
 }
 
 /** The version to open: a non-root with at least 3 cooks and 3x the original's over 90 days, else null. */
