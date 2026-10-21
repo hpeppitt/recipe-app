@@ -2087,3 +2087,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-222 Collections service and useCollections hook
 - Nothing visible yet: the UI is RL-223 and RL-224. Check those against this hook. Writes need RL-227's collections rules deployed; before that, every collection read and write is denied.
+
+### RL-223 Collections sheet after a save
+- Signed in and verified, save a recipe (bookmark): "Saved. Add to a collection?" opens. Wait 6 seconds without touching it: it closes. Save another and tap New collection, type a name, Create: toast "Added to <name>". Save a third and tap the existing collection row: toast, sheet closes. Unsave: no sheet. Guest or signed out: no sheet. Same on `/shared/:id`. Touching anything in the sheet (even a scroll or tap on empty space) must stop the countdown. Needs RL-227's collections rules deployed; before that every add and create shows "Couldn't update your collections". 390px, light and dark.
+- Emoji in the row grid come only from recipes on this device; others show a grey dot.
+- With VoiceOver on, save a recipe with the keyboard or its activate gesture: the sheet must stay until you choose or tap Not now. With a mouse or finger tap it closes after 6 seconds untouched.

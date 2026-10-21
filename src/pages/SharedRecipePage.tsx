@@ -6,6 +6,8 @@ import { createRecipe } from '../db/recipes';
 import type { GeneratedRecipe } from '../types/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useCloudFavorite, useFavorite } from '../hooks/useFavorites';
+import { useCollectionSheet } from '../hooks/useCollectionSheet';
+import { CollectionSheet } from '../components/recipe/CollectionSheet';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import type { SuggestionEdit } from '../types/social';
 import { RecipeContent } from '../components/recipe/RecipeContent';
@@ -77,6 +79,7 @@ function SharedRecipeView() {
   const cloudFavorite = useCloudFavorite(paramId);
   const localFavorite = useFavorite(paramId);
   const { isFavorite, toggleFavorite } = user?.emailVerified ? cloudFavorite : localFavorite;
+  const collectionSheet = useCollectionSheet(paramId, isFavorite, isConfigured && !!user && !user.isAnonymous && !!user.emailVerified);
   // Only the cloud path can fail; the local bookmark handles its own errors.
   const favoriteError = user?.emailVerified ? cloudFavorite.error : null;
   const { submit: submitSuggestion } = useSubmitSuggestion();
@@ -199,6 +202,7 @@ function SharedRecipeView() {
       return;
     }
     if (!recipe) return;
+    collectionSheet.onSaveTap();
     toggleFavorite({
       ownerId: recipe.createdBy?.uid ?? 'local',
       title: recipe.title,
@@ -508,6 +512,7 @@ function SharedRecipeView() {
 
       {branchSignUp}
       {cooked.sheets}
+      {paramId && <CollectionSheet open={collectionSheet.open} auto={collectionSheet.auto} recipeId={paramId} onClose={collectionSheet.close} />}
 
       <SignUpDialog
         open={showSuggestSignUp}

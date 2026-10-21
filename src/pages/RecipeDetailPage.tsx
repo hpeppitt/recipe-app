@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
+import { useCollectionSheet } from '../hooks/useCollectionSheet';
+import { CollectionSheet } from '../components/recipe/CollectionSheet';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
 import type { SuggestionEdit } from '../types/social';
 import { useSuggestionReview } from '../hooks/useSuggestionReview';
@@ -173,6 +175,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   }, [wide]);
   const familyTree = useMemo(() => buildTree(family), [family]);
   const { isFavorite, toggleFavorite, canFavorite, ready: favoriteReady } = useFavorite(id);
+  const collectionSheet = useCollectionSheet(id, isFavorite, isConfigured && !!user && !user.isAnonymous && !!user.emailVerified);
   const { suggestions, apply, keepAsBranch, reject } = useSuggestions(id, recipe?.createdBy?.uid);
   const { submit: submitSuggestion } = useSubmitSuggestion();
   // The confirm copy and target, captured on open: the RL-078 sync can remove the
@@ -543,6 +546,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       setShowAuth(true);
       return;
     }
+    collectionSheet.onSaveTap();
     toggleFavorite({
       ownerId: recipe.createdBy?.uid ?? 'local',
       title: recipe.title,
@@ -1099,6 +1103,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       )}
 
       <ListAddedToast toast={listToast} onDismiss={() => setListToast(null)} />
+      {id && <CollectionSheet open={collectionSheet.open} auto={collectionSheet.auto} recipeId={id} onClose={collectionSheet.close} />}
 
       {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
 

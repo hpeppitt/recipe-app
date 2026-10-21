@@ -95,6 +95,14 @@ function acquire(uid: string): () => void {
   };
 }
 
+/** Re-subscribes after the listener died with an error; does nothing while one is live. */
+function retryListener(uid: string) {
+  if (state?.uid !== uid || holders === 0 || unsubscribe) return;
+  retried = false;
+  set({ ...state, loading: true, error: null });
+  listen(uid);
+}
+
 /** The listener's copy of a collection; undefined before the first snapshot or when it is gone. */
 function known(uid: string, id: string): RecipeCollection | undefined {
   return state?.uid === uid ? state.collections.find((c) => c.id === id) : undefined;
@@ -152,6 +160,10 @@ export function useCollections() {
   const snap = useSyncExternalStore(onStoreChange, () => state);
   const mine = uid && snap?.uid === uid ? snap : null;
 
+  const retry = useCallback(() => {
+    if (uid) retryListener(uid);
+  }, [uid]);
+
   const actions = {
     createCollection: useCallback(
       (name: string, firstRecipeId?: string): Promise<string> =>
@@ -206,6 +218,8 @@ export function useCollections() {
     collections: mine?.collections ?? EMPTY,
     loading: !!uid && (mine?.loading ?? true),
     error: mine?.error ?? null,
+    /** After a load error: tries the listener again at once (it also retries once by itself). */
+    retry,
     ...actions,
   };
 }

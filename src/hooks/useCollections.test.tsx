@@ -179,6 +179,23 @@ describe('useCollections', () => {
     vi.useRealTimers();
   });
 
+  it('retry() resubscribes after a listener error and clears the error', async () => {
+    subscribeCollections.mockImplementationOnce((_uid: string, _next: unknown, onError: (e: Error) => void) => {
+      onError(new Error('unavailable'));
+      return unsubscribe;
+    });
+    const { result, unmount } = renderHook(() => useCollections(), { wrapper: wrapperFor(fakeUser) });
+    expect(result.current.error).toBe(COLLECTIONS_LOAD_FAILED_MESSAGE);
+    act(() => result.current.retry());
+    expect(subscribeCollections).toHaveBeenCalledTimes(2);
+    expect(result.current.error).toBeNull();
+    expect(result.current.collections).toEqual(initial);
+    // With a live listener it does nothing.
+    act(() => result.current.retry());
+    expect(subscribeCollections).toHaveBeenCalledTimes(2);
+    unmount();
+  });
+
   it('resets the retry after a good snapshot, so a later failure retries again', async () => {
     vi.useFakeTimers();
     const fail = (_uid: string, _next: unknown, onError: (e: Error) => void) => {
