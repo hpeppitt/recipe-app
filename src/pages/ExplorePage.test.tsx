@@ -37,7 +37,6 @@ import { clearBranchingThisWeekCache } from '../hooks/useBranchingThisWeek';
 import { clearRecentCooksCache } from '../hooks/useRecentCooks';
 import { clearCookProfileCache } from '../hooks/useCookSections';
 
-// The 6 hour cooks cache lives in localStorage, which this environment lacks: no cache, one read per session.
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const cloud = (over: Partial<Recipe> = {}) => ({ ...makeRecipe(over), favoriteCount: 0, viewCount: 0 });
 const localOnly = { auth: { isConfigured: false } } as const;
@@ -50,6 +49,15 @@ beforeEach(async () => {
   getRecent.mockResolvedValue([]);
   getOne.mockReset();
   getOne.mockResolvedValue(null);
+  // The 6 hour cooks cache lives in localStorage, which some environments (CI) provide and keep across
+  // tests: a fresh in-memory one per test keeps every test's cooks its own.
+  const store = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
+    clear: () => store.clear(),
+  });
   getCooks.mockReset();
   getCooks.mockResolvedValue([]);
   getProf.mockReset();
