@@ -23,7 +23,7 @@ export const TERMS: LegalDocument = {
         'You must be at least 16 years old to use the app.',
         'You can browse published recipes without an account.',
         'You can continue without an email address as an anonymous account. An anonymous account can only save bookmarks on your own device. It cannot generate, publish, save in the cloud, follow, suggest, reply or keep a profile. If you sign out of an anonymous account you cannot get it back.',
-        'Everything else needs an account with a verified email address. You sign in with a link sent to that address. There are no passwords.',
+        'Everything else needs an account with a verified email address. You sign in with a link sent to that address, or with your Google account. There are no passwords.',
         'When you create an account you must accept the current version of these terms. We keep a private record of the version you accepted and when.',
       ],
     },
@@ -43,6 +43,8 @@ export const TERMS: LegalDocument = {
         'You give us a free, worldwide, non-exclusive licence to store, copy and display your published content so the app can show it to other users, and so other users can view it, save it, suggest changes to it and create their own variations of it. This licence ends when you delete the content, except for copies covered by the next paragraph.',
         'A variation someone else created from your recipe is their recipe and stays when you delete yours. Copies other people saved to their own devices, or sent as self-contained links, are outside our control.',
         'Only publish content you have the right to share. Do not include personal information about other people.',
+        'If you import a recipe from a link or a photo, you must have the right to share what you import. Do not import something you are not allowed to copy or share, such as a page behind a paywall or a book you do not have permission to reproduce.',
+        'An imported recipe keeps its source link, which credits the original and is shown to everyone who can see the recipe. Do not remove or change it to hide where the recipe came from.',
       ],
     },
     {
