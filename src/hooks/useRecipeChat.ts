@@ -11,6 +11,7 @@ import {
 import {
   notifyBranched,
   searchPublishedVariations,
+  setCookBranch,
   type PublishedRecipe,
 } from '../services/firestore';
 import { readPublishedWindow } from '../services/publishedWindow';
@@ -157,7 +158,8 @@ async function searchSimilarVariations(
   });
 }
 
-export function useRecipeChat(parentRecipe?: Recipe) {
+/** `fromCookId` is the cook whose note this variation was grown from (RL-197), credited on save (RL-201). */
+export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Which of the two waits is in progress. They were indistinguishable, so the
@@ -188,6 +190,8 @@ export function useRecipeChat(parentRecipe?: Recipe) {
   // after an error silently skipped dedup for the rest of the session.
   const generatedOnceRef = useRef(false);
   const savingRef = useRef(false);
+  // A cook takes one branchId (the rules allow it once), so only the first saved variation credits it.
+  const cookCreditedRef = useRef(false);
   // The record built for the version last sent to the cloud. A retry of that
   // version reuses its id, so a publish that timed out but landed is merged by
   // publishRecipe instead of becoming a second recipe (RL-049, RL-082).
@@ -503,6 +507,11 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         if (parentRecipe && user && parentRecipe.createdBy.uid !== 'local' && parentRecipe.createdBy.uid !== user.uid) {
           notifyBranched({ branch: recipe, parent: parentRecipe, from: createdBy });
         }
+        // After the publish only: the rules need the branch to exist. Fire-and-forget.
+        if (parentRecipe && fromCookId && !cookCreditedRef.current) {
+          cookCreditedRef.current = true;
+          setCookBranch(fromCookId, recipe.id).catch((err: unknown) => reportError(err, 'cook-branch'));
+        }
       });
       if (failure) {
         savingRef.current = false;
@@ -522,7 +531,7 @@ export function useRecipeChat(parentRecipe?: Recipe) {
       reportError(err, 'save-recipe');
       setError({ message: "Couldn't save the recipe. Please try again." });
     }
-  }, [latestRecipe, messages, parentRecipe, navigate, user]);
+  }, [latestRecipe, messages, parentRecipe, fromCookId, navigate, user]);
 
   return {
     messages,

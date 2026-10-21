@@ -91,6 +91,10 @@ export function RecipeChatPage() {
     cloudError: parentCloudError,
     retry: retryParent,
   } = useRecipe(id);
+  // Set when the owner arrives here by approving a suggestion, so the composer
+  // opens with the suggestion already written out; fromCookId when it was grown from a cook note.
+  const location = useLocation();
+  const navState = location.state as { suggestion?: string; fromDedup?: boolean; fromCookId?: string } | null;
   const {
     messages,
     isLoading,
@@ -111,7 +115,7 @@ export function RecipeChatPage() {
     typingAnnouncement,
     previewDuplicates,
     hideTypingMatches,
-  } = useRecipeChat(isVarying ? parentRecipe : undefined);
+  } = useRecipeChat(isVarying ? parentRecipe : undefined, navState?.fromCookId);
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);
@@ -123,11 +127,8 @@ export function RecipeChatPage() {
   // default: the newest is open, every older one is closed. A new card therefore
   // opens and the previous one closes, unless the user touched the previous one.
   const [toggled, setToggled] = useState<Record<number, boolean>>({});
-  // Set when the owner arrives here by approving a suggestion, so the composer
-  // opens with the suggestion already written out.
-  const location = useLocation();
-  const suggestionSeed = (location.state as { suggestion?: string } | null)?.suggestion ?? '';
-  const fromDedup = !!(location.state as { fromDedup?: boolean } | null)?.fromDedup;
+  const suggestionSeed = navState?.suggestion ?? '';
+  const fromDedup = !!navState?.fromDedup;
   const branchFamily = useBranchFamily(isVarying ? parentRecipe : undefined);
 
   // A generated recipe lives only in component state until saved, so leaving the

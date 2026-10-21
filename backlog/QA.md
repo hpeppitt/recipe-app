@@ -1997,3 +1997,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - **Needs RL-209 deployed (cooks rules and indexes), or the emulators.** Log three cooks: one with a note, one Needs a tweak, one grown into a branch. On You, the "Cook log" row sits under the stat tiles. Open it at 390px, light and dark: summary line reads "3 cooks · N recipes · 1 branch grew from a note"; each card has emoji on a rotating tint, title, day, the note in quotes, and a Branched, Again or Tweak tag top right. Tapping a card opens the recipe; tapping Branched opens the branch.
 - Delete a cooked recipe: its card reads "A deleted recipe". Signed out or as a guest the page shows Sign in. Empty log shows "Nothing cooked yet".
 - Known gap: the profile row has no count (no cheap source there). Long titles are clamped to two lines under the tag; check they do not collide with it at 320px.
+
+### RL-201 Branch grown from a cook note is credited
+- **Needs RL-209 deployed (cooks rules and indexes), or the emulators.** On any published recipe, open I made this, choose Needs a tweak, write a note, tap Grow, generate, then Save Variation. Open the Cook log: that cook shows a Branched tag, and tapping it opens the new branch. The summary line counts 1 branch grew from a note.
+- A failed save (go offline, Save Variation) credits nothing; retry online and the cook is credited once. A plain branch with no Grow leaves the cook log unchanged.
+
+- Reviewer noted (low): a credit that fails offline is not retried (fire-and-forget by design), so that cook never shows Branched; Back into /vary after saving can re-attempt the credit, which the rules refuse and telemetry logs as cook-branch.

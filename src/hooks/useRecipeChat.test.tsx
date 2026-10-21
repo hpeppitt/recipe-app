@@ -10,9 +10,10 @@ import { fakeUser } from '../test/renderWithProviders';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, notifyBranched, navigate, reportError, config } = vi.hoisted(() => ({
+const { publishRecipe, notifyBranched, setCookBranch, navigate, reportError, config } = vi.hoisted(() => ({
   publishRecipe: vi.fn(),
   notifyBranched: vi.fn(),
+  setCookBranch: vi.fn(),
   navigate: vi.fn(),
   reportError: vi.fn(),
   config: { firebase: true },
@@ -20,6 +21,7 @@ const { publishRecipe, notifyBranched, navigate, reportError, config } = vi.hois
 vi.mock('../services/firestore', () => ({
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
   notifyBranched: (...a: unknown[]) => notifyBranched(...a),
+  setCookBranch: (...a: unknown[]) => setCookBranch(...a),
   getAllPublishedRecipes: vi.fn(),
   searchPublishedVariations: vi.fn(),
 }));
@@ -250,6 +252,80 @@ describe('useRecipeChat saveRecipe tells the parent author about a branch (RL-15
     await act(() => result.current.saveRecipe({ recipe: generated('Soup'), prompt: 'soup' }));
 
     expect(notifyBranched).not.toHaveBeenCalled();
+  });
+});
+
+describe('useRecipeChat saveRecipe credits the cook a branch grew from (RL-201)', () => {
+  const parent = makeRecipe({ title: 'Banana bread' });
+  const grown = () => renderHook(() => useRecipeChat(parent, 'cook1'), { wrapper });
+  const save = (r: ReturnType<typeof grown>['result'], title = 'Less salt') =>
+    act(() => r.current.saveRecipe({ recipe: generated(title), prompt: 'less salt' }));
+
+  it('credits the cook with the branch after the publish succeeds', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    setCookBranch.mockResolvedValue(undefined);
+    const { result } = grown();
+
+    await save(result);
+
+    const [id] = published();
+    expect(setCookBranch).toHaveBeenCalledWith('cook1', id);
+    expect(publishRecipe.mock.invocationCallOrder[0]).toBeLessThan(setCookBranch.mock.invocationCallOrder[0]);
+  });
+
+  it('does not credit when the publish fails', async () => {
+    publishRecipe.mockRejectedValue(new Error('offline'));
+    const { result } = grown();
+
+    await save(result);
+
+    expect(setCookBranch).not.toHaveBeenCalled();
+  });
+
+  it('a failed credit is reported and the save still completes and navigates', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    setCookBranch.mockRejectedValue(new Error('denied'));
+    const { result } = grown();
+
+    await save(result);
+
+    const [id] = published();
+    expect(navigate).toHaveBeenCalledWith(`/recipe/${id}/changes`, { state: { saved: 'cloud', note: null } });
+    expect(result.current.error).toBeNull();
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'cook-branch');
+    expect((await db.recipes.get(id))?.title).toBe('Less salt');
+  });
+
+  it('a credit that never settles does not block the save', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    setCookBranch.mockReturnValue(new Promise(() => {}));
+    const { result } = grown();
+
+    await save(result);
+
+    expect(navigate).toHaveBeenCalledWith(`/recipe/${published()[0]}/changes`, expect.anything());
+  });
+
+  it('credits only the first saved variation, after a failed attempt', async () => {
+    publishRecipe.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined);
+    setCookBranch.mockResolvedValue(undefined);
+    const { result } = grown();
+
+    await save(result);
+    await save(result);
+    await save(result, 'Even less salt');
+
+    expect(setCookBranch).toHaveBeenCalledTimes(1);
+    expect(setCookBranch).toHaveBeenCalledWith('cook1', published()[1]);
+  });
+
+  it('does nothing without a cook', async () => {
+    publishRecipe.mockResolvedValue(undefined);
+    const { result } = renderHook(() => useRecipeChat(parent), { wrapper });
+
+    await save(result);
+
+    expect(setCookBranch).not.toHaveBeenCalled();
   });
 });
 
