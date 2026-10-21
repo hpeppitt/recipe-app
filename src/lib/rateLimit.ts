@@ -1,17 +1,19 @@
 /**
  * Per-user write limits enforced by firestore.rules alone (RL-048, RL-049). The
  * rules hold the same numbers in suggestionCap(), replyCap(), notificationCap(),
- * recipeCap(), windowMs() and recipeWindowMs(); rateLimit.test.ts fails the
+ * recipeCap(), cookCap(), windowMs() and recipeWindowMs(); rateLimit.test.ts fails the
  * build when they differ.
  */
 
-export type RateLimitAction = 'suggestion' | 'reply' | 'notification' | 'recipe';
+export type RateLimitAction = 'suggestion' | 'reply' | 'notification' | 'recipe' | 'cook';
 
 export const SUGGESTION_CAP = 10;
 export const REPLY_CAP = 30;
 export const NOTIFICATION_CAP = 60;
 /** Recipe creates only; a re-publish is an update and is not counted. */
 export const RECIPE_CAP = 30;
+/** "I made this" records (RL-194), on the same day window as recipes. */
+export const COOK_CAP = 20;
 export const WINDOW_MS = 60 * 60 * 1000;
 export const RECIPE_WINDOW_MS = 24 * WINDOW_MS;
 
@@ -20,6 +22,7 @@ export const RATE_LIMITS: Record<RateLimitAction, { cap: number; windowMs: numbe
   reply: { cap: REPLY_CAP, windowMs: WINDOW_MS },
   notification: { cap: NOTIFICATION_CAP, windowMs: WINDOW_MS },
   recipe: { cap: RECIPE_CAP, windowMs: RECIPE_WINDOW_MS },
+  cook: { cap: COOK_CAP, windowMs: RECIPE_WINDOW_MS },
 };
 
 /**
