@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, act, within } from '@testing-library/react';
+import { screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
-import { makeRecipe } from '../test/factories';
+import { makeIngredient, makeRecipe } from '../test/factories';
 import { db } from '../db/database';
+import * as storage from '../services/storage';
 import { EXPLORE_TAGS } from '../lib/constants';
 import type { AppUser, Recipe } from '../types/recipe';
 
@@ -12,6 +13,7 @@ const getRecent = vi.fn();
 const getOne = vi.fn();
 const getCooks = vi.fn();
 const getProf = vi.fn();
+const getKitchen = vi.fn();
 vi.mock('../services/firestore', () => ({
   getPublishedRecipesPage: (...a: unknown[]) => getPage(...a),
   getRecentPublishedRecipes: (...a: unknown[]) => getRecent(...a),
@@ -20,6 +22,11 @@ vi.mock('../services/firestore', () => ({
   getProfile: (...a: unknown[]) => getProf(...a),
   getRecipesByUsers: vi.fn(async () => []),
   getCloudFavorites: vi.fn(async () => []),
+  getKitchenOnce: (...a: unknown[]) => getKitchen(...a),
+}));
+vi.mock('../hooks/useKitchen', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../hooks/useKitchen')>()),
+  resolveKitchenId: async (uid: string) => `k-${uid}`,
 }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
@@ -61,6 +68,8 @@ beforeEach(async () => {
   getCooks.mockReset();
   getCooks.mockResolvedValue([]);
   getProf.mockReset();
+  getKitchen.mockReset();
+  getKitchen.mockResolvedValue(null);
   getProf.mockResolvedValue(null);
   clearRecentCooksCache();
   clearCookProfileCache();
@@ -718,5 +727,116 @@ describe('Explore tag chips', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByText('Stale Page')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load more recipes' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ExplorePage Tonight card (RL-244)', () => {
+  const NOW = new Date(2026, 9, 20, 18, 30);
+  const open = (id: string, minutesAgo: number) =>
+    localStorage.setItem('recipe-lab-last-opened', JSON.stringify({ id, at: NOW.getTime() - minutesAgo * 60_000 }));
+  const seed = async () => {
+    await db.recipes.add(
+      makeRecipe({
+        id: 'r1',
+        title: 'Soup',
+        totalTime: 15,
+        ingredients: [makeIngredient('Onions'), makeIngredient('Salt'), makeIngredient('Leek')],
+      })
+    );
+  };
+  const at = (d: Date) => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(d);
+  };
+
+  it('shows the recipe opened in the last hour with Cook beside, not inside, the card link', async () => {
+    at(NOW);
+    await seed();
+    open('r1', 10);
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('TONIGHT · you opened this')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cook' })).toHaveAttribute('href', '/recipe/r1/cook');
+    // The list row is a second link named Soup; the card's comes first.
+    const [card] = screen.getAllByRole('link', { name: 'Soup' });
+    expect(card).toHaveAttribute('href', '/recipe/r1');
+    expect(card).not.toContainElement(screen.getByRole('link', { name: 'Cook' }));
+    expect(screen.queryByText(/in your pantry/)).not.toBeInTheDocument();
+  });
+
+  it('is hidden before 4 pm', async () => {
+    at(new Date(2026, 9, 20, 15, 59));
+    await seed();
+    localStorage.setItem('recipe-lab-last-opened', JSON.stringify({ id: 'r1', at: Date.now() - 60_000 }));
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('Tuesday afternoon')).toBeInTheDocument();
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
+  });
+
+  it('is hidden when the open was over an hour ago or the recipe is gone', async () => {
+    at(NOW);
+    await seed();
+    open('r1', 61);
+    const { unmount } = renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('Tuesday evening')).toBeInTheDocument();
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
+    unmount();
+    open('gone', 5);
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('Tuesday evening')).toBeInTheDocument();
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
+  });
+
+  it('counts pantry matches for a verified user, and skips the part when the read fails', async () => {
+    at(NOW);
+    await seed();
+    open('r1', 5);
+    getKitchen.mockResolvedValue({ pantry: [{ id: 'p1', name: 'onion', group: 'fresh', addedBy: 'u', addedAt: 1 }, { id: 'p2', name: 'Leeks', group: 'fresh', addedBy: 'u', addedAt: 1 }] });
+    const { unmount } = renderWithProviders(<ExplorePage />);
+    expect(await screen.findByText('15 min · 2 of 3 things in your pantry')).toBeInTheDocument();
+    expect(getKitchen).toHaveBeenCalledWith('k-test-user');
+    unmount();
+    getKitchen.mockRejectedValue(new Error('offline'));
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByText('TONIGHT · you opened this')).toBeInTheDocument();
+    await waitFor(() => expect(getKitchen).toHaveBeenCalled());
+    expect(screen.queryByText(/in your pantry/)).not.toBeInTheDocument();
+  });
+
+  it('Close hides it until a different recipe is opened', async () => {
+    at(NOW);
+    await seed();
+    open('r1', 5);
+    const { unmount } = renderWithProviders(<ExplorePage />, localOnly);
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('Tuesday evening')).toBeInTheDocument();
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
+  });
+
+  it('reopening the dismissed recipe shows the card again', async () => {
+    at(NOW);
+    await seed();
+    open('r1', 5);
+    const { unmount } = renderWithProviders(<ExplorePage />, localOnly);
+    fireEvent.click(await screen.findByRole('button', { name: 'Close' }));
+    unmount();
+    storage.setLastOpened('r1', NOW.getTime() - 1000);
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('TONIGHT · you opened this')).toBeInTheDocument();
+  });
+
+  it('a 60 s tick hides a card that has gone stale', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    vi.setSystemTime(NOW);
+    await seed();
+    open('r1', 59);
+    renderWithProviders(<ExplorePage />, localOnly);
+    expect(await screen.findByText('TONIGHT · you opened this')).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(screen.queryByText(/TONIGHT/)).not.toBeInTheDocument();
   });
 });

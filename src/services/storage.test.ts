@@ -57,6 +57,8 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
     expect(storage.getIntroState()).toEqual(parseIntroState(null));
     expect(storage.getEmailForLinking()).toBeNull();
     expect(storage.getKitchenTipDone()).toBe(false);
+    expect(storage.getLastOpened()).toBeNull();
+    expect(storage.getTonightDismissed()).toBeNull();
   });
 
   it('swallows writes and removes with a warning', () => {
@@ -68,6 +70,8 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
       storage.setAnonymousUid('u1');
       storage.clearAnonymousUid();
       storage.addPreviousUid('u2');
+      storage.setLastOpened('r1');
+      storage.setTonightDismissed('r1');
       storage.setIntroState(storage.getIntroState());
       storage.setKitchenTipDone();
       storage.setEmailForLinking('a@b.c');
@@ -276,5 +280,17 @@ describe('recent cooks cache (RL-242)', () => {
     blockedBy('methods');
     expect(storage.getRecentCooksCache()).toBeNull();
     expect(() => storage.setRecentCooksCache(cooks)).not.toThrow();
+  });
+});
+
+describe('last opened (RL-244)', () => {
+  it('round trips and rejects junk', () => {
+    vi.stubGlobal('localStorage', memoryStore());
+    storage.setLastOpened('r1', 5);
+    expect(storage.getLastOpened()).toEqual({ id: 'r1', at: 5 });
+    vi.stubGlobal('localStorage', memoryStore({ 'recipe-lab-last-opened': '{"id":3}' }));
+    expect(storage.getLastOpened()).toBeNull();
+    vi.stubGlobal('localStorage', memoryStore({ 'recipe-lab-last-opened': 'not json' }));
+    expect(storage.getLastOpened()).toBeNull();
   });
 });
