@@ -1,4 +1,5 @@
 import type { Ingredient, Recipe } from '../types/recipe';
+import type { Cook } from '../types/social';
 
 let counter = 0;
 
@@ -32,6 +33,25 @@ export function makeRecipe(overrides: Partial<Recipe> = {}): Recipe {
     chatHistory: [],
     createdAt: 1_000_000 + counter,
     updatedAt: 1_000_000 + counter,
+    ...overrides,
+  };
+}
+
+let cookCounter = 0;
+
+export function makeCook(overrides: Partial<Cook> = {}): Cook {
+  cookCounter += 1;
+  return {
+    id: `cook-${cookCounter}`,
+    uid: `user-${cookCounter}`,
+    displayName: null,
+    recipeId: 'recipe-1',
+    rootId: 'recipe-1',
+    recipeOwnerId: 'owner',
+    vote: 'again',
+    note: null,
+    branchId: null,
+    createdAt: 1_000_000 + cookCounter,
     ...overrides,
   };
 }
