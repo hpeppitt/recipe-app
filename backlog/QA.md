@@ -2182,3 +2182,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - VoiceOver: the camera reads "Snap a receipt", then "Reading the receipt"; each chip reads as a toggle, pressed or not.
 
 - Known limit: names with any digit are dropped, so "7up" or "Cola 2L" never appear (add them by hand). Names that are not food but have no digits ("Thank you Sarah") can still reach the confirm sheet; the user unticks them.
+
+### RL-242 Recent cooks read
+- No screen uses it yet (RL-243 does). Nothing to look at; if you open Explore with the network tab, no `cooks` query should appear until RL-243 ships.

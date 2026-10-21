@@ -82,7 +82,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-const { logCook, newCookId, getRecipeCookSummary, countUserCooks, getOwnCooksInFamily, subscribeOwnCooks, setCookBranch, deleteCook, addCookPhoto } = await import('./firestore');
+const { logCook, newCookId, getRecipeCookSummary, countUserCooks, getOwnCooksInFamily, getRecentCooks, subscribeOwnCooks, setCookBranch, deleteCook, addCookPhoto } = await import('./firestore');
 
 const NOW = 1_800_000_000_000;
 const params = {
@@ -319,5 +319,15 @@ describe('getOwnCooksInFamily', () => {
     const cooks = await getOwnCooksInFamily('u1', 'root');
     expect(cooks.map((c) => c.id)).toEqual(['c1', 'c2']);
     expect(queries).toEqual([[['where', 'uid', '==', 'u1'], ['where', 'rootId', '==', 'root'], ['limit', 30]]]);
+  });
+});
+
+describe('getRecentCooks (RL-242)', () => {
+  it('runs one range plus orderBy on createdAt, limit 200, and keeps only four fields', async () => {
+    const out = await getRecentCooks(NOW - 1000);
+    const q = queries[queries.length - 1];
+    expect(q).toEqual([['where', 'createdAt', '>=', new Date(NOW - 1000)], ['orderBy', 'createdAt', 'desc'], ['limit', 200]]);
+    expect(out[0]).toEqual({ recipeId: undefined, rootId: undefined, uid: 'u', createdAt: 5 });
+    expect(Object.keys(out[0]).sort()).toEqual(['createdAt', 'recipeId', 'rootId', 'uid']);
   });
 });
