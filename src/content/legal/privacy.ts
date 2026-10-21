@@ -23,7 +23,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Recipes you save with a verified account are published automatically and anyone can read them, along with your display name and the prompt you typed. Your profile is public too.',
         'Your email address is used only to sign you in. It is not shown to other users.',
-        'What you type, and any photos you add, to generate a recipe is sent to Google\'s Gemini AI. We do not keep the photos.',
+        'What you type, and any photos you add to the recipe chat, to generate a recipe is sent to Google\'s Gemini AI. We do not keep chat photos. A photo you choose to add to a cook ("I made this") is different: it is stored and public, and it is never sent to Gemini.',
         'We do not sell your information and we show no advertising.',
         'Optional analytics only run if you allow them.',
         `To see, export, correct or delete your information, email ${SUPPORT_EMAIL}. Some of it you can also change in the app.`,
@@ -34,6 +34,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         'Published recipes can be read by anyone, including people without an account and anyone with the link. A published recipe includes its full content, the prompt you typed to start it, your display name, and the display names of people whose suggestions you approved. It also carries account ids that the app uses to link recipes to profiles.',
         'Your profile can be read by anyone: display name, avatar (an emoji, a generated picture, or a small photo you upload) and your recipe, follower and following counts.',
+        'Cooks you log ("I made this") and any photo you add to one are public too. See the Cooks and Cook photos sections below.',
         'The full AI conversation behind a recipe is not published. It stays on your device.',
       ],
     },
@@ -85,6 +86,26 @@ export const PRIVACY: LegalDocument = {
         'Where: Google Cloud Firestore, in Sydney, Australia.',
         'Who sees it: anyone.',
         'How long: until you delete the recipe from its page. "Delete Recipes on This Device" does not remove published recipes. Variations other people made from your recipe are theirs and stay.',
+      ],
+    },
+    {
+      heading: 'Cooks ("I made this")',
+      paragraphs: [
+        'What: each time you log a cook, we store your account id, your display name, the recipe, the id of the recipe\'s owner, your vote ("again" or "tweak"), an optional note of up to 500 characters, an optional link to a branch you made from it, and the time.',
+        'Why: to show how many people made a recipe and what they thought, and to show you your own cooking log.',
+        'Where: Google Cloud Firestore.',
+        'Who sees it: anyone, including people without an account. Everything above is public on the recipe, so do not put personal information in a note.',
+        `How long: until you delete the cook from your cook log in the app, or your account is deleted. The recipe owner cannot delete your cook. Cooks you log are included in "Download my data" in Settings. If a recipe is deleted, cooks logged on it are kept. If an account that owned a recipe is erased, other people's cooks of that recipe stay and the owner id on them is replaced, so it no longer points to the erased account. Deletion by email request: ${SUPPORT_EMAIL}.`,
+      ],
+    },
+    {
+      heading: 'Cook photos',
+      paragraphs: [
+        'What: one optional photo you add to a cook. It is made smaller on your device first (a JPEG, long side 800 pixels, about 150 KB at most), which also removes the location and camera details in the file. We store it with your account id, the recipe id and the time. Food only, please. Do not photograph people, addresses or documents with personal details.',
+        'Why: so a recipe can show what it looks like when cooked.',
+        'Where: Google Cloud Firestore, as part of our database. It is not sent to Gemini.',
+        'Who sees it: anyone, including people without an account. The recipe shows the newest cook photo with "Photo by" and your display name.',
+        `How long: until you delete the cook, which deletes its photo, until the recipe owner removes the photo from their recipe, or until your account is deleted. Cook photos are included in "Download my data" in Settings. If you ask us to erase your account, your cooks and their photos are deleted. Deletion by email request: ${SUPPORT_EMAIL}.`,
       ],
     },
     {
@@ -144,7 +165,7 @@ export const PRIVACY: LegalDocument = {
         'Why: to generate the recipe you asked for.',
         'Where: Google, through Firebase AI Logic and the Gemini Developer API.',
         'Who sees it: Google processes it to produce the answer. We use the free tier of the Gemini API. Under Google\'s terms for the free tier, Google may use what you type, the photos you add and the answers to improve its products and machine learning, and human reviewers may read it after it is disconnected from your Google account, API key and project. Do not put sensitive or personal information into the recipe chat, and do not photograph people, addresses, or documents with personal details such as letters, labels or ID cards. Google\'s terms for the free tier allow it only for people outside the European Economic Area, Switzerland and the United Kingdom, so we invite testers from other places only.',
-        'How long: we keep the prompt that started a recipe with the recipe (see above), and the full conversation only on your device. We do not store photos. They stay in the app\'s memory until you leave the chat and are not saved with the recipe, on your device or in the cloud.',
+        'How long: we keep the prompt that started a recipe with the recipe (see above), and the full conversation only on your device. We do not store the photos you add to the recipe chat. They stay in the app\'s memory until you leave the chat and are not saved with the recipe, on your device or in the cloud.',
       ],
     },
     {
@@ -204,7 +225,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
-        'Contract: running your account, signing you in, storing and publishing your recipes and profile, saves, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
+        'Contract: running your account, signing you in, storing and publishing your recipes, cooks, cook photos and profile, saves, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
         'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), limits on how often you can suggest, reply, notify and publish, and a record that we handled a privacy request, so we can show we complied. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
       ],
@@ -232,9 +253,9 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
-        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
+        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
-        `Erasure: delete recipes from their page, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
+        `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',
         'Complaint: you can complain to the Office of the Australian Information Commissioner (OAIC) in Australia, the Information Commissioner\'s Office (ICO) in the UK, or the data protection authority in your EU country. We would like the chance to help first.',
