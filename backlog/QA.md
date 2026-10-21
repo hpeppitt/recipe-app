@@ -2196,3 +2196,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-244 Tonight card
 - After 4 pm, open a recipe, then go to Explore: a Tonight card under the header shows its emoji, title, time and, when signed in with a verified email and a pantry, "N of M things in your pantry". Tapping the card opens the recipe; Cook opens cook mode. Close hides it until you open a recipe again (including the same one). Below 380px the emoji circle is hidden and the title wraps to two lines (check 320px).
 - It should not show before 4 pm, or an hour after opening the recipe. Check 390px and 1280px, light and dark; the Cook pill is a 44px target, not the design's 40px.
+
+### RL-245 Family cooks hook
+- No UI yet. The `cooks (rootId asc, createdAt desc)` index in `firestore.indexes.json` must be deployed with RL-209 before the query works live; until then the hook reports `family-cooks` and returns empty.
