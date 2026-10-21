@@ -110,6 +110,12 @@ export interface TermsContextType {
   accept: () => Promise<void>;
   /** Declining signs out; rejects if sign-out fails. */
   decline: () => Promise<void>;
+  /**
+   * Before a write the rules gate on the current Terms (RL-257): true when accepted, or when the
+   * read failed (unknown is not "owed"; the write then reports its own error). False opens the
+   * dialog, and the caller stops so the user repeats the action after accepting.
+   */
+  ensureCurrent?: () => Promise<boolean>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- exported so tests can inject a fake value; only affects HMR for this file
@@ -593,6 +599,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTermsPromptUid(null);
   };
 
+  const ensureTermsCurrent = async (): Promise<boolean> => {
+    const uid = currentUidRef.current;
+    if (!uid) return true;
+    try {
+      if ((await getAcceptedTermsVersion(uid)) === TERMS_VERSION) return true;
+    } catch {
+      return true;
+    }
+    setTermsPromptUid(uid);
+    return false;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -615,6 +633,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           pending: !!termsPromptUid && user?.uid === termsPromptUid,
           accept: handleAcceptTerms,
           decline: handleSignOut,
+          ensureCurrent: ensureTermsCurrent,
         }}
       >
         {children}

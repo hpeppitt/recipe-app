@@ -18,6 +18,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-257 Share a collection as a cookbook
+- Share fails against production until RL-261 deploys the RL-256 rules (expect "Couldn't update your collections"); do this walk on the emulators or after RL-261.
+- On a collection: More, Share as a cookbook, type a description (stops at 280), Share. The sheet then shows the link with Copy (and Share on a phone) and Stop sharing.
+- Open the link signed out in another browser (the page itself is RL-258, so until then it only has to be readable, not pretty), press Stop sharing, reload the link (denied).
+- With a recipe that is not in the cloud in the list, the sheet says "1 recipe isn't published and won't show." before Share.
+- With the Terms version bumped for your account, Share and Rename on a public collection open the Terms dialog instead of failing.
+- Adding a recipe to a shared collection still works (lastAddedAt is set in the same write). Adding from the save sheet, renaming and removing a recipe on a public collection are all Terms-gated too (the dialog opens instead of a generic failure).
+- Review-round fixes to look at: Stop sharing asks "Stop sharing?" first; the description has a label and an n/280 counter; Copy says "Copied" for 2s with a screen-reader status; focus lands on the link once shared; a status line says "Shared. Link ready." or "Sharing stopped."; sheet errors use danger-700.
+
+- Reviewer noted (low): the unpublished-recipes count covers only loaded tiles and can rise as you scroll; a Terms refusal shows a red message while the Terms dialog is open; Stop sharing from a page already in the "gone" state would write a null description.
+
 ### RL-256 Public cookbook and follow rules (repo only)
 - Nothing to see in the app yet: the rules are in the repo and reach production with RL-261, and the client is RL-257 to RL-259.
 - At RL-261, after the deploy: share a collection, open its link signed out (it loads), stop sharing and reload (denied), follow it from a second verified account (works only while public), and confirm the second account cannot rename it or add a recipe.

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useCallback, useContext, useEffect, useSyncExternalStore } from 'react';
+import { TermsContext, useAuth } from '../contexts/AuthContext';
 import { auth } from '../services/firebase';
 import {
   addToCollection,
@@ -7,12 +7,14 @@ import {
   deleteCollection,
   removeFromCollection,
   renameCollection,
+  setCookbookSharing,
   subscribeCollections,
   type RecipeCollection,
 } from '../services/firestore';
 import { reportError } from '../services/telemetry';
 import {
   COLLECTION_GONE_MESSAGE,
+  COOKBOOK_DESCRIPTION_MAX,
   CollectionRefusedError,
   checkCollectionCount,
   checkCollectionRecipeId,
@@ -154,6 +156,7 @@ const NOT_VERIFIED = 'Sign in with a verified email to use collections';
  */
 export function useCollections() {
   const { user, isConfigured } = useAuth();
+  const terms = useContext(TermsContext);
   const uid = isConfigured && user && !user.isAnonymous && user.emailVerified ? user.uid : null;
 
   useEffect(() => (uid ? acquire(uid) : undefined), [uid]);
@@ -181,6 +184,15 @@ export function useCollections() {
         uid ? write(uid, () => renameCollection(id, name), () => collectionName(name), id) : Promise.reject(new Error(NOT_VERIFIED)),
       [uid]
     ),
+    setCookbookSharing: useCallback(
+      (id: string, visibility: 'private' | 'public', description: string | null): Promise<void> =>
+        uid
+          ? write(uid, () => setCookbookSharing(id, visibility, description), () => {
+              if (description !== null && description.length > COOKBOOK_DESCRIPTION_MAX) throw new CollectionRefusedError(`Keep the description to ${COOKBOOK_DESCRIPTION_MAX} characters.`);
+            }, id)
+          : Promise.reject(new Error(NOT_VERIFIED)),
+      [uid]
+    ),
     deleteCollection: useCallback(
       (id: string): Promise<void> => {
         if (!uid) return Promise.reject(new Error(NOT_VERIFIED));
@@ -194,13 +206,19 @@ export function useCollections() {
     addToCollection: useCallback(
       (id: string, recipeId: string): Promise<void> =>
         uid
-          ? write(uid, () => addToCollection(id, recipeId), () => {
+          ? write(uid, async () => {
+              // A public collection's write needs the current Terms: open the dialog instead of failing.
+              if (known(uid, id)?.visibility === 'public' && terms?.ensureCurrent && !(await terms.ensureCurrent())) {
+                throw new CollectionRefusedError('Accept the Terms, then try again.');
+              }
+              await addToCollection(id, recipeId);
+            }, () => {
               checkCollectionRecipeId(recipeId);
               const current = known(uid, id);
               if (current && !current.recipeIds.includes(recipeId)) checkCollectionRoom(current.recipeIds);
             }, id)
           : Promise.reject(new Error(NOT_VERIFIED)),
-      [uid]
+      [uid, terms]
     ),
     removeFromCollection: useCallback(
       (id: string, recipeId: string): Promise<void> => {

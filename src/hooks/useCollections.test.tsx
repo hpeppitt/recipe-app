@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { AuthContext, type AuthContextType } from '../contexts/AuthContext';
+import { AuthContext, TermsContext, type AuthContextType } from '../contexts/AuthContext';
 import { fakeUser } from '../test/renderWithProviders';
 import { COLLECTION_RECIPE_CAP, COLLECTIONS_PER_USER_MAX, CollectionRefusedError } from '../lib/kitchen';
 import type { AppUser } from '../types/recipe';
@@ -50,6 +50,8 @@ const col = (id: string, recipeIds: string[] = []): RecipeCollection => ({
   ownerUid: fakeUser.uid,
   name: id,
   recipeIds,
+  visibility: 'private',
+  description: null,
   createdAt: 1,
   updatedAt: 1,
 });
@@ -107,6 +109,30 @@ describe('useCollections', () => {
     expect(removeFromCollection).toHaveBeenCalledWith('c1', 'r1');
     await act(() => result.current.deleteCollection('c1'));
     expect(deleteCollection).toHaveBeenCalledWith('c1');
+    unmount();
+  });
+
+  it.each([
+    [false, false],
+    [true, true],
+  ])('on a public collection, ensureCurrent=%s means a write: %s', async (current, writes) => {
+    initial = [{ ...col('c1', ['r1']), visibility: 'public' }];
+    const ensureCurrent = vi.fn(async () => current);
+    const inner = wrapperFor(fakeUser);
+    const wrapper = ({ children }: { children: ReactNode }) => {
+      const Auth = inner;
+      return (
+        <Auth>
+          <TermsContext.Provider value={{ pending: false, accept: async () => {}, decline: async () => {}, ensureCurrent }}>{children}</TermsContext.Provider>
+        </Auth>
+      );
+    };
+    const { result, unmount } = renderHook(() => useCollections(), { wrapper });
+    const done = result.current.addToCollection('c1', 'r2');
+    if (writes) await act(() => done);
+    else await expect(done).rejects.toThrow('Accept the Terms, then try again.');
+    expect(ensureCurrent).toHaveBeenCalled();
+    expect(addToCollection).toHaveBeenCalledTimes(writes ? 1 : 0);
     unmount();
   });
 

@@ -53,7 +53,7 @@ vi.mock('firebase/firestore', () => {
   };
 });
 
-import { addToCollection, createCollection, deleteCollection, removeFromCollection, renameCollection, subscribeCollections } from './firestore';
+import { addToCollection, createCollection, setCookbookSharing, deleteCollection, removeFromCollection, renameCollection, subscribeCollections } from './firestore';
 
 const ids = (n: number) => Array.from({ length: n }, (_, i) => `r${i}`);
 
@@ -130,6 +130,18 @@ describe('addToCollection', () => {
     expect(ops).toEqual([{ op: 'update', path: 'collections/c1', data: { recipeIds: { union: 'r1' }, updatedAt: 'SERVER_TS' } }]);
   });
 
+  it('sets lastAddedAt in the same write only when the collection is public', async () => {
+    stored['collections/c1'] = { ownerUid: 'u1', visibility: 'public', recipeIds: ['r0'] };
+    await addToCollection('c1', 'r1');
+    expect(ops[0].data).toEqual({ recipeIds: { union: 'r1' }, updatedAt: 'SERVER_TS', lastAddedAt: 'SERVER_TS' });
+  });
+
+  it('does not write at all for a public collection that already has the recipe', async () => {
+    stored['collections/c1'] = { ownerUid: 'u1', visibility: 'public', recipeIds: ['r1'] };
+    await addToCollection('c1', 'r1');
+    expect(ops).toEqual([]);
+  });
+
   it('does not write when the recipe is already there', async () => {
     stored['collections/c1'] = { ownerUid: 'u1', recipeIds: ['r1'] };
     await addToCollection('c1', 'r1');
@@ -168,6 +180,13 @@ describe('addToCollection', () => {
   });
 });
 
+describe('setCookbookSharing', () => {
+  it('writes visibility and description only, never followerCount', async () => {
+    await setCookbookSharing('c1', 'public', 'Quick dinners');
+    expect(ops).toEqual([{ op: 'update', path: 'collections/c1', data: { visibility: 'public', description: 'Quick dinners', updatedAt: 'SERVER_TS' } }]);
+  });
+});
+
 describe('removeFromCollection', () => {
   it('removes with arrayRemove and sets updatedAt', async () => {
     await removeFromCollection('c1', 'r1');
@@ -183,8 +202,8 @@ describe('subscribeCollections', () => {
     subscribeCollections('u1', (c) => (seen = c));
     expect(queried).toEqual({ path: 'collections', constraints: [{ where: ['ownerUid', '==', 'u1'] }] });
     expect(seen).toEqual([
-      { id: 'b', ownerUid: 'u1', name: 'New', recipeIds: ['r1'], createdAt: null, updatedAt: 9 },
-      { id: 'a', ownerUid: 'u1', name: 'Old', recipeIds: [], createdAt: null, updatedAt: 1 },
+      { id: 'b', ownerUid: 'u1', name: 'New', recipeIds: ['r1'], visibility: 'private', description: null, createdAt: null, updatedAt: 9 },
+      { id: 'a', ownerUid: 'u1', name: 'Old', recipeIds: [], visibility: 'private', description: null, createdAt: null, updatedAt: 1 },
     ]);
   });
 });
