@@ -72,8 +72,8 @@ cache and offline copy ([decision 1b](decisions.md)). Saves and edits are cloud 
 recipe is published, and only on success cached in Dexie (RL-082, RL-083), so a failure shows
 an error with a retry and leaves nothing local. A new recipe's sequence (publish bounded at 4 s
 with `withTimeout`, then `cacheRecipe`) is one shared helper, `publishThenCache` in
-`services/recipeSave.ts`, used by the chat save (`useRecipeChat.ts`) and the link import
-(`useImportRecipe.ts`, RL-186). `hooks/useOwnRecipesSync.ts`, mounted once in
+`services/recipeSave.ts`, used by the chat save (`useRecipeChat.ts`) and the link and photo import
+(`useImportRecipe.ts`, RL-186, RL-251). `hooks/useOwnRecipesSync.ts`, mounted once in
 `App.tsx`, keeps Dexie in step on every device (RL-078): one `onSnapshot` on the user's own
 recipes (`subscribeOwnRecipes` in `services/firestore.ts`), and each server snapshot applied
 with `applyOwnRecipeSync` (`db/recipes.ts`), which runs the pure `planOwnRecipeSync`
@@ -230,6 +230,18 @@ Google-hosted proxy. This is the single most important architectural fact:
   `responseSchema` together with URL context is unconfirmed (backlog/DECISIONS.md, RL-185);
   the prompt asks for the same JSON so the schema can come off without other changes. The
   gates are the generation gates; nothing new is checked here.
+- **A recipe can be read from photos (RL-251).** `importRecipeFromPhotos(photos)` is one
+  `generateContent` call with "Read the recipe in these photos." and one `inlineData` part per
+  photo (1 to 3, otherwise no request), `PHOTO_IMPORT_SYSTEM_PROMPT` and the same
+  `IMPORT_RESPONSE_SCHEMA`, no tools, bounded at 45 s. The reply goes through `toImportDraft`
+  with `PHOTO_SOURCE` ('photo') as the draft's `importedFrom`, so uncertain amounts are forced
+  to null as for a link. Every failure, a draft with no recipe included, resolves to
+  `PHOTO_IMPORT_ERROR_MESSAGE`; a thrown error is reported as a new Error from the
+  `redactInlineData` message only, as `import-photo`, and the reply is never logged. The photos
+  come from `usePhotoTray` on `/import?mode=photo` and live only in that hook's state and the
+  request. `useImportRecipe.readPhotos` shares the read and dedup with the link path; the save
+  drops `importedFrom` for a photo import because `hasBoundedContent` and `ImportedFromSchema`
+  accept only http(s) URLs.
 - **A receipt photo can be read into pantry items (RL-241).** `readReceipt(photo)` is one
   `generateContent` call with the text "Read this receipt." and the photo as an `inlineData`
   part, `RECEIPT_SYSTEM_PROMPT` and `RECEIPT_RESPONSE_SCHEMA` (`{ items: string[] }`), bounded

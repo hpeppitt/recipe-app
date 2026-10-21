@@ -6,6 +6,15 @@ import type { GeneratedRecipe } from '../types/api';
 /** The one message every import failure shows (RL-185). */
 export const IMPORT_ERROR_MESSAGE = "Couldn't read that page. Check the link, or try a photo of it.";
 
+/** The one message every photo import failure shows (RL-251). */
+export const PHOTO_IMPORT_ERROR_MESSAGE = "Couldn't read a recipe in those photos. Try a closer, brighter photo of the page.";
+
+/**
+ * A photo import's draft `importedFrom` (RL-251). It is not stored: the rules and
+ * ImportedFromSchema accept only http(s) URLs (backlog/DECISIONS.md, RL-251).
+ */
+export const PHOTO_SOURCE = 'photo';
+
 // Hostnames that only resolve on a private network, never on the public web.
 const PRIVATE_SUFFIXES = ['localhost', 'local', 'internal', 'intranet', 'lan', 'home', 'corp', 'home.arpa', 'test', 'invalid', 'example'];
 

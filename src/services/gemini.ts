@@ -1,13 +1,21 @@
 import { getAI, getGenerativeModel, GoogleAIBackend, type ChatSession as AIChatSession } from 'firebase/ai';
 import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
 import { IMPORT_RESPONSE_SCHEMA, RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
-import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt, withAvoids } from '../lib/prompts';
-import { IMPORT_ERROR_MESSAGE, importHost, normalizeImportUrl, toImportDraft, type ImportDraft } from '../lib/linkImport';
+import { IMPORT_SYSTEM_PROMPT, PHOTO_IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt, withAvoids } from '../lib/prompts';
+import {
+  IMPORT_ERROR_MESSAGE,
+  PHOTO_IMPORT_ERROR_MESSAGE,
+  PHOTO_SOURCE,
+  importHost,
+  normalizeImportUrl,
+  toImportDraft,
+  type ImportDraft,
+} from '../lib/linkImport';
 import { firebaseApp } from './firebase';
 import { captureAiGeneration } from './analytics';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
-import { redactInlineData, type ImageAttachment } from '../lib/imageAttachments';
+import { MAX_IMAGES_PER_MESSAGE, redactInlineData, type ImageAttachment } from '../lib/imageAttachments';
 import { RECEIPT_ERROR_MESSAGE, RECEIPT_SYSTEM_PROMPT, parseReceiptItems } from '../lib/receipt';
 import { RECEIPT_RESPONSE_SCHEMA } from '../schemas/receipt.responseSchema';
 import { reportError } from './telemetry';
@@ -169,6 +177,56 @@ export async function importRecipeFromUrl(input: string): Promise<ImportDraft> {
     // error messages can embed the full URL. Console is not sent to telemetry.
     console.warn('Link import failed for', importHost(url), err instanceof Error ? err.name : 'error');
     return { recipe: null, uncertainCount: 0, error: IMPORT_ERROR_MESSAGE };
+  }
+}
+
+/** A photo import is one AI Logic request with up to three photos, so it gets longer than a link. */
+export const PHOTO_IMPORT_TIMEOUT_MS = 45_000;
+
+/**
+ * Reads the recipe in up to three downscaled photos of a page or card (RL-251).
+ *
+ * As `readReceipt`, the photos live only in this request: not stored, not in
+ * analytics, and any error is redacted before it is reported. Every failure
+ * resolves to `PHOTO_IMPORT_ERROR_MESSAGE` rather than throwing.
+ */
+export async function importRecipeFromPhotos(photos: ImageAttachment[]): Promise<ImportDraft> {
+  const failed: ImportDraft = { recipe: null, uncertainCount: 0, error: PHOTO_IMPORT_ERROR_MESSAGE };
+  if (!photos.length || photos.length > MAX_IMAGES_PER_MESSAGE) return failed;
+  try {
+    if (!firebaseApp) throw new Error('Firebase is not configured, so recipes cannot be imported.');
+    const startedAt = performance.now();
+    const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+    const model = getGenerativeModel(
+      ai,
+      {
+        model: MODEL,
+        systemInstruction: PHOTO_IMPORT_SYSTEM_PROMPT,
+        generationConfig: { responseMimeType: 'application/json', responseSchema: IMPORT_RESPONSE_SCHEMA },
+      },
+      { timeout: PHOTO_IMPORT_TIMEOUT_MS }
+    );
+    const result = await model.generateContent([
+      'Read the recipe in these photos.',
+      ...photos.map((p) => ({ inlineData: { mimeType: p.mimeType, data: p.base64 } })),
+    ]);
+    const draft = toImportDraft(result.response.text(), PHOTO_SOURCE);
+    captureAiGeneration({
+      model: MODEL,
+      sessionId: crypto.randomUUID(),
+      traceId: crypto.randomUUID(),
+      latency: (performance.now() - startedAt) / 1000,
+    });
+    // The reply is not logged: it is the page's text.
+    return draft.recipe ? draft : failed;
+  } catch (err) {
+    // A new Error from the redacted message only: no cause, stack or SDK fields that may echo a photo.
+    const redacted = redactInlineData(err);
+    const safe = new Error(redacted instanceof Error ? redacted.message : 'Photo import failed');
+    safe.name = err instanceof Error ? err.name : 'Error';
+    console.error('Photo import failed', safe.name, safe.message);
+    reportError(safe, 'import-photo');
+    return failed;
   }
 }
 
