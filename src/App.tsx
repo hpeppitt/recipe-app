@@ -29,6 +29,7 @@ const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m
 const KitchenPage = lazy(() => import('./pages/KitchenPage').then(m => ({ default: m.KitchenPage })));
 const PantryPage = lazy(() => import('./pages/PantryPage').then(m => ({ default: m.PantryPage })));
 const CollectionPage = lazy(() => import('./pages/CollectionPage').then(m => ({ default: m.CollectionPage })));
+const CookbookPage = lazy(() => import('./pages/CookbookPage').then(m => ({ default: m.CookbookPage })));
 const ShoppingListPage = lazy(() => import('./pages/ShoppingListPage').then(m => ({ default: m.ShoppingListPage })));
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
 const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
@@ -101,6 +102,8 @@ export function AppRoutes() {
         <Route path="/cookies" element={<LegalPage doc="cookies" />} />
         {/* A kitchen invite (RL-239): a sheet over a plain ground, outside the shell. */}
         <Route path="/join/:code" element={<JoinKitchenPage />} />
+        {/* A shared cookbook (RL-258): public, outside the shell, with its own back link. */}
+        <Route path="/c/:id" element={<CookbookPage />} />
         <Route path="/shared" element={<SharedRecipePage />} />
         <Route path="/shared/:id" element={<SharedRecipePage />} />
         {/* 4b Forest view (RL-175), with its own Back button like /settings. */}
