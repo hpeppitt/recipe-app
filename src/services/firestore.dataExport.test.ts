@@ -56,6 +56,7 @@ describe('fetchCloudDataForExport', () => {
     expect(shapes).toEqual([
       'collections:ownerUid',
       'cookPhotos:uid',
+      'cookbookFollows:uid',
       'cooks:uid',
       'favorites:uid',
       'follows:followerId',

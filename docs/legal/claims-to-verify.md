@@ -99,3 +99,4 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 33. **Pages exist.** All three documents assume they are reachable at `/terms`, `/privacy` and
     `/cookies`, and the Settings "Legal" section. Built as drafts in RL-045; still open for the author's check.
 34. **Photos in the recipe chat.** Privacy 'The short version' and 'AI recipe generation': photos are not stored, are resent each turn, and the downscale drops EXIF. RL-118, RL-119, RL-120.
+35. **Shared cookbooks, cookbook follows, photo imports.** Privacy 'Shared cookbooks', 'Importing a recipe from photos', 'Your Kitchen' (RL-260). Cookbooks are public with name, description, owner display name, recipe ids and follower count; follows are readable only by the follower. Photo imports are downscaled on the device, sent to Gemini, never stored, errors redacted. Cookbook follows are in Download my data and the erase script (RL-260).

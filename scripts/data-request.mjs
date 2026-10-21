@@ -283,6 +283,18 @@ export function buildErasePlan(uid, fetched) {
   // Pantry items they added keep their place with addedBy anonymised. Other members' uids are
   // never printed: a kitchen at another owner's id is shown as kitchens/<another owner>.
   for (const c of fetched.collections ?? []) add('own collection', [del(c.path)]);
+  // Cookbook follows (RL-260): the follow goes with the count on its cookbook, in one group
+  // as for profile follows. A cookbook that is gone, or is the uid's own and deleted above,
+  // has no count to move; a count already at 0 is left alone.
+  const ownCollections = new Set((fetched.collections ?? []).map((c) => c.path));
+  for (const f of uniqueByPath(fetched.cookbookFollows ?? [])) {
+    const target = `collections/${f.data.collectionId}`;
+    const ops = [del(f.path)];
+    if (!ownCollections.has(target) && counterAbove0(target, 'followerCount')) {
+      ops.push({ kind: 'update', path: target, increment: { field: 'followerCount', by: -1 } });
+    }
+    add('own cookbook follow', ops);
+  }
   for (const i of fetched.kitchenInvites ?? []) add('own kitchen invite', [del(i.path)]);
   const skipped = [];
   for (const k of uniqueByPath([fetched.kitchen, ...(fetched.kitchenMemberships ?? [])].filter(Boolean))) {
@@ -429,10 +441,13 @@ async function collect(db, auth, uid) {
     ...(await q(db.collection('follows').where('followingId', '==', uid))),
   ];
 
+  const cookbookFollows = await q(db.collection('cookbookFollows').where('uid', '==', uid));
+
   // Current counter values, so a decrement never takes a counter below zero.
   const counterPaths = [
     ...favorites.map((f) => `recipes/${f.data.recipeId}`),
     ...follows.map((f) => `profiles/${f.data.followerId === uid ? f.data.followingId : f.data.followerId}`),
+    ...cookbookFollows.map((f) => `collections/${f.data.collectionId}`),
   ];
   const counters = {};
   for (const p of new Set(counterPaths)) counters[p] = (await one(p))?.data ?? null;
@@ -473,6 +488,7 @@ async function collect(db, auth, uid) {
     kitchenMemberships: await q(db.collection('kitchens').where('memberUids', 'array-contains', uid)),
     kitchenInvites: await q(db.collection('kitchenInvites').where('ownerUid', '==', uid)),
     collections: await q(db.collection('collections').where('ownerUid', '==', uid)),
+    cookbookFollows,
     cooksOnOwn: (await q(db.collection('cooks').where('recipeOwnerId', '==', uid))).filter((c) => c.data.uid !== uid),
     counters,
   };
@@ -540,7 +556,7 @@ export function redactExport(uid, body) {
     out.profile, out.termsAcceptance, out.notificationPrefs, out.tasteProfile, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
-    ...out.cooks, ...out.cookPhotos, out.kitchen, ...(out.kitchenInvites ?? []), ...out.collections,
+    ...out.cooks, ...out.cookPhotos, out.kitchen, ...(out.kitchenInvites ?? []), ...out.collections, ...(out.cookbookFollows ?? []),
   ].filter(Boolean);
   for (const d of docs) d.path = fixPath(d.path);
   out.redaction = "Other people's account ids are replaced with other-user-N and their display names removed. Content is kept.";
@@ -581,6 +597,7 @@ function exportBody(uid, project, target, f) {
     kitchenMemberships: kitchenMemberships(uid, f.kitchenMemberships ?? []),
     kitchenInvites: f.kitchenInvites ?? [],
     collections: f.collections,
+    cookbookFollows: f.cookbookFollows ?? [],
   };
 }
 
@@ -607,6 +624,7 @@ function countExport(body) {
     kitchenMemberships: body.kitchenMemberships.length,
     kitchenInvites: body.kitchenInvites.length,
     collections: body.collections.length,
+    cookbookFollows: body.cookbookFollows.length,
   };
 }
 

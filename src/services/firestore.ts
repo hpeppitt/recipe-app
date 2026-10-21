@@ -2471,7 +2471,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, kitchenMemberships: error, collections: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, kitchenMemberships: error, collections: error, cookbookFollows: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
@@ -2508,7 +2508,8 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows] = await Promise.all([
+
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -2576,6 +2577,8 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     emailVerified
       ? exportSection<CloudDoc[]>('collections', () => readMerged('collections', [byField('collections', 'ownerUid')]))
       : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
+    // The list rule asks only for uid == the signed-in user (RL-256), so no verified gate.
+    exportSection<CloudDoc[]>('cookbookFollows', () => readMerged('cookbook follows', [byField('cookbookFollows', 'uid')])),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows };
 }
