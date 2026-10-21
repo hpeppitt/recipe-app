@@ -10,6 +10,7 @@ import { useCollectionSheet } from '../hooks/useCollectionSheet';
 import { CollectionSheet } from '../components/recipe/CollectionSheet';
 import { useSubmitSuggestion } from '../hooks/useSuggestions';
 import type { SuggestionEdit } from '../types/social';
+import { ImportedFrom } from '../components/recipe/ImportedFrom';
 import { RecipeContent } from '../components/recipe/RecipeContent';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
@@ -400,6 +401,7 @@ function SharedRecipeView() {
             )}
           </div>
 
+          <ImportedFrom url={fullRecipe.importedFrom} className="-mb-2" />
           <RecipeContent recipe={fullRecipe} hideHeader onAllTicked={cooked.onAllTicked} underMeta={<MadeByRow cooks={cooks} />} />
 
           {recipe.collaborators && recipe.collaborators.length > 0 && (

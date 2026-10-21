@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-253 Imported from <host>
+- Open a recipe saved from Paste a link. Under the title a small line reads "Imported from <host>" with an external-link icon; tap it and the source page opens in a new tab. Check the shared page of an import too. A branch of an import shows no line (only the import itself carries `importedFrom`).
+- The metadata row's author pill reads "via <your name>" on the imported original (the shared page too).
+- Waits on the RL-251 decision (backlog/DECISIONS.md): a Snap a page import stores no `importedFrom`, so it shows no "Imported from a photo" line yet.
+
+- Reviewer round fixed: long hosts wrap at 320px; the link announces "(opens in a new tab)".
+- Reviewer noted (ui, low): the link's enlarged hit area reaches 12px above and below the line and may catch taps meant for a neighbour; screen readers hear "Open importer, <name>" for the via pill.
+- Not built: "Imported from a photo" (waits on the RL-251 importedFrom decision); two criteria are left unticked on purpose.
+
 ### RL-252 Check the import
 - Import a link whose recipe has a fraction amount (for example from a page with "3/4 cup"). After Read it, the "Check the import" screen shows the host and path with "Source kept", the title as an editable field with its emoji, and one row per ingredient.
 - A row whose amount could not be read is tinted, shows "?" in the amount pill and "Check" at the right; the summary says "One amount was unclear." Fix the amount: the tint and the line clear ("All amounts read clearly.").

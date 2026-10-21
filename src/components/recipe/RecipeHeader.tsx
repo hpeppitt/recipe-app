@@ -4,6 +4,7 @@ import type { Recipe } from '../../types/recipe';
 import { EmojiBlob } from '../ui/EmojiBlob';
 import { IconButton } from '../ui/IconButton';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { ImportedFrom } from './ImportedFrom';
 import { Sheet } from '../ui/Sheet';
 import type { RecipePhoto } from '../../services/firestore';
 import { reportError } from '../../services/telemetry';
@@ -192,6 +193,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
           </div>
           <div className={titlePad}>
             <h1 ref={titleRef} title={recipe.title} data-recipe-title="" tabIndex={-1} className={`mt-[14px] line-clamp-2 -mb-[0.15em] break-words pb-[0.15em] font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
+            <ImportedFrom url={recipe.importedFrom} className="mt-1.5" />
             {familyRoot && (
               <p className="mt-1.5 break-words text-[16px] font-bold text-accent-2-700">
                 {familyRoot.emoji} {familyRoot.title} variation
@@ -225,6 +227,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">
               {recipe.description}
             </p>
+            <ImportedFrom url={recipe.importedFrom} className="mt-1.5" />
             {photo && <p className="mt-1.5 break-words text-[12px] text-neutral-700">Photo by {photo.name}</p>}
             {recipe.relatedFamilyId && (
               <p className="mt-3">
