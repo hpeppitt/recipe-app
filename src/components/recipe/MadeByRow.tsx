@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { madeByLine, recentCooks } from '../../lib/cooks';
 import type { useRecipeCooks } from '../../hooks/useCooks';
+import { useAuth } from '../../contexts/AuthContext';
 import { Avatar } from '../ui/Avatar';
 import { CookNotesSheet } from './CookNotesSheet';
 
@@ -8,13 +9,14 @@ import { CookNotesSheet } from './CookNotesSheet';
 export type RecipeCooks = Pick<ReturnType<typeof useRecipeCooks>, 'status' | 'summary' | 'refresh'>;
 
 /** Under the metadata pills (RL-199): who made this, how many times, and a way into their notes. Public. */
-export function MadeByRow({ cooks }: { cooks: RecipeCooks }) {
+export function MadeByRow({ cooks, photoCookId, onPhotoChanged }: { cooks: RecipeCooks; photoCookId?: string; onPhotoChanged?: () => void }) {
   const [open, setOpen] = useState(false);
+  const { user } = useAuth();
   const { status, summary, refresh } = cooks;
   const line = status === 'ready' ? madeByLine(summary.total, summary.again) : null;
   if (!line) return null; // an open sheet unmounts with the row, so it reopens closed
   const [made, rest] = line.split(' · ');
-  const hasNotes = summary.recent.some((c) => c.note);
+  const hasNotes = summary.recent.some((c) => c.note || (c.id === photoCookId && !!user && c.uid === user.uid));
   const showSheet = open && hasNotes;
   return (
     <>
@@ -41,7 +43,13 @@ export function MadeByRow({ cooks }: { cooks: RecipeCooks }) {
           </button>
         )}
       </div>
-      <CookNotesSheet open={showSheet} cooks={summary.recent} onClose={() => setOpen(false)} onDeleted={refresh} />
+      <CookNotesSheet open={showSheet} cooks={summary.recent} onClose={() => setOpen(false)} onDeleted={() => {
+          refresh();
+          onPhotoChanged?.();
+        }}
+        photoCookId={photoCookId}
+        onPhotoRemoved={onPhotoChanged}
+      />
     </>
   );
 }

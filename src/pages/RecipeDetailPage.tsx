@@ -8,6 +8,7 @@ import { useSuggestionReview } from '../hooks/useSuggestionReview';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteRecipeTree, getRecipeTree, getSubtreeIds, reparentChildren } from '../db/recipes';
 import {
+  deleteCookPhoto,
   deletePublishedRecipeTree,
   deletePublishedVersion,
   getPublishedRecipe,
@@ -33,6 +34,7 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useCookedEntry } from '../hooks/useCookedEntry';
 import { useRecipeCooks } from '../hooks/useCooks';
+import { useRecipePhoto } from '../hooks/useRecipePhoto';
 import { MadeByRow } from '../components/recipe/MadeByRow';
 import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
@@ -99,6 +101,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   // A cloud-sourced recipe is published already; local copies get one read. Without a reachable Firestore, Cooked simply does not appear.
   const cooks = useRecipeCooks(recipe?.id);
+  // The photo read waits for the cook summary so the credit name is found there (RL-206).
+  const recipePhoto = useRecipePhoto(recipe?.id, cooks.summary.recent, cooks.status !== 'loading');
   const cooked = useCookedEntry(recipe ?? undefined, source === 'cloud', cooks.log);
   const location = useLocation();
   // RL-203: the first ingredient tick offers cook mode for 8 seconds, once per recipe visit.
@@ -726,6 +730,13 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         onFamily={wide ? () => setFamilyOpen(true) : undefined}
         recipe={recipe}
         familyRoot={ancestors[0]}
+        photo={recipePhoto.photo}
+        canRemovePhoto={isOwner && !!user?.emailVerified}
+        onRemovePhoto={async () => {
+          if (!recipePhoto.photo) return;
+          await deleteCookPhoto(recipePhoto.photo.cookId);
+          recipePhoto.refresh();
+        }}
         onBack={handleBack}
         showFavorite={isConfigured}
         isFavorite={isFavorite}
@@ -791,7 +802,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             hideHeader
             onAllTicked={cooked.onAllTicked}
             onIngredientTicked={onIngredientTicked}
-            underMeta={<MadeByRow cooks={cooks} />}
+            underMeta={<MadeByRow cooks={cooks} photoCookId={recipePhoto.photo?.cookId} onPhotoChanged={recipePhoto.refresh} />}
             afterMeta={
               <>
                 <RelatedFamilies

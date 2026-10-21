@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import type { Recipe } from '../../types/recipe';
 import { EmojiBlob } from '../ui/EmojiBlob';
 import { IconButton } from '../ui/IconButton';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Sheet } from '../ui/Sheet';
-import { ChevronLeft, Bookmark, BookmarkCheck, Ellipsis, Link, MessageCircle, Network, Pencil, X } from '../ui/icons';
+import type { RecipePhoto } from '../../services/firestore';
+import { reportError } from '../../services/telemetry';
+import { ChevronLeft, Bookmark, BookmarkCheck, Ellipsis, Link, MessageCircle, Network, Image, Pencil, X } from '../ui/icons';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
@@ -31,6 +34,12 @@ interface RecipeHeaderProps {
   inPane?: boolean;
   /** From lg the tree icon opens the family panel (RL-144) instead of going to the tree page. */
   onFamily?: () => void;
+  /** The newest cook photo (RL-206), shown washed and credited; absent while loading or when there is none. */
+  photo?: RecipePhoto | null;
+  /** Deletes the photo's doc; the owner's Remove photo calls it after confirming. */
+  onRemovePhoto?: () => Promise<void>;
+  /** The rules need a verified owner to delete another cook's photo. */
+  canRemovePhoto?: boolean;
 }
 
 function SheetRow({ icon, label, onClick, disabled, danger, note }: {
@@ -69,6 +78,7 @@ export function RecipeHeader(props: RecipeHeaderProps) {
   const { recipe, familyRoot, onBack, pendingCount } = props;
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [removing, setRemoving] = useState<'confirm' | 'busy' | 'failed' | null>(null);
   const titleId = useId();
   const controlsRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -82,6 +92,20 @@ export function RecipeHeader(props: RecipeHeaderProps) {
     return () => observer.disconnect();
   }, [recipe.id]);
   const isBranch = recipe.parentId != null;
+  // A photo that fails to load falls back to the emoji layout; a new url tries again. Removal still targets props.photo.
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
+  const photo = props.photo && props.photo.url !== brokenUrl ? props.photo : null;
+  const photoAlt = photo ? `${recipe.title}, cooked by ${photo.name}` : '';
+  const removePhoto = async () => {
+    setRemoving('busy');
+    try {
+      await props.onRemovePhoto?.();
+      setRemoving(null);
+    } catch (err) {
+      reportError(err, 'remove-recipe-photo');
+      setRemoving('failed');
+    }
+  };
   const variant = isBranch ? 'floating' : 'flat';
   // Wide sizes from lg alone; in the pane only once it is 36rem wide (at 1024px it is about 384px).
   const titleSize = props.inPane ? '@xl:text-[44px]' : 'lg:text-[44px]';
@@ -150,9 +174,18 @@ export function RecipeHeader(props: RecipeHeaderProps) {
         <>
           <div className="relative flex h-[230px] justify-center bg-accent-200">
             {controls}
-            <EmojiBlob size={150} tint="bg-surface" className="mt-5">
-              <span style={{ fontSize: 78 }}>{recipe.emoji}</span>
-            </EmojiBlob>
+            {photo ? (
+              <>
+                <img src={photo.url} alt={photoAlt} onError={() => setBrokenUrl(photo.url)} className="washed absolute inset-0 size-full object-cover" />
+                <span className="absolute bottom-3 left-[14px] z-10 max-w-[calc(100%-28px)] break-words rounded-full bg-surface px-2.5 py-1 text-[12px] leading-4 text-text-primary">
+                  Photo by {photo.name}
+                </span>
+              </>
+            ) : (
+              <EmojiBlob size={150} tint="bg-surface" className="mt-5">
+                <span style={{ fontSize: 78 }}>{recipe.emoji}</span>
+              </EmojiBlob>
+            )}
           </div>
           <div className={titlePad}>
             <h1 ref={titleRef} title={recipe.title} data-recipe-title="" tabIndex={-1} className={`mt-[14px] line-clamp-2 -mb-[0.15em] break-words pb-[0.15em] font-heading text-[32px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
@@ -170,15 +203,26 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             <div className="mt-1 flex items-start gap-4">
               <h1 ref={titleRef} title={recipe.title} data-recipe-title="" tabIndex={-1} className={`min-w-0 flex-1 line-clamp-2 -mb-[0.15em] break-words pb-[0.15em] font-heading text-[34px] ${titleSize} leading-[1.04]`}>{recipe.title}</h1>
               {/* 96px when wide (RL-116); !important because the size is an inline style. */}
-              <EmojiBlob
-                size={76}
-                emoji={recipe.emoji}
-                className={props.inPane ? '@xl:!size-24 @xl:!text-[48px]' : 'lg:!size-24 lg:!text-[48px]'}
-              />
+              {photo ? (
+                <img
+                  src={photo.url}
+                  alt={photoAlt}
+                  onError={() => setBrokenUrl(photo.url)}
+                  style={{ borderRadius: '58% 42% 52% 48% / 46% 56% 44% 54%' }}
+                  className={`washed size-[76px] flex-shrink-0 object-cover ${props.inPane ? '@xl:!size-24' : 'lg:!size-24'}`}
+                />
+              ) : (
+                <EmojiBlob
+                  size={76}
+                  emoji={recipe.emoji}
+                  className={props.inPane ? '@xl:!size-24 @xl:!text-[48px]' : 'lg:!size-24 lg:!text-[48px]'}
+                />
+              )}
             </div>
             <p className="mt-2.5 break-words text-[15px] text-text-secondary [text-wrap:pretty]">
               {recipe.description}
             </p>
+            {photo && <p className="mt-1.5 break-words text-[12px] text-neutral-700">Photo by {photo.name}</p>}
             {recipe.relatedFamilyId && (
               <p className="mt-3">
                 <span className="inline-flex rounded-full bg-accent-100 px-3 py-[5px] text-[13px] font-semibold leading-5 text-accent-800">
@@ -206,6 +250,9 @@ export function RecipeHeader(props: RecipeHeaderProps) {
               onClick={act(props.onDelete)}
             />
           )}
+          {props.canRemovePhoto && props.photo && props.onRemovePhoto && (
+            <SheetRow label="Remove photo" icon={<Image className="h-[18px] w-[18px]" />} onClick={act(() => setRemoving('confirm'))} />
+          )}
           {props.canSuggest && (
             <SheetRow label="Suggest a change" icon={<MessageCircle className="h-[18px] w-[18px]" />} onClick={act(props.onSuggest)} />
           )}
@@ -218,6 +265,20 @@ export function RecipeHeader(props: RecipeHeaderProps) {
           />
         </div>
       </Sheet>
+      <ConfirmDialog
+        open={removing !== null}
+        title={removing === 'failed' ? "Couldn't remove the photo" : 'Remove this photo?'}
+        message={
+          removing === 'failed'
+            ? 'Check your connection and try again.'
+            : `It came from ${props.photo?.name ?? 'a cook'}'s cook.`
+        }
+        confirmLabel={removing === 'failed' ? 'Try again' : 'Remove'}
+        confirmVariant="danger"
+        busy={removing === 'busy'}
+        onConfirm={removePhoto}
+        onCancel={() => setRemoving(null)}
+      />
     </header>
     </>
   );

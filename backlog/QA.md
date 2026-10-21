@@ -2022,3 +2022,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - While a photo is being prepared the tile shows a spinner, a screen reader hears "Preparing photo", and Save waits; Remove cancels it. Close the sheet with a photo: "Discard this photo?"; with a note too: "Discard your note and photo?".
 - Delete a cook with a photo from Notes from cooks: both documents go. Delete one without a photo: the cook still goes. Offline, the delete fails and the cook stays. Check 320px and dark mode: the tile and note sit side by side without crowding.
 
+### RL-206 Cook photo shown on the recipe
+- **Needs RL-209 deployed (cooks, cookPhotos rules and the cookPhotos index), or the emulators.** Log a cook with a photo on a branch and on an original. Branch: the 230px hero is the photo, washed, with "Photo by <name>" bottom left on a pale pill and the floating controls unchanged. Original: the 76px blob is the photo in the blob shape (96px from lg), with "Photo by <name>" in small grey text under the description. Check 390px and 1280px, light and dark; the chip and text must stay readable.
+- Signed out, open the same recipe at /recipe/<id>: the photo still shows. `/shared/:id` shows no photo yet (a later ticket).
+- As the recipe's owner, More options > Remove photo: the dialog says "Remove this photo? ..." with the cook's name; Remove, and the next older photo shows, or the emoji if none. As a different signed-in user the row is absent.
+- As the cook, open Notes from cooks on your own note: "Remove photo" appears when yours is the photo shown. A cook with a photo but no note still gets a "Photo only" row with Remove photo, and the Notes button shows. Owner Remove photo needs a verified email.
+- A photo that fails to load falls back to the emoji layout.
+- Delete a cook whose photo is shown: the recipe falls back to the next photo.
+
+- Reviewer noted (low): a cook outside the recipe's newest 20 cooks is not in the Notes sheet, so its photo can only be removed by the recipe owner or by deleting the cook from the cook log; the credit chip contrast was estimated, not measured, so check it over a dark photo in light theme.

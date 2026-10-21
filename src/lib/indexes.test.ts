@@ -21,10 +21,10 @@ describe('firestore.indexes.json', () => {
   });
 
   // getRecipeCookSummary and subscribeOwnCooks: one equality + orderBy createdAt desc (RL-196).
-  it.each(['recipeId', 'uid'])('has the cooks %s + createdAt desc index (RL-196)', (field) => {
+  it.each([['cooks', 'recipeId'], ['cooks', 'uid'], ['cookPhotos', 'recipeId']])('has the %s %s + createdAt desc index (RL-196, RL-206)', (group, field) => {
     const found = (indexes.indexes as Index[]).some(
       (i) =>
-        i.collectionGroup === 'cooks' &&
+        i.collectionGroup === group &&
         i.queryScope === 'COLLECTION' &&
         i.fields.length === 2 &&
         i.fields[0].fieldPath === field &&
