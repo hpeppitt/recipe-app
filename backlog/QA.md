@@ -2043,3 +2043,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Nothing to see in the app yet: rules only, in the repo, deployed by RL-227 (no client yet). A verified user can own one kitchen at their uid (shopping and pantry lists of at most 300) and private collections (name 1 to 60, at most 200 recipes). Nobody else can read either. The owner can delete both even if verification lapses.
 
 - Reviewer noted: list caps alone do not bound document size; per-item and size guards are noted on RL-212 and RL-213; collections per user are unbounded (accepted).
+
+### RL-212 Shopping list helpers
+- Pure helpers in src/lib/shopping.ts, covered by unit tests. Nothing to check in the browser.
