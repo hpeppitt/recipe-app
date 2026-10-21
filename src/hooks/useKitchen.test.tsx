@@ -100,6 +100,14 @@ describe('useKitchen', () => {
     unmount();
   });
 
+  it('adds several pantry items in one write, skipping duplicates', async () => {
+    const { result, unmount } = renderHook(() => useKitchen(), { wrapper: wrapperFor(fakeUser) });
+    await act(() => result.current.addPantryItems(['Milk', 'milk', ' Rice ', '']));
+    expect(updateKitchen).toHaveBeenCalledTimes(1);
+    expect(lists.pantry.map((p) => [p.name, p.group, p.addedBy])).toEqual([['Milk', 'fresh', fakeUser.uid], ['Rice', 'cupboard', fakeUser.uid]]);
+    unmount();
+  });
+
   it('shows the full copy when a write would pass a cap', async () => {
     updateKitchen.mockRejectedValue(new KitchenFullError());
     const { result, unmount } = renderHook(() => useKitchen(), { wrapper: wrapperFor(fakeUser) });

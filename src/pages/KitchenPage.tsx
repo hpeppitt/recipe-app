@@ -100,7 +100,7 @@ export function KitchenPage() {
           />
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {/* Pantry and This week stay stubs until RL-220 adds their routes; a link would lead to a blank page. */}
+            {/* This week stays a stub until its route exists; a link would lead to a blank page. */}
             <Tile
               to="/kitchen/list"
               title="Shopping list"
@@ -109,6 +109,7 @@ export function KitchenPage() {
               sub={kitchen ? listSummary({ toBuy: splitByPantry(kitchen.shopping, kitchen.pantry).toBuy, inPantry: [] }) : '–'}
             />
             <Tile
+              to="/kitchen/pantry"
               title="Pantry"
               tone="bg-accent-2-200 text-accent-2-900"
               icon={<Refrigerator className="text-accent-2-700" />}

@@ -26,6 +26,7 @@ const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m =>
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
 const KitchenPage = lazy(() => import('./pages/KitchenPage').then(m => ({ default: m.KitchenPage })));
+const PantryPage = lazy(() => import('./pages/PantryPage').then(m => ({ default: m.PantryPage })));
 const ShoppingListPage = lazy(() => import('./pages/ShoppingListPage').then(m => ({ default: m.ShoppingListPage })));
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
 const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
@@ -72,6 +73,7 @@ export function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
         {/* Cook log (RL-200): takes its final name now so Kitchen only adds a tile. */}
         <Route path="/kitchen/list" element={<ShoppingListPage />} />
+        <Route path="/kitchen/pantry" element={<PantryPage />} />
         <Route path="/kitchen/log" element={<CookLogPage />} />
         <Route path="/create" element={<RecipeChatPage />} />
         {/* Add from a link (RL-186), gated like /create, with its own Close button. */}
