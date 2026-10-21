@@ -5,6 +5,8 @@ import type { PantryItem } from './kitchen';
 import {
   AISLES,
   addRecipe,
+  ageingLine,
+  agedItems,
   aisleFor,
   boughtItAll,
   formatLineAmount,
@@ -167,5 +169,21 @@ describe('formatLineAmount', () => {
   it('pluralises units', () => {
     expect(formatLineAmount({ amount: 2, unit: 'cup' })).toBe('2 cups');
     expect(formatLineAmount({ amount: 3, unit: null })).toBe('3');
+  });
+});
+
+describe('ageing (RL-240)', () => {
+  const day = 86_400_000;
+  const p = (name: string, group: 'fresh' | 'cupboard', ageDays: number) => ({ id: name, name, group, addedBy: 'u', addedAt: 100 * day - ageDays * day });
+  it('picks fresh items at or past the threshold', () => {
+    const got = agedItems([p('a', 'fresh', 7), p('b', 'fresh', 6), p('c', 'cupboard', 30), p('d', 'fresh', 9)], 100 * day);
+    expect(got.map((i) => i.name)).toEqual(['a', 'd']);
+    expect(agedItems([p('b', 'fresh', 6)], 100 * day, 5)).toHaveLength(1);
+  });
+  it('words the line for one, two and many', () => {
+    expect(ageingLine([])).toBe('');
+    expect(ageingLine(['spinach'])).toBe('Been in the pantry over a week: spinach.');
+    expect(ageingLine(['bananas', 'spinach'])).toBe('Been in the pantry over a week: bananas and spinach.');
+    expect(ageingLine(['bananas', 'spinach', 'kale', 'milk'])).toBe('Been in the pantry over a week: bananas, spinach and 2 more.');
   });
 });
