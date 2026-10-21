@@ -56,6 +56,7 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
     expect(storage.getPreviousUids()).toEqual([]);
     expect(storage.getIntroState()).toEqual(parseIntroState(null));
     expect(storage.getEmailForLinking()).toBeNull();
+    expect(storage.getKitchenTipDone()).toBe(false);
   });
 
   it('swallows writes and removes with a warning', () => {
@@ -68,6 +69,7 @@ describe.each(['methods', 'access'] as const)('blocked storage (%s throw)', (kin
       storage.clearAnonymousUid();
       storage.addPreviousUid('u2');
       storage.setIntroState(storage.getIntroState());
+      storage.setKitchenTipDone();
       storage.setEmailForLinking('a@b.c');
       storage.clearEmailForLinking();
     }).not.toThrow();
@@ -215,6 +217,10 @@ describe('round trip on a working store', () => {
     const intro = storage.getIntroState();
     storage.setIntroState(intro);
     expect(storage.getIntroState()).toEqual(intro);
+    expect(storage.getKitchenTipDone()).toBe(false);
+    storage.setKitchenTipDone();
+    expect(storage.getKitchenTipDone()).toBe(true);
+    expect(localStorage.getItem('recipe-lab-kitchen-tip')).toBe('1');
   });
 
   it('getDeviceId persists once it can', async () => {
