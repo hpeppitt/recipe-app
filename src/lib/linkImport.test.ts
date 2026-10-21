@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, badAmountRows, fromReviewRows, importHost, reviewSummary, toReviewRows, normalizeImportUrl, sharedImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
+import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, PHOTO_SOURCE, badAmountRows, fromReviewRows, importHost, reviewSummary, toReviewRows, normalizeImportUrl, sharedImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
 import { makeIngredient, makeRecipe } from '../test/factories';
+import { ImportedFromSchema } from '../schemas/recipe.schema';
 
 describe('normalizeImportUrl', () => {
   it('trims and adds https:// when the scheme is missing', () => {
@@ -46,10 +47,23 @@ describe('withBoundedImportedFrom', () => {
   });
 
   it('drops an importedFrom that is not a bounded http(s) URL and keeps the rest', () => {
-    for (const bad of ['javascript:alert(1)', `https://a.com/${'x'.repeat(2048)}`, 42, null]) {
+    for (const bad of ['javascript:alert(1)', 'javascript:x', 'Photo', 'photo ', 'photo2', `https://a.com/${'x'.repeat(2048)}`, 42, null]) {
       const out = withBoundedImportedFrom({ id: 'a', title: 'T', importedFrom: bad });
       expect(out).toEqual({ id: 'a', title: 'T' });
     }
+  });
+});
+
+describe('ImportedFromSchema (RL-263)', () => {
+  it("accepts exactly 'photo' and a bounded http(s) URL, and drops anything else", () => {
+    expect(ImportedFromSchema.parse(PHOTO_SOURCE)).toBe('photo');
+    expect(ImportedFromSchema.parse('https://a.com/x')).toBe('https://a.com/x');
+    for (const bad of ['Photo', 'photo ', 'javascript:x']) expect(ImportedFromSchema.parse(bad)).toBeUndefined();
+  });
+
+  it("keeps 'photo' through withBoundedImportedFrom", () => {
+    const r = makeRecipe({ importedFrom: PHOTO_SOURCE });
+    expect(withBoundedImportedFrom(r)).toEqual(r);
   });
 });
 

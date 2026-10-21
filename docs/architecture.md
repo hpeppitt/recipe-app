@@ -240,8 +240,8 @@ Google-hosted proxy. This is the single most important architectural fact:
   `redactInlineData` message only, as `import-photo`, and the reply is never logged. The photos
   come from `usePhotoTray` on `/import?mode=photo` and live only in that hook's state and the
   request. `useImportRecipe.readPhotos` shares the read and dedup with the link path; the save
-  drops `importedFrom` for a photo import because `hasBoundedContent` and `ImportedFromSchema`
-  accept only http(s) URLs.
+  stores `importedFrom: 'photo'` for a photo import, the one non-URL value `hasBoundedContent`
+  and `ImportedFromSchema` accept (RL-263); `ImportedFrom` shows it as plain text, never a link.
 - **A receipt photo can be read into pantry items (RL-241).** `readReceipt(photo)` is one
   `generateContent` call with the text "Read this receipt." and the photo as an `inlineData`
   part, `RECEIPT_SYSTEM_PROMPT` and `RECEIPT_RESPONSE_SCHEMA` (`{ items: string[] }`), bounded

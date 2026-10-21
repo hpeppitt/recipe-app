@@ -23,10 +23,11 @@ Database name `RecipeAppDB`, defined in `src/db/database.ts`. Two tables.
 
 Unindexed fields need no version. `relatedFamilyId` (RL-162) is one: optional on `Recipe`, set
 only on an original saved after "Create New Recipe Anyway", carrying the `rootId` of the first
-match the panel showed. Rows and documents without it are normal. `importedFrom` (the source URL) and `importedVia`
-(the importer, a `CreatedBy`) are two more (RL-185, written by `/import` since RL-186; a photo import, RL-251, writes `importedVia` and no `importedFrom`): the own-recipe
-sync and an export-file restore keep them, and the restore drops an `importedFrom` that is not an
-http(s) URL of at most 2048 characters, as do published reads. The recipe create rule has no key
+match the panel showed. Rows and documents without it are normal. `importedFrom` (the source URL, or exactly `'photo'` for a photo import) and `importedVia`
+(the importer, a `CreatedBy`) are two more (RL-185, written by `/import` since RL-186; a photo import writes `importedFrom: 'photo'` since RL-263): the own-recipe
+sync and an export-file restore keep them, and the restore drops an `importedFrom` that is neither
+exactly `'photo'` nor an http(s) URL of at most 2048 characters, as do published reads. `'photo'`
+shows as plain text "Imported from a photo", never a link. The recipe create rule has no key
 whitelist; `hasBoundedContent` bounds `importedFrom` (below).
 
 Adding a version means adding a `this.version(n).stores({...})` block and, if existing rows
@@ -233,7 +234,9 @@ to be absent, null, or a string of at most 128 characters. Emulator-probed 2026-
 characters 200, 129 characters, a number or a map 403, a normal publish 200.
 Since RL-186 (in the repo, not deployed; it rides with the next rules deploy) the check also
 requires `importedFrom` to be absent, null, or a string of at most 2048 characters matching
-`https?://.*`. Not emulator-checked. The client applies the same bound on every read
+`https?://.*`. Since RL-263 (in the repo, deployed by RL-261) it also accepts exactly `'photo'`,
+the marker a photo import stores. Emulator-probed 2026-10-22: `'photo'` 200, `'Photo'`,
+`'photo2'` and `'javascript:alert(1)'` 403, an https URL 200. The client applies the same bound on every read
 (`withBoundedImportedFrom` in `lib/linkImport.ts` for published reads, `toLocalRecipe` for the
 own-recipe sync), so a bad value is dropped before anything can render it.
 **Moving children up when a version is deleted (RL-158, in the repo, deployed by RL-160).** A

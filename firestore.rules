@@ -243,7 +243,9 @@ service cloud.firestore {
           && (d.get('relatedFamilyId', null) == null
             || (d.relatedFamilyId is string && d.relatedFamilyId.size() <= 128))
           // RL-186: the page an import was read from; absent on most recipes.
+          // RL-263: or exactly 'photo', the marker a photo import stores.
           && (d.get('importedFrom', null) == null
+            || d.importedFrom == 'photo'
             || (d.importedFrom is string && d.importedFrom.size() <= 2048
               && d.importedFrom.matches('https?://.*')))
           // RL-172: credited uids for array-contains; absent on older recipes.

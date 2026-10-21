@@ -18,6 +18,16 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-263 A photo import is credited "Imported from a photo"
+- A photo import save fails against production until RL-261 deploys the rules (the live rules reject `importedFrom: 'photo'`, and nothing is written). Do this walk on the emulators or after RL-261.
+- Snap a page, read it, save. Under the title on the recipe page: "Imported from a photo" as plain grey 13px text, not a link, no arrow icon. The author pill reads "via <your name>".
+- Open the shared page for the same recipe: the same plain line above the recipe, and "via <name>" on the pill.
+- Snap a page that matches an existing family and use Add to family: the branch shows "Imported from a photo" under its title too.
+- A link import still shows "Imported from <host>" as a link that opens in a new tab.
+
+- Reviewer noted (data, low): the 'photo' rule is covered only by the emulator probes in the ticket Notes; the repo has no standing rules test suite, so a later edit to hasBoundedContent could regress it. A stray doc comment sits above sharedImportUrl in linkImport.ts.
+- Release order: deploy the RL-261 rules before this client, or every photo import save fails.
+
 ### RL-260 Privacy Policy: cookbooks, follows, photo imports
 - Author: sign off the cookbook and photo import wording in /privacy (new sections "Shared cookbooks" and "Importing a recipe from photos", plus edits to "What is public" and "Your Kitchen") before release. The wording is pending your sign-off.
 - Download my data now has `cloud.cookbookFollows`; the erase script deletes follows and decrements `followerCount`. Check on the emulators (`npm run emulators`, then `node scripts/data-request.mjs erase <uid> --emulator`, dry run first): a follow of a live cookbook shows a delete plus a decrement; a follow of a missing cookbook shows only the delete. The Rights paragraphs now name cookbook follows.
