@@ -41,10 +41,10 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Seventeen top-level collections (`recipes`, `favorites`,
+Project `recipe-lab-3832b` (`.firebaserc`). Eighteen top-level collections (`recipes`, `favorites`,
 `suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
 `rateLimits`, `follows`, `cooks`, in the repo since RL-194, and `cookPhotos`, in the repo since RL-204, both deployed by RL-209,
-and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227, and `tasteProfiles`, in the repo since RL-230, and `kitchenInvites`, in the repo since RL-237, both deployed by RL-249) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
+and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227, and `tasteProfiles`, in the repo since RL-230, and `kitchenInvites`, in the repo since RL-237, both deployed by RL-249, and `cookbookFollows`, in the repo since RL-256, deployed by RL-261) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 **Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
@@ -98,7 +98,8 @@ transaction); everything else, `favorites` included, stays.
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
 | `kitchens/{uid}` | the owner's uid (a kitchen whose ownership passed on in an erase keeps its id) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213; sharing client since RL-238). **Private**: members only, verified. Up to 6 members (`KITCHEN_MEMBER_CAP`); join, leave and remove rules in the repo since RL-237, deployed by RL-249. An optional sixth key, `joinCode` (`'<uid>:<code>'`), is left by the last join. Element shapes are the client's job. |
 | `kitchenInvites/{code}` | the invite code, at least 20 random characters (`KITCHEN_INVITE_CODE_MIN`) | `{ kitchenId, ownerUid, ownerName, expiresAt, createdAt }` (`ownerName` at most 80 characters, `expiresAt` within 7 days (`KITCHEN_INVITE_DAYS`), `createdAt` a server timestamp) | A reusable invite to a kitchen, valid until it expires or its owner deletes it (decision "A household shares one kitchen by invite link", RL-236; rules in the repo since RL-237, deployed by RL-249; client since RL-238, which deletes the owner's invites when it removes a member). **Get only** for any verified user by its code; only the owner may list their own. |
-| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). **Private**: owner only, verified. Public cookbooks are RL-256. |
+| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` plus optional `description`, `lastAddedAt`, `followerCount` (`name` 1 to 60 characters, `visibility` `'private'` or `'public'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), `description` null or at most 280 (`COOKBOOK_DESCRIPTION_MAX`), `lastAddedAt` a server timestamp, `followerCount` an int; `createdAt` and `updatedAt` server timestamps) | Recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). A private one is owner only, verified. A public one is a cookbook (decision "Cookbooks are public collections followed by pull"): **public read**, signed out included, every field above (rules in the repo since RL-256, deployed by RL-261). |
+| `cookbookFollows/{uid}_{collectionId}` | composite | `{ uid, collectionId, createdAt, lastSeenAt }` (both server timestamps) | A user following a public cookbook (RL-255 answer 4; rules in the repo since RL-256, deployed by RL-261). **Private**: the follower only. Activity compares `lastSeenAt` with the cookbook's `lastAddedAt` (pull, no notifications). |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -643,6 +644,36 @@ of 1 to 60, `recipeIds` a list of at most 200 (`collectionRecipeCap()`, `COLLECT
 budget**: none. Both blocks emulator-checked 2026-10-21, including another user's read (403) and
 301-item lists (403) (ticket RL-211 Notes). `src/lib/kitchen.test.ts` ties the two caps to the
 rules text.
+
+**collections as public cookbooks** (RL-256, in the repo, deployed by RL-261): read also by anyone,
+signed out included, when `visibility` is `'public'`, so a signed-out get of a public cookbook and a
+`where visibility == 'public'` query are allowed; a private or missing one denies (403, not 404).
+The whole document is public, `ownerUid` and `recipeIds` included. The owner's update may now change
+`visibility` between `'private'` and `'public'`, set `description` (null or a string of at most 280,
+`COOKBOOK_DESCRIPTION_MAX`), and set `lastAddedAt`, which may only move to the request time and only
+in a write whose `recipeIds` grows (setting it is optional; RL-257 sets it for a public cookbook).
+An owner create or update that leaves the collection public also needs the current Terms
+(`acceptedTerms()`), as public content; there is no write window. The owner may never change
+`followerCount` directly. Anyone verified, the owner included, may change `followerCount` alone, by
+exactly 1 from its value (0 when absent), and only with their own follow
+(`cookbookFollows/{uid}_{collectionId}`) in the same batch: +1 when the batch creates it and the
+collection is public, -1 when the batch deletes it (any visibility), never below 0. A follow created
+or deleted without the bump is allowed, so the count can drift low but cannot be pushed up. Create
+may carry `followerCount` 0 and `lastAddedAt` equal to the request time; the three new keys are
+optional so RL-211 documents stay valid. **Access-call budget**: a private owner write 0, a public
+one 1 (termsAcceptance), a bump 1 to 2 (the follow before and after).
+
+**cookbookFollows** (RL-256, in the repo, deployed by RL-261): id `{uid}_{collectionId}`. Get by
+the follower, derived from the id, so a get of a follow that does not exist answers not-found to its
+own user; list by the follower on `where uid ==` own uid. Create: verified, the id's uid, exactly the
+keys `uid`, `collectionId` (1 to 128 letters and digits), `createdAt` and `lastSeenAt`, both the
+request time, and only for a collection that is public (one `get`; a missing one denies). Update:
+the follower, verified, `lastSeenAt` only, to the request time. Delete: the follower, signed in only
+and with no collection check, so unfollowing a cookbook that went private or was deleted works, and
+so does erasure. Following is not content, so neither Terms nor a write window applies, as for
+`follows`. **Access-call budget**: create 1 (the collection); a follow plus the count bump in one
+batch is 2 to 3. Emulator-checked 2026-10-22 (ticket RL-256 Notes). Not yet in Download my data or the
+erase script.
 
 **Collections client cost** (RL-222, `subscribeCollections` and the collection writes in
 `services/firestore.ts`, through `useCollections`): one listener per session for a verified user,

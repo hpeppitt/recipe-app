@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX, newInviteCode, isInviteCode, inviteUrl, pickKitchenId, sharedWithLine } from './kitchen';
+import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COOKBOOK_DESCRIPTION_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX, newInviteCode, isInviteCode, inviteUrl, pickKitchenId, sharedWithLine } from './kitchen';
 
 describe('firestore.rules kitchen and collection caps (RL-211)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -75,6 +75,10 @@ describe('collection validation (RL-222)', () => {
 
   it('match the rules name bound', () => {
     expect(rules).toContain(`d.name.size() <= ${COLLECTION_NAME_MAX}`);
+  });
+
+  it('match the rules cookbook description bound (RL-256)', () => {
+    expect(rules).toContain(`d.description.size() <= ${COOKBOOK_DESCRIPTION_MAX}`);
   });
 });
 

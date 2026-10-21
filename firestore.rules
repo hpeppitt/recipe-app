@@ -927,30 +927,105 @@ service cloud.firestore {
       }
     }
 
-    // Private recipe collections, owner-only in Phase 2 (visibility is always
-    // 'private'; public cookbooks are RL-256). Read, update: the owner,
-    // verified. Delete: the owner, signed in only, as for kitchens. Create: own
-    // ownerUid, server-time createdAt. Updates may not change ownerUid,
-    // createdAt or visibility. No document accesses in any rule.
+    // Recipe collections (RL-211), which the owner may publish as a cookbook
+    // (RL-256, decision "Cookbooks are public collections followed by pull").
+    // Read: anyone, signed out included, when visibility is 'public'; else the
+    // owner, verified. Update: the owner, verified, may change name, recipeIds,
+    // visibility ('private' or 'public'), description (null or at most 280) and
+    // lastAddedAt, which may only move to the request time in a write that grows
+    // recipeIds; never ownerUid, createdAt or followerCount. A create or update
+    // that leaves the collection public is public content, so it also needs the
+    // current Terms (one access). Anyone verified, the owner included, may move
+    // followerCount by exactly 1 and change nothing else, only with their own
+    // follow in the same batch (RL-258): +1 creates cookbookFollows/{uid}_{id}
+    // on a public collection, -1 deletes it (any visibility, so unfollow still
+    // works), never below 0. Delete: the owner, signed in only, as for kitchens.
+    // Create: own ownerUid, server-time createdAt, followerCount absent or 0,
+    // lastAddedAt absent or the request time. description, lastAddedAt and
+    // followerCount are optional so RL-211 documents stay valid. Accesses: a
+    // public write 1 (termsAcceptance), a bump 1 to 2 (the follow, before and
+    // after).
     match /collections/{collectionId} {
-      allow read: if verified() && resource.data.ownerUid == request.auth.uid;
+      allow read: if resource.data.visibility == 'public'
+        || (verified() && resource.data.ownerUid == request.auth.uid);
       allow create: if verified()
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.createdAt == request.time
-        && isWellFormedCollection(request.resource.data);
+        && request.resource.data.get('followerCount', 0) == 0
+        && request.resource.data.get('lastAddedAt', request.time) == request.time
+        && isWellFormedCollection(request.resource.data)
+        && (request.resource.data.visibility != 'public' || acceptedTerms());
       allow update: if verified()
         && resource.data.ownerUid == request.auth.uid
-        && !changedKeys().hasAny(['ownerUid', 'createdAt', 'visibility'])
-        && isWellFormedCollection(request.resource.data);
+        && !changedKeys().hasAny(['ownerUid', 'createdAt', 'followerCount'])
+        && (!('lastAddedAt' in changedKeys())
+          || (request.resource.data.lastAddedAt == request.time
+            && request.resource.data.recipeIds.size() > resource.data.recipeIds.size()))
+        && isWellFormedCollection(request.resource.data)
+        && (request.resource.data.visibility != 'public' || acceptedTerms());
+      allow update: if verified()
+        && changedKeys().hasOnly(['followerCount'])
+        && isFollowBump();
       allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      function isFollowBump() {
+        let follow = /databases/$(database)/documents/cookbookFollows/$(request.auth.uid + '_' + collectionId);
+        let before = resource.data.get('followerCount', 0);
+        let after = request.resource.data.followerCount;
+        return (after == before + 1
+            && resource.data.visibility == 'public'
+            && !exists(follow) && existsAfter(follow))
+          || (after == before - 1
+            && after >= 0
+            && exists(follow) && !existsAfter(follow));
+      }
 
       function isWellFormedCollection(d) {
         let keys = ['ownerUid', 'name', 'visibility', 'recipeIds', 'createdAt', 'updatedAt'];
-        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-          && d.visibility == 'private'
+        return d.keys().hasAll(keys)
+          && d.keys().hasOnly(keys.concat(['description', 'lastAddedAt', 'followerCount']))
+          && d.visibility in ['private', 'public']
           && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
           && d.recipeIds is list && d.recipeIds.size() <= collectionRecipeCap()
+          && (d.get('description', null) == null
+            || (d.description is string && d.description.size() <= 280))
+          && (!('lastAddedAt' in d) || d.lastAddedAt is timestamp)
+          && (!('followerCount' in d) || d.followerCount is int)
           && d.updatedAt == request.time;
+      }
+    }
+
+    // Cookbook follows (RL-256): id {uid}_{collectionId}, one per follower per
+    // cookbook. Get by the follower, derived from the id alone so a get of a
+    // missing follow answers not-found rather than denying (as writeWindows;
+    // a uid has no underscore). List by the follower, on a where uid == own uid
+    // query. Create: the follower, verified, exactly the keys uid, collectionId,
+    // createdAt and lastSeenAt (both the request time), and only for a public
+    // collection (one document access; a missing collection denies). Update:
+    // the follower, verified, lastSeenAt only, to the request time. Delete: the
+    // follower, signed in only, with no collection check, so unfollowing a
+    // cookbook that went private or was deleted, and erasure, still work.
+    match /cookbookFollows/{followId} {
+      allow get: if signedIn() && followId.split('_')[0] == request.auth.uid;
+      allow list: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if verified()
+        && isWellFormedCookbookFollow(request.resource.data)
+        && get(/databases/$(database)/documents/collections/$(request.resource.data.collectionId)).data.visibility == 'public';
+      allow update: if verified()
+        && resource.data.uid == request.auth.uid
+        && changedKeys().hasOnly(['lastSeenAt'])
+        && request.resource.data.lastSeenAt == request.time;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+
+      function isWellFormedCookbookFollow(d) {
+        let keys = ['uid', 'collectionId', 'createdAt', 'lastSeenAt'];
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.uid == request.auth.uid
+          && d.collectionId is string
+          && d.collectionId.matches('^[A-Za-z0-9]{1,128}$')
+          && followId == request.auth.uid + '_' + d.collectionId
+          && d.createdAt == request.time
+          && d.lastSeenAt == request.time;
       }
     }
 

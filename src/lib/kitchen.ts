@@ -80,6 +80,8 @@ export function kitchenFits(next: KitchenLists, before?: KitchenLists): boolean 
 
 /** Most characters in a collection name, as the rules allow. */
 export const COLLECTION_NAME_MAX = 60;
+/** Most characters in a public cookbook's description, as the rules allow (RL-256). */
+export const COOKBOOK_DESCRIPTION_MAX = 280;
 /** Longest recipe id a collection accepts; recipe ids are 36-character UUIDs (RL-211 review). */
 export const COLLECTION_RECIPE_ID_MAX = 36;
 
