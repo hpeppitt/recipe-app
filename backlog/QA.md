@@ -2113,3 +2113,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Author: sign off the Kitchen wording in /privacy before release (new section "Your Kitchen: shopping list, pantry and collections", plus the export and erasure lines in "Your rights"). `lastUpdated` is 2026-10-21; `TERMS_VERSION` unchanged.
 - Verified account: Settings > Download my data. The file has `cloud.kitchen` and `cloud.collections`. Unverified: both land in the file's errors with the verify note.
 - Operator: run `node scripts/data-request.mjs erase <uid> --emulator` (dry run) on a seeded emulator user and check "own kitchen" and "own collection" lines. Nothing was run against production.
+
+### RL-229 learnTaste helper
+- Nothing to check in the browser: a pure helper in `src/lib/taste.ts` with unit tests; the Taste card UI comes later.
