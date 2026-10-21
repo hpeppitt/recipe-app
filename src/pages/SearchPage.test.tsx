@@ -24,6 +24,10 @@ vi.mock('../hooks/useRecipeLibrary', () => ({
   useCloudLibrary: () => lib.cloud,
 }));
 
+const cookState = vi.hoisted(() => ({ cooks: [] as { recipeId: string; rootId: string; uid: string; createdAt: number }[] }));
+vi.mock('../hooks/useRecentCooks', () => ({ useRecentCooks: () => ({ cooks: cookState.cooks, loading: false }) }));
+vi.mock('../hooks/recentPublished', () => ({ readRecent: async () => [], readRoot: async (id: string) => (id === 'stew-b' ? { ...branch } : null) }));
+
 import { SearchPage } from './SearchPage';
 
 function Probe() {
@@ -83,8 +87,41 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  cookState.cooks = [];
   lib.local = [stew, salad, branch];
   lib.cloud = { ...lib.cloud, recipes: [], isLoading: false, cloudError: false, hasMore: false, loadingMore: false, loadMoreError: false, retryCloud: vi.fn() };
+});
+
+describe('SearchPage most-cooked leader (RL-247)', () => {
+  const cooks = (id: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({ recipeId: id, rootId: 'stew', uid: `u${i}`, createdAt: Date.now() - 1000 }));
+
+  it('opens a resolved leader from the original row, and leaves branch rows alone', async () => {
+    cookState.cooks = cooks('stew-b', 3);
+    render('/search?q=stew');
+    const row = await screen.findByRole('link', { name: 'Open Bean Stew, most cooked version Spicy Bean Stew' });
+    expect(row).toHaveAttribute('href', '/recipe/stew-b');
+    expect(screen.getByText('Opens the most cooked: Spicy Bean Stew')).toHaveAttribute('aria-hidden', 'true');
+    expect(rowNames()).toContain('Spicy Bean Stew');
+    expect(screen.getByRole('link', { name: 'Spicy Bean Stew' })).toHaveAttribute('href', '/recipe/stew-b');
+  });
+
+  it('keeps a resolved leader while a changed list resolves', async () => {
+    cookState.cooks = [...cooks('stew-b', 3), ...Array.from({ length: 3 }, (_, i) => ({ recipeId: 'salad-b', rootId: 'salad', uid: `u${i}`, createdAt: Date.now() - 1000 }))];
+    render('/search?q=stew');
+    await screen.findByRole('link', { name: 'Open Bean Stew, most cooked version Spicy Bean Stew' });
+    type('');
+    expect(screen.getByRole('link', { name: 'Open Bean Stew, most cooked version Spicy Bean Stew' })).toBeInTheDocument();
+  });
+
+  it('keeps the original link without a leader, or when the leader does not resolve', async () => {
+    render('/search?q=stew');
+    expect(screen.getByRole('link', { name: 'Bean Stew' })).toHaveAttribute('href', '/recipe/stew');
+    cookState.cooks = cooks('deleted', 3);
+    render('/search?q=salad');
+    await Promise.resolve();
+    expect(screen.queryByText(/Opens the most cooked/)).toBeNull();
+  });
 });
 
 describe('SearchPage', () => {

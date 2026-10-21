@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getProfile } from '../services/firestore';
 import { getRecipe } from '../db/recipes';
 import { reportError } from '../services/telemetry';
@@ -45,7 +45,7 @@ const toCooked = (r: Doc, kids: Map<string, number>): CookedRecipe => ({
  * reads, then Dexie, then `getPublishedRecipe` (cached per session by `readRoot`) for at most
  * `RESOLVE_READS_MAX` of what is still missing, in rank order. Missing or unreadable ones are absent.
  */
-async function resolve(ids: readonly string[]): Promise<Map<string, CookedRecipe>> {
+export async function resolve(ids: readonly string[]): Promise<Map<string, CookedRecipe>> {
   const window = await readRecent('cooked-sections');
   const kids = new Map<string, number>();
   for (const r of window) if (r.parentId) kids.set(r.rootId, (kids.get(r.rootId) ?? 0) + 1);
@@ -126,6 +126,60 @@ export function useMostCooked(range: '30' | '90'): { status: 'loading' | 'ready'
   }, [loading, cooks, range]);
   if (loading || !state || state.cooks !== cooks || state.range !== range) return { status: 'loading', rows: [] };
   return { status: state.rows.length ? 'ready' : 'none', rows: state.rows };
+}
+
+export type FamilyLeader = { id: string; title: string };
+const NO_LEADERS: ReadonlyMap<string, FamilyLeader> = new Map();
+
+/**
+ * RL-247: for the originals shown, the most-cooked branch of each family (familyLeader), only once it
+ * resolves to an existing branch of that same family. At most `RESOLVE_READS_MAX` leaders are looked up per
+ * call; the rest, and any that fail to resolve, are absent so the caller keeps the original's own link.
+ */
+export function useFamilyLeaders(recipes: readonly { id: string; parentId?: string | null }[]): ReadonlyMap<string, FamilyLeader> {
+  const { cooks, loading } = useRecentCooks();
+  const [now] = useState(Date.now);
+  const pairs = loading
+    ? []
+    : [...new Set(recipes.filter((r) => !r.parentId).map((r) => r.id))]
+        .map((id) => ({ id }))
+        .flatMap((r) => {
+          const lead = familyLeader(cooks, r.id, now);
+          return lead ? [[r.id, lead] as const] : [];
+        })
+        .slice(0, RESOLVE_READS_MAX);
+  const key = pairs.map(([o, l]) => `${o}>${l}`).join();
+  const [state, setState] = useState<{ key: string; map: Map<string, FamilyLeader> } | null>(null);
+  useEffect(() => {
+    if (!key) return;
+    let cancelled = false;
+    void resolve(key.split(',').map((p) => p.split('>')[1]))
+      .catch((err) => {
+        reportError(err, 'cooked-sections');
+        return new Map<string, CookedRecipe>();
+      })
+      .then((got) => {
+        if (cancelled) return;
+        const map = new Map<string, FamilyLeader>();
+        for (const p of key.split(',')) {
+          const [o, l] = p.split('>');
+          const lead = got.get(l);
+          if (lead && lead.rootId === o && lead.id !== o) map.set(o, { id: lead.id, title: lead.title.trim() || 'Untitled recipe' });
+        }
+        setState({ key, map });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key]);
+  const shown = recipes.map((r) => r.id).join();
+  // While a new key resolves, keep the last leaders for ids still shown so links and lines do not flicker.
+  const kept = useMemo(() => {
+    if (!state) return NO_LEADERS;
+    const ids = new Set(shown.split(','));
+    return new Map([...state.map].filter(([o]) => ids.has(o)));
+  }, [state, shown]);
+  return !key ? NO_LEADERS : state?.key === key ? state.map : kept;
 }
 
 // Module state for the page session; a failed read is dropped so the next visit retries.

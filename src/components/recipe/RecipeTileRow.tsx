@@ -4,6 +4,7 @@ import { listOriginState } from '../../lib/paneMode';
 import { UserPill } from '../ui/UserPill';
 import { Avatar } from '../ui/Avatar';
 import { ChefHat, GitBranch } from '../ui/icons';
+import type { FamilyLeader } from '../../hooks/useCookSections';
 import type { UserProfile } from '../../types/profile';
 import { formatTime, pluralize } from '../../lib/utils';
 
@@ -30,6 +31,7 @@ export function RecipeTileRow({
   recipes,
   seeAllTo,
   profiles,
+  leaders,
 }: {
   title: string;
   recipes: readonly TileRecipe[];
@@ -37,6 +39,8 @@ export function RecipeTileRow({
   seeAllTo?: string;
   /** Cook profiles for the avatars; a uid without one gets the generic avatar. */
   profiles?: ReadonlyMap<string, UserProfile>;
+  /** Most-cooked branch per original id (RL-247); a tile with one opens it. */
+  leaders?: ReadonlyMap<string, FamilyLeader>;
 }) {
   const headingId = useId();
   return (
@@ -55,14 +59,14 @@ export function RecipeTileRow({
       </div>
       <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto pr-5 pb-5 -mb-3.5 scrollbar-none">
         {recipes.slice(0, MAX_TILES).map((r, i) => (
-          <Tile key={r.id} recipe={r} tint={TINTS[i % TINTS.length]} profiles={profiles} />
+          <Tile key={r.id} recipe={r} tint={TINTS[i % TINTS.length]} profiles={profiles} leader={leaders?.get(r.id)} />
         ))}
       </ul>
     </section>
   );
 }
 
-function Tile({ recipe, tint, profiles }: { recipe: TileRecipe; tint: string; profiles?: ReadonlyMap<string, UserProfile> }) {
+function Tile({ recipe, tint, profiles, leader }: { recipe: TileRecipe; tint: string; profiles?: ReadonlyMap<string, UserProfile>; leader?: FamilyLeader }) {
   const title = recipe.title.trim() || 'Untitled recipe';
   const author = recipe.createdBy?.displayName?.trim() || 'Anonymous';
   const week = recipe.weekCount ?? 0;
@@ -73,10 +77,10 @@ function Tile({ recipe, tint, profiles }: { recipe: TileRecipe; tint: string; pr
     // The stretched-link pattern of the Explore rows: the tile link and the author link are siblings.
     <li className="relative flex w-[200px] shrink-0 snap-start flex-col gap-2">
       <Link
-        to={`/recipe/${recipe.id}`}
+        to={`/recipe/${leader?.id ?? recipe.id}`}
         state={listOriginState('/')}
         // "Open" keeps it distinct from the list row's link to the same recipe.
-        aria-label={`Open ${title}`}
+        aria-label={leader ? `Open ${title}, most cooked version ${leader.title}` : `Open ${title}`}
         aria-describedby={week > 0 || cooked > 0 ? weekId : undefined}
         // z-[5]: above the tile div (relative, later in the DOM), below the author link (z-10).
         className="absolute inset-0 z-[5] rounded-[30px] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary-500"
@@ -126,6 +130,7 @@ function Tile({ recipe, tint, profiles }: { recipe: TileRecipe; tint: string; pr
           clamped h3, carries the padding so a third line cannot show through it. */}
       <div className="pb-1">
         <h3 className="line-clamp-2 break-words px-1 font-heading text-[17px] leading-[1.15] text-text-primary">{title}</h3>
+        {leader && <p aria-hidden="true" className="line-clamp-2 break-words px-1 text-xs text-accent-2-700">Opens the most cooked: {leader.title}</p>}
       </div>
       <div className={`flex min-w-0 items-center gap-2 px-1 text-xs ${cooked > 0 ? 'text-neutral-700' : 'text-text-tertiary'}`}>
         {recipe.createdBy?.uid && (
