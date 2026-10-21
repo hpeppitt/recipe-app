@@ -2137,3 +2137,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Open a recipe with peanuts, Branch it, "make it quicker": peanuts are dropped from the branch.
 - Remove the avoid mid-chat: that chat keeps leaving peanuts out; the next chat does not.
 - Hard to force live: if the avoids read fails (for example offline at chat open, then back online), the chat shows a small "Your avoids couldn't be loaded" line and the next send tries again.
+
+### RL-234 First-time avoids card
+- Fresh verified account (no taste profile): open New recipe. The card "Anything the kitchen should avoid?" sits above the composer and you can still type. Pick Peanuts, Save, ask for a satay: no peanuts. Settings > Your taste shows Peanuts. Needs RL-249's rules deploy for live writes.
+- Another fresh account: Skip. Reload and open the chat on another device: the card does not return. Same on a variation's first screen.
+- Chips toggle (check the pressed look in light and dark); "Something else" repeating a picked chip shows an error and disables Save.

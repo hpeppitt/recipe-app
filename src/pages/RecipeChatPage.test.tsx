@@ -26,6 +26,7 @@ const sendMessage = vi.fn();
 const saveRecipe = vi.fn();
 const previewDuplicates = vi.fn();
 const hideTypingMatches = vi.fn();
+const answerAsk = vi.fn();
 type Chat = {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -40,6 +41,7 @@ type Chat = {
   pendingQuery?: string | null;
   dismissSimilar?: () => void;
   avoidsUnavailable?: boolean;
+  askAvoids?: boolean;
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -63,6 +65,8 @@ vi.mock('../hooks/useRecipeChat', async () => {
       dismissSimilar: vi.fn(),
       saveRecipe,
       typingMatches: null,
+      askAvoids: false,
+      answerAsk,
       typingAnnouncement: '',
       previewDuplicates,
       hideTypingMatches,
@@ -742,3 +746,24 @@ describe('RecipeChatPage avoids notice (RL-233)', () => {
   });
 });
 
+
+describe('RecipeChatPage first-time avoids card (RL-234)', () => {
+  it('shows the card before the first recipe and Skip answers with no avoids', async () => {
+    chat = { messages: [], isLoading: false, latestRecipe: null, askAvoids: true };
+    view();
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(answerAsk).toHaveBeenCalledWith([]);
+  });
+
+  it('is absent once a message has been sent', () => {
+    chat = { messages: [{ role: 'user', content: 'satay', timestamp: 1 }], isLoading: true, latestRecipe: null, askAvoids: true };
+    view();
+    expect(screen.queryByText('Anything the kitchen should avoid?')).toBeNull();
+  });
+
+  it('is absent once a recipe exists', () => {
+    chat = { ...withRecipes('Pasta'), askAvoids: true };
+    view();
+    expect(screen.queryByText('Anything the kitchen should avoid?')).toBeNull();
+  });
+});
