@@ -18,6 +18,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-258 A shared cookbook page at /c/:id
+- `/c/:id` fails against production until RL-261 deploys the RL-256 rules (it shows "This cookbook isn't available" even for a shared one); do this walk on the emulators or after RL-261.
+- Open a shared cookbook signed out at 390px and at 1280px: slim banner with a back arrow and Get the app, "COOKBOOK · by <name>" kicker (the name opens the profile), name, description, Follow this cookbook with the follower count, then two columns of recipes saying "<prompt> branch" or "Original". More than 20 recipes show 20, then Show more.
+- Press Follow signed out: the sign-in sheet says "Sign in to follow this cookbook". Signed in and verified: Follow turns to Following and the count goes up by one; press again and it goes back. Reload keeps the state.
+- A private or deleted cookbook link shows the same "This cookbook isn't available" page.
+- Reviewer noted (low): the follower count is the page's copy plus this session's changes, so it can be one off if another person follows meanwhile; the Follow button is disabled while the follow lookup is in flight.
+- Known gaps: Follow does not resume after an emailed sign-in link (no pending action for it yet); the owner's name costs one extra profile read; cookbook follows are not in Download my data.
+
+- Reviewer noted (ui, low): private and missing cookbooks share "isn't available" (the rules answer the same for both); a branch with no prompt reads "Branch"; the author kicker reads "a cook" until the profile loads and renders uppercase; the owner can follow their own cookbook; Show more and Try again drop focus when they unmount; back and Get the app both go to /.
+- Reviewer noted (data, low): an unfollow on a stale count can be refused until reload; a follow that times out offline may still land on reconnect; a /c/ id with a slash shows "try again" instead of unavailable. Signed-out Follow does not resume after the email link.
+
 ### RL-257 Share a collection as a cookbook
 - Share fails against production until RL-261 deploys the RL-256 rules (expect "Couldn't update your collections"); do this walk on the emulators or after RL-261.
 - On a collection: More, Share as a cookbook, type a description (stops at 280), Share. The sheet then shows the link with Copy (and Share on a phone) and Stop sharing.

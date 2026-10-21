@@ -10,6 +10,8 @@ export interface RecipeTile {
   meta: string;
   /** Shown as a pill under the title instead of `meta` (the Collabs tab). */
   owner?: { uid: string; name: string | null };
+  /** Still being read: shown, not linked, announced as loading rather than gone. */
+  loading?: boolean;
   /** A recipe that no longer exists: shown, not linked. */
   gone?: boolean;
   /** Accessible name of the edit-mode remove control, when the title alone is not enough. */
@@ -90,5 +92,5 @@ export function RecipeTileGrid({
 
 function Wrap({ tile, state, current, children }: { tile: RecipeTile; state: unknown; current: boolean; children: ReactNode }) {
   const cls = 'flex min-h-11 flex-col gap-2';
-  return tile.gone ? <div className={cls}>{children}</div> : <Link to={`/recipe/${tile.id}`} state={state} aria-current={current ? 'true' : undefined} className={cls}>{children}</Link>;
+  return tile.gone || tile.loading ? <div className={cls} aria-busy={tile.loading || undefined}>{children}</div> : <Link to={`/recipe/${tile.id}`} state={state} aria-current={current ? 'true' : undefined} className={cls}>{children}</Link>;
 }

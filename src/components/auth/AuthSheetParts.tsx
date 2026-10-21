@@ -3,7 +3,7 @@ import { useAuth, isGoogleAccountExists } from '../../contexts/AuthContext';
 import type { PendingIntent } from '../../lib/pendingAction';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
-import { ChefHat, GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound, Users } from '../ui/icons';
+import { BookOpen, ChefHat, GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound, Users } from '../ui/icons';
 
 /**
  * What the visitor was doing when the sheet opened (RL-108). It names the headline
@@ -13,6 +13,7 @@ export type AuthAction =
   | { kind: 'continue' }
   | { kind: 'save' }
   | { kind: 'follow'; name?: string | null }
+  | { kind: 'follow-cookbook' }
   | { kind: 'share' }
   | { kind: 'suggest' }
   | { kind: 'branch' }
@@ -26,6 +27,8 @@ function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?:
       return { text: 'save this recipe', Icon: Heart };
     case 'follow':
       return { text: `follow ${action.name?.trim() || 'this cook'}`, Icon: UserPlus };
+    case 'follow-cookbook':
+      return { text: 'follow this cookbook', Icon: BookOpen };
     case 'share':
       return { text: 'share this recipe', Icon: Link };
     case 'suggest':

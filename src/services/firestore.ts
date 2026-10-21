@@ -2077,6 +2077,50 @@ export function subscribeProfile(
   });
 }
 
+// --- Cookbooks (RL-258): reading and following a public collection ---
+
+export type PublicCookbookResult =
+  | { status: 'ready'; cookbook: RecipeCollection & { followerCount: number } }
+  /** Missing and private both answer permission-denied, so the page cannot and must not tell them apart. */
+  | { status: 'unavailable' };
+
+/** One read of a public collection. Permission-denied (missing or private) is `unavailable`; anything else rejects. */
+export async function getPublicCookbook(id: string): Promise<PublicCookbookResult> {
+  if (!firestore) return { status: 'unavailable' };
+  try {
+    const snap = await getDoc(doc(firestore, 'collections', id));
+    if (!snap.exists()) return { status: 'unavailable' };
+    const data = snap.data();
+    // An owner can read their own private collection; it is still not a cookbook.
+    if (data.visibility !== 'public') return { status: 'unavailable' };
+    return { status: 'ready', cookbook: { ...toCollection(snap.id, data), followerCount: typeof data.followerCount === 'number' ? data.followerCount : 0 } };
+  } catch (err) {
+    if ((err as { code?: string }).code === 'permission-denied') return { status: 'unavailable' };
+    throw err;
+  }
+}
+
+/** Whether `uid` follows the cookbook: one get on the follow document, which answers not-found when absent. */
+export async function isFollowingCookbook(uid: string, collectionId: string): Promise<boolean> {
+  if (!firestore) return false;
+  return (await getDoc(doc(firestore, 'cookbookFollows', `${uid}_${collectionId}`))).exists();
+}
+
+/**
+ * Follows or unfollows in one batch with the follower count, as the rules require. Unfollow
+ * skips the -1 when the count shown is already 0 (the rules refuse going below 0).
+ * shortcut: the count is the page's copy, so a stale 0 leaves the stored count one high, fine until counts are audited.
+ */
+export async function setCookbookFollow(uid: string, collectionId: string, follow: boolean, currentCount: number): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const batch = writeBatch(firestore);
+  const followRef = doc(firestore, 'cookbookFollows', `${uid}_${collectionId}`);
+  if (follow) batch.set(followRef, { uid, collectionId, createdAt: serverTimestamp(), lastSeenAt: serverTimestamp() });
+  else batch.delete(followRef);
+  if (follow || currentCount > 0) batch.update(doc(firestore, 'collections', collectionId), { followerCount: increment(follow ? 1 : -1) });
+  await rejectAfter(batch.commit(), 'Following the cookbook', COLLECTION_WRITE_TIMEOUT_MS);
+}
+
 // --- Follows ---
 
 export async function followUser(
