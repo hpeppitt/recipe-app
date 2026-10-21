@@ -16,7 +16,7 @@ import { AuthModal } from '../components/auth/AuthModal';
 import { AvatarEditor } from '../components/profile/AvatarEditor';
 import { useOwnProfile } from '../hooks/useProfile';
 import { IconButton } from '../components/ui/IconButton';
-import { ChevronLeft, ChevronRight, Download, UserRound } from '../components/ui/icons';
+import { ChevronLeft, ChevronRight, Download, Sparkles, UserRound } from '../components/ui/icons';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { APP_NAME } from '../lib/constants';
@@ -262,6 +262,17 @@ export function SettingsPage() {
                 </span>
                 <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
               </button></Row>
+              {user.emailVerified && (
+                <Row>
+                  <Link to="/settings/taste" className={ROW}>
+                    <span className="flex items-center gap-3">
+                      <Sparkles className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
+                      Your taste
+                    </span>
+                    <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
+                  </Link>
+                </Row>
+              )}
               {!user.isAnonymous && user.providers.length > 0 && (
                 <Row>
                   <div className={ROW}>

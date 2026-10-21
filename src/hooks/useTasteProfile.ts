@@ -145,6 +145,10 @@ export function useTasteProfile(cooks: Cook[]) {
     },
     [save]
   );
+  const unhideTerm = useCallback(
+    (term: string) => save((p) => ({ hidden: p.hidden.filter((h) => h.trim().toLowerCase() !== term.trim().toLowerCase()) })),
+    [save]
+  );
   const markAsked = useCallback(() => save(() => ({ askedAt: Date.now() })), [save]);
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
@@ -154,6 +158,8 @@ export function useTasteProfile(cooks: Cook[]) {
     full: stored.avoids.length >= TASTE_AVOID_MAX,
     cookALot: learned.cookALot,
     tendToChange: learned.tendToChange,
+    cookCount: learned.cookCount,
+    branchCount: learned.branchCount,
     headline: tasteHeadline(learned.cookCount, learned.branchCount),
     askedAt: stored.askedAt,
     loading,
@@ -162,6 +168,7 @@ export function useTasteProfile(cooks: Cook[]) {
     addAvoid,
     removeAvoid,
     hideTerm,
+    unhideTerm,
     markAsked,
   };
 }

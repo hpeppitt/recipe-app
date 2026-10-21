@@ -20,6 +20,7 @@ const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ 
 const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
 const RecipeChangesPage = lazy(() => import('./pages/RecipeChangesPage').then(m => ({ default: m.RecipeChangesPage })));
 const CookModePage = lazy(() => import('./pages/CookModePage').then(m => ({ default: m.CookModePage })));
+const TastePage = lazy(() => import('./pages/TastePage').then(m => ({ default: m.TastePage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const CookLogPage = lazy(() => import('./pages/CookLogPage').then(m => ({ default: m.CookLogPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
@@ -72,6 +73,7 @@ export function AppRoutes() {
         </Route>
         {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/settings/taste" element={<TastePage />} />
         {/* Kitchen's own pages carry their own Back button, so below lg the shell shows no chrome
             around them; they are in the shell so a recipe can open beside them from lg (RL-225). */}
         <Route element={<AppShell bare />}>

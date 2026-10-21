@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
@@ -249,6 +249,16 @@ describe('Settings: layout (RL-093)', () => {
     user = member;
     render();
     expect(screen.queryByText(/^weigh(?! spoons)/i)).toBeNull();
+  });
+
+  it('links Your taste for a verified account only (RL-232)', () => {
+    user = member;
+    render();
+    expect(screen.getByRole('link', { name: 'Your taste' })).toHaveAttribute('href', '/settings/taste');
+    cleanup();
+    user = { ...member, emailVerified: false };
+    render();
+    expect(screen.queryByRole('link', { name: 'Your taste' })).toBeNull();
   });
 
   it('orders the groups Account, Notify me when, Appearance, Your data, Legal and ends with Sign out', () => {

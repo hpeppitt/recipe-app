@@ -5,6 +5,8 @@ export interface ListToast {
   text: string;
   /** Show the View link (a successful add); also the longer 8 s timer. */
   view: boolean;
+  /** Shows an Undo button instead of the View link (RL-232). */
+  undo?: () => void;
 }
 
 /**
@@ -26,7 +28,7 @@ export function ListAddedToast({ toast, onDismiss, bottomClass = 'bottom-24' }: 
   }, [toast]);
   useEffect(() => {
     if (!toast || hold.hover || hold.focus) return;
-    const t = setTimeout(() => dismiss.current(), toast.view ? 8000 : 5000);
+    const t = setTimeout(() => dismiss.current(), toast.view || toast.undo ? 8000 : 5000);
     return () => clearTimeout(t);
   }, [toast, hold]);
 
@@ -42,6 +44,11 @@ export function ListAddedToast({ toast, onDismiss, bottomClass = 'bottom-24' }: 
       {toast && (
         <>
           <p className="break-words text-sm font-medium text-text-primary">{toast.text}</p>
+          {toast.undo && (
+            <button type="button" autoFocus onClick={toast.undo} className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-700">
+              Undo
+            </button>
+          )}
           {toast.view && (
             <Link to="/kitchen/list" className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-700">
               View
