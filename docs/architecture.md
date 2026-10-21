@@ -232,6 +232,25 @@ hash is kept only on `/shared`, where a self-contained recipe lives in it, and
 `clearLinkFromUrl` keeps it there too. Completion itself is unchanged (it still runs
 in `AuthContext` on mount, in the order decisions.md records).
 
+Google sign-in (RL-188) is off unless `VITE_ENABLE_GOOGLE_SIGNIN` is `true`
+(`isGoogleSignInEnabled`); `AuthContextType.signInWithGoogle` is then defined, and the sheets
+show the button only when it is, so fake contexts in tests stay valid. `signInWithGoogle` in
+`services/firebase.ts` links a current guest (`linkWithPopup`) or signs in (`signInWithPopup`),
+and uses the redirect variants when the popup is blocked or `navigator.standalone` is true. On
+`auth/credential-already-in-use` or `auth/email-already-in-use` for a guest it signs in with
+`GoogleAuthProvider.credentialFromError` and returns the guest uid as `previousUid`. A closed
+popup resolves null. Leaving for a redirect resolves `'redirecting'`, which keeps the tick and intent.
+`completeGoogleRedirect`, run on mount beside the link completion, awaits
+`authStateReady()` before `getRedirectResult` for the same reason as the link path, and runs
+once per page load (a shared promise), because StrictMode's second mount would otherwise read
+the redirect again after an existing-account carry-over and report a failure. A load with no
+redirect result drops a Google tick left by an abandoned redirect. Both return
+the `EmailLinkResult` shape, so `AuthContext` runs the shared `applyUpgrade` (link or carry-over,
+Terms first) then claims the stored intent. The Terms tick is stored before the popup with the
+owner `google.com` in place of an address, because the address is unknown until Google answers;
+`checkTerms` accepts that entry only for a user with a `google.com` provider. The outcomes reuse
+`EmailLinkStatus`: `done` with `linked`, `done` with `existing`, and `error` with reason `google`.
+
 The return-to-page link carries a stored intent. `AuthModal` and `SignUpDialog` (through
 `EmailLinkingForm`) take an optional `pending` (`PendingIntent` from `lib/pendingAction.ts`:
 save, branch or suggest on a recipe id, or follow on a uid) and write it, stamped with the

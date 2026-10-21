@@ -365,3 +365,125 @@ describe('the chat-card invite gate (EmailLinkingForm inline)', () => {
     expect(screen.getByLabelText('Email')).not.toHaveFocus();
   });
 });
+
+describe('Continue with Google (RL-188)', () => {
+  const GOOGLE = 'Continue with Google';
+  const tick = () => fireEvent.click(screen.getByRole('checkbox', { name: BOX }));
+
+  const mountModal = (signInWithGoogle: AuthContextType['signInWithGoogle']) => {
+    const onAuthenticated = vi.fn();
+    const onDismiss = vi.fn();
+    renderWithProviders(
+      <AuthModal open action={{ kind: 'save' }} onAuthenticated={onAuthenticated} onDismiss={onDismiss} pending={{ kind: 'save', recipeId: 'r1' }} />,
+      { user: null, auth: { signInWithGoogle } }
+    );
+    return { onAuthenticated, onDismiss, dialog: screen.getByRole('dialog', { name: 'Sign in to save this recipe' }) };
+  };
+
+  it('is absent while the flag is off, leaving the sheet as it was', () => {
+    mountModal(undefined);
+    expect(screen.queryByRole('button', { name: GOOGLE })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: BOX })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toBeEnabled();
+  });
+
+  it('sits above email, under the Terms box, and both wait for the tick', () => {
+    const { dialog } = mountModal(vi.fn(async () => true));
+    expect(buttonNames(dialog).slice(0, 2)).toEqual([GOOGLE, 'Continue with email']);
+    const box = screen.getByRole('checkbox', { name: BOX });
+    expect(box.compareDocumentPosition(screen.getByRole('button', { name: GOOGLE })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: GOOGLE })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toBeDisabled();
+    expect(screen.getByText('Tick the box above to continue.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue without an account' })).toBeEnabled();
+    tick();
+    expect(screen.getByRole('button', { name: GOOGLE })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toBeEnabled();
+  });
+
+  it('signs in with the intent and reports success', async () => {
+    const signInWithGoogle = vi.fn(async () => true);
+    const { onAuthenticated } = mountModal(signInWithGoogle);
+    tick();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: GOOGLE })));
+    expect(signInWithGoogle).toHaveBeenCalledWith({ kind: 'save', recipeId: 'r1' });
+    expect(onAuthenticated).toHaveBeenCalled();
+  });
+
+  it('a closed popup does nothing and shows no error', async () => {
+    const { onAuthenticated } = mountModal(vi.fn(async () => false));
+    tick();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: GOOGLE })));
+    expect(onAuthenticated).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: GOOGLE })).toBeEnabled();
+  });
+
+  it('a failure says so, is tied to the button, and clears when the box is toggled', async () => {
+    mountModal(vi.fn(async () => Promise.reject(new Error('x'))));
+    tick();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: GOOGLE })));
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent("Couldn't sign in with Google. Try again or use your email.");
+    expect(screen.getByRole('button', { name: GOOGLE }).getAttribute('aria-describedby')).toContain(alert.id);
+    tick();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('an address with an email-link account points at the email link', async () => {
+    const err = Object.assign(new Error('x'), { code: 'auth/account-exists-with-different-credential' });
+    mountModal(vi.fn(async () => Promise.reject(err)));
+    tick();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: GOOGLE })));
+    expect(screen.getByRole('alert')).toHaveTextContent('That email already has an account. Sign in with your email link instead.');
+  });
+
+  it('focuses the Terms box first, and the sheet cannot be dismissed while the popup is open', async () => {
+    let finish: (v: boolean) => void = () => {};
+    const { dialog, onDismiss } = mountModal(vi.fn(() => new Promise<boolean>((r) => (finish = r))));
+    // jsdom gives no focus on first open (showModal does that in a browser), so check it on the
+    // remount Back does: unticked, focus lands on the box; ticked, on Continue with email.
+    tick();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('button', { name: 'Continue with email' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
+    tick();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('checkbox', { name: BOX })).toHaveFocus();
+    tick();
+    fireEvent.click(screen.getByRole('button', { name: GOOGLE }));
+    const busy = screen.getByRole('button', { name: 'Signing in with Google' });
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(onDismiss).not.toHaveBeenCalled();
+    await act(async () => finish(false));
+    fireEvent(dialog, new Event('cancel', { cancelable: true }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('SignUpDialog offers it too, carries the tick to the email step, and closes once signed in', async () => {
+    const signInWithGoogle = vi.fn(async () => true);
+    const onClose = vi.fn();
+    renderWithProviders(<SignUpDialog open action={{ kind: 'share' }} body="b" onClose={onClose} />, {
+      user: anon,
+      auth: { signInWithGoogle },
+    });
+    expect(screen.getByRole('button', { name: GOOGLE })).toBeDisabled();
+    tick();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
+    expect(screen.getByRole('checkbox', { name: BOX })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('checkbox', { name: BOX })).toBeChecked();
+    // Unticking on the email step unticks the first step too.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
+    tick();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('checkbox', { name: BOX })).not.toBeChecked();
+    expect(screen.getByRole('button', { name: GOOGLE })).toBeDisabled();
+    tick();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: GOOGLE })));
+    expect(signInWithGoogle).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+});

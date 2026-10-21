@@ -11,6 +11,10 @@ import {
   completeEmailSignIn,
   isEmailLinkLanding,
   EmailLinkError,
+  isGoogleSignInEnabled,
+  signInWithGoogle,
+  completeGoogleRedirect,
+  type EmailLinkResult,
   setDisplayName,
   signOut,
 } from '../services/firebase';
@@ -30,15 +34,29 @@ import {
   addPreviousUid,
   getDeviceId,
   getTermsAcceptance,
+  setTermsAcceptance,
   clearTermsAcceptance,
   normaliseEmail,
+  setPendingAction,
   clearPendingAction,
   claimPendingAction,
 } from '../services/storage';
+import type { PendingIntent } from '../lib/pendingAction';
 import { TERMS_VERSION } from '../lib/legal';
 import { onConsentChange, trackSignIn, trackSignOut, setAnalyticsUserId } from '../services/analytics';
 import { reportError } from '../services/telemetry';
 import { clearPublishedWindow } from '../services/publishedWindow';
+
+/**
+ * Stands in for the address on a Terms entry ticked before a Google popup (RL-188): the
+ * address is only known once Google returns. Not an email, so it can never match one.
+ */
+const GOOGLE_TERMS_OWNER = 'google.com';
+
+/** The address already has an account under another sign-in method (email link): not a fault. */
+// eslint-disable-next-line react-refresh/only-export-components -- shared with the sheet's error copy
+export const isGoogleAccountExists = (err: unknown) =>
+  (err as { code?: string })?.code === 'auth/account-exists-with-different-credential';
 
 /** Rechecks after a failed Terms read, per session; each needs an online or tab-visible event. */
 const TERMS_CHECK_RETRIES = 3;
@@ -54,8 +72,9 @@ export type EmailLinkState =
   | { status: 'idle' }
   | { status: 'completing' }
   | { status: 'needs-email' }
-  | { status: 'error'; reason: 'expired' | 'email-taken' | 'failed' }
-  | { status: 'done'; linked: boolean };
+  | { status: 'error'; reason: 'expired' | 'email-taken' | 'failed' | 'google' | 'google-exists' }
+  /** `existing`: a Google guest upgrade landed in an account the address already had (RL-188). */
+  | { status: 'done'; linked: boolean; existing?: boolean };
 
 export interface AuthContextType {
   user: AppUser | null;
@@ -64,6 +83,12 @@ export interface AuthContextType {
   signInAnonymously: () => Promise<void>;
   sendEmailLink: (email: string) => Promise<void>;
   linkEmail: (email: string) => Promise<void>;
+  /**
+   * Google sign-in (RL-188), absent while VITE_ENABLE_GOOGLE_SIGNIN is off, which hides the
+   * button. Call only with the Terms box ticked: it stores that acceptance. Resolves true once
+   * signed in, false when the user closed the popup; rejects on a real failure.
+   */
+  signInWithGoogle?: (pending?: PendingIntent) => Promise<boolean>;
   signOut: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
   /** Progress of a magic-link landing, for the banner in AppShell. */
@@ -184,7 +209,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (version === TERMS_VERSION) return true;
     // Only an entry ticked for this very address counts; anyone else's is ignored.
     const stored = getTermsAcceptance();
-    if (stored?.version === TERMS_VERSION && !!u.email && normaliseEmail(stored.email) === normaliseEmail(u.email)) {
+    const tickedBy =
+      stored?.email === GOOGLE_TERMS_OWNER
+        ? u.providerData.some((p) => p.providerId === 'google.com')
+        : !!u.email && !!stored && normaliseEmail(stored.email) === normaliseEmail(u.email);
+    if (stored?.version === TERMS_VERSION && tickedBy) {
       try {
         await recordTermsAcceptance(u.uid, stored.acceptedAt);
         clearTermsAcceptance();
@@ -250,6 +279,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /** The guest upgrade both sign-in paths share: a linked uid, or a carry-over into an existing account. */
+  const applyUpgrade = async (result: EmailLinkResult) => {
+    // Before the listener may have fired for a new uid; this user is signed in now.
+    currentUidRef.current = result.user.uid;
+    if (result.linked) {
+      // Linking keeps the uid, so onAuthStateChanged does not fire again and
+      // would leave this session holding the anonymous user and no profile.
+      setUser(toAppUser(result.user));
+      await checkTermsOnce(result.user);
+      ensureProfile(result.user);
+      void pushFavoritesOnce(result.user, true);
+    }
+    if (result.previousUid) {
+      await checkTermsOnce(result.user);
+      // The email already had an account, so the anonymous identity was left
+      // behind. Carry the local recipes and bookmarks over to the account.
+      await runMigration(result.previousUid, result.user.uid, result.user.displayName);
+      clearAnonymousUid();
+      addPreviousUid(result.user.uid);
+      // After runMigration, so the Dexie rows are already under the new uid.
+      void pushFavoritesOnce(result.user, false);
+    }
+  };
+
+  /**
+   * Finish a Google sign-in that returned a user, from the popup or a redirect (RL-188).
+   * Same order as a link landing: upgrade, Terms, then the intent this device stored.
+   */
+  const finishGoogle = async (result: EmailLinkResult) => {
+    await applyUpgrade(result);
+    await checkTermsOnce(result.user);
+    claimPendingAction(result.user.uid);
+    // Only a guest upgrade has news worth a sheet; a plain sign-in shows nothing, as for email.
+    if (result.linked) setLinkState({ status: 'done', linked: true });
+    else if (result.previousUid) setLinkState({ status: 'done', linked: false, existing: true });
+  };
+
+  /** A redirect started on the last page load comes back here. Fails with the sheet, not silence. */
+  const runGoogleRedirectCompletion = async () => {
+    // Read at load, so a tick made by a popup started while this runs is not mistaken for it.
+    const loadTick = getTermsAcceptance();
+    try {
+      const result = await completeGoogleRedirect();
+      if (result) {
+        await finishGoogle(result);
+      } else if (loadTick?.email === GOOGLE_TERMS_OWNER && getTermsAcceptance()?.acceptedAt === loadTick.acceptedAt) {
+        // An abandoned redirect: its tick must not later credit whoever signs in next.
+        clearTermsAcceptance();
+      }
+    } catch (err) {
+      clearTermsAcceptance();
+      clearPendingAction();
+      if (isGoogleAccountExists(err)) {
+        setLinkState({ status: 'error', reason: 'google-exists' });
+        return;
+      }
+      console.error('[auth] Google redirect sign-in failed', err);
+      reportError(err, 'google-sign-in');
+      setLinkState({ status: 'error', reason: 'google' });
+    }
+  };
+
   /**
    * Run (or retry) the magic-link completion and record the outcome.
    *
@@ -263,26 +354,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLinkState({ status: 'idle' });
         return;
       }
-      // Before the listener may have fired for a new uid; this user is signed in now.
-      currentUidRef.current = result.user.uid;
-      if (result.linked) {
-        // Linking keeps the uid, so onAuthStateChanged does not fire again and
-        // would leave this session holding the anonymous user and no profile.
-        setUser(toAppUser(result.user));
-        await checkTermsOnce(result.user);
-        ensureProfile(result.user);
-        void pushFavoritesOnce(result.user, true);
-      }
-      if (result.previousUid) {
-        await checkTermsOnce(result.user);
-        // The email already had an account, so the anonymous identity was left
-        // behind. Carry the local recipes and bookmarks over to the account.
-        await runMigration(result.previousUid, result.user.uid, result.user.displayName);
-        clearAnonymousUid();
-        addPreviousUid(result.user.uid);
-        // After runMigration, so the Dexie rows are already under the new uid.
-        void pushFavoritesOnce(result.user, false);
-      }
+      await applyUpgrade(result);
       // The intent (RL-135) runs only for the account this device's own link signed in (RL-136).
       // A typed address means the link was sent from elsewhere, so a stored intent is not its.
       if (emailOverride) {
@@ -330,6 +402,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // magic link and hit any problem landed on a signed-out app with no
     // explanation whatsoever. They are now surfaced as `linkState`.
     runEmailLinkCompletion();
+    // The service shares one completion per page load, so StrictMode's second run is harmless.
+    if (isGoogleSignInEnabled) void runGoogleRedirectCompletion();
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') retryTermsCheck();
@@ -426,6 +500,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendEmailLinkForLinking(email);
   };
 
+  const handleSignInWithGoogle = async (pending?: PendingIntent) => {
+    // Stored before the popup opens, as the email path stores it before the send (RL-047),
+    // so a redirect that leaves this page still has it on return.
+    setTermsAcceptance({ version: TERMS_VERSION, acceptedAt: Date.now(), email: GOOGLE_TERMS_OWNER });
+    if (pending) setPendingAction(pending);
+    else clearPendingAction();
+    let result: Awaited<ReturnType<typeof signInWithGoogle>>;
+    try {
+      result = await signInWithGoogle();
+    } catch (err) {
+      clearTermsAcceptance();
+      clearPendingAction();
+      if (!isGoogleAccountExists(err)) reportError(err, 'google-sign-in');
+      throw err;
+    }
+    // Leaving for Google: the tick and intent are needed on return.
+    if (result === 'redirecting') return false;
+    if (!result) {
+      // Closed by the user: nobody signed in, so nothing may later record this tick or run this intent.
+      clearTermsAcceptance();
+      clearPendingAction();
+      return false;
+    }
+    try {
+      await finishGoogle(result);
+    } catch (err) {
+      // Signed in already; a failed carry-over or Terms step must not read as a failed sign-in.
+      reportError(err, 'google-sign-in-finish');
+    }
+    return true;
+  };
+
   // Anonymous sign-out used to throw. The intent was protective — an anonymous
   // account cannot be signed back into — but it left people genuinely stuck:
   // no way off a shared device, and no way to reach an existing email account,
@@ -492,6 +598,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInAnonymously: handleSignInAnonymously,
         sendEmailLink: handleSendEmailLink,
         linkEmail: handleLinkEmail,
+        signInWithGoogle: isGoogleSignInEnabled ? handleSignInWithGoogle : undefined,
         signOut: handleSignOut,
         updateDisplayName: handleUpdateDisplayName,
         linkState,

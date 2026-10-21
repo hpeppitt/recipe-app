@@ -43,6 +43,8 @@ export function EmailLinkingForm({
   onSent,
   onBusyChange,
   pending,
+  accepted: acceptedProp,
+  onAcceptedChange,
 }: {
   tone?: Tone;
   title?: string;
@@ -58,10 +60,18 @@ export function EmailLinkingForm({
   onBusyChange?: (busy: boolean) => void;
   /** What the link is for, kept on this device so the app can pick it up after sign-in (RL-135). */
   pending?: PendingIntent;
+  /** Controlled Terms tick, shared with the host's first step (SignUpDialog with Google on, RL-188). */
+  accepted?: boolean;
+  onAcceptedChange?: (accepted: boolean) => void;
 }) {
   const { user, linkEmail, sendEmailLink } = useAuth();
   const [email, setEmail] = useState('');
-  const [accepted, setAccepted] = useState(false);
+  const [ownAccepted, setOwnAccepted] = useState(false);
+  const accepted = acceptedProp ?? ownAccepted;
+  const setAccepted = (c: boolean) => {
+    setOwnAccepted(c);
+    onAcceptedChange?.(c);
+  };
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);

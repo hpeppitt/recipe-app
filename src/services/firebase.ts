@@ -9,6 +9,13 @@ import {
   linkWithCredential,
   fetchSignInMethodsForEmail,
   EmailAuthProvider,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  linkWithPopup,
+  linkWithRedirect,
+  getRedirectResult,
+  signInWithCredential,
   updateProfile,
   signOut as fbSignOut,
   connectAuthEmulator,
@@ -83,6 +90,12 @@ if (isFirebaseConfigured) {
 }
 
 export { app as firebaseApp, auth, firestore, type User };
+
+/**
+ * Off until RL-191 enables the Google provider in the console, so a release before then never
+ * shows a button that fails live. Not a secret: it only shows or hides the button.
+ */
+export const isGoogleSignInEnabled = import.meta.env.VITE_ENABLE_GOOGLE_SIGNIN === 'true';
 
 export function onAuthStateChanged(callback: (user: User | null) => void) {
   if (!auth) return () => {};
@@ -305,6 +318,83 @@ export async function completeEmailSignIn(
   } catch (err) {
     clearLinkFromUrl();
     throw new EmailLinkError(classifyLinkError(err));
+  }
+}
+
+/** Same shape as an email-link result: `previousUid` is set when a guest signed in to an existing account. */
+export type GoogleSignInResult = EmailLinkResult;
+
+const isCode = (err: unknown, ...codes: string[]) => codes.includes((err as { code?: string })?.code ?? '');
+
+/**
+ * The Google account already belongs to another user, so the guest cannot be linked into it.
+ * Firebase cannot merge accounts: sign in to that one with the same credential and hand back
+ * the guest uid so the caller runs the local carry-over, as the email path does.
+ */
+async function signInToExisting(err: unknown, guestUid: string): Promise<GoogleSignInResult> {
+  const credential = isCode(err, 'auth/credential-already-in-use', 'auth/email-already-in-use')
+    ? GoogleAuthProvider.credentialFromError(err as Parameters<typeof GoogleAuthProvider.credentialFromError>[0])
+    : null;
+  if (!auth || !credential) throw err;
+  const result = await signInWithCredential(auth, credential);
+  return { user: result.user, previousUid: guestUid, linked: false };
+}
+
+/**
+ * Sign in with Google (RL-188). A guest is linked, keeping its uid and bookmarks. Popup first;
+ * redirect when the popup is blocked or in an installed iOS web app, where popups open outside
+ * the app and never return. A redirect leaves the page; it resolves 'redirecting' if it ever
+ * resolves, so the caller keeps the Terms tick and intent for `completeGoogleRedirect`.
+ *
+ * Resolves null when the user closed the popup: nothing happened, so nothing to report.
+ */
+export async function signInWithGoogle(): Promise<GoogleSignInResult | null | 'redirecting'> {
+  if (!auth) throw new Error('Firebase not configured');
+  const provider = new GoogleAuthProvider();
+  const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null;
+  const redirect = () => (guest ? linkWithRedirect(guest, provider) : signInWithRedirect(auth!, provider));
+  if ((navigator as { standalone?: boolean }).standalone === true) {
+    await redirect();
+    return 'redirecting';
+  }
+  try {
+    const result = guest ? await linkWithPopup(guest, provider) : await signInWithPopup(auth, provider);
+    return { user: result.user, previousUid: null, linked: !!guest };
+  } catch (err) {
+    if (isCode(err, 'auth/popup-closed-by-user', 'auth/cancelled-popup-request')) return null;
+    if (isCode(err, 'auth/popup-blocked')) {
+      await redirect();
+      return 'redirecting';
+    }
+    if (guest) return signInToExisting(err, guest.uid);
+    throw err;
+  }
+}
+
+/**
+ * Finish a Google redirect on page load. Null when this load is not a redirect return.
+ * Waits for the restored session first, for the reason given in `completeEmailSignIn`:
+ * without it the guest is unknown and an existing-account collision cannot carry over.
+ */
+export function completeGoogleRedirect(): Promise<GoogleSignInResult | null> {
+  // Once per page load: StrictMode runs the mount effect twice, and a second getRedirectResult
+  // after an existing-account carry-over throws again with the guest gone, reporting a failure.
+  redirectCompletion ??= runGoogleRedirect();
+  return redirectCompletion;
+}
+let redirectCompletion: Promise<GoogleSignInResult | null> | null = null;
+
+async function runGoogleRedirect(): Promise<GoogleSignInResult | null> {
+  if (!auth) return null;
+  await auth.authStateReady();
+  const guest = auth.currentUser?.isAnonymous ? auth.currentUser : null;
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result) return null;
+    return { user: result.user, previousUid: null, linked: result.operationType === 'link' };
+  } catch (err) {
+    if (guest) return signInToExisting(err, guest.uid);
+    throw err;
   }
 }
 

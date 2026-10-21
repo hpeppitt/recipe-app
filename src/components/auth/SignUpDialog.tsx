@@ -3,7 +3,9 @@ import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
 import { Mail } from '../ui/icons';
 import { EmailLinkingForm } from './EmailLinkingForm';
-import { ActionIntro, EmailStepHeading, SentStep, type AuthAction } from './AuthSheetParts';
+import { TermsCheckbox, TermsHint } from './TermsCheckbox';
+import { useAuth } from '../../contexts/AuthContext';
+import { ActionIntro, GoogleSignIn, EmailStepHeading, SentStep, type AuthAction } from './AuthSheetParts';
 import type { PendingIntent } from '../../lib/pendingAction';
 
 /**
@@ -34,24 +36,58 @@ export function SignUpDialog({
   const [sending, setSending] = useState(false);
   const [wasOpen, setWasOpen] = useState(open);
   const titleId = useId();
+  const hintId = useId();
+  // With Google on (RL-188) the Terms box leads the first step and gates both sign-in buttons.
+  const termsFirst = !!useAuth().signInWithGoogle;
+  const [accepted, setAccepted] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   // Each opening starts fresh; the email step remounts the form, clearing it.
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setStep('choose');
+    if (open) {
+      setStep('choose');
+      setAccepted(false);
+    }
   }
 
   return (
-    <Sheet open={open} onClose={onClose} labelledBy={titleId}>
+    // Not dismissible while the Google popup is open, so a late success has a sheet to close.
+    <Sheet open={open} onClose={onClose} labelledBy={titleId} dismissible={!googleBusy}>
       <div className="flex min-w-0 flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
         {step === 'choose' && (
           <>
             <ActionIntro action={action} titleId={titleId} body={body} />
-            <Button fullWidth size="lg" className="h-[52px] gap-2" autoFocus onClick={() => setStep('email')}>
+            {termsFirst && (
+              <TermsCheckbox
+                checked={accepted}
+                onChange={setAccepted}
+                disabled={googleBusy}
+                describedBy={accepted ? undefined : hintId}
+                autoFocus={!accepted}
+              />
+            )}
+            <GoogleSignIn
+              disabled={!accepted}
+              describedBy={accepted ? undefined : hintId}
+              pending={pending}
+              onSignedIn={onClose}
+              onBusyChange={setGoogleBusy}
+            />
+            <Button
+              fullWidth
+              size="lg"
+              className="h-[52px] gap-2"
+              autoFocus={!termsFirst || accepted}
+              onClick={() => setStep('email')}
+              disabled={googleBusy || (termsFirst && !accepted)}
+              aria-describedby={termsFirst && !accepted ? hintId : undefined}
+            >
               <Mail className="h-5 w-5 shrink-0" />
               Continue with email
             </Button>
-            <Button fullWidth variant="ghost" onClick={onClose}>
+            {termsFirst && !accepted && <TermsHint id={hintId} />}
+            <Button fullWidth variant="ghost" onClick={onClose} disabled={googleBusy}>
               Not now
             </Button>
           </>
@@ -63,6 +99,8 @@ export function SignUpDialog({
             <EmailLinkingForm
               tone="invite"
               bare
+              accepted={termsFirst ? accepted : undefined}
+              onAcceptedChange={setAccepted}
               submitLabel="Send me a link"
               onBusyChange={setSending}
               pending={pending}
