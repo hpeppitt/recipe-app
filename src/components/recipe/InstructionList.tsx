@@ -8,21 +8,23 @@ interface InstructionListProps {
   instructions: Instruction[];
   /** Cook-along mode: steps can be marked done. See IngredientList. */
   checkable?: boolean;
+  /** Called on every tick or untick with whether every step is now ticked (RL-198). */
+  onAllTicked?: (allDone: boolean) => void;
 }
 
-export function InstructionList({ instructions, checkable = false }: InstructionListProps) {
+export function InstructionList({ instructions, checkable = false, onAllTicked }: InstructionListProps) {
   const groups = groupInstructions(instructions);
   // Session-only, like the ingredient ticks: "done" means done in this cook.
   const [done, setDone] = useState<Set<number>>(new Set());
   const { unitSystem } = useUnitSystem();
 
-  const toggle = (step: number) =>
-    setDone((prev) => {
-      const next = new Set(prev);
-      if (next.has(step)) next.delete(step);
-      else next.add(step);
-      return next;
-    });
+  const toggle = (step: number) => {
+    const next = new Set(done);
+    if (next.has(step)) next.delete(step);
+    else next.add(step);
+    setDone(next);
+    onAllTicked?.(next.size === instructions.length);
+  };
 
   return (
     <div className="mt-[26px]">

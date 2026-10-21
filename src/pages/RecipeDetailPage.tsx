@@ -26,10 +26,11 @@ import { RelatedFamilies } from '../components/recipe/RelatedFamilyCard';
 import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
-import { GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/icons';
+import { ChefHat, GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/icons';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
+import { useCookedEntry } from '../hooks/useCookedEntry';
 import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestMode } from '../components/recipe/SuggestMode';
@@ -91,6 +92,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { branch, signUp: branchSignUp } = useBranchEntry();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
+  // A cloud-sourced recipe is published already; local copies get one read. Without a reachable Firestore, Cooked simply does not appear.
+  const cooked = useCookedEntry(recipe ?? undefined, source === 'cloud');
   const location = useLocation();
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
@@ -729,6 +732,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           <RecipeContent
             recipe={recipe}
             hideHeader
+            onAllTicked={cooked.onAllTicked}
             afterMeta={
               <>
                 <RelatedFamilies
@@ -851,13 +855,26 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
               {isOwner ? 'Edit' : 'Suggest'}
             </button>
           )}
+          {cooked.canCook && (
+            <button
+              type="button"
+              onClick={cooked.open}
+              className={`${footerButton} flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
+            >
+              <ChefHat className="h-4 w-4 shrink-0 max-[359px]:hidden" />
+              Cooked
+            </button>
+          )}
           <button
             type="button"
             onClick={() => branch(recipe.id)}
+            aria-label="Branch this recipe"
             className={`${footerButton} flex-[2_1_auto] bg-primary-600 text-on-accent hover:bg-primary-700 active:bg-primary-800`}
           >
-            <GitBranchPlus className="h-4 w-4 shrink-0" />
-            Branch this recipe
+            <GitBranchPlus className="h-4 w-4 shrink-0 max-[399px]:hidden" />
+            {/* Measured at 320, 360 and 390px: under 400px the icon goes, and under 360px the label shortens, so Suggest, Cooked and Branch fit. */}
+            <span aria-hidden="true" className="min-[360px]:hidden">Branch</span>
+            <span aria-hidden="true" className="max-[359px]:hidden">Branch this recipe</span>
           </button>
         </div>
       </div>
@@ -865,6 +882,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
       {deleteDialogs}
 
       {branchSignUp}
+      {cooked.sheets}
       <FamilyPanel open={familyOpen && wide} onClose={() => setFamilyOpen(false)} recipe={recipe} recipes={family} tree={familyTree} isLoading={treeLoading} />
 
       <AuthModal

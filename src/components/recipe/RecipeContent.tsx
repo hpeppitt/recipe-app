@@ -15,6 +15,8 @@ interface RecipeContentProps {
   hideHeader?: boolean;
   /** Rendered between the metadata pills and the ingredients (RL-163). */
   afterMeta?: ReactNode;
+  /** Ticking the last method step (RL-198). */
+  onAllTicked?: (allDone: boolean) => void;
 }
 
 /**
@@ -31,7 +33,7 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, onAllTicked }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
@@ -101,7 +103,7 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterM
         <MissingSection name="ingredients" />
       )}
       {instructions ? (
-        <InstructionList instructions={instructions} checkable={!compact} />
+        <InstructionList instructions={instructions} checkable={!compact} onAllTicked={onAllTicked} />
       ) : (
         <MissingSection name="instructions" />
       )}

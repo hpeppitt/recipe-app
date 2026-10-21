@@ -12,6 +12,7 @@ import { RecipeContent } from '../components/recipe/RecipeContent';
 import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
+import { useCookedEntry } from '../hooks/useCookedEntry';
 import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
@@ -23,7 +24,7 @@ import { UserPill } from '../components/ui/UserPill';
 import { incrementRecipeViews } from '../services/firestore';
 import { trackRecipeViewed } from '../services/analytics';
 import type { Collaborator, Recipe } from '../types/recipe';
-import { Bookmark, BookmarkCheck, GitBranch, GitBranchPlus, MessageCircle } from '../components/ui/icons';
+import { ChefHat, Bookmark, BookmarkCheck, GitBranch, GitBranchPlus, MessageCircle } from '../components/ui/icons';
 
 interface FullSharedRecipe extends SharedRecipe {
   id?: string;
@@ -57,6 +58,7 @@ function SharedRecipeView() {
   const { user, isConfigured } = useAuth();
   const { branch, signUp: branchSignUp } = useBranchEntry();
   const [recipe, setRecipe] = useState<FullSharedRecipe | null>(null);
+  const cooked = useCookedEntry(paramId ? { id: paramId } : undefined, true);
   // 'not-found' is a permanent dead end (bad or corrupted link); 'failed' is a
   // fetch that blew up and is worth retrying. Conflating them told users with a
   // flaky connection that a perfectly good link was corrupt.
@@ -391,7 +393,7 @@ function SharedRecipeView() {
             )}
           </div>
 
-          <RecipeContent recipe={fullRecipe} hideHeader />
+          <RecipeContent recipe={fullRecipe} hideHeader onAllTicked={cooked.onAllTicked} />
 
           {recipe.collaborators && recipe.collaborators.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -433,6 +435,16 @@ function SharedRecipeView() {
                       <Bookmark className="h-4 w-4 shrink-0 max-[359px]:hidden" />
                     )}
                     {isFavorite ? 'Saved' : 'Save'}
+                  </button>
+                )}
+                {cooked.canCook && (
+                  <button
+                    type="button"
+                    onClick={cooked.open}
+                    className={`${footerButton} flex-[1_1_auto] border border-border text-text-primary hover:bg-surface-secondary`}
+                  >
+                    <ChefHat className="h-4 w-4 shrink-0 max-[359px]:hidden" />
+                    Cooked
                   </button>
                 )}
                 <button
@@ -492,6 +504,7 @@ function SharedRecipeView() {
       />
 
       {branchSignUp}
+      {cooked.sheets}
 
       <SignUpDialog
         open={showSuggestSignUp}

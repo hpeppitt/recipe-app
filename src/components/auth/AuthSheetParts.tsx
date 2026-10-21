@@ -3,7 +3,7 @@ import { useAuth, isGoogleAccountExists } from '../../contexts/AuthContext';
 import type { PendingIntent } from '../../lib/pendingAction';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
-import { GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
+import { ChefHat, GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
 
 /**
  * What the visitor was doing when the sheet opened (RL-108). It names the headline
@@ -16,6 +16,7 @@ export type AuthAction =
   | { kind: 'share' }
   | { kind: 'suggest' }
   | { kind: 'branch' }
+  | { kind: 'cook' }
   | { kind: 'edit-profile' };
 
 function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?: string }) => ReactNode } {
@@ -30,6 +31,8 @@ function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?:
       return { text: 'suggest a change', Icon: MessageCircle };
     case 'branch':
       return { text: 'branch this recipe', Icon: GitBranchPlus };
+    case 'cook':
+      return { text: 'log a cook', Icon: ChefHat };
     case 'edit-profile':
       return { text: 'edit your profile', Icon: UserRound };
     default:

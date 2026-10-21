@@ -22,7 +22,7 @@ const VOTES = [
 
 interface CookedSheetProps {
   open: boolean;
-  recipe: Recipe;
+  recipe: Pick<Recipe, 'id'>;
   onClose: () => void;
   /** Called with the new cook's id once it is saved. */
   onSaved?: (cookId: string) => void;
