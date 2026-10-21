@@ -49,7 +49,8 @@ export function useTasteProfile(cooks: Cook[]) {
       getTasteProfile(forUid).then(
         (profile) => !isCancelled() && setState({ uid: forUid, profile }),
         (err) => {
-          reportError(err, 'taste-profile');
+          // Permission denied means the rules are not deployed yet (RL-249): expected, so not reported.
+          if ((err as { code?: unknown } | null)?.code !== 'permission-denied') reportError(err, 'taste-profile');
           if (!isCancelled()) setState({ uid: forUid, profile: null });
         }
       ),

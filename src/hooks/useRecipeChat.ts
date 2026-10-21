@@ -24,6 +24,7 @@ import {
   type FriendlyError,
 } from '../lib/errors';
 import { normaliseAvoids, type TasteProfile } from '../lib/taste';
+import { keptAvoids } from '../lib/createPrompt';
 import { isFirebaseConfigured } from '../services/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Recipe, ChatMessage } from '../types/recipe';
@@ -176,8 +177,11 @@ async function readAvoids(uid: string): Promise<TasteProfile | null> {
   }
 }
 
-/** `fromCookId` is the cook whose note this variation was grown from (RL-197), credited on save (RL-201). */
-export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
+/**
+ * `fromCookId` is the cook whose note this variation was grown from (RL-197), credited on save (RL-201).
+ * `dropAvoids` (RL-235, untrusted navigation state) names stored avoids this chat leaves out of its system prompt.
+ */
+export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string, dropAvoids?: unknown) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Which of the two waits is in progress. They were indistinguishable, so the
@@ -370,7 +374,8 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
           // Avoids live in the session's system prompt, so they are fixed when it opens:
           // a change mid-chat applies from the next chat, never mid-conversation.
           const read = startAvoids();
-          const avoids = read ? ((await read)?.avoids ?? null) : [];
+          const stored = read ? ((await read)?.avoids ?? null) : [];
+          const avoids = stored && keptAvoids(stored, dropAvoids);
           setAvoidsUnavailable(avoids === null);
           chat = parentRecipe ? createVariationChat(parentRecipe, avoids ?? []) : createRecipeChat(avoids ?? []);
           // Allergy safety: a session opened without the avoids is used for this send only.
@@ -406,7 +411,7 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
         generatingRef.current = false;
       }
     },
-    [parentRecipe, startAvoids]
+    [parentRecipe, startAvoids, dropAvoids]
   );
 
   /**

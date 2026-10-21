@@ -880,6 +880,17 @@ describe('useRecipeChat sends the stored avoids with a new session (RL-233)', ()
     expect(createRecipeChat).toHaveBeenCalledWith([]);
   });
 
+  it('leaves dropped avoids out of this chat only, and ignores drops that are not stored avoids (RL-235)', async () => {
+    const dropped = renderHook(() => useRecipeChat(undefined, undefined, ['peanuts', 'Shellfish', 7]), { wrapper });
+    await act(() => dropped.result.current.sendMessage('satay'));
+    expect(createRecipeChat).toHaveBeenLastCalledWith(['Pork']);
+
+    const fresh = renderChat();
+    await act(() => fresh.result.current.sendMessage('satay'));
+    expect(createRecipeChat).toHaveBeenLastCalledWith(['Peanuts', 'Pork']);
+    expect(JSON.stringify(reportError.mock.calls)).not.toContain('Peanuts');
+  });
+
   it('starts the read when the hook mounts, before any send', async () => {
     renderChat();
     await act(async () => {});

@@ -95,7 +95,7 @@ export function RecipeChatPage() {
   // Set when the owner arrives here by approving a suggestion, so the composer
   // opens with the suggestion already written out; fromCookId when it was grown from a cook note.
   const location = useLocation();
-  const navState = location.state as { suggestion?: string; fromDedup?: boolean; fromCookId?: string } | null;
+  const navState = location.state as { suggestion?: string; fromDedup?: boolean; fromCookId?: string; dropAvoids?: unknown } | null;
   const {
     messages,
     isLoading,
@@ -119,7 +119,7 @@ export function RecipeChatPage() {
     typingAnnouncement,
     previewDuplicates,
     hideTypingMatches,
-  } = useRecipeChat(isVarying ? parentRecipe : undefined, navState?.fromCookId);
+  } = useRecipeChat(isVarying ? parentRecipe : undefined, navState?.fromCookId, navState?.dropAvoids);
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [parentExpanded, setParentExpanded] = useState(false);

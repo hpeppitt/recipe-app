@@ -2142,3 +2142,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Fresh verified account (no taste profile): open New recipe. The card "Anything the kitchen should avoid?" sits above the composer and you can still type. Pick Peanuts, Save, ask for a satay: no peanuts. Settings > Your taste shows Peanuts. Needs RL-249's rules deploy for live writes.
 - Another fresh account: Skip. Reload and open the chat on another device: the card does not return. Same on a variation's first screen.
 - Chips toggle (check the pressed look in light and dark); "Something else" repeating a picked chip shows an error and disables Save.
+
+### RL-235 Taste terms on the Create tab
+- Verified account with Peanuts as an avoid (Settings > Your taste): open Create. The sentence ends "..., no peanuts." with "no peanuts" bold. If you have branched with "Quicker" at least twice, ", under 30 min" follows too.
+- Tap "no peanuts": it is struck through and greyed. Tap again: it comes back. Check both looks in light and dark, and with VoiceOver the button reads "Drop no peanuts for this recipe" then "Keep no peanuts".
+- Drop it and tap Write it: the composer text has no "no peanuts", and a satay may use peanuts. Leave and start another new chat: peanuts are avoided again. Leave Create and come back: nothing is dropped.
+- With four or more avoids: three terms show, then "+N more". Tap it: the rest appear and focus lands on the first new one.
+- Signed out or unverified: no terms. Needs RL-249's rules deploy for a live profile read; until then no terms show.
