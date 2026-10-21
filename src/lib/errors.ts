@@ -3,7 +3,7 @@ import type { RateLimitAction } from './rateLimit';
 /**
  * Thrown before writing anything when a limited write would pass its cap
  * (RL-048, RL-049). A limited notification is swallowed by its writer, so only
- * suggestion, reply and recipe ever reach a message.
+ * suggestion, reply, recipe and cook ever reach a message.
  */
 export class RateLimitedError extends Error {
   readonly action: RateLimitAction;
@@ -11,6 +11,22 @@ export class RateLimitedError extends Error {
     super(`Rate limited: ${action}`);
     this.name = 'RateLimitedError';
     this.action = action;
+  }
+}
+
+/** A cook logged against a recipe that is not in the cloud, or has no rootId (RL-196); the message is shown as is. */
+export class RecipeNotPublishedError extends Error {
+  constructor() {
+    super('Publish this recipe before logging a cook.');
+    this.name = 'RecipeNotPublishedError';
+  }
+}
+
+/** A write the rules denied because the account has not accepted the current Terms (RL-196); the message is shown as is. */
+export class TermsNotAcceptedError extends Error {
+  constructor() {
+    super('Accept the updated Terms to log a cook. Reload the page to see them.');
+    this.name = 'TermsNotAcceptedError';
   }
 }
 
@@ -63,6 +79,7 @@ export class FamilyMoveTimeoutError extends Error {
 export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;
   if (err.action === 'recipe') return "You've published a lot today. Try again tomorrow.";
+  if (err.action === 'cook') return "You've logged a lot of cooks today. Try again tomorrow.";
   const what = err.action === 'suggestion' ? 'suggestions' : 'replies';
   return `You've sent a lot of ${what} recently. Try again in a while.`;
 }

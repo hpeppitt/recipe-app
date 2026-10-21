@@ -92,7 +92,7 @@ transaction); everything else, `favorites` included, stays.
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
 | `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification`, `recipe` or `cook` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
-| `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index. Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
+| `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -108,6 +108,8 @@ All live in `firestore.indexes.json`; each exists for exactly one query.
 | `suggestions`: `recipeId` ASC, `recipeOwnerId` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, owner query (RL-018) |
 | `suggestions`: `recipeId` ASC, `suggestedBy.uid` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, everyone else's query (RL-018) |
 | `suggestions`: `recipeId` ASC, `createdAt` DESC | the pre-RL-018 client's unfiltered query; kept until that client is gone, then removable |
+| `cooks`: `recipeId` ASC, `createdAt` DESC | `getRecipeCookSummary` (RL-196): a recipe's newest 20 cooks, `limit 20`. In the repo, deployed by RL-209. Guarded by `src/lib/indexes.test.ts` |
+| `cooks`: `uid` ASC, `createdAt` DESC | `subscribeOwnCooks` (RL-196): the user's own newest 200 cooks. In the repo, deployed by RL-209. Guarded by `src/lib/indexes.test.ts` |
 
 The Following filter queries newest-first: each 30-uid chunk returns its own newest 50 and the
 client merges the chunks and re-sorts by `createdAt` descending. The merged list is not capped
@@ -388,7 +390,7 @@ Functions:
 | `reply` | 30 | 1 hour | message create | message under the reply box |
 | `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, apply, branch, decline) | skipped silently, reported |
 | `recipe` | 30 | 1 day | recipe create only (a re-publish is an update and is not limited) | "You've published a lot today. Try again tomorrow." |
-| `cook` | 20 | 1 day | cook create (RL-194, in the repo, deployed by RL-209) | set by the client ticket, RL-196 |
+| `cook` | 20 | 1 day | cook create (RL-194, in the repo, deployed by RL-209) | "You've logged a lot of cooks today. Try again tomorrow." |
 
 `createSuggestion`, `addSuggestionMessage`, the create branch of `publishRecipe` and every
 notification writer (through `notify()` in `services/firestore.ts`, after the action it
@@ -457,7 +459,8 @@ since `Recipe.rootId` is required and `publishRecipe` writes the whole record, b
 rules do not enforce it, so a recipe without one cannot be cooked). The `cook` window must move in the
 same request with `last` equal to `cooks/{id}`, so one bump admits one cook (20 a day, see
 writeWindows below). A Terms bump (`termsVersion()`) therefore denies every cook until the user
-re-accepts; RL-196 must handle that denial as the other contributing writes do. Update: only the
+re-accepts; `logCook` (RL-196) turns that denial into `TermsNotAcceptedError` by reading the
+user's `termsAcceptance` after a `permission-denied` (one extra read, only on a denial). Update: only the
 cook, verified, only `branchId`, once, from null to the id of an existing recipe the cook owns
 (at most 128 characters; crediting a branch grown from the note). Delete: only the cook, signed
 in (no verified email needed, like termsAcceptance and notificationPrefs, so erasure works if
@@ -468,6 +471,18 @@ aggregates cooks over a family must tolerate a `recipeId` whose recipe is gone.
 `get()` of one path count once) and the window's `getAfter()`, so 3 document accesses and 3
 billed reads in the rules, plus the client's window read in its transaction; a `branchId`
 update touches the branch recipe (1); delete touches none. Emulator-checked 2026-10-21 (ticket RL-194 Notes).
+**Client read cost** (RL-196, `services/firestore.ts`): `getRecipeCookSummary` is 2 count reads
+(a count costs one read per 1000 matches, minimum one) plus one per cook returned, at most 20,
+read once per recipe visit and again after the user logs a cook (`useRecipeCooks`); the own log
+(`subscribeOwnCooks` through `useOwnCooks`, verified users only) is one read per cook, at most 200,
+plus one per later change while it is open. Each `useOwnCooks` caller opens its own listener,
+so mount it once and pass the list down. `logCook` reads `recipes/{recipeId}` in its transaction
+for `rootId` and `recipeOwnerId` (one more client read; never the caller's copy) and refuses a
+recipe that is missing or has no `rootId` with `RecipeNotPublishedError` ("Publish this recipe
+before logging a cook."). It accepts a `cookId` so `useRecipeCooks` can retry a timed-out log under
+the same id; an existing cook is left alone and the window does not move. `logCook` takes `displayName` from the signed-in
+account (`AppUser.displayName`, kept in step with the profile by `useProfile.updateName`), never
+from typed input, and trims it to 100 and the note to 500.
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.

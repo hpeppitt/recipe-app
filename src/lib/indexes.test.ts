@@ -19,4 +19,19 @@ describe('firestore.indexes.json', () => {
     );
     expect(found).toBe(true);
   });
+
+  // getRecipeCookSummary and subscribeOwnCooks: one equality + orderBy createdAt desc (RL-196).
+  it.each(['recipeId', 'uid'])('has the cooks %s + createdAt desc index (RL-196)', (field) => {
+    const found = (indexes.indexes as Index[]).some(
+      (i) =>
+        i.collectionGroup === 'cooks' &&
+        i.queryScope === 'COLLECTION' &&
+        i.fields.length === 2 &&
+        i.fields[0].fieldPath === field &&
+        i.fields[0].order === 'ASCENDING' &&
+        i.fields[1].fieldPath === 'createdAt' &&
+        i.fields[1].order === 'DESCENDING'
+    );
+    expect(found).toBe(true);
+  });
 });

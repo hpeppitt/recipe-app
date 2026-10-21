@@ -145,6 +145,14 @@ The Saved page lists favourites too (RL-121, `hooks/useSavedFavorites.ts`, pure 
 a Dexie row of someone else's recipe would be a saved copy, and a favourite is not a copy. The
 path is read only; a deleted recipe's favourite is counted, not removed.
 
+Cooks (RL-196, `services/firestore.ts`) are cloud only, with no Dexie table. `logCook` creates
+`cooks/{id}` through `writeLimited` (one transaction with the `cook` window, bounded at 5 s,
+`createdAt: serverTimestamp()`, `rootId` and `recipeOwnerId` read from the recipe in the
+same transaction, a retry under the same `cookId` a no-op); `setCookBranch` is the one allowed update (`branchId`, once);
+`deleteCook` removes the user's own cook. Reads are `getRecipeCookSummary` (two counts and the
+newest 20, bounded at 6 s, through `useRecipeCooks`) and `subscribeOwnCooks` (the user's newest
+200, through `useOwnCooks`, verified users only), both in `hooks/useCooks.ts`.
+
 What can still disagree: **other users' recipes and saved copies.** A recipe published by
 someone else lives only in the cloud unless it was saved to this device, so local-only
 features (the version tree, local search) cannot see all of it, and a saved copy is not
@@ -302,7 +310,7 @@ Places designed to be replaced, worth knowing before you change them:
   Function proxy is a change to this file's transport, not to its callers.
 - **`lib/errors.ts`** (`describeGenerationError`) — the one place raw provider errors become
   user-facing copy. It also holds `StaleSuggestionError` (RL-148) and `RateLimitedError` and `rateLimitMessage` (RL-048, RL-049),
-  which turn a write-limit hit into the suggestion, reply or daily-publish message (a limited
+  which turn a write-limit hit into the suggestion, reply, daily-publish or daily-cook message, and `TermsNotAcceptedError` (RL-196) for a cook denied by stale Terms (a limited
   notification is skipped in `services/firestore.ts` and never reaches a message). New failure modes get mapped here, not at the call site.
 - **`components/ui/ErrorBoundary.tsx`**: wraps the routes and the shell outlet; render errors
   show an error-tone EmptyState (`CloudOff` icon, secondary "Back to library" button), report via `reportError`, and clear on route change.
