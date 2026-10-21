@@ -2116,3 +2116,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-229 learnTaste helper
 - Nothing to check in the browser: a pure helper in `src/lib/taste.ts` with unit tests; the Taste card UI comes later.
+
+### RL-230 tasteProfiles rules
+- Nothing to check in the browser: rules only, in the repo, not deployed (RL-249 deploys). Emulator probe codes are in the ticket Notes.

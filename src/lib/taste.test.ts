@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { learnTaste, tasteHeadline } from './taste';
+// ?raw rather than node:fs, as in rateLimit.test.ts.
+import rules from '../../firestore.rules?raw';
+import { learnTaste, tasteHeadline, TASTE_AVOID_MAX, TASTE_HIDDEN_MAX, TASTE_TERM_MAX } from './taste';
+
+describe('firestore.rules taste profile caps (RL-230)', () => {
+  // Fails, rather than passing vacuously, when a function is renamed or removed.
+  const literal = (fn: string) => {
+    const m = new RegExp(`function ${fn}\\(\\)\\s*\\{\\s*return (\\d+);`).exec(rules);
+    return m ? Number(m[1]) : undefined;
+  };
+
+  it('match the client constants and apply to both lists', () => {
+    expect(literal('tasteAvoidCap')).toBe(TASTE_AVOID_MAX);
+    expect(literal('tasteHiddenCap')).toBe(TASTE_HIDDEN_MAX);
+    expect(literal('tasteTermMax')).toBe(TASTE_TERM_MAX);
+    expect(rules).toContain('a.size() <= tasteAvoidCap()');
+    expect(rules).toContain('(avoids[i] is string && avoids[i].size() <= tasteTermMax())');
+    // One guarded check per avoid slot, 0 to cap - 1.
+    for (let i = 0; i < TASTE_AVOID_MAX; i++) expect(rules).toContain(`tasteAvoidOk(a, ${i})`);
+    expect(rules).not.toContain(`tasteAvoidOk(a, ${TASTE_AVOID_MAX})`);
+    expect(rules).toContain('tasteAvoidsOk(request.resource.data.avoids)');
+    expect(rules).toContain('hidden.size() <= tasteHiddenCap()');
+    expect(rules).toContain("hidden.join('').size() <= tasteHiddenCap() * tasteTermMax()");
+  });
+});
 
 const cook = (title: string, tags: string[], at = 1) => ({ title, tags, at });
 const br = (prompt: string, at = 1) => ({ prompt, at });
