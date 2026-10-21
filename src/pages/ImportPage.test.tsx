@@ -8,7 +8,11 @@ import { makeIngredient, makeRecipe } from '../test/factories';
 import { IMPORT_ERROR_MESSAGE, type ImportDraft } from '../lib/linkImport';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, importRecipeFromUrl, getAllPublishedRecipes } = vi.hoisted(() => ({
+const { publishRecipe, importRecipeFromUrl, importRecipeFromPhotos, getAllPublishedRecipes, downscaleToJpeg, trackRecipeCreated, reportError } = vi.hoisted(() => ({
+  importRecipeFromPhotos: vi.fn(),
+  downscaleToJpeg: vi.fn(),
+  trackRecipeCreated: vi.fn(),
+  reportError: vi.fn(),
   publishRecipe: vi.fn(),
   importRecipeFromUrl: vi.fn(),
   getAllPublishedRecipes: vi.fn(),
@@ -24,9 +28,11 @@ vi.mock('../services/gemini', () => ({
   createRecipeChat: vi.fn(),
   createVariationChat: vi.fn(),
   importRecipeFromUrl: (...a: unknown[]) => importRecipeFromUrl(...a),
+  importRecipeFromPhotos: (...a: unknown[]) => importRecipeFromPhotos(...a),
 }));
-vi.mock('../services/analytics', () => ({ trackRecipeCreated: vi.fn() }));
-vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
+vi.mock('../services/imageDownscale', () => ({ downscaleToJpeg: (...a: unknown[]) => downscaleToJpeg(...a) }));
+vi.mock('../services/analytics', () => ({ trackRecipeCreated: (...a: unknown[]) => trackRecipeCreated(...a) }));
+vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 vi.mock('../components/auth/EmailLinkingForm', () => ({ EmailLinkingForm: () => <form aria-label="Sign up" /> }));
 
 import { ImportPage } from './ImportPage';
@@ -49,7 +55,7 @@ function Probe() {
   return <output data-testid="probe">{`${pathname}|${JSON.stringify(state)}`}</output>;
 }
 
-const render = (user = fakeUser) =>
+const render = (user = fakeUser, route = '/import') =>
   renderWithProviders(
     <>
       <Routes>
@@ -58,7 +64,7 @@ const render = (user = fakeUser) =>
       </Routes>
       <Probe />
     </>,
-    { route: '/import', user }
+    { route, user }
   );
 
 const field = () => screen.getByRole('textbox', { name: 'Recipe link' }) as HTMLInputElement;
@@ -193,5 +199,97 @@ describe('ImportPage', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save as a new original' }));
     expect(await db.recipes.count()).toBe(0);
     expect(probe()).toBe('/import|null');
+  });
+});
+
+describe('ImportPage photo mode (RL-251)', () => {
+  const B64 = 'J'.repeat(400);
+  const file = (n: number) => new File(['x'], `p${n}.jpg`, { type: 'image/jpeg' });
+  const pick = (...files: File[]) => fireEvent.change(document.querySelector('input[type=file]')!, { target: { files } });
+  const renderPhoto = (user = fakeUser) => render(user, '/import?mode=photo');
+  const photoDraft = (): ImportDraft => {
+    const d = draftOf('Gran Scones', 1);
+    return { ...d, recipe: { ...d.recipe!, importedFrom: 'photo' } };
+  };
+
+  beforeEach(() => {
+    let n = 0;
+    downscaleToJpeg.mockImplementation(async () => ({ mimeType: 'image/jpeg', base64: `${B64}${n++}` }));
+    importRecipeFromPhotos.mockResolvedValue(photoDraft());
+  });
+
+  it('shows Snap a page with the photo picker instead of the link field', () => {
+    renderPhoto();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Snap a page');
+    expect(screen.queryByRole('textbox', { name: 'Recipe link' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add photos' })).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Read it' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('gates a user without a verified email with the photo wording', () => {
+    renderPhoto({ ...fakeUser, emailVerified: false });
+    expect(screen.getByText('Sign up to add recipes from photos')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Add photos' })).toBeNull();
+  });
+
+  it('takes up to three photos with the Gemini notice, and refuses a fourth', async () => {
+    renderPhoto();
+    pick(file(1), file(2), file(3), file(4));
+    await screen.findByAltText('Attached photo 3 of 3');
+    expect(screen.getByText(/Photos are sent to Google's Gemini/)).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toMatch(/3 photos/);
+    expect((screen.getByRole('button', { name: 'Add another' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('reads the photos into the preview with Photo and the unclear line, then saves with no photo anywhere', async () => {
+    renderPhoto();
+    pick(file(1), file(2));
+    await screen.findByAltText('Attached photo 2 of 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
+    expect(status()).toBe('Reading the photos…');
+    const card = await screen.findByRole('region', { name: 'Recipe preview' });
+    expect(importRecipeFromPhotos).toHaveBeenCalledWith([
+      { mimeType: 'image/jpeg', base64: `${B64}0` },
+      { mimeType: 'image/jpeg', base64: `${B64}1` },
+    ]);
+    expect(card.textContent).toContain('Photo');
+    expect(card.textContent).toContain('One amount was unclear. You can fix it after saving.');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save as a new original' }));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\//));
+    const saved = publishRecipe.mock.calls[0][0] as Recipe;
+    expect(saved.prompt).toBe('Imported from a photo');
+    expect('importedFrom' in saved).toBe(false);
+    const stored = await db.recipes.get(saved.id);
+    for (const value of [
+      saved,
+      stored,
+      probe(),
+      window.history.state,
+      trackRecipeCreated.mock.calls,
+      reportError.mock.calls,
+    ]) {
+      expect(JSON.stringify(value ?? null)).not.toContain(B64);
+    }
+  });
+
+  it('shows a failed read in the alert line and keeps the photos for another try', async () => {
+    importRecipeFromPhotos.mockResolvedValue({ recipe: null, uncertainCount: 0, error: 'Photo failed' });
+    renderPhoto();
+    pick(file(1));
+    await screen.findByAltText('Attached photo 1 of 1');
+    fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
+    expect((await screen.findByRole('alert')).textContent).toBe('Photo failed');
+    expect(screen.getByAltText('Attached photo 1 of 1')).toBeTruthy();
+  });
+
+  it('removing a photo after a read clears the preview', async () => {
+    renderPhoto();
+    pick(file(1), file(2));
+    await screen.findByAltText('Attached photo 2 of 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
+    await screen.findByRole('region', { name: 'Recipe preview' });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove photo 2' }));
+    expect(screen.queryByRole('region', { name: 'Recipe preview' })).toBeNull();
   });
 });

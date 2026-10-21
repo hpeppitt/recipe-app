@@ -22,12 +22,21 @@ vi.mock('./firebase', () => ({ firebaseApp: {} }));
 vi.mock('./analytics', () => ({ captureAiGeneration }));
 vi.mock('./telemetry', () => ({ reportError }));
 
-import { createRecipeChat, createVariationChat, importRecipeFromUrl, IMPORT_TIMEOUT_MS, readReceipt, RECEIPT_TIMEOUT_MS } from './gemini';
+import {
+  createRecipeChat,
+  createVariationChat,
+  importRecipeFromPhotos,
+  importRecipeFromUrl,
+  IMPORT_TIMEOUT_MS,
+  PHOTO_IMPORT_TIMEOUT_MS,
+  readReceipt,
+  RECEIPT_TIMEOUT_MS,
+} from './gemini';
 import { RECEIPT_RESPONSE_SCHEMA } from '../schemas/receipt.responseSchema';
 import { RECEIPT_ERROR_MESSAGE, RECEIPT_SYSTEM_PROMPT } from '../lib/receipt';
 import { IMPORT_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
-import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT } from '../lib/prompts';
-import { IMPORT_ERROR_MESSAGE } from '../lib/linkImport';
+import { IMPORT_SYSTEM_PROMPT, PHOTO_IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT } from '../lib/prompts';
+import { IMPORT_ERROR_MESSAGE, PHOTO_IMPORT_ERROR_MESSAGE } from '../lib/linkImport';
 
 function modelReply() {
   const { id, parentId, rootId, depth, createdBy, collaborators, prompt, chatHistory, createdAt, updatedAt, ...rest } =
@@ -191,6 +200,87 @@ describe('importRecipeFromUrl', () => {
     await importRecipeFromUrl(PAGE);
     expect(warn.mock.calls[0]).toEqual(['Link import failed for', 'seriouseats.com', 'TypeError']);
     expect(JSON.stringify(warn.mock.calls[0])).not.toContain('secret-family');
+  });
+});
+
+describe('importRecipeFromPhotos (RL-251)', () => {
+  const B64 = 'P'.repeat(400);
+  const photo = (n: number) => ({ mimeType: 'image/jpeg' as const, base64: `${B64}${n}` });
+  const failed = { recipe: null, uncertainCount: 0, error: PHOTO_IMPORT_ERROR_MESSAGE };
+
+  it('sends every photo inline in one request with the import schema, no URL tool and a 45 s bound', async () => {
+    const draft = await importRecipeFromPhotos([photo(1), photo(2)]);
+
+    expect(draft.error).toBeNull();
+    expect(draft.recipe?.title).toBe('Loaf');
+    expect(draft.recipe?.importedFrom).toBe('photo');
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(generateContent.mock.calls[0][0]).toEqual([
+      'Read the recipe in these photos.',
+      { inlineData: { mimeType: 'image/jpeg', data: `${B64}1` } },
+      { inlineData: { mimeType: 'image/jpeg', data: `${B64}2` } },
+    ]);
+    const [, params, requestOptions] = getGenerativeModel.mock.calls[0] as unknown as [
+      unknown,
+      { tools?: unknown; systemInstruction: string; generationConfig: { responseSchema: unknown; responseMimeType: string } },
+      { timeout: number },
+    ];
+    expect(params.tools).toBeUndefined();
+    expect(params.systemInstruction).toBe(PHOTO_IMPORT_SYSTEM_PROMPT);
+    expect(params.generationConfig.responseSchema).toBe(IMPORT_RESPONSE_SCHEMA);
+    expect(params.generationConfig.responseMimeType).toBe('application/json');
+    expect(requestOptions.timeout).toBe(PHOTO_IMPORT_TIMEOUT_MS);
+    expect(PHOTO_IMPORT_TIMEOUT_MS).toBe(45_000);
+  });
+
+  it('keeps the uncertain flags and forces their amounts to null', async () => {
+    generateContent.mockResolvedValue(
+      importReply([
+        { amount: 3, unit: 'oz', name: 'butter', notes: null, group: null, uncertain: true },
+        { amount: 1, unit: null, name: 'egg', notes: null, group: null, uncertain: false },
+      ])
+    );
+    const draft = await importRecipeFromPhotos([photo(1)]);
+    expect(draft.uncertainCount).toBe(1);
+    expect(draft.recipe?.ingredients[0]).toMatchObject({ amount: null, uncertain: true });
+  });
+
+  it('calls nothing for no photos or more than three', async () => {
+    expect(await importRecipeFromPhotos([])).toEqual(failed);
+    expect(await importRecipeFromPhotos([1, 2, 3, 4].map(photo))).toEqual(failed);
+    expect(generateContent).not.toHaveBeenCalled();
+  });
+
+  it('maps an unreadable reply and a reply with no recipe to the one message', async () => {
+    generateContent.mockResolvedValueOnce({ response: { text: () => 'Sorry.' } });
+    expect(await importRecipeFromPhotos([photo(1)])).toEqual(failed);
+    generateContent.mockResolvedValueOnce(importReply([]));
+    expect(await importRecipeFromPhotos([photo(1)])).toEqual(failed);
+  });
+
+  it('keeps the photos out of analytics', async () => {
+    await importRecipeFromPhotos([photo(1)]);
+    const fields = captureAiGeneration.mock.calls[0][0] as Record<string, unknown>;
+    expect(Object.keys(fields).sort()).toEqual(['latency', 'model', 'sessionId', 'traceId']);
+    expect(JSON.stringify(captureAiGeneration.mock.calls)).not.toContain(B64);
+  });
+
+  it('reports a new, redacted error and resolves to the one message', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sdk = Object.assign(new Error(`bad request: ${B64}1`, { cause: B64 }), { customErrorData: { body: B64 } });
+    generateContent.mockRejectedValueOnce(sdk);
+
+    expect(await importRecipeFromPhotos([photo(1)])).toEqual(failed);
+    expect(reportError).toHaveBeenCalledTimes(1);
+    const reported = reportError.mock.calls[0][0] as Error;
+    expect(reported).not.toBe(sdk);
+    expect(reported.message).toBe('bad request: [redacted]');
+    expect(reported.cause).toBeUndefined();
+    expect(Object.keys(reported)).toEqual(['name']);
+    expect(reported.stack ?? '').not.toContain(B64);
+    expect(reportError.mock.calls[0][1]).toBe('import-photo');
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(B64);
+    expect(captureAiGeneration).not.toHaveBeenCalled();
   });
 });
 

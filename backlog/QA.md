@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-251 Snap a page reads a recipe from up to three photos
+- On a phone, signed in with a verified email, open `/import?mode=photo` (the Create tab tile is RL-250, not built yet). The header says "Snap a page"; there is no link field.
+- Add photos offers the camera or the library. Snap a printed cookbook recipe (two photos if it runs over a page). The thumbnails and the Gemini notice appear; a fourth photo is refused with the chat's limit message.
+- Read it: "Reading the photos…" with the skeleton, then the preview with the title, counts and a "Photo" pill. Check the title, ingredients and steps match the page as written, in order.
+- Snap a handwritten card with at least one smudged or unclear amount. Check the preview says "One amount was unclear" (or N) and, after saving, that amount is empty in the editor rather than guessed. Clear amounts must not be flagged.
+- Save as a new original: the recipe opens with the saved toast. Remove a photo after a read: the preview goes. A photo of something that is not a recipe shows "Couldn't read a recipe in those photos. Try a closer, brighter photo of the page." and keeps the photos.
+- Decision to confirm (backlog/DECISIONS.md, RL-251): photo imports save no `importedFrom`, since the rules accept only a URL there.
+
+- Reviewer noted (ui, med): "Read it" and save use aria-disabled while busy but look tappable; Button only styles native :disabled (same as the link path).
+- Reviewer noted (ui, low): photo remove X is a dead tap during a read; sign-up gate copy still says "reads a recipe page" in photo mode; the Gemini notice shows only after the first photo; Close discards photos and preview without asking.
+- Reviewer noted (data, low): if /import stays mounted when moving to ?mode=photo, a link preview could linger (check when RL-250's tile lands); the photo prompt asks the model to estimate times not on the card; redacted error text can still carry SDK text, as with receipts; a photo import is identifiable only by its prompt string until the importedFrom decision.
+
 ### RL-178 Typing-pause dedup card (7a)
 - On a phone, open a new chat and type "banana bread" slowly. After the pause the sage card appears above the composer and stays above the keyboard: "<title> is already growing here", up to three rows with author pill, time and difficulty, and a Branch pill.
 - Branch opens the branch composer for that recipe with the typed text in the instruction box; the match title opens the recipe. Back in a new chat, Send still generates (the on-send panel may still offer matches first).

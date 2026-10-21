@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { importRecipeFromUrl } from '../services/gemini';
+import { importRecipeFromPhotos, importRecipeFromUrl } from '../services/gemini';
 import { buildRecipe, getRecipeTree } from '../db/recipes';
 import { readPublishedWindow } from '../services/publishedWindow';
 import { notifyBranched } from '../services/firestore';
@@ -10,7 +10,8 @@ import { reportError } from '../services/telemetry';
 import { useAuth } from '../contexts/AuthContext';
 import { searchSimilarRecipes, type SimilarRecipe } from './useRecipeChat';
 import { familyCounts, matchKind } from '../lib/search';
-import { IMPORT_ERROR_MESSAGE, importHost, normalizeImportUrl, type ImportDraftRecipe } from '../lib/linkImport';
+import { IMPORT_ERROR_MESSAGE, PHOTO_SOURCE, importHost, normalizeImportUrl, type ImportDraft, type ImportDraftRecipe } from '../lib/linkImport';
+import type { ImageAttachment } from '../lib/imageAttachments';
 import { withTimeout } from '../lib/utils';
 import type { Recipe } from '../types/recipe';
 
@@ -31,7 +32,9 @@ export type ImportFamily = {
 
 export type ImportPreview = {
   recipe: ImportDraftRecipe;
+  /** The page read, or PHOTO_SOURCE for a photo import (RL-251). */
   url: string;
+  /** The site, or "Photo". */
   host: string;
   uncertainCount: number;
   family: ImportFamily | null;
@@ -61,7 +64,7 @@ async function findFamily(title: string, uid: string | undefined): Promise<Impor
 }
 
 /**
- * "Add from a link" (RL-186): read a page into a preview, check the library for the
+ * "Add from a link" (RL-186) and "Snap a page" (RL-251): read a page or photos into a preview, check the library for the
  * same dish, and save it as a new original or as a branch of that family's original.
  * Saving uses the chat's cloud-first sequence, so a failed publish writes nothing.
  */
@@ -79,21 +82,15 @@ export function useImportRecipe() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const read = useCallback(
-    async (input: string) => {
-      if (readingRef.current || savingRef.current) return;
-      setSaveError(null);
-      const url = normalizeImportUrl(input);
-      if (!url) {
-        setReadError(IMPORT_ERROR_MESSAGE);
-        return;
-      }
+  /** Reads a draft into a preview; the photo and link reads differ only in the draft they fetch. */
+  const readDraft = useCallback(
+    async (fetchDraft: () => Promise<ImportDraft>, url: string, host: string) => {
       readingRef.current = true;
       setIsReading(true);
       setReadError(null);
       setPreview(null);
       try {
-        const draft = await importRecipeFromUrl(url);
+        const draft = await fetchDraft();
         if (!draft.recipe) {
           setReadError(draft.error ?? IMPORT_ERROR_MESSAGE);
           return;
@@ -104,13 +101,37 @@ export function useImportRecipe() {
           DEDUP_TIMEOUT_MS,
           null
         );
-        setPreview({ recipe: draft.recipe, url, host: importHost(url), uncertainCount: draft.uncertainCount, family });
+        setPreview({ recipe: draft.recipe, url, host, uncertainCount: draft.uncertainCount, family });
       } finally {
         readingRef.current = false;
         setIsReading(false);
       }
     },
     [user?.uid]
+  );
+
+  const read = useCallback(
+    async (input: string) => {
+      if (readingRef.current || savingRef.current) return;
+      setSaveError(null);
+      const url = normalizeImportUrl(input);
+      if (!url) {
+        setReadError(IMPORT_ERROR_MESSAGE);
+        return;
+      }
+      await readDraft(() => importRecipeFromUrl(url), url, importHost(url));
+    },
+    [readDraft]
+  );
+
+  /** Snap a page (RL-251): the photos go to Gemini in this one request and nowhere else. */
+  const readPhotos = useCallback(
+    async (photos: ImageAttachment[]) => {
+      if (readingRef.current || savingRef.current || !photos.length) return;
+      setSaveError(null);
+      await readDraft(() => importRecipeFromPhotos(photos), PHOTO_SOURCE, 'Photo');
+    },
+    [readDraft]
   );
 
   /** Saves the preview, as a branch of the family's original when `asBranch`. */
@@ -131,11 +152,21 @@ export function useImportRecipe() {
         } else {
           // `uncertain` only drives the preview line; the null amount is what stays editable.
           const { importedFrom: _from, ingredients, ...rest } = preview.recipe;
+          // A photo import keeps no importedFrom: the rules accept only an http(s) URL there (RL-251).
+          const fromPhoto = preview.url === PHOTO_SOURCE;
           const generated = { ...rest, ingredients: ingredients.map(({ uncertain: _u, ...i }) => i) };
           recipe = {
             // A branch hangs off the family's original: parentId and rootId both the root, depth 1.
-            ...buildRecipe(generated, `Imported from ${preview.host}`, [], rootId ?? null, rootId ?? null, rootId ? 0 : -1, createdBy),
-            importedFrom: preview.url,
+            ...buildRecipe(
+              generated,
+              fromPhoto ? 'Imported from a photo' : `Imported from ${preview.host}`,
+              [],
+              rootId ?? null,
+              rootId ?? null,
+              rootId ? 0 : -1,
+              createdBy
+            ),
+            ...(!fromPhoto && { importedFrom: preview.url }),
             importedVia: createdBy,
           };
           builtRef.current = { preview, asBranch, recipe };
@@ -180,5 +211,5 @@ export function useImportRecipe() {
     setSaveError(null);
   }, []);
 
-  return { preview, isReading, isSaving, readError, saveError, read, save, reset };
+  return { preview, isReading, isSaving, readError, saveError, read, readPhotos, save, reset };
 }

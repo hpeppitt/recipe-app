@@ -9,7 +9,8 @@ import { fakeUser } from '../test/renderWithProviders';
 import { IMPORT_ERROR_MESSAGE, type ImportDraft } from '../lib/linkImport';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, importRecipeFromUrl, getAllPublishedRecipes, navigate, notifyBranched, reportError } = vi.hoisted(() => ({
+const { publishRecipe, importRecipeFromUrl, importRecipeFromPhotos, getAllPublishedRecipes, navigate, notifyBranched, reportError } = vi.hoisted(() => ({
+  importRecipeFromPhotos: vi.fn(),
   publishRecipe: vi.fn(),
   notifyBranched: vi.fn(),
   reportError: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('../services/gemini', () => ({
   createRecipeChat: vi.fn(),
   createVariationChat: vi.fn(),
   importRecipeFromUrl: (...a: unknown[]) => importRecipeFromUrl(...a),
+  importRecipeFromPhotos: (...a: unknown[]) => importRecipeFromPhotos(...a),
 }));
 vi.mock('../services/analytics', () => ({ trackRecipeCreated: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
@@ -120,6 +122,45 @@ describe('useImportRecipe read', () => {
     const { result } = renderImport();
     await act(() => result.current.read(PAGE));
     expect(result.current.preview?.family).toBeNull();
+  });
+});
+
+describe('useImportRecipe readPhotos (RL-251)', () => {
+  const B64 = 'K'.repeat(400);
+  const photos = [{ mimeType: 'image/jpeg' as const, base64: `${B64}1` }, { mimeType: 'image/jpeg' as const, base64: `${B64}2` }];
+  const photoDraft = (): ImportDraft => {
+    const d = draftOf('Gran Scones', 1);
+    return { ...d, recipe: { ...d.recipe!, importedFrom: 'photo' } };
+  };
+
+  it('previews the photos as "Photo" and saves with no importedFrom and no photo data anywhere', async () => {
+    importRecipeFromPhotos.mockResolvedValue(photoDraft());
+    const { result } = renderImport();
+    await act(() => result.current.readPhotos(photos));
+
+    expect(importRecipeFromPhotos).toHaveBeenCalledWith(photos);
+    expect(result.current.preview).toMatchObject({ host: 'Photo', url: 'photo', uncertainCount: 1 });
+    await act(() => result.current.save(false));
+
+    const saved = savedRecipe();
+    expect(saved.prompt).toBe('Imported from a photo');
+    expect('importedFrom' in saved).toBe(false);
+    expect(saved.importedVia).toEqual({ uid: fakeUser.uid, displayName: fakeUser.displayName });
+    const stored = await db.recipes.get(saved.id);
+    expect(stored && 'importedFrom' in stored).toBe(false);
+    for (const value of [saved, stored, navigate.mock.calls, reportError.mock.calls]) {
+      expect(JSON.stringify(value ?? null)).not.toContain(B64);
+    }
+  });
+
+  it('shows the draft error and calls nothing for no photos', async () => {
+    importRecipeFromPhotos.mockResolvedValue({ recipe: null, uncertainCount: 0, error: 'Photo failed' });
+    const { result } = renderImport();
+    await act(() => result.current.readPhotos([]));
+    expect(importRecipeFromPhotos).not.toHaveBeenCalled();
+    await act(() => result.current.readPhotos(photos));
+    expect(result.current.readError).toBe('Photo failed');
+    expect(result.current.preview).toBeNull();
   });
 });
 
