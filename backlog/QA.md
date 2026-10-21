@@ -1968,3 +1968,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-195 Pure cook helpers
 - Nothing to check in the browser: pure helpers in src/lib/cooks.ts, covered by unit tests. The UI tickets use them.
+
+### RL-196 Cook service and hooks
+- Nothing to see in the app yet: service functions and hooks only, no UI calls them. Two new composite indexes on `cooks` (recipeId and uid, each with createdAt desc) are in the repo and must ship with the RL-209 deploy, or the recent-notes list and the cook log fail.
+
+- Deploy note: the two cooks composite indexes (recipeId+createdAt desc, uid+createdAt desc) must go out with RL-209, or recent notes and the cook log fail. The hook spots a timeout by its "timed out" message text. Emulator walk not done; do it with RL-197's UI.

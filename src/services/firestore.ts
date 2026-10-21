@@ -25,6 +25,7 @@ import {
   runTransaction,
   type DocumentReference,
   type Firestore,
+  type Transaction,
   type Timestamp,
 } from 'firebase/firestore';
 import { EXPLORE_TAG_FIELD, FEED_ORDER_FIELD } from '../lib/constants';
@@ -38,11 +39,11 @@ import { withTimeout } from '../lib/utils';
 import { normalizeTags } from '../lib/library';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
-import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, TooManyMovedBranchesError } from '../lib/errors';
+import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, RecipeNotPublishedError, TermsNotAcceptedError, TooManyMovedBranchesError } from '../lib/errors';
 import { db } from '../db/database';
-import type { Recipe, Collaborator } from '../types/recipe';
+import type { Recipe, Collaborator, AppUser } from '../types/recipe';
 import type { SharedRecipe } from '../lib/share';
-import type { Suggestion, SuggestionEdit, SuggestionMessage, AppNotification } from '../types/social';
+import type { Suggestion, SuggestionEdit, SuggestionMessage, AppNotification, Cook } from '../types/social';
 import {
   applySuggestionEdits,
   buildBranchFromSuggestion,
@@ -823,16 +824,20 @@ async function writeLimited(
   uid: string,
   action: RateLimitAction,
   ref: DocumentReference,
-  data: DocumentData,
-  /** When given, `ref` is read first and, if it exists, merged with this instead: no window move. */
-  ifExists?: DocumentData
+  /** A function reads what it needs in the transaction (after the window read) and returns the content. */
+  data: DocumentData | ((tx: Transaction) => Promise<DocumentData>),
+  /**
+   * When given, `ref` is read first and, if it exists, merged with this instead: no window move.
+   * 'skip' leaves an existing `ref` as it is, so a retry under the same id writes nothing.
+   */
+  ifExists?: DocumentData | 'skip'
 ): Promise<boolean> {
   const windowRef = doc(fs, 'writeWindows', `${uid}_${action}`);
   try {
     return await rejectAfter(
       runTransaction(fs, async (tx) => {
         if (ifExists && (await tx.get(ref)).exists()) {
-          tx.set(ref, ifExists, { merge: true });
+          if (ifExists !== 'skip') tx.set(ref, ifExists, { merge: true });
           return false;
         }
         const snap = await tx.get(windowRef);
@@ -842,7 +847,7 @@ async function writeLimited(
         const { cap, windowMs } = RATE_LIMITS[action];
         const next = nextWindow(prev, Date.now(), cap, windowMs);
         if (next === 'limited') throw new RateLimitedError(action);
-        tx.set(ref, data);
+        tx.set(ref, typeof data === 'function' ? await data(tx) : data);
         // A new window stamps windowStart; an increment must leave it as stored,
         // which is what the rules' same-window branch compares against.
         // `last` binds this bump to this one document; the rules check it.
@@ -1293,6 +1298,133 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
   }
 }
 
+// --- Cooks (RL-196): public "I made this" records, cloud only ---
+
+const COOK_SUMMARY_TIMEOUT_MS = 6000;
+const COOK_SUMMARY_RECENT = 20;
+const OWN_COOKS_MAX = 200;
+
+function toCook(d: QueryDocumentSnapshot): Cook {
+  // 'estimate' so the user's own pending cook has a time before the server stamps it.
+  const data = d.data({ serverTimestamps: 'estimate' });
+  const at = data.createdAt as Timestamp | null | undefined;
+  return { ...data, id: d.id, createdAt: at?.toMillis?.() ?? 0 } as Cook;
+}
+
+/** A fresh cook id, so a caller can retry logCook under the same id. */
+export function newCookId(): string {
+  if (!firestore) throw new Error('Firebase not configured');
+  return doc(collection(firestore, 'cooks')).id;
+}
+
+/**
+ * Log that `user` cooked recipe `recipeId` and return the cook's id. Writes the
+ * cook and the 'cook' window in one transaction (writeLimited), so it throws
+ * RateLimitedError at 20 a day and rejects after 5 s. `rootId` and
+ * `recipeOwnerId` are read from `recipes/{recipeId}` in that transaction, never
+ * taken from the caller; a missing recipe or one without a rootId throws
+ * RecipeNotPublishedError. Pass the same `cookId` to retry after a timeout: an
+ * existing cook is left alone and the window does not move. The name is the
+ * account's own (AppUser), never typed input; the rules do not tie it.
+ * A permission denial from stale Terms becomes TermsNotAcceptedError; that
+ * check is one more read bounded at 5 s, so a denial can take about 10 s.
+ */
+export async function logCook({ recipeId, vote, note, user, cookId }: {
+  recipeId: string;
+  vote: Cook['vote'];
+  note: string | null;
+  user: Pick<AppUser, 'uid' | 'displayName'>;
+  cookId?: string;
+}): Promise<string> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const fs = firestore;
+  const ref = cookId ? doc(fs, 'cooks', cookId) : doc(collection(fs, 'cooks'));
+  const trimmed = note?.trim() ?? '';
+  try {
+    await writeLimited(
+      fs,
+      user.uid,
+      'cook',
+      ref,
+      async (tx) => {
+        const recipe = await tx.get(doc(fs, 'recipes', recipeId));
+        const rootId: unknown = recipe.exists() ? recipe.data().rootId : null;
+        if (typeof rootId !== 'string') throw new RecipeNotPublishedError();
+        return {
+          uid: user.uid,
+          displayName: user.displayName ? user.displayName.slice(0, 100) : null,
+          recipeId,
+          rootId,
+          recipeOwnerId: recipe.data()?.createdBy?.uid ?? null,
+          vote,
+          note: trimmed ? trimmed.slice(0, 500) : null,
+          branchId: null,
+          createdAt: serverTimestamp(),
+        };
+      },
+      'skip'
+    );
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code === 'permission-denied') {
+      // The rules give no reason, so ask: a stale or missing acceptance is the one denial the user can fix.
+      const version = await getAcceptedTermsVersion(user.uid).catch(() => TERMS_VERSION);
+      if (version !== TERMS_VERSION) throw new TermsNotAcceptedError();
+    }
+    throw err;
+  }
+  return ref.id;
+}
+
+export interface RecipeCookSummary {
+  total: number;
+  again: number;
+  /** The newest 20, newest first. */
+  recent: Cook[];
+}
+
+/**
+ * Counts and the newest 20 cooks of one recipe, for the Made-by row and recent
+ * notes. Readable signed out. Costs 2 count reads plus one per cook returned.
+ * Rejects after 6 s.
+ */
+export async function getRecipeCookSummary(recipeId: string): Promise<RecipeCookSummary> {
+  if (!firestore) return { total: 0, again: 0, recent: [] };
+  const cooks = collection(firestore, 'cooks');
+  const ofRecipe = where('recipeId', '==', recipeId);
+  const [total, again, snap] = await rejectAfter(
+    Promise.all([
+      getCountFromServer(query(cooks, ofRecipe)),
+      getCountFromServer(query(cooks, ofRecipe, where('vote', '==', 'again'))),
+      getDocs(query(cooks, ofRecipe, orderBy('createdAt', 'desc'), limit(COOK_SUMMARY_RECENT))),
+    ]),
+    'Reading cooks',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return { total: total.data().count, again: again.data().count, recent: snap.docs.map(toCook) };
+}
+
+/** The user's own newest 200 cooks, live, for the cook log and the Cooked stat. One read per cook. */
+export function subscribeOwnCooks(
+  uid: string,
+  onChange: (cooks: Cook[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!firestore) return () => {};
+  const q = query(collection(firestore, 'cooks'), where('uid', '==', uid), orderBy('createdAt', 'desc'), limit(OWN_COOKS_MAX));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map(toCook)), onError);
+}
+
+/** Credit the branch grown from a cook's note. The rules allow this once, to the cook's own published recipe. */
+export async function setCookBranch(cookId: string, branchId: string): Promise<void> {
+  if (!firestore) return;
+  await updateDoc(doc(firestore, 'cooks', cookId), { branchId });
+}
+
+export async function deleteCook(cookId: string): Promise<void> {
+  if (!firestore) return;
+  await deleteDoc(doc(firestore, 'cooks', cookId));
+}
+
 // --- Profiles ---
 
 // --- Terms acceptance (RL-047): owner-only, never on the public profile ---
@@ -1300,10 +1432,10 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
 const CALL_TIMEOUT_MS = 5000;
 
 // Not withTimeout: that swallows the rejection, and a permission-denied is worth reporting as such.
-async function rejectAfter<T>(promise: Promise<T>, what: string): Promise<T> {
+async function rejectAfter<T>(promise: Promise<T>, what: string, ms = CALL_TIMEOUT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${what} timed out`)), CALL_TIMEOUT_MS);
+    timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
   });
   try {
     return await Promise.race([promise, timeout]);
