@@ -300,3 +300,32 @@ export function getRecentCooksCache(now = Date.now()): RecentCook[] | null {
 export function setRecentCooksCache(cooks: RecentCook[], now = Date.now()): void {
   safeSet(RECENT_COOKS_KEY, JSON.stringify({ at: now, cooks }));
 }
+
+// --- Last opened recipe (RL-244) ---
+//
+// `{ id, at }` written by the recipe page; Explore's Tonight card reads it. The card's close
+// stores the id it hid; opening any recipe again (setLastOpened) clears it, so the card returns.
+const LAST_OPENED_KEY = 'recipe-lab-last-opened';
+const TONIGHT_DISMISSED_KEY = 'recipe-lab-tonight-dismissed';
+
+export function getLastOpened(): { id: string; at: number } | null {
+  try {
+    const p = JSON.parse(safeGet(LAST_OPENED_KEY) ?? 'null') as { id?: unknown; at?: unknown } | null;
+    return typeof p?.id === 'string' && p.id !== '' && typeof p.at === 'number' ? { id: p.id, at: p.at } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setLastOpened(id: string, at = Date.now()): void {
+  safeSet(LAST_OPENED_KEY, JSON.stringify({ id, at }));
+  safeRemove(TONIGHT_DISMISSED_KEY);
+}
+
+export function getTonightDismissed(): string | null {
+  return safeGet(TONIGHT_DISMISSED_KEY);
+}
+
+export function setTonightDismissed(id: string): void {
+  safeSet(TONIGHT_DISMISSED_KEY, id);
+}

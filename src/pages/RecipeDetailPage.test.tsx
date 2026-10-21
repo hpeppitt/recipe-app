@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
@@ -1138,5 +1138,29 @@ describe('RecipeDetailPage Add to shopping list', () => {
     fireEvent.click(row()!);
     expect(await screen.findByText("Couldn't add to your list. Check your connection and try again.")).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument();
+  });
+});
+
+describe('RecipeDetailPage last opened (RL-244)', () => {
+  beforeEach(() => {
+    // A fresh in-memory store: local vitest has no working localStorage, CI does.
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('records the recipe it shows for the Tonight card', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1' }
+    );
+    expect(JSON.parse(localStorage.getItem('recipe-lab-last-opened') ?? 'null')).toMatchObject({ id: 'r1', at: expect.any(Number) });
   });
 });

@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
 import { useFavoriteIds } from '../hooks/useFavorites';
@@ -14,12 +14,14 @@ import { Avatar } from '../components/ui/Avatar';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { RecipeTileRow, MAX_TILES } from '../components/recipe/RecipeTileRow';
+import { TonightCard } from '../components/recipe/TonightCard';
 import { MostBranchedList } from '../components/recipe/MostBranchedList';
 import { UserPill } from '../components/ui/UserPill';
 import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
 import { dayPartLabel, formatTime, pluralize } from '../lib/utils';
 import { buildFeed, filterFeed, tileRowTitle } from '../lib/library';
 import type { ScorableRecipe } from '../lib/search';
+import { getLastOpened, getTonightDismissed, setTonightDismissed } from '../services/storage';
 import { listOriginState } from '../lib/paneMode';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { CloudOff, BookmarkCheck, GitBranch, Search, Refrigerator, ChevronRight } from '../components/ui/icons';
@@ -110,6 +112,20 @@ export function ExplorePage() {
   const tileRecipes =
     rowsAllowed && !cookedShown && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
+  // RL-244: after 4 pm, the recipe opened in the last hour, if it is still on the device or in the loaded feed.
+  const readTonight = () => ({ now: Date.now(), last: getLastOpened(), dismissed: getTonightDismissed() });
+  const [snap, setSnap] = useState(readTonight);
+  // A 60 s tick, so a card left open across 16:00 or the hour mark updates (and a reopen in the wide pane shows).
+  useEffect(() => {
+    const t = setInterval(() => setSnap(readTonight()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const { now, last, dismissed } = snap;
+  const tonight =
+    new Date(now).getHours() >= 16 && last && last.id !== dismissed && now - last.at >= 0 && now - last.at <= 3600_000
+      ? (localRecords?.find((r) => r.id === last.id) ?? cloud.recipes?.find((r) => r.id === last.id))
+      : undefined;
+
   return (
     <div>
       <header className="flex items-end gap-2.5 px-5 pt-4">
@@ -126,6 +142,17 @@ export function ExplorePage() {
           <Search className="size-[19px]" />
         </Link>
       </header>
+
+      {tonight && (
+        <TonightCard
+          recipe={tonight}
+          uid={isConfigured && user?.emailVerified ? user.uid : null}
+          onClose={() => {
+            setTonightDismissed(tonight.id);
+            setSnap((x) => ({ ...x, dismissed: tonight.id }));
+          }}
+        />
+      )}
 
       {rowsAllowed && branchLoading && (
         // Holds the tile row's height (20 top padding, heading, 200px tiles, title and author lines)

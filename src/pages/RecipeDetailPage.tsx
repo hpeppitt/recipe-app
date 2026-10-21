@@ -56,7 +56,7 @@ import { FamilyPanel } from '../components/tree/FamilyPanel';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { WIDE_QUERY } from '../lib/paneMode';
 import { TreeIntro } from '../components/recipe/TreeIntro';
-import { getIntroState, setIntroState as persistIntroState } from '../services/storage';
+import { getIntroState, setIntroState as persistIntroState, setLastOpened } from '../services/storage';
 import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboarding';
 
 /** How long Share waits on the cloud before falling back to a self-contained link. */
@@ -629,6 +629,12 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     incrementRecipeViews(id);
     trackRecipeViewed(id);
   }, [id]);
+
+  // RL-244: Explore's Tonight card reads this.
+  const openedId = recipe?.id;
+  useEffect(() => {
+    if (openedId) setLastOpened(openedId);
+  }, [openedId]);
 
   const creatorName = recipe?.createdBy?.displayName;
   // Published docs carry favoriteCount; a purely local recipe has none. Read
