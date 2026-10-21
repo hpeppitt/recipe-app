@@ -20,7 +20,7 @@ const OFFER_DELAY_MS = 400;
  * `onSaved` runs once a cook is saved (cook mode returns to the recipe, RL-203).
  */
 export function useCookedEntry(
-  recipe: Pick<Recipe, 'id'> | undefined,
+  recipe: Pick<Recipe, 'id' | 'title'> | undefined,
   published = false,
   log: LogCook,
   onSaved?: (cookId: string) => void

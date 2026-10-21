@@ -20,7 +20,7 @@ vi.mock('../services/firebase', () => ({ auth: { currentUser: { getIdToken: (...
 const reportError = vi.fn();
 vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 
-import { KITCHEN_BUSY_MESSAGE, KITCHEN_FAILED_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_RETRY_MS, useKitchen, addRecipeToKitchen } from './useKitchen';
+import { KITCHEN_BUSY_MESSAGE, KITCHEN_FAILED_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_RETRY_MS, useKitchen, addRecipeToKitchen, addLeftoversToPantry } from './useKitchen';
 
 const wrapperFor = (user: AppUser | null) =>
   function Wrapper({ children }: { children: ReactNode }) {
@@ -211,5 +211,13 @@ describe('useKitchen', () => {
       release();
       await first;
     });
+  });
+
+  it('addLeftoversToPantry adds one fresh item and skips a duplicate by key', async () => {
+    await addLeftoversToPantry(fakeUser.uid, 'Dal leftovers');
+    await addLeftoversToPantry(fakeUser.uid, 'dal Leftovers');
+    expect(lists.pantry).toHaveLength(1);
+    expect(lists.pantry[0]).toMatchObject({ name: 'Dal leftovers', group: 'fresh', addedBy: fakeUser.uid });
+    expect(subscribeKitchen).not.toHaveBeenCalled();
   });
 });

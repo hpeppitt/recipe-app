@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { KITCHEN_BUSY_MESSAGE, addLeftoversToPantry } from '../../hooks/useKitchen';
 import type { useRecipeCooks } from '../../hooks/useCooks';
 import { noteToBranchPrompt } from '../../lib/cooks';
+import { ITEM_NAME_MAX } from '../../lib/kitchen';
 import { RecipeNotPublishedError, TermsNotAcceptedError, rateLimitMessage } from '../../lib/errors';
 import {
   COOK_PHOTO_MAX_SIDE_PX,
@@ -21,11 +23,14 @@ import type { Cook } from '../../types/social';
 import type { Recipe } from '../../types/recipe';
 import { Button } from '../ui/Button';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { Camera, GitBranchPlus, Repeat, Wrench, X } from '../ui/icons';
+import { Camera, Check, GitBranchPlus, Repeat, Wrench, X } from '../ui/icons';
 import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
 
 const MAX_NOTE = 500;
+const LEFTOVERS = ' leftovers';
+/** The suffix always survives a long title. */
+const leftoversName = (title: string) => `${title.trim().slice(0, ITEM_NAME_MAX - LEFTOVERS.length).trimEnd()}${LEFTOVERS}`;
 const GENERIC_ERROR = "Couldn't save that. Check your connection and try again.";
 const PHOTO_DECODE_ERROR = "That photo didn't work. Try another.";
 const PHOTO_OPTIONS = { maxSide: COOK_PHOTO_MAX_SIDE_PX, maxBytes: maxBytesForDataUrl(COOK_PHOTO_MAX_URL_LENGTH), shrinkToFit: true };
@@ -42,7 +47,7 @@ export type LogCook = ReturnType<typeof useRecipeCooks>['log'];
 interface CookedSheetProps {
   open: boolean;
   log: LogCook;
-  recipe: Pick<Recipe, 'id'>;
+  recipe: Pick<Recipe, 'id' | 'title'>;
   onClose: () => void;
   /** Called with the new cook's id once it is saved (with or without its photo). */
   onSaved?: (cookId: string) => void;
@@ -107,7 +112,10 @@ function CookedSheetBody({
   const photoId = useId();
   const photoHelpId = useId();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isConfigured } = useAuth();
+  // Same test as useKitchen: the pantry is a verified user's.
+  const canLeftovers = !!(isConfigured && user && !user.isAnonymous && user.emailVerified);
+  const [leftovers, setLeftovers] = useState(true);
   const [vote, setVote] = useState<Cook['vote'] | null>(null);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
@@ -183,6 +191,14 @@ function CookedSheetBody({
         } catch (err) {
           reportError(redactInlineData(err), 'cook-photo');
           photoFailed = true;
+        }
+      }
+      // Last, and never fails the cook; a busy kitchen just skips.
+      if (canLeftovers && leftovers && recipe.title.trim()) {
+        try {
+          await addLeftoversToPantry(user.uid, leftoversName(recipe.title));
+        } catch (err) {
+          if (!(err instanceof Error && err.message === KITCHEN_BUSY_MESSAGE)) reportError(err, 'cook-leftovers');
         }
       }
       onSaved(id, photoFailed);
@@ -357,6 +373,28 @@ function CookedSheetBody({
                 className="group -my-1.5 shrink-0 py-1.5 font-heading text-[13px] disabled:opacity-45"
               >
                 <span className="flex h-8 items-center rounded-full bg-surface px-3.5">Grow</span>
+              </button>
+            </div>
+          )}
+          {canLeftovers && (
+            <div className="flex flex-wrap items-center gap-x-2.5 text-[13px] text-neutral-700">
+              <span
+                aria-hidden="true"
+                className={cn('flex size-[22px] shrink-0 items-center justify-center rounded-full', leftovers ? 'bg-accent-2-600 text-surface' : 'bg-surface shadow-[inset_0_0_0_2px_var(--color-divider)]')}
+              >
+                {leftovers && <Check className="size-3.5" />}
+              </span>
+              <span className="min-w-0 flex-1">Add the leftovers to the pantry ·</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={leftovers}
+                aria-label="Add the leftovers to the pantry"
+                onClick={() => setLeftovers((v) => !v)}
+                disabled={saving}
+                className="-my-3 inline-flex min-h-11 shrink-0 items-center whitespace-nowrap underline"
+              >
+                {leftovers ? 'No thanks' : 'Add them'}
               </button>
             </div>
           )}

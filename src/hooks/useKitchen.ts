@@ -4,7 +4,7 @@ import { auth } from '../services/firebase';
 import { subscribeKitchen, updateKitchen, type Kitchen } from '../services/firestore';
 import { reportError } from '../services/telemetry';
 import { ITEM_NAME_MAX, KitchenFullError, type KitchenLists } from '../lib/kitchen';
-import { addRecipe, aisleFor, boughtItAll, removeSource, splitByPantry } from '../lib/shopping';
+import { addRecipe, aisleFor, boughtItAll, itemKey, removeSource, splitByPantry } from '../lib/shopping';
 import type { Recipe } from '../types/recipe';
 
 export const KITCHEN_FULL_MESSAGE = 'Your list is full. Clear some lines first.';
@@ -124,6 +124,18 @@ export async function addRecipeToKitchen(uid: string, recipe: Recipe, servings: 
     return { ...k, shopping };
   });
   return count;
+}
+
+/** Put one fresh item in the pantry without opening the listener (RL-221). Skips a name the pantry already has; rejects when busy, like addRecipeToKitchen. */
+export async function addLeftoversToPantry(uid: string, name: string): Promise<void> {
+  const trimmed = name.trim().slice(0, ITEM_NAME_MAX);
+  if (!trimmed) return;
+  if (inFlight) throw new Error(KITCHEN_BUSY_MESSAGE);
+  await write(uid, (k) =>
+    k.pantry.some((p) => itemKey(p.name) === itemKey(trimmed))
+      ? k
+      : { ...k, pantry: [...k.pantry, { id: crypto.randomUUID(), name: trimmed, group: 'fresh', addedBy: uid, addedAt: Date.now() }] }
+  );
 }
 
 /**
