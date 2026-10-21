@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -30,6 +30,7 @@ import { Button } from '../components/ui/Button';
 import { ChefHat, GitBranchPlus, MessageCircle, Network, Pencil, X } from '../components/ui/icons';
 import type { CookModeState } from './CookModePage';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { addRecipeToKitchen, KITCHEN_BUSY_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE } from '../hooks/useKitchen';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useCookedEntry } from '../hooks/useCookedEntry';
@@ -147,6 +148,9 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     const t = setTimeout(() => setCookedToast(false), 3000);
     return () => clearTimeout(t);
   }, [cookedToast, navigate, location.pathname]);
+  const onServingsChange = useCallback((n: number) => {
+    listServings.current = n;
+  }, []);
   const onIngredientTicked = (servings: number) => {
     cookServings.current = servings;
     if (!recipe || cookOfferedFor.current === recipe.id || !Array.isArray(recipe.instructions) || recipe.instructions.length === 0) return;
@@ -231,6 +235,14 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   } | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [showShareSignUp, setShowShareSignUp] = useState(false);
+  // Add to shopping list (RL-218): the stepper's servings, the busy flag, and the toast text.
+  const listServings = useRef(0);
+  const [showListAuth, setShowListAuth] = useState(false);
+  const [showListSignUp, setShowListSignUp] = useState(false);
+  const [addingToList, setAddingToList] = useState(false);
+  const [listToast, setListToast] = useState<{ text: string; view: boolean } | null>(null);
+  // As the cook offer: the timer waits while the toast is hovered or focused (WCAG 2.2.1).
+  const [listHold, setListHold] = useState({ hover: false, focus: false });
   // The recipe id suggest mode is open for, so it closes by itself when the
   // route moves to another recipe (this page stays mounted across ids).
   const [suggestingFor, setSuggestingFor] = useState<string | null>(null);
@@ -240,6 +252,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const idRef = useRef(id);
   useEffect(() => {
     idRef.current = id;
+    setListToast(null);
+    setListHold({ hover: false, focus: false });
   }, [id]);
   // A pending title focus is only for the parent a delete moved to; any other move drops it.
   useEffect(() => {
@@ -282,6 +296,32 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
     }
     // Deep link with nothing behind it: go up the lineage if there is one.
     navigate(recipe?.parentId ? `/recipe/${recipe.parentId}` : '/');
+  };
+
+  const handleAddToList = async () => {
+    if (!recipe || addingToList) return;
+    if (!user || user.isAnonymous || !user.emailVerified) {
+      // AuthModal closes itself for anyone already signed in, so an anonymous or unverified user gets the sign-up dialog.
+      (user ? setShowListSignUp : setShowListAuth)(true);
+      return;
+    }
+    setAddingToList(true);
+    try {
+      const n = await addRecipeToKitchen(user.uid, recipe, listServings.current || recipe.servings);
+      setListToast(
+        n === 0
+          ? { text: 'Everything is already in your pantry', view: false }
+          : { text: `Added ${n} ${n === 1 ? 'thing' : 'things'} to your list`, view: true }
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setListToast({
+        text: [KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_BUSY_MESSAGE].includes(msg) ? msg : "Couldn't add to your list. Check your connection and try again.",
+        view: false,
+      });
+    } finally {
+      setAddingToList(false);
+    }
   };
 
   const handleShare = async () => {
@@ -536,6 +576,13 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // remount because React reuses the same component instance, so it is the
   // standard guard for a genuinely one-shot side effect.
   useEffect(() => {
+    if (!listToast) return;
+    if (listHold.hover || listHold.focus) return;
+    const t = setTimeout(() => setListToast(null), listToast.view ? 8000 : 5000);
+    return () => clearTimeout(t);
+  }, [listToast, listHold]);
+
+  useEffect(() => {
     if (!sentTo) return;
     const timer = setTimeout(() => setSentTo(null), 3000);
     return () => clearTimeout(timer);
@@ -769,6 +816,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           )
         }
         onSuggest={handleSuggestClick}
+        onAddToList={isConfigured ? handleAddToList : undefined}
+        addingToList={addingToList}
       />
 
       {recipe.depth > 0 && (
@@ -802,6 +851,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             hideHeader
             onAllTicked={cooked.onAllTicked}
             onIngredientTicked={onIngredientTicked}
+            onServingsChange={onServingsChange}
             underMeta={<MadeByRow cooks={cooks} photoCookId={recipePhoto.photo?.cookId} onPhotoChanged={recipePhoto.refresh} />}
             afterMeta={
               <>
@@ -1006,6 +1056,24 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         pending={{ kind: 'save', recipeId: recipe.id }}
       />
 
+      <AuthModal
+        open={showListAuth}
+        action={{ kind: 'continue' }}
+        onAuthenticated={() => setShowListAuth(false)}
+        onDismiss={() => setShowListAuth(false)}
+      />
+
+      <SignUpDialog
+        open={showListSignUp}
+        action={{ kind: 'continue' }}
+        body={
+          user && !user.isAnonymous
+            ? 'Check your inbox to verify your email, then add the recipe again.'
+            : "Your shopping list lives in your kitchen, which needs an account with a verified email. Once you're signed in, add the recipe again."
+        }
+        onClose={() => setShowListSignUp(false)}
+      />
+
       <SignUpDialog
         open={showShareSignUp}
         action={{ kind: 'share' }}
@@ -1036,6 +1104,24 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
         >
           <p className="text-sm font-medium text-text-primary">Saved to your cook log</p>
+        </div>
+      )}
+
+      {listToast && (
+        <div
+          role="status"
+          onPointerEnter={(e) => e.pointerType !== 'touch' && setListHold((h) => ({ ...h, hover: true }))}
+          onPointerLeave={(e) => e.pointerType !== 'touch' && setListHold((h) => ({ ...h, hover: false }))}
+          onFocus={() => setListHold((h) => ({ ...h, focus: true }))}
+          onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setListHold((h) => ({ ...h, focus: false }))}
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm items-center justify-between gap-3 rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="break-words text-sm font-medium text-text-primary">{listToast.text}</p>
+          {listToast.view && (
+            <Link to="/kitchen/list" className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-700">
+              View
+            </Link>
+          )}
         </div>
       )}
 

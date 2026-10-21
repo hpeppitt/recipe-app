@@ -4,12 +4,13 @@ import { auth } from '../services/firebase';
 import { subscribeKitchen, updateKitchen, type Kitchen } from '../services/firestore';
 import { reportError } from '../services/telemetry';
 import { ITEM_NAME_MAX, KitchenFullError, type KitchenLists } from '../lib/kitchen';
-import { addRecipe, aisleFor, boughtItAll, removeSource } from '../lib/shopping';
+import { addRecipe, aisleFor, boughtItAll, removeSource, splitByPantry } from '../lib/shopping';
 import type { Recipe } from '../types/recipe';
 
 export const KITCHEN_FULL_MESSAGE = 'Your list is full. Clear some lines first.';
 export const KITCHEN_FAILED_MESSAGE = "Couldn't update your kitchen. Check your connection and try again.";
 export const KITCHEN_MAYBE_SAVED_MESSAGE = 'It may have saved. Check your list before adding again.';
+export const KITCHEN_BUSY_MESSAGE = 'Still saving your list. Try again in a moment.';
 export const KITCHEN_RETRY_MS = 2000;
 
 interface KitchenState {
@@ -82,6 +83,49 @@ function acquire(uid: string): () => void {
   };
 }
 
+function write(uid: string, fn: (lists: KitchenLists) => KitchenLists): Promise<void> {
+  if (inFlight) return inFlight;
+  const fail = (message: string) => {
+    if (state?.uid === uid) set({ ...state, error: message });
+    return new Error(message);
+  };
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(fail(KITCHEN_FAILED_MESSAGE));
+  const run = updateKitchen(uid, fn).then(
+    () => {
+      if (state?.uid === uid && state.error) set({ ...state, error: null });
+    },
+    (err: unknown) => {
+      if (err instanceof KitchenFullError) throw fail(KITCHEN_FULL_MESSAGE);
+      reportError(err, 'kitchen-write');
+      // A timed-out transaction may still commit, so a blind retry could add twice.
+      if (err instanceof Error && err.message.endsWith('timed out')) throw fail(KITCHEN_MAYBE_SAVED_MESSAGE);
+      throw fail(KITCHEN_FAILED_MESSAGE);
+    }
+  );
+  inFlight = run.finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+/**
+ * Add a recipe to the list without opening the kitchen listener (RL-218). Resolves with how many
+ * of the recipe's lines are not in the pantry. Rejects with KITCHEN_BUSY_MESSAGE when another
+ * write is running (write() would drop this one), so a drop is never reported as success. The
+ * hook's own actions keep the documented drop-and-return-the-running-promise behaviour.
+ */
+export async function addRecipeToKitchen(uid: string, recipe: Recipe, servings: number): Promise<number> {
+  if (inFlight) throw new Error(KITCHEN_BUSY_MESSAGE);
+  let count = 0;
+  await write(uid, (k) => {
+    const shopping = addRecipe(k.shopping, recipe, servings);
+    // The transaction can retry; the last run is the one that commits.
+    count = splitByPantry(shopping, k.pantry).toBuy.filter((l) => l.sources.some((s) => s.recipeId === recipe.id)).length;
+    return { ...k, shopping };
+  });
+  return count;
+}
+
 /**
  * The user's kitchen, live, with its mutations (RL-213). Verified users only:
  * anyone else gets `kitchen: null` and nothing is read. The kitchen id is the
@@ -98,31 +142,8 @@ export function useKitchen() {
   const mine = uid && snap?.uid === uid ? snap : null;
 
   const mutate = useCallback(
-    (fn: (lists: KitchenLists) => KitchenLists): Promise<void> => {
-      if (!uid) return Promise.reject(new Error('Sign in with a verified email to use your kitchen'));
-      if (inFlight) return inFlight;
-      const fail = (message: string) => {
-        if (state?.uid === uid) set({ ...state, error: message });
-        return new Error(message);
-      };
-      if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(fail(KITCHEN_FAILED_MESSAGE));
-      const run = updateKitchen(uid, fn).then(
-        () => {
-          if (state?.uid === uid && state.error) set({ ...state, error: null });
-        },
-        (err: unknown) => {
-          if (err instanceof KitchenFullError) throw fail(KITCHEN_FULL_MESSAGE);
-          reportError(err, 'kitchen-write');
-          // A timed-out transaction may still commit, so a blind retry could add twice.
-          if (err instanceof Error && err.message.endsWith('timed out')) throw fail(KITCHEN_MAYBE_SAVED_MESSAGE);
-          throw fail(KITCHEN_FAILED_MESSAGE);
-        }
-      );
-      inFlight = run.finally(() => {
-        inFlight = null;
-      });
-      return inFlight;
-    },
+    (fn: (lists: KitchenLists) => KitchenLists): Promise<void> =>
+      uid ? write(uid, fn) : Promise.reject(new Error('Sign in with a verified email to use your kitchen')),
     [uid]
   );
 

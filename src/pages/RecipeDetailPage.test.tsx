@@ -27,6 +27,7 @@ const firebase = vi.hoisted(() => ({ isFirebaseConfigured: true }));
 const calls: string[] = [];
 const deletePublishedRecipeTree = vi.fn();
 const deleteRecipeTree = vi.fn();
+const addToKitchen = vi.fn();
 const deletePublishedVersion = vi.fn();
 const reparentChildren = vi.fn();
 const getRecipeTree = vi.fn();
@@ -38,6 +39,10 @@ const recipeIds: (string | undefined)[] = [];
 
 vi.mock('../hooks/useCooks', () => ({
   useRecipeCooks: () => ({ status: 'ready', summary: { total: 0, again: 0, recent: [] }, refresh: () => {}, log: () => Promise.resolve('c1') }),
+}));
+vi.mock('../hooks/useKitchen', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../hooks/useKitchen')>()),
+  addRecipeToKitchen: (...a: unknown[]) => addToKitchen(...a),
 }));
 vi.mock('../hooks/useRecipePhoto', () => ({ useRecipePhoto: () => ({ photo: null, refresh: () => {} }) }));
 vi.mock('../services/firestore', () => ({
@@ -97,6 +102,7 @@ vi.mock('../components/recipe/CookedSheet', () => ({
 }));
 
 import { RecipeDetailPage } from './RecipeDetailPage';
+import { KITCHEN_BUSY_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE } from '../hooks/useKitchen';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const writeText = vi.fn();
@@ -596,14 +602,14 @@ describe('RecipeDetailPage header and More sheet', () => {
   it('lists the owner rows in order, under the sheet name "Recipe options"', () => {
     show();
     openMenu();
-    expect(rows()).toEqual(['Edit recipe', 'Delete', 'See the family', 'Copy share link']);
+    expect(rows()).toEqual(['Edit recipe', 'Delete', 'See the family', 'Add to shopping list', 'Copy share link']);
   });
 
   it('lists Suggest a change, and no Edit or Delete, for someone else on a cloud recipe', () => {
     source = 'cloud';
     show(anon);
     openMenu();
-    expect(rows()).toEqual(['Suggest a change', 'See the family', 'Copy share link']);
+    expect(rows()).toEqual(['Suggest a change', 'See the family', 'Add to shopping list', 'Copy share link']);
   });
 
   it('keeps the pending badge and its accessible name', () => {
@@ -1048,5 +1054,89 @@ describe('RecipeDetailPage Start cooking offer (RL-203)', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('RecipeDetailPage Add to shopping list', () => {
+  const open = (user: AppUser | null = fakeUser, auth?: Partial<AuthContextType>) => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user, auth }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+  };
+  const row = () => screen.queryByRole('button', { name: 'Add to shopping list' });
+
+  it('shows the row, and hides it in local-only mode', () => {
+    open();
+    expect(row()).toBeInTheDocument();
+  });
+
+  it('hides the row without Firebase', () => {
+    open(null, { isConfigured: false });
+    expect(row()).not.toBeInTheDocument();
+  });
+
+  it.each([['signed-out', null], ['anonymous', anon]])('opens the sign-in sheet for a %s user', (_l, user) => {
+    open(user);
+    fireEvent.click(row()!);
+    expect(addToKitchen).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: /continue/i })).toBeInTheDocument();
+  });
+
+  it('adds at the stepper servings and toasts the count with a View link', async () => {
+    recipe = makeRecipe({ id: 'r1', servings: 4, ingredients: [makeIngredient('Flour')] });
+    addToKitchen.mockResolvedValue(6);
+    open();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'One more serving' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(row()!);
+    expect(await screen.findByText('Added 6 things to your list')).toBeInTheDocument();
+    expect(addToKitchen).toHaveBeenCalledWith('test-user', recipe, 5);
+    expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute('href', '/kitchen/list');
+  });
+
+  it('says so, with no View link, when everything is already in the pantry', async () => {
+    addToKitchen.mockResolvedValue(0);
+    open();
+    fireEvent.click(row()!);
+    expect(await screen.findByText('Everything is already in your pantry')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument();
+  });
+
+  it.each([KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_BUSY_MESSAGE])('shows the %s copy as is', async (msg) => {
+    addToKitchen.mockRejectedValue(new Error(msg));
+    open();
+    fireEvent.click(row()!);
+    expect(await screen.findByText(msg)).toBeInTheDocument();
+  });
+
+  it('tells an unverified user to verify, and does not add', () => {
+    open({ ...fakeUser, emailVerified: false });
+    fireEvent.click(row()!);
+    expect(addToKitchen).not.toHaveBeenCalled();
+    expect(screen.getByText('Check your inbox to verify your email, then add the recipe again.')).toBeInTheDocument();
+  });
+
+  it('disables the row while the add runs', async () => {
+    let done!: (n: number) => void;
+    addToKitchen.mockReturnValue(new Promise<number>((r) => (done = r)));
+    open();
+    fireEvent.click(row()!);
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(row()).toBeDisabled();
+    await act(async () => done(2));
+    expect(await screen.findByText('Added 2 things to your list')).toBeInTheDocument();
+  });
+
+  it('says so when the add fails', async () => {
+    addToKitchen.mockRejectedValue(new Error("Couldn't update your kitchen. Check your connection and try again."));
+    open();
+    fireEvent.click(row()!);
+    expect(await screen.findByText("Couldn't add to your list. Check your connection and try again.")).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'View' })).not.toBeInTheDocument();
   });
 });

@@ -7,7 +7,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Sheet } from '../ui/Sheet';
 import type { RecipePhoto } from '../../services/firestore';
 import { reportError } from '../../services/telemetry';
-import { ChevronLeft, Bookmark, BookmarkCheck, Ellipsis, Link, MessageCircle, Network, Image, Pencil, X } from '../ui/icons';
+import { ChevronLeft, Bookmark, BookmarkCheck, Ellipsis, Link, MessageCircle, Network, Image, Pencil, ShoppingBasket, X } from '../ui/icons';
 
 interface RecipeHeaderProps {
   recipe: Recipe;
@@ -30,6 +30,9 @@ interface RecipeHeaderProps {
   /** True while the family is loading, when whether the original may be deleted is not known yet. */
   deleteDisabled?: boolean;
   onSuggest: () => void;
+  /** Present when the app has accounts (RL-218); absent in local-only mode hides the row. */
+  onAddToList?: () => void;
+  addingToList?: boolean;
   /** In the wide-screen pane (RL-116): the pane pads the page, and sizes follow the pane's width, not the viewport. */
   inPane?: boolean;
   /** From lg the tree icon opens the family panel (RL-144) instead of going to the tree page. */
@@ -257,6 +260,14 @@ export function RecipeHeader(props: RecipeHeaderProps) {
             <SheetRow label="Suggest a change" icon={<MessageCircle className="h-[18px] w-[18px]" />} onClick={act(props.onSuggest)} />
           )}
           <SheetRow label="See the family" icon={<Network className="h-[18px] w-[18px]" />} onClick={act(() => navigate(`/recipe/${recipe.id}/tree`))} />
+          {props.onAddToList && (
+            <SheetRow
+              label="Add to shopping list"
+              icon={<ShoppingBasket className="h-[18px] w-[18px]" />}
+              disabled={props.addingToList}
+              onClick={act(props.onAddToList)}
+            />
+          )}
           <SheetRow
             label={props.isSharing ? 'Preparing link...' : 'Copy share link'}
             icon={<Link className="h-[18px] w-[18px]" />}
