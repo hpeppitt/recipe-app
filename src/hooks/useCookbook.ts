@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getPublicCookbook, getPublishedRecipe, isFollowingCookbook, setCookbookFollow, type PublicCookbookResult } from '../services/firestore';
+import { getPublicCookbook, getPublishedRecipe, isFollowingCookbook, markCookbookSeen, setCookbookFollow, type PublicCookbookResult } from '../services/firestore';
 import { COOKBOOK_PAGE_SIZE, cookbookTileMeta } from '../lib/cookbook';
 import { boundedWrite, TOGGLE_ERROR, TOGGLE_TIMEOUT_MS } from './useFollow';
 import { reportError } from '../services/telemetry';
+import { dismissCookbookUpdate } from './useCookbookUpdates';
 import type { RecipeTile } from '../components/profile/RecipeTileGrid';
 
 type Ready = Extract<PublicCookbookResult, { status: 'ready' }>['cookbook'];
@@ -66,7 +67,15 @@ export function useCookbook(id: string) {
     if (!followKey || !verifiedUid) return;
     let cancelled = false;
     isFollowingCookbook(verifiedUid, id)
-      .then((following) => !cancelled && setFollow({ key: followKey, following }))
+      .then((following) => {
+        if (cancelled) return;
+        setFollow({ key: followKey, following });
+        // A follower opening the page has looked (RL-259); failing to record it must not touch the page.
+        if (following) {
+          dismissCookbookUpdate(id);
+          void markCookbookSeen(verifiedUid, id).catch((err) => reportError(err, 'cookbook-seen'));
+        }
+      })
       .catch((err) => {
         reportError(err, 'cookbook-follow-lookup');
         if (!cancelled) setFollow({ key: followKey, following: false, failed: true });

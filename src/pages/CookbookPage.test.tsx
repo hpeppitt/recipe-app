@@ -15,6 +15,7 @@ vi.mock('../services/firestore', () => ({
   getPublicCookbook: (...a: unknown[]) => getPublicCookbook(...a),
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
   isFollowingCookbook: (...a: unknown[]) => isFollowingCookbook(...a),
+  markCookbookSeen: async () => {},
   setCookbookFollow: (...a: unknown[]) => setCookbookFollow(...a),
 }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));

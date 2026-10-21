@@ -3,6 +3,7 @@ import { Link, matchPath, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useCookbookUpdates } from '../../hooks/useCookbookUpdates';
 import { db } from '../../db/database';
 import { getKitchenTipDone, setKitchenTipDone } from '../../services/storage';
 import { Bell, Compass, CookingPot, Plus, UserRound, X } from '../ui/icons';
@@ -19,7 +20,8 @@ const tabs = [
 /** Five-slot Organic tab bar (RL-097). Settings is reached from the You tab's gear. */
 export function BottomNav() {
   const { user, isConfigured } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { unreadCount: notificationCount } = useNotifications();
+  const unreadCount = notificationCount + useCookbookUpdates().updates.length;
   const { pathname } = useLocation();
   // A plain Link with a computed state, because NavLink cannot mark Explore current on /search (RL-124)
   // or Kitchen on /saved, which is reached from Kitchen's Saved row (RL-215).
