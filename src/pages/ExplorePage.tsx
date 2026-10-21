@@ -7,7 +7,7 @@ import { useFollowingRecipes } from '../hooks/useUserRecipes';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnline } from '../hooks/useOnline';
 import { useBranchingThisWeek } from '../hooks/useBranchingThisWeek';
-import { useCookedThisWeek, useCookProfiles } from '../hooks/useCookSections';
+import { useCookedThisWeek, useCookProfiles, useFamilyLeaders, type FamilyLeader } from '../hooks/useCookSections';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Avatar } from '../components/ui/Avatar';
@@ -112,6 +112,8 @@ export function ExplorePage() {
   const tileRecipes =
     rowsAllowed && !cookedShown && branching.status === 'none' ? (exploreFeed ?? []).slice(0, MAX_TILES) : [];
 
+  const leaders = useFamilyLeaders([...cooked.tiles, ...(branching.tiles), ...tileRecipes, ...(displayRecipes ?? [])]);
+
   // RL-244: after 4 pm, the recipe opened in the last hour, if it is still on the device or in the loaded feed.
   const readTonight = () => ({ now: Date.now(), last: getLastOpened(), dismissed: getTonightDismissed() });
   const [snap, setSnap] = useState(readTonight);
@@ -165,12 +167,12 @@ export function ExplorePage() {
           </div>
         </div>
       )}
-      {cookedShown && <RecipeTileRow title="Cooked this week" recipes={cooked.tiles} seeAllTo="/search" profiles={cookProfiles} />}
+      {cookedShown && <RecipeTileRow title="Cooked this week" recipes={cooked.tiles} seeAllTo="/search" profiles={cookProfiles} leaders={leaders} />}
       {rowsAllowed && cooked.status === 'none' && branching.status === 'ready' && (
-        <RecipeTileRow title="Branching fast this week" recipes={branching.tiles} />
+        <RecipeTileRow title="Branching fast this week" recipes={branching.tiles} leaders={leaders} />
       )}
       {tileRecipes.length > 0 && (
-        <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} />
+        <RecipeTileRow title={tileRowTitle(tileRecipes, new Date().getTime())} recipes={tileRecipes} leaders={leaders} />
       )}
 
       {rowsAllowed && <MostBranchedList />}
@@ -275,7 +277,8 @@ export function ExplorePage() {
                 recipe={recipe}
                 isFavorite={favoriteIds.has(recipe.id)}
                 showAuthor={isConfigured}
-                selected={recipe.id === paneId}
+                selected={recipe.id === paneId || (!!paneId && leaders.get(recipe.id)?.id === paneId)}
+                leader={leaders.get(recipe.id)}
               />
             ))}
           </ul>
@@ -336,7 +339,7 @@ export function ExplorePage() {
   );
 }
 
-function ExploreRow({ recipe, isFavorite, showAuthor, selected }: { recipe: ExploreRecipe; isFavorite: boolean; showAuthor: boolean; selected: boolean }) {
+function ExploreRow({ recipe, isFavorite, showAuthor, selected, leader }: { recipe: ExploreRecipe; isFavorite: boolean; showAuthor: boolean; selected: boolean; leader?: FamilyLeader }) {
   const title = recipe.title.trim() || 'Untitled recipe';
   const author = recipe.createdBy?.displayName?.trim() || 'Anonymous';
   return (
@@ -344,9 +347,9 @@ function ExploreRow({ recipe, isFavorite, showAuthor, selected }: { recipe: Expl
     // neither link is nested in the other and both are keyboard reachable.
     <li className={`relative flex items-center gap-3 py-2${selected ? ' -mx-2 rounded-[20px] bg-accent-100 px-2 shadow-[inset_0_0_0_2px_var(--color-accent)]' : ''}`}>
       <Link
-        to={`/recipe/${recipe.id}`}
+        to={`/recipe/${leader?.id ?? recipe.id}`}
         state={listOriginState('/')}
-        aria-label={title}
+        aria-label={leader ? `Open ${title}, most cooked version ${leader.title}` : title}
         aria-current={selected ? 'true' : undefined}
         className="absolute inset-0 rounded-[20px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
       />
@@ -363,6 +366,7 @@ function ExploreRow({ recipe, isFavorite, showAuthor, selected }: { recipe: Expl
             </>
           )}
         </div>
+        {leader && <p aria-hidden="true" className="truncate text-xs text-accent-2-700">Opens the most cooked: {leader.title}</p>}
         <div className="mt-0.5 flex min-w-0 items-center gap-2 text-xs text-text-tertiary">
           {showAuthor && recipe.createdBy?.uid && (
             <Link

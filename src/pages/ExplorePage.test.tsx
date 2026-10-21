@@ -567,6 +567,37 @@ describe('ExplorePage cook sections (RL-243)', () => {
     expect(screen.queryByRole('region', { name: 'Branching fast this week' })).not.toBeInTheDocument();
   });
 
+  it('opens a resolved most-cooked branch from the tile and the row, else the original (RL-247)', async () => {
+    const kids = (id: string, n: number) => Array.from({ length: n }, (_, i) => cook(id, 'a', `u${i}`, 1));
+    getCooks.mockResolvedValue(kids('a-b', 3));
+    getOne.mockImplementation(async (id: string) => (id === 'a-b' ? cloud({ id: 'a-b', title: 'Alpha Spicy', parentId: 'a', rootId: 'a', createdAt: NOW }) : root(id)));
+    renderWithProviders(<ExplorePage />);
+    const link = await screen.findByRole('link', { name: 'Open Alpha, most cooked version Alpha Spicy' });
+    expect(link).toHaveAttribute('href', '/recipe/a-b');
+    expect(screen.getAllByText('Opens the most cooked: Alpha Spicy')[0]).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('keeps the original link when the leader is gone or from another family (RL-247)', async () => {
+    getCooks.mockResolvedValue([0, 1, 2].map((i) => cook('gone', 'a', `u${i}`, 1)).concat([0, 1, 2].map((i) => cook('x-b', 'a', `v${i}`, 1))));
+    getOne.mockImplementation(async (id: string) => (id === 'x-b' ? cloud({ id: 'x-b', title: 'Other', parentId: 'x', rootId: 'x', createdAt: NOW }) : null));
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('link', { name: 'Alpha' })).toHaveAttribute('href', '/recipe/a');
+    await act(async () => {});
+    expect(screen.queryByText(/Opens the most cooked/)).toBeNull();
+  });
+
+  it('marks a row current when the pane shows its most-cooked branch (RL-247)', async () => {
+    getCooks.mockResolvedValue([0, 1, 2].map((i) => cook('a-b', 'a', `u${i}`, 1)));
+    getOne.mockImplementation(async (id: string) => (id === 'a-b' ? cloud({ id: 'a-b', title: 'Alpha Spicy', parentId: 'a', rootId: 'a', createdAt: NOW }) : root(id)));
+    renderWithProviders(
+      <RecipePaneContext.Provider value="a-b">
+        <ExplorePage />
+      </RecipePaneContext.Provider>
+    );
+    const rows = await screen.findAllByRole('link', { name: 'Open Alpha, most cooked version Alpha Spicy' });
+    expect(rows.some((l) => l.getAttribute('aria-current') === 'true')).toBe(true);
+  });
+
   it('shows the generic avatar when a profile read fails and reads each uid once', async () => {
     getCooks.mockResolvedValue([cook('p', 'p', 'u1', 1), cook('q', 'q', 'u1', 1)]);
     getProf.mockRejectedValue(new Error('denied'));

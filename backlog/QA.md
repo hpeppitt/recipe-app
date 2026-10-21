@@ -2205,3 +2205,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Counts arrive after the tree draws, so the title column narrows when they land (nodes keep their width); check a leader that is also the current version does not overflow. Check 390px, light and dark, and the ancestry path stays terracotta.
 - Screen reader: a node reads "cooked by 3 people, most cooked".
 - The 1024px FamilyPanel tree shows no counts yet (it does not call useFamilyCooks).
+
+### RL-247 Most-cooked branch from Explore and Search
+- With a branch cooked by 3 people and its original by 0 or 1 (within 90 days), tap the original's tile or row in Explore and its row in Search: both open the branch. The row shows a 12px sage line "Opens the most cooked: <branch>" under the title.
+- A family with no such leader, and every branch row, opens as before. Screen reader reads "Open <title>, most cooked version <branch>" once (the sage line is hidden from it).
+- The line appears a moment after the list (the branch is looked up first); a deleted branch shows no line and the original opens.

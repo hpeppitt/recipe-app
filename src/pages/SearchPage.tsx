@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocalLibrary, useCloudLibrary } from '../hooks/useRecipeLibrary';
+import { useFamilyLeaders, type FamilyLeader } from '../hooks/useCookSections';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
@@ -110,6 +111,7 @@ export function SearchPage() {
   const results = pantryOn
     ? filterPantry(pantryPool(), pantry, pantryTime).sort((a, b) => b.createdAt - a.createdAt)
     : searchLibrary(sources, { query, filter });
+  const leaders = useFamilyLeaders(results);
   const cloudFailed = isConfigured && cloud.cloudError;
   const loading = local === undefined || (cloud.isLoading && results.length === 0);
   const cloudCount = cloud.recipes?.length ?? 0;
@@ -227,7 +229,7 @@ export function SearchPage() {
         ) : results.length > 0 ? (
           <ul className="flex flex-col gap-3">
             {results.map((r) => (
-              <SearchRow key={r.id} recipe={r} showAuthor={isConfigured} />
+              <SearchRow key={r.id} recipe={r} showAuthor={isConfigured} leader={leaders.get(r.id)} />
             ))}
           </ul>
         ) : pantryOn ? (
@@ -283,7 +285,7 @@ export function SearchPage() {
   );
 }
 
-function SearchRow({ recipe, showAuthor }: { recipe: SearchResult; showAuthor: boolean }) {
+function SearchRow({ recipe, showAuthor, leader }: { recipe: SearchResult; showAuthor: boolean; leader?: FamilyLeader }) {
   const title = recipe.title.trim() || 'Untitled recipe';
   const author = recipe.createdBy.displayName?.trim() || 'Anonymous';
   const difficulty = recipe.difficulty.charAt(0).toUpperCase() + recipe.difficulty.slice(1);
@@ -292,8 +294,8 @@ function SearchRow({ recipe, showAuthor }: { recipe: SearchResult; showAuthor: b
     // neither link is nested in the other (as ExploreRow does).
     <li className="relative flex gap-3.5 rounded-[30px] bg-surface-secondary p-4">
       <Link
-        to={`/recipe/${recipe.id}`}
-        aria-label={title}
+        to={`/recipe/${leader?.id ?? recipe.id}`}
+        aria-label={leader ? `Open ${title}, most cooked version ${leader.title}` : title}
         className="absolute inset-0 rounded-[30px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
       />
       <span aria-hidden="true" className="flex size-14 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-[28px] leading-none">
@@ -304,6 +306,7 @@ function SearchRow({ recipe, showAuthor }: { recipe: SearchResult; showAuthor: b
         {recipe.familyLabel && (
           <p className="break-words text-[13px] font-bold text-accent-2-700">{recipe.familyLabel}</p>
         )}
+        {leader && <p aria-hidden="true" className="break-words text-xs text-accent-2-700">Opens the most cooked: {leader.title}</p>}
         {recipe.line && (
           <p className="line-clamp-2 break-words text-[13px] leading-[1.4] text-text-secondary">{recipe.line}</p>
         )}
