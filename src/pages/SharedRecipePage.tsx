@@ -61,7 +61,7 @@ function SharedRecipeView() {
   const { branch, signUp: branchSignUp } = useBranchEntry();
   const [recipe, setRecipe] = useState<FullSharedRecipe | null>(null);
   const cooks = useRecipeCooks(paramId);
-  const cooked = useCookedEntry(paramId ? { id: paramId } : undefined, true, cooks.log);
+  const cooked = useCookedEntry(paramId ? { id: paramId, title: recipe?.title ?? '' } : undefined, true, cooks.log);
   // 'not-found' is a permanent dead end (bad or corrupted link); 'failed' is a
   // fetch that blew up and is worth retrying. Conflating them told users with a
   // flaky connection that a perfectly good link was corrupt.

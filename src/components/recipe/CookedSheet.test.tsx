@@ -14,8 +14,11 @@ const mocks = vi.hoisted(() => ({
   addCookPhoto: vi.fn(),
   downscale: vi.fn(),
   reportError: vi.fn(),
+  addLeftovers: vi.fn(),
+  configured: true,
 }));
-vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
+vi.mock('../../hooks/useKitchen', () => ({ KITCHEN_BUSY_MESSAGE: 'busy', addLeftoversToPantry: mocks.addLeftovers }));
+vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user, isConfigured: mocks.configured }) }));
 vi.mock('../../services/telemetry', () => ({ reportError: mocks.reportError }));
 vi.mock('../../services/firestore', () => ({ addCookPhoto: mocks.addCookPhoto }));
 vi.mock('../../services/imageDownscale', () => ({ downscaleToJpeg: mocks.downscale }));
@@ -31,11 +34,13 @@ beforeEach(() => {
   mocks.addCookPhoto.mockReset().mockResolvedValue(undefined);
   mocks.downscale.mockReset().mockResolvedValue({ mimeType: 'image/jpeg', base64: 'QUJD' });
   mocks.reportError.mockReset();
-  mocks.user = { uid: 'u1', displayName: 'Ann' };
+  mocks.addLeftovers.mockReset().mockResolvedValue(undefined);
+  mocks.configured = true;
+  mocks.user = { uid: 'u1', displayName: 'Ann', isAnonymous: false, emailVerified: true };
 });
 afterEach(cleanup);
 
-const recipe = makeRecipe({ id: 'r1' });
+const recipe = makeRecipe({ id: 'r1', title: 'Dal' });
 const show = (props: Partial<React.ComponentProps<typeof CookedSheet>> = {}) => {
   const onClose = vi.fn();
   const onSaved = vi.fn();
@@ -63,7 +68,7 @@ describe('CookedSheet', () => {
     await userEvent.type(note(), '  less salt ');
     await userEvent.click(saveBtn());
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(mocks.log).toHaveBeenCalledWith({ recipeId: 'r1', vote: 'tweak', note: 'less salt', user: { uid: 'u1', displayName: 'Ann' } });
+    expect(mocks.log).toHaveBeenCalledWith({ recipeId: 'r1', vote: 'tweak', note: 'less salt', user: mocks.user });
     expect(onSaved).toHaveBeenCalledWith('c1');
     expect(screen.getByText('Saved to your cook log')).toBeTruthy();
   });
@@ -277,5 +282,72 @@ describe('CookedSheet photo', () => {
     expect(screen.getByText(message)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Keep editing' })).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  describe('leftovers row', () => {
+    const cook = async () => {
+      await userEvent.click(screen.getByRole('radio', { name: 'Would make again' }));
+      await userEvent.click(saveBtn());
+    };
+
+    it('is on by default and adds the leftovers after the cook and photo', async () => {
+      const { onSaved } = show();
+      await cook();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(mocks.addLeftovers).toHaveBeenCalledWith('u1', 'Dal leftovers');
+      expect(mocks.log.mock.invocationCallOrder[0]).toBeLessThan(mocks.addLeftovers.mock.invocationCallOrder[0]);
+    });
+
+    it('No thanks turns it off and Add them turns it back on', async () => {
+      const { onSaved } = show();
+      await userEvent.click(screen.getByRole('switch', { name: 'Add the leftovers to the pantry' }));
+      expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+      expect(screen.getByText('Add them')).toBeTruthy();
+      await cook();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(mocks.addLeftovers).not.toHaveBeenCalled();
+    });
+
+    it('a pantry failure keeps the cook and is reported', async () => {
+      mocks.addLeftovers.mockRejectedValue(new Error('nope'));
+      const { onSaved } = show();
+      await cook();
+      await waitFor(() => expect(onSaved).toHaveBeenCalledWith('c1'));
+      expect(mocks.reportError).toHaveBeenCalledWith(expect.any(Error), 'cook-leftovers');
+    });
+
+    it('a busy kitchen skips quietly', async () => {
+      mocks.addLeftovers.mockRejectedValue(new Error('busy'));
+      const { onSaved } = show();
+      await cook();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      expect(mocks.reportError).not.toHaveBeenCalled();
+    });
+
+    it('keeps the suffix on a 100 character title and skips an empty one', async () => {
+      const { onSaved } = show({ recipe: makeRecipe({ id: 'r1', title: 'x'.repeat(100) }) });
+      await cook();
+      await waitFor(() => expect(onSaved).toHaveBeenCalled());
+      const name = mocks.addLeftovers.mock.calls[0][1] as string;
+      expect(name.endsWith(' leftovers')).toBe(true);
+      expect(name.length).toBeLessThanOrEqual(80);
+      cleanup();
+      mocks.addLeftovers.mockClear();
+      const second = show({ recipe: makeRecipe({ id: 'r1', title: '   ' }) });
+      await cook();
+      await waitFor(() => expect(second.onSaved).toHaveBeenCalled());
+      expect(mocks.addLeftovers).not.toHaveBeenCalled();
+    });
+
+    it('is hidden when local-only or unverified', () => {
+      mocks.configured = false;
+      show();
+      expect(screen.queryByText(/leftovers to the pantry/)).toBeNull();
+      cleanup();
+      mocks.configured = true;
+      mocks.user = { uid: 'u1', isAnonymous: false, emailVerified: false };
+      show();
+      expect(screen.queryByText(/leftovers to the pantry/)).toBeNull();
+    });
   });
 });

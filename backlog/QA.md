@@ -2081,3 +2081,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-220 Pantry page
 - Open Kitchen, tap Pantry (`/kitchen/pantry`). Add five items, two of them in one go with a comma ("eggs, milk"): they appear as pills under Fresh or Cupboard, adding "Eggs" again adds nothing, and the X on a pill removes it. Cook from what's here opens Search with the "Using ..." line and matching recipes. Bought it all on the shopping list adds its lines here. Empty pantry shows the empty state and a disabled Cook button. 390px, light and dark.
 - The Kitchen tile count matches the page.
+
+### RL-221 Leftovers row on the I made this sheet
+- Signed in and verified, log a cook: the row "Add the leftovers to the pantry · No thanks" sits above Save, on. Save, then open `/kitchen/pantry`: "<title> leftovers" is in Fresh. Log again and it is not added twice. Tap No thanks (it becomes Add them) and nothing is added. Hidden when signed out or local-only. Check the tick circle in light and dark at 390px.
