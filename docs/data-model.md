@@ -130,6 +130,15 @@ it in the query would need a composite index. Cost: one read per document return
 per session, plus at most 8 `getDoc` reads for family roots not already loaded. A week with more
 than 100 new recipes counts only the newest 100.
 
+`getRecentCooks` (RL-242, the cook sections on Explore) needs no entry above either: `where createdAt >=
+now - 90d`, `orderBy createdAt desc`, `limit 200` is one range and sort on one field, served by the
+automatic single-field `createdAt` index. It keeps only `recipeId`, `rootId`, `uid` and `createdAt` in
+memory. Cost: at most 200 reads per session, and none while the 6 hour localStorage cache
+(`services/storage.ts`, key `recipe-lab-recent-cooks`) is fresh, because the Spark plan allows 50k
+reads a day. The cache is global to the device, holds only public ids (no names or notes), is never written when empty, and may lag an account erase by up to 6 hours. Counts are distinct people per recipe, so one person cooking a branch repeatedly cannot make it a leader. A failed read returns empty, is reported as `recent-cooks` and is not cached.
+Shortcut in the code: counts only the newest 200 cooks in 90 days, upgrade to a counter. The ranking
+helpers are `src/lib/cookRanking.ts` (`cookedThisWeek`, `mostCooked`, `familyLeader`).
+
 New-recipe dedup (RL-178) reads `getAllPublishedRecipes` (`orderBy createdAt desc`, `limit
 200`, the same automatic index) through `services/publishedWindow.ts`, a module cache shared by
 every chat in the page session for 5 minutes and dropped on sign-out. A chat asks for it on its

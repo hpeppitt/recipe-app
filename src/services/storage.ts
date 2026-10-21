@@ -2,6 +2,7 @@ import { STORAGE_KEYS } from '../lib/constants';
 import type { UnitSystem } from '../lib/units';
 import { parseIntroState, type IntroState } from '../lib/onboarding';
 import { parseConsent, serialiseConsent, type ConsentChoice } from '../lib/consent';
+import { parseRecentCooksCache, type RecentCook } from '../lib/cookRanking';
 import { parsePendingAction, type PendingAction, type PendingIntent } from '../lib/pendingAction';
 
 // Storage can throw on access (blocked cookies raise SecurityError from merely
@@ -277,4 +278,25 @@ export function getPantryNudgeDismissed(day: string): boolean {
 
 export function setPantryNudgeDismissed(day: string): void {
   safeSet(PANTRY_NUDGE_KEY, day);
+}
+
+// --- Recent cooks cache (RL-242) ---
+//
+// The slim 90 day cook list, kept 6 hours across sessions so an Explore visit does not spend up
+// to 200 reads each time (Spark allows 50k a day). A bad or old entry is a miss.
+const RECENT_COOKS_KEY = 'recipe-lab-recent-cooks';
+export const RECENT_COOKS_TTL_MS = 6 * 3600_000;
+
+export function getRecentCooksCache(now = Date.now()): RecentCook[] | null {
+  const raw = safeGet(RECENT_COOKS_KEY);
+  if (!raw) return null;
+  try {
+    return parseRecentCooksCache(JSON.parse(raw), now, RECENT_COOKS_TTL_MS);
+  } catch {
+    return null;
+  }
+}
+
+export function setRecentCooksCache(cooks: RecentCook[], now = Date.now()): void {
+  safeSet(RECENT_COOKS_KEY, JSON.stringify({ at: now, cooks }));
 }

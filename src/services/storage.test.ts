@@ -263,3 +263,18 @@ describe('terms acceptance (RL-047)', () => {
     }).not.toThrow();
   });
 });
+
+describe('recent cooks cache (RL-242)', () => {
+  const cooks = [{ recipeId: 'a', rootId: 'a', uid: 'u', createdAt: 5 }];
+  it('round-trips within 6 hours and misses after, on bad json, or when storage is blocked', () => {
+    vi.stubGlobal('localStorage', memoryStore());
+    storage.setRecentCooksCache(cooks, 1000);
+    expect(storage.getRecentCooksCache(1000 + 3600_000)).toEqual(cooks);
+    expect(storage.getRecentCooksCache(1000 + storage.RECENT_COOKS_TTL_MS)).toBeNull();
+    vi.stubGlobal('localStorage', memoryStore({ 'recipe-lab-recent-cooks': '{nope' }));
+    expect(storage.getRecentCooksCache()).toBeNull();
+    blockedBy('methods');
+    expect(storage.getRecentCooksCache()).toBeNull();
+    expect(() => storage.setRecentCooksCache(cooks)).not.toThrow();
+  });
+});

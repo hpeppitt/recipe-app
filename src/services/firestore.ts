@@ -39,6 +39,7 @@ import { normaliseAvoids, normaliseHidden, type TasteProfile } from '../lib/tast
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
+import type { RecentCook } from '../lib/cookRanking';
 import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAttachments';
 import { normalizeTags } from '../lib/library';
 import { KitchenFullError, kitchenFits, KITCHEN_INVITE_DAYS, KITCHEN_MEMBER_CAP, newInviteCode, pickKitchenId, checkCollectionRecipeId, checkCollectionRoom, collectionName, CollectionRefusedError, COLLECTION_GONE_MESSAGE, type KitchenLists } from '../lib/kitchen';
@@ -1450,6 +1451,27 @@ export async function getRecipeCookSummary(recipeId: string): Promise<RecipeCook
     COOK_SUMMARY_TIMEOUT_MS
   );
   return { total: total.data().count, again: again.data().count, recent: snap.docs.map(toCook) };
+}
+
+/**
+ * Cooks created at or after `sinceMs`, newest first, reduced to the four fields the ranking helpers
+ * need (RL-242). One range filter and `orderBy` on `createdAt`, so the automatic single-field index
+ * serves it and no composite index is needed. Costs one read per cook returned (at most `max`).
+ * Local-only returns empty. Rejects after 6 s.
+ *
+ * shortcut: counts only the newest 200 cooks in 90 days, upgrade to a counter
+ */
+export async function getRecentCooks(sinceMs: number, max = 200): Promise<RecentCook[]> {
+  if (!firestore) return [];
+  const snap = await rejectAfter(
+    getDocs(query(collection(firestore, 'cooks'), where('createdAt', '>=', new Date(sinceMs)), orderBy('createdAt', 'desc'), limit(max))),
+    'Reading recent cooks',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return snap.docs.map((d) => {
+    const c = toCook(d);
+    return { recipeId: c.recipeId, rootId: c.rootId, uid: c.uid, createdAt: c.createdAt };
+  });
 }
 
 /** How many cooks a person has logged: one count read (single-field, public read). Null when Firebase is off. Rejects after 6 s. */
