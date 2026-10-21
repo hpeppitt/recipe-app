@@ -6,7 +6,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  lastUpdated: '2026-10-21',
+  lastUpdated: '2026-10-22',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -114,8 +114,39 @@ export const PRIVACY: LegalDocument = {
         'What: your shopping list lines (name, amount, unit, aisle, whether it is ticked, and the recipes each line came from, with their emoji, titles and amounts), your pantry items (name, fresh or cupboard, the account id of who added it and when), and your collections (a name, the ids of the recipes in it, when it was created, and a flag that it is private). We also store your account id as the owner and the time of the last change.',
         'Why: to keep your shopping list, pantry and collections on all your devices.',
         'Where: Google Cloud Firestore.',
-        'Who sees it: only you. It is private to your account and no one else can read it, including people you follow.',
+        'Who sees it: your collections, only you. Your shopping list and pantry are shared with the members of your kitchen, if you have invited any (see "Sharing your kitchen with a household" below), and are otherwise only yours. No one else can read them, including people you follow.',
         `How long: until you remove an item or a list in the app, delete a collection from its page, or your account is deleted. Your Kitchen is included in "Download my data" in Settings. Deletion by email request: ${SUPPORT_EMAIL}.`,
+      ],
+    },
+    {
+      heading: 'Taste and avoids',
+      paragraphs: [
+        'What: the foods you tell us you avoid (up to 12, such as "peanuts" or "pork"), and the learned tastes you chose to hide. What you avoid can reveal health information, such as an allergy, an intolerance or a medical condition, so please add only what you are comfortable with. Avoids are a preference to steer recipes, not a medical guarantee. Always check ingredients yourself if you have an allergy.',
+        'Why: so new recipes and variations leave those foods out.',
+        'Where: Google Cloud Firestore, and Google\'s Gemini AI. Your avoids are sent to Gemini as one line in the instructions that come with your prompt. They are never sent to analytics or included in error reports.',
+        'Who sees it: you, and Google as described under AI recipe generation. It is private. Other users, including members of your kitchen, cannot read it, and it is not on your public profile.',
+        `How long: until you remove an avoid at /settings/taste, or your account is deleted. Your avoids are included in "Download my data" in Settings. Deletion by email request: ${SUPPORT_EMAIL}.`,
+        'Learned tastes, such as what you cook a lot of and what you tend to change, are worked out on your device from your cooks and your own recipes each time. They are never stored and never sent anywhere.',
+      ],
+    },
+    {
+      heading: 'Sharing your kitchen with a household',
+      paragraphs: [
+        'What: if you share your kitchen, up to 6 people can use one shopping list and pantry. A kitchen holds the account ids of its members and its owner. An invite is a link with a random code that holds the kitchen id, the owner\'s account id and display name, and an expiry.',
+        'Why: so a household can keep one shopping list and pantry.',
+        'Where: Google Cloud Firestore.',
+        'Who sees it: every member sees the whole shopping list and pantry, including who added each pantry item, and sees the other members\' display names and avatars. Members do not see each other\'s cooks, collections or avoids. Anyone with an invite link who is signed in with a verified account can join until it expires, so share it only with people you trust. Anyone with the link can see the owner\'s display name on the join page.',
+        'How long: an invite expires after 7 days, or when the owner deletes it. You can leave a kitchen at any time. The owner can remove any member, and cannot leave while others remain. If an owner\'s account is erased while others are in the kitchen, ownership passes to the next member and the kitchen stays with them. "Download my data" includes a short summary of your kitchen membership: the kitchen, whether you are its owner or a member, and how many members it has.',
+      ],
+    },
+    {
+      heading: 'Receipt photos',
+      paragraphs: [
+        'What: a photo of a shopping receipt that you choose to add when filling your pantry. It is made smaller on your device first, which also removes the location and camera details in the file.',
+        'Why: so the app can read the names of the food items on it.',
+        'Where: Google, through Firebase AI Logic and the Gemini Developer API, under the same terms as AI recipe generation above. The photo is not stored by us, on your device or in the cloud, and is not included in error reports.',
+        'Who sees it: Google processes it to read the food names, and may use it as described under AI recipe generation. Do not photograph a receipt that shows a card number, a name or other personal details.',
+        'How long: we keep only the food names you accept into your pantry. The photo is not kept.',
       ],
     },
     {
