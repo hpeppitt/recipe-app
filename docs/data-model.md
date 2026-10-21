@@ -96,7 +96,7 @@ transaction); everything else, `favorites` included, stays.
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
 | `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: members only, verified. `memberUids` is a list already so RL-237 only adds the invite path. Element shapes are the client's job. |
-| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: owner only, verified. Public cookbooks are RL-256. |
+| `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). **Private**: owner only, verified. Public cookbooks are RL-256. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -545,6 +545,31 @@ of 1 to 60, `recipeIds` a list of at most 200 (`collectionRecipeCap()`, `COLLECT
 budget**: none. Both blocks emulator-checked 2026-10-21, including another user's read (403) and
 301-item lists (403) (ticket RL-211 Notes). `src/lib/kitchen.test.ts` ties the two caps to the
 rules text.
+
+**Collections client cost** (RL-222, `subscribeCollections` and the collection writes in
+`services/firestore.ts`, through `useCollections`): one listener per session for a verified user,
+shared by every caller, on `where ownerUid == uid` with no `orderBy` (equality only, so no
+composite index; sorted on the client by `updatedAt`, newest first). It bills one read per
+collection when it attaches (one read minimum when there are none) plus one per changed
+collection. The number of collections per user is unbounded in the rules (accepted for now), so
+neither is this read; the client refuses a 101st (`COLLECTIONS_PER_USER_MAX`, "You have 100
+collections. Delete one first."). `createCollection` is one write with exactly the rules' keys, `visibility`
+`'private'` and `createdAt` and `updatedAt` both `serverTimestamp()`; rename and remove are one
+write each (`updateDoc` of `name` or `arrayRemove`, plus `updatedAt`); delete is one delete. Add is
+one transaction: one document read and at most one write (`arrayUnion` plus `updatedAt`), skipped
+when the recipe is already there. The transaction checks the stored list, so two devices cannot
+push it past 200 together; the hook refuses from the listener's list first. Names are trimmed and
+must be 1 to 60 UTF-16 code units, which is at least the character count the rules measure, and a
+recipe id must be 1 to 36 characters (`lib/kitchen.ts`), since the rules check the list's size
+only. Every write is bounded at 5 s; cloud only, nothing queued offline. A timeout tells the user
+"It may have saved. Check your collections before trying again."; a refused write ("Give it a
+name.", "Keep it under 60 characters.", "This collection is full.") rejects with that copy and
+sets no page error. A collection the listener no longer has is treated as gone: deleting it
+resolves without a write, and a rename, add or remove that is denied or not found rejects with
+"That collection no longer exists." (the rules deny an update to a missing document rather than
+answering not-found). Removing a recipe the listener's copy does not hold writes nothing. A failed listener is reported, retried once after 2 s (refreshing the ID token
+first on permission-denied), and shows "Couldn't load your collections. Check your connection and try
+again."
 
 **Cooks and cook photos in data requests** (RL-207): Download my data reads `cooks` and
 `cookPhotos` where `uid ==` the user (both public read, single-field queries, no index) into

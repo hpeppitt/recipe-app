@@ -2084,3 +2084,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-221 Leftovers row on the I made this sheet
 - Signed in and verified, log a cook: the row "Add the leftovers to the pantry · No thanks" sits above Save, on. Save, then open `/kitchen/pantry`: "<title> leftovers" is in Fresh. Log again and it is not added twice. Tap No thanks (it becomes Add them) and nothing is added. Hidden when signed out or local-only. Check the tick circle in light and dark at 390px.
+
+### RL-222 Collections service and useCollections hook
+- Nothing visible yet: the UI is RL-223 and RL-224. Check those against this hook. Writes need RL-227's collections rules deployed; before that, every collection read and write is denied.

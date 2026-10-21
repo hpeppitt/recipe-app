@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { KITCHEN_ITEM_CAP, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits } from './kitchen';
+import { KITCHEN_ITEM_CAP, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX } from './kitchen';
 
 describe('firestore.rules kitchen and collection caps (RL-211)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -39,5 +39,37 @@ describe('kitchenFits (RL-213)', () => {
     const over = { shopping: [], pantry: pantry(KITCHEN_ITEM_CAP + 2) };
     expect(kitchenFits({ shopping: [], pantry: pantry(KITCHEN_ITEM_CAP + 1) }, over)).toBe(true);
     expect(kitchenFits({ shopping: [], pantry: pantry(KITCHEN_ITEM_CAP + 3) }, over)).toBe(false);
+  });
+});
+
+describe('collection validation (RL-222)', () => {
+  it('trims names and refuses empty or over 60 characters', () => {
+    expect(collectionName('  Weeknights  ')).toBe('Weeknights');
+    expect(collectionName('x'.repeat(COLLECTION_NAME_MAX))).toHaveLength(COLLECTION_NAME_MAX);
+    expect(() => collectionName('   ')).toThrow('Give it a name.');
+    expect(() => collectionName('x'.repeat(COLLECTION_NAME_MAX + 1))).toThrow('Keep it under 60 characters.');
+    expect(() => collectionName('')).toThrow(CollectionRefusedError);
+  });
+
+  it('accepts recipe ids up to 36 characters only', () => {
+    expect(() => checkCollectionRecipeId('x'.repeat(COLLECTION_RECIPE_ID_MAX))).not.toThrow();
+    expect(() => checkCollectionRecipeId('x'.repeat(COLLECTION_RECIPE_ID_MAX + 1))).toThrow(CollectionRefusedError);
+    expect(() => checkCollectionRecipeId('')).toThrow(CollectionRefusedError);
+  });
+
+  it('has room below the cap and none at it', () => {
+    expect(() => checkCollectionRoom(Array(COLLECTION_RECIPE_CAP - 1).fill('r'))).not.toThrow();
+    expect(() => checkCollectionRoom(Array(COLLECTION_RECIPE_CAP).fill('r'))).toThrow('This collection is full.');
+  });
+
+  it('match the rules name bound', () => {
+    expect(rules).toContain(`d.name.size() <= ${COLLECTION_NAME_MAX}`);
+  });
+});
+
+describe('checkCollectionCount (RL-222 review)', () => {
+  it('allows the 100th collection and refuses the 101st', () => {
+    expect(() => checkCollectionCount(COLLECTIONS_PER_USER_MAX - 1)).not.toThrow();
+    expect(() => checkCollectionCount(COLLECTIONS_PER_USER_MAX)).toThrow('You have 100 collections. Delete one first.');
   });
 });

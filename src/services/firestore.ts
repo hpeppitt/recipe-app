@@ -20,6 +20,7 @@ import {
   onSnapshot,
   increment,
   arrayUnion,
+  arrayRemove,
   writeBatch,
   serverTimestamp,
   runTransaction,
@@ -38,7 +39,7 @@ import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMi
 import { withTimeout } from '../lib/utils';
 import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAttachments';
 import { normalizeTags } from '../lib/library';
-import { KitchenFullError, kitchenFits, type KitchenLists } from '../lib/kitchen';
+import { KitchenFullError, kitchenFits, checkCollectionRecipeId, checkCollectionRoom, collectionName, CollectionRefusedError, COLLECTION_GONE_MESSAGE, type KitchenLists } from '../lib/kitchen';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, RecipeNotPublishedError, TermsNotAcceptedError, TooManyMovedBranchesError } from '../lib/errors';
@@ -1598,6 +1599,128 @@ export async function updateKitchen(kitchenId: string, fn: (lists: KitchenLists)
     }),
     'Updating the kitchen',
     KITCHEN_WRITE_TIMEOUT_MS
+  );
+}
+
+// --- Collections (RL-222): private recipe collections, owner only, collections/{autoId} ---
+
+export interface RecipeCollection {
+  id: string;
+  ownerUid: string;
+  name: string;
+  recipeIds: string[];
+  /** Epoch ms; estimated while a write is pending. */
+  createdAt: number | null;
+  updatedAt: number | null;
+}
+
+const COLLECTION_WRITE_TIMEOUT_MS = 5000;
+
+function toCollection(id: string, data: DocumentData): RecipeCollection {
+  return {
+    id,
+    ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : '',
+    name: typeof data.name === 'string' ? data.name : '',
+    recipeIds: Array.isArray(data.recipeIds) ? data.recipeIds : [],
+    createdAt: (data.createdAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
+    updatedAt: (data.updatedAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
+  };
+}
+
+/**
+ * The owner's collections, live, newest change first. Equality only, so no composite index;
+ * sorted here. One read per document when it attaches, then one per changed document.
+ */
+export function subscribeCollections(
+  uid: string,
+  onChange: (collections: RecipeCollection[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!firestore) return () => {};
+  return onSnapshot(
+    query(collection(firestore, 'collections'), where('ownerUid', '==', uid)),
+    (snap) =>
+      onChange(
+        snap.docs
+          .map((d) => toCollection(d.id, d.data({ serverTimestamps: 'estimate' })))
+          .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+      ),
+    onError
+  );
+}
+
+function collectionsDb(): { fs: Firestore; uid: string } {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to use collections');
+  return { fs: firestore, uid };
+}
+
+/** Creates a private collection with exactly the rules' keys and returns its id. Rejects after 5 s. */
+export async function createCollection(name: string, firstRecipeId?: string): Promise<string> {
+  const trimmed = collectionName(name);
+  if (firstRecipeId !== undefined) checkCollectionRecipeId(firstRecipeId);
+  const { fs, uid } = collectionsDb();
+  const ref = doc(collection(fs, 'collections'));
+  await rejectAfter(
+    setDoc(ref, {
+      ownerUid: uid,
+      name: trimmed,
+      visibility: 'private',
+      recipeIds: firstRecipeId === undefined ? [] : [firstRecipeId],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+    'Creating the collection',
+    COLLECTION_WRITE_TIMEOUT_MS
+  );
+  return ref.id;
+}
+
+export async function renameCollection(id: string, name: string): Promise<void> {
+  const trimmed = collectionName(name);
+  const { fs } = collectionsDb();
+  await rejectAfter(
+    updateDoc(doc(fs, 'collections', id), { name: trimmed, updatedAt: serverTimestamp() }),
+    'Renaming the collection',
+    COLLECTION_WRITE_TIMEOUT_MS
+  );
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  const { fs } = collectionsDb();
+  await rejectAfter(deleteDoc(doc(fs, 'collections', id)), 'Deleting the collection', COLLECTION_WRITE_TIMEOUT_MS);
+}
+
+/**
+ * Adds a recipe with arrayUnion inside a transaction, so the cap is checked against the stored
+ * list rather than a stale snapshot. Already there: no write. Gone: CollectionRefusedError. Full: CollectionRefusedError
+ * "This collection is full." before writing. Rejects after 5 s; a timed-out transaction may still commit.
+ */
+export async function addToCollection(id: string, recipeId: string): Promise<void> {
+  checkCollectionRecipeId(recipeId);
+  const { fs } = collectionsDb();
+  const ref = doc(fs, 'collections', id);
+  await rejectAfter(
+    runTransaction(fs, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) throw new CollectionRefusedError(COLLECTION_GONE_MESSAGE);
+      const { recipeIds } = toCollection(id, snap.data());
+      if (recipeIds.includes(recipeId)) return;
+      checkCollectionRoom(recipeIds);
+      tx.update(ref, { recipeIds: arrayUnion(recipeId), updatedAt: serverTimestamp() });
+    }),
+    'Adding to the collection',
+    COLLECTION_WRITE_TIMEOUT_MS
+  );
+}
+
+export async function removeFromCollection(id: string, recipeId: string): Promise<void> {
+  const { fs } = collectionsDb();
+  await rejectAfter(
+    updateDoc(doc(fs, 'collections', id), { recipeIds: arrayRemove(recipeId), updatedAt: serverTimestamp() }),
+    'Removing from the collection',
+    COLLECTION_WRITE_TIMEOUT_MS
   );
 }
 
