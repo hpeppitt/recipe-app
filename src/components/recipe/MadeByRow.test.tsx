@@ -5,8 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { MadeByRow, type RecipeCooks } from './MadeByRow';
 import { makeCook } from '../../test/factories';
 
-const mocks = vi.hoisted(() => ({ deleteCook: vi.fn(), uid: 'me' }));
-vi.mock('../../services/firestore', () => ({ deleteCook: mocks.deleteCook }));
+const mocks = vi.hoisted(() => ({ deleteCook: vi.fn(), deleteCookPhoto: vi.fn(), uid: 'me' }));
+vi.mock('../../services/firestore', () => ({ deleteCook: mocks.deleteCook, deleteCookPhoto: mocks.deleteCookPhoto }));
 vi.mock('../../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
 
@@ -14,7 +14,10 @@ beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
-beforeEach(() => mocks.deleteCook.mockReset().mockResolvedValue(undefined));
+beforeEach(() => {
+  mocks.deleteCook.mockReset().mockResolvedValue(undefined);
+  mocks.deleteCookPhoto.mockReset().mockResolvedValue(undefined);
+});
 afterEach(cleanup);
 
 const cooks = (over: Partial<RecipeCooks> & { total?: number; again?: number; recent?: ReturnType<typeof makeCook>[] } = {}): RecipeCooks => ({
@@ -76,5 +79,26 @@ describe('MadeByRow', () => {
     await userEvent.click(screen.getAllByRole('button', { name: 'Delete' }).at(-1)!);
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(mocks.deleteCook).toHaveBeenCalledWith('c-mine');
+  });
+
+  it('offers the cook Remove photo on their own shown photo only, then asks for the next one', async () => {
+    const onPhotoChanged = vi.fn();
+    const mine = makeCook({ id: 'c-mine', uid: 'me', note: 'Mine' });
+    const other = makeCook({ id: 'c-other', note: 'Theirs' });
+    render(<MadeByRow cooks={cooks({ total: 2, recent: [mine, other] })} photoCookId="c-mine" onPhotoChanged={onPhotoChanged} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Notes' }));
+    const remove = screen.getAllByRole('button', { name: 'Remove photo' });
+    expect(remove.length).toBe(1);
+    await userEvent.click(remove[0]);
+    await userEvent.click(screen.getAllByRole('button', { name: 'Remove photo' }).at(-1)!);
+    await waitFor(() => expect(onPhotoChanged).toHaveBeenCalled());
+    expect(mocks.deleteCookPhoto).toHaveBeenCalledWith('c-mine');
+  });
+
+  it('lists the viewer\'s own photo cook without a note as Photo only, with Remove photo', async () => {
+    render(<MadeByRow cooks={cooks({ total: 1, recent: [makeCook({ id: 'c-mine', uid: 'me', note: null })] })} photoCookId="c-mine" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Notes' }));
+    expect(screen.getByText('Photo only')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove photo' })).toBeTruthy();
   });
 });

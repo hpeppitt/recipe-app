@@ -39,6 +39,7 @@ const recipeIds: (string | undefined)[] = [];
 vi.mock('../hooks/useCooks', () => ({
   useRecipeCooks: () => ({ status: 'ready', summary: { total: 0, again: 0, recent: [] }, refresh: () => {}, log: () => Promise.resolve('c1') }),
 }));
+vi.mock('../hooks/useRecipePhoto', () => ({ useRecipePhoto: () => ({ photo: null, refresh: () => {} }) }));
 vi.mock('../services/firestore', () => ({
   getRelatedFamilies: async () => [],
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),

@@ -202,3 +202,65 @@ describe('RecipeHeader title clamp and compact bar (RL-129)', () => {
     expect(document.querySelector('.sticky')).toBeNull();
   });
 });
+
+describe('RecipeHeader cook photo (RL-206)', () => {
+  const photo = { cookId: 'c1', url: 'data:image/jpeg;base64,AAAA', name: 'Sam' };
+
+  it('original: washed photo in the blob with the credit under the description', () => {
+    show(original, undefined, { photo });
+    const img = screen.getByRole('img', { name: 'Banana bread, cooked by Sam' });
+    expect(img.tagName).toBe('IMG');
+    expect(img.className).toContain('washed');
+    expect(screen.getByText('Photo by Sam').className).toContain('text-neutral-700');
+    expect(screen.queryByText('🍌')).toBeNull();
+  });
+
+  it('branch: washed cover photo in the hero with a credit chip', () => {
+    show(branch, original, { photo });
+    const img = screen.getByRole('img', { name: 'Chocolate chunk, cooked by Sam' });
+    expect(img.className).toContain('washed');
+    expect(img.className).toContain('object-cover');
+    expect(screen.getByText('Photo by Sam')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Go back' })).toBeInTheDocument();
+  });
+
+  it('falls back to the emoji layout when the image fails to load', () => {
+    show(original, undefined, { photo });
+    fireEvent.error(screen.getByRole('img', { name: 'Banana bread, cooked by Sam' }));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByText(/Photo by/)).toBeNull();
+    expect(screen.getByText('🍌')).toBeInTheDocument();
+  });
+
+  it('without a photo keeps the emoji layout', () => {
+    show();
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.queryByText(/Photo by/)).toBeNull();
+  });
+
+  it('owner removes the photo after confirming; others do not see the row', async () => {
+    const onRemovePhoto = vi.fn().mockResolvedValue(undefined);
+    show(original, undefined, { photo, canRemovePhoto: true, onRemovePhoto });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
+    expect(screen.getByText("It came from Sam's cook.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await vi.waitFor(() => expect(onRemovePhoto).toHaveBeenCalledTimes(1));
+  });
+
+  it('shows a failure and keeps the dialog when removal fails', async () => {
+    const onRemovePhoto = vi.fn().mockRejectedValue(new Error('denied'));
+    show(original, undefined, { photo, canRemovePhoto: true, onRemovePhoto });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(await screen.findByText("Couldn't remove the photo")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('someone who cannot remove has no Remove photo (not the owner, or unverified)', () => {
+    show(original, undefined, { photo, isOwner: true, onRemovePhoto: vi.fn() });
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.queryByRole('button', { name: 'Remove photo' })).toBeNull();
+  });
+});

@@ -1474,6 +1474,49 @@ export async function deleteCookPhoto(cookId: string): Promise<void> {
   if ((await getDoc(ref)).exists()) await deleteDoc(ref);
 }
 
+export interface RecipePhoto {
+  cookId: string;
+  url: string;
+  /** The cook's name, never typed with the photo; "A cook" when the account has none. */
+  name: string;
+}
+
+const RECIPE_PHOTO_CANDIDATES = 3;
+
+/**
+ * The newest cook photo of a recipe whose cook still exists (RL-206), derived on
+ * read, never written to the recipe. Reads one photo at a time, up to 3 (a photo whose
+ * cook is gone is skipped, so one orphan hides nothing), and one cook doc per photo not
+ * already in `knownCooks`. Public read. Null when there is none. Rejects after 6 s.
+ */
+export async function getRecipePhoto(recipeId: string, knownCooks: Cook[] = []): Promise<RecipePhoto | null> {
+  const fs = firestore;
+  if (!fs) return null;
+  return rejectAfter(
+    (async () => {
+      let last: QueryDocumentSnapshot | undefined;
+      // One photo doc per read: a normal visit reads one; a skipped photo costs one more, up to 3.
+      for (let i = 0; i < RECIPE_PHOTO_CANDIDATES; i++) {
+        const snap = await getDocs(
+          query(collection(fs, 'cookPhotos'), where('recipeId', '==', recipeId), orderBy('createdAt', 'desc'), ...(last ? [startAfter(last)] : []), limit(1))
+        );
+        const d = snap.docs[0];
+        if (!d) return null;
+        last = d;
+        const url = d.data().url;
+        if (typeof url !== 'string' || !url.startsWith(JPEG_DATA_URL_PREFIX)) continue;
+        const known = knownCooks.find((c) => c.id === d.id);
+        if (known) return { cookId: d.id, url, name: known.displayName?.trim() || 'A cook' };
+        const cook = await getDoc(doc(fs, 'cooks', d.id));
+        if (cook.exists()) return { cookId: d.id, url, name: (cook.data().displayName as string | null)?.trim() || 'A cook' };
+      }
+      return null;
+    })(),
+    'Reading the recipe photo',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+}
+
 // --- Profiles ---
 
 // --- Terms acceptance (RL-047): owner-only, never on the public profile ---

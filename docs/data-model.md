@@ -110,6 +110,7 @@ All live in `firestore.indexes.json`; each exists for exactly one query.
 | `suggestions`: `recipeId` ASC, `suggestedBy.uid` ASC, `createdAt` DESC | `subscribeRecipeSuggestions`, everyone else's query (RL-018) |
 | `suggestions`: `recipeId` ASC, `createdAt` DESC | the pre-RL-018 client's unfiltered query; kept until that client is gone, then removable |
 | `cooks`: `recipeId` ASC, `createdAt` DESC | `getRecipeCookSummary` (RL-196): a recipe's newest 20 cooks, `limit 20`. In the repo, deployed by RL-209. Guarded by `src/lib/indexes.test.ts` |
+| `cookPhotos`: `recipeId` ASC, `createdAt` DESC | `getRecipePhoto` (RL-206): a recipe's newest cook photo, `limit 1` (then `startAfter`, at most 3 reads). In the repo, deployed by RL-209. Guarded by `src/lib/indexes.test.ts` |
 | `cooks`: `uid` ASC, `createdAt` DESC | `subscribeOwnCooks` (RL-196): the user's own newest 200 cooks. In the repo, deployed by RL-209. Guarded by `src/lib/indexes.test.ts` |
 
 The Following filter queries newest-first: each 30-uid chunk returns its own newest 50 and the
@@ -484,6 +485,8 @@ before logging a cook."). It accepts a `cookId` so `useRecipeCooks` can retry a 
 the same id; an existing cook is left alone and the window does not move. `logCook` takes `displayName` from the signed-in
 account (`AppUser.displayName`, kept in step with the profile by `useProfile.updateName`), never
 from typed input, and trims it to 100 and the note to 500.
+
+**Recipe photo read cost** (RL-206, `getRecipePhoto` through `useRecipePhoto`): one `cookPhotos` doc (up to about 150 KB; `limit 1`), then `startAfter` reads of one more each only if the previous photo is skipped, at most 3 in all, plus one `cooks/{id}` read per candidate whose cook is not in the page's newest-20 summary. It runs once per recipe visit, after the cook summary answers, and again only after a photo is removed. A photo whose cook is gone is skipped, so an orphan hides nothing older. Bounded at 6 s; a failure is reported as `recipe-photo` and the emoji layout stays.
 
 **cookPhotos** (RL-204, in the repo, deployed by RL-209): readable by anyone, signed out included.
 Create needs a verified email and the current Terms (`acceptedTerms()`, public content like cooks),
