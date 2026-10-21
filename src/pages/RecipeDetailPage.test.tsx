@@ -36,6 +36,9 @@ const navigateSpy = vi.fn();
 const submitMock = vi.fn();
 const recipeIds: (string | undefined)[] = [];
 
+vi.mock('../hooks/useCooks', () => ({
+  useRecipeCooks: () => ({ status: 'ready', summary: { total: 0, again: 0, recent: [] }, refresh: () => {}, log: () => Promise.resolve('c1') }),
+}));
 vi.mock('../services/firestore', () => ({
   getRelatedFamilies: async () => [],
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
-import { CookedSheet } from '../components/recipe/CookedSheet';
+import { CookedSheet, type LogCook } from '../components/recipe/CookedSheet';
 import { isFirebaseConfigured } from '../services/firebase';
 import { getPublishedRecipe } from '../services/firestore';
 import type { Recipe } from '../types/recipe';
@@ -16,10 +16,12 @@ const OFFER_DELAY_MS = 400;
  * Anyone else who taps Cooked gets the sign-in sheet. Render `sheets` once, always mounted.
  * `canCook` is false in local-only mode and until the recipe is known to be published (a cook
  * needs the cloud copy). Pass `published` when the caller already read it from the cloud.
+ * `log` is the page's `useRecipeCooks().log`; it refreshes the page's Made-by row.
  */
 export function useCookedEntry(
   recipe: Pick<Recipe, 'id'> | undefined,
-  published = false
+  published = false,
+  log: LogCook
 ): { canCook: boolean; open: () => void; onAllTicked: (allDone: boolean) => void; sheets: ReactNode } {
   const { user, isConfigured } = useAuth();
   const [sheet, setSheet] = useState<'cook' | 'auth' | null>(null);
@@ -53,7 +55,7 @@ export function useCookedEntry(
   };
   const sheets = recipe && (
     <>
-      <CookedSheet open={sheet === 'cook'} recipe={recipe} onClose={() => setSheet(null)} />
+      <CookedSheet open={sheet === 'cook'} recipe={recipe} onClose={() => setSheet(null)} log={log} />
       <SignUpDialog open={sheet === 'auth'} action={{ kind: 'cook' }} body={BODY} onClose={() => setSheet(null)} />
     </>
   );

@@ -18,6 +18,9 @@ let cloudOn = false;
 let localOn = false;
 let cloudError: string | null = null;
 
+vi.mock('../hooks/useCooks', () => ({
+  useRecipeCooks: () => ({ status: 'ready', summary: { total: 0, again: 0, recent: [] }, refresh: () => {}, log: () => Promise.resolve('c1') }),
+}));
 vi.mock('../services/firestore', () => ({
   getPublishedRecipe: (...a: unknown[]) => getPublishedRecipe(...a),
   incrementRecipeViews: vi.fn(),

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { useRecipeCooks } from '../../hooks/useCooks';
+import type { useRecipeCooks } from '../../hooks/useCooks';
 import { noteToBranchPrompt } from '../../lib/cooks';
 import { RecipeNotPublishedError, TermsNotAcceptedError, rateLimitMessage } from '../../lib/errors';
 import { cn } from '../../lib/utils';
@@ -20,8 +20,12 @@ const VOTES = [
   { value: 'tweak', label: 'Needs a tweak', Icon: Wrench },
 ] as const;
 
+/** The page's `useRecipeCooks().log`, so the sheet makes no read of its own and a retry keeps its cook id. */
+export type LogCook = ReturnType<typeof useRecipeCooks>['log'];
+
 interface CookedSheetProps {
   open: boolean;
+  log: LogCook;
   recipe: Pick<Recipe, 'id'>;
   onClose: () => void;
   /** Called with the new cook's id once it is saved. */
@@ -36,7 +40,7 @@ function saveErrorMessage(err: unknown): string {
 }
 
 /** The "I made this" sheet (RL-197). Entry points open it: RL-198 and RL-203. */
-export function CookedSheet({ open, recipe, onClose, onSaved }: CookedSheetProps) {
+export function CookedSheet({ open, log, recipe, onClose, onSaved }: CookedSheetProps) {
   const [toast, setToast] = useState(false);
   useEffect(() => {
     if (!toast) return;
@@ -48,6 +52,7 @@ export function CookedSheet({ open, recipe, onClose, onSaved }: CookedSheetProps
       {/* The body mounts per open, so each visit starts empty. */}
       {open && (
         <CookedSheetBody
+          log={log}
           recipe={recipe}
           onClose={onClose}
           onSaved={(id) => {
@@ -67,14 +72,13 @@ export function CookedSheet({ open, recipe, onClose, onSaved }: CookedSheetProps
   );
 }
 
-function CookedSheetBody({ recipe, onClose, onSaved }: Omit<CookedSheetProps, 'open'> & { onSaved: (id: string) => void }) {
+function CookedSheetBody({ log, recipe, onClose, onSaved }: Omit<CookedSheetProps, 'open'> & { onSaved: (id: string) => void }) {
   const titleId = useId();
   const noteId = useId();
   const helpId = useId();
   const saveHintId = useId();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { log } = useRecipeCooks(recipe.id);
   const [vote, setVote] = useState<Cook['vote'] | null>(null);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);

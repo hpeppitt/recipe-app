@@ -31,6 +31,8 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useCookedEntry } from '../hooks/useCookedEntry';
+import { useRecipeCooks } from '../hooks/useCooks';
+import { MadeByRow } from '../components/recipe/MadeByRow';
 import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { SuggestMode } from '../components/recipe/SuggestMode';
@@ -93,7 +95,8 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const { branch, signUp: branchSignUp } = useBranchEntry();
   const { recipe, source, isLoading, cloudError, retry } = useRecipe(id);
   // A cloud-sourced recipe is published already; local copies get one read. Without a reachable Firestore, Cooked simply does not appear.
-  const cooked = useCookedEntry(recipe ?? undefined, source === 'cloud');
+  const cooks = useRecipeCooks(recipe?.id);
+  const cooked = useCookedEntry(recipe ?? undefined, source === 'cloud', cooks.log);
   const location = useLocation();
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
@@ -733,6 +736,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             recipe={recipe}
             hideHeader
             onAllTicked={cooked.onAllTicked}
+            underMeta={<MadeByRow cooks={cooks} />}
             afterMeta={
               <>
                 <RelatedFamilies

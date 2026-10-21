@@ -13,6 +13,8 @@ interface RecipeContentProps {
   compact?: boolean;
   /** Omit the emoji, title and description; the recipe page renders them in RecipeHeader. */
   hideHeader?: boolean;
+  /** Directly under the metadata pills (the Made-by row, RL-199). */
+  underMeta?: ReactNode;
   /** Rendered between the metadata pills and the ingredients (RL-163). */
   afterMeta?: ReactNode;
   /** Ticking the last method step (RL-198). */
@@ -33,7 +35,7 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, onAllTicked }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, underMeta, onAllTicked }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
@@ -74,6 +76,8 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterM
         tags={recipe.tags}
         servings={compact ? scaled.servings : undefined}
       />
+
+      {underMeta}
 
       {afterMeta}
 

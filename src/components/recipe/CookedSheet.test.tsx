@@ -8,7 +8,6 @@ import { RateLimitedError, TermsNotAcceptedError } from '../../lib/errors';
 import { makeRecipe } from '../../test/factories';
 
 const mocks = vi.hoisted(() => ({ log: vi.fn(), navigate: vi.fn(), user: { uid: 'u1', displayName: 'Ann' } as unknown }));
-vi.mock('../../hooks/useCooks', () => ({ useRecipeCooks: () => ({ log: mocks.log }) }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock('../../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('react-router-dom', async (orig) => ({ ...(await orig<object>()), useNavigate: () => mocks.navigate }));
@@ -30,7 +29,7 @@ const show = (props: Partial<React.ComponentProps<typeof CookedSheet>> = {}) => 
   const onSaved = vi.fn();
   render(
     <MemoryRouter>
-      <CookedSheet open recipe={recipe} onClose={onClose} onSaved={onSaved} {...props} />
+      <CookedSheet open log={mocks.log} recipe={recipe} onClose={onClose} onSaved={onSaved} {...props} />
     </MemoryRouter>
   );
   return { onClose, onSaved };
