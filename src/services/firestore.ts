@@ -21,6 +21,7 @@ import {
   increment,
   arrayUnion,
   arrayRemove,
+  deleteField,
   writeBatch,
   serverTimestamp,
   runTransaction,
@@ -40,7 +41,7 @@ import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMi
 import { withTimeout } from '../lib/utils';
 import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAttachments';
 import { normalizeTags } from '../lib/library';
-import { KitchenFullError, kitchenFits, checkCollectionRecipeId, checkCollectionRoom, collectionName, CollectionRefusedError, COLLECTION_GONE_MESSAGE, type KitchenLists } from '../lib/kitchen';
+import { KitchenFullError, kitchenFits, KITCHEN_INVITE_DAYS, KITCHEN_MEMBER_CAP, newInviteCode, pickKitchenId, checkCollectionRecipeId, checkCollectionRoom, collectionName, CollectionRefusedError, COLLECTION_GONE_MESSAGE, type KitchenLists } from '../lib/kitchen';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, RecipeNotPublishedError, TermsNotAcceptedError, TooManyMovedBranchesError } from '../lib/errors';
@@ -1626,24 +1627,178 @@ export async function updateKitchen(kitchenId: string, fn: (lists: KitchenLists)
   if (!firestore) throw new Error('Firebase not configured');
   const uid = auth?.currentUser?.uid;
   if (!uid) throw new Error('Sign in to update your kitchen');
-  // Phase 2: a user's only kitchen is kitchens/{uid}; RL-238 lifts this.
-  if (kitchenId !== uid) throw new Error('Only your own kitchen can be updated');
   const fs = firestore;
   const ref = doc(fs, 'kitchens', kitchenId);
   await rejectAfter(
     runTransaction(fs, async (tx) => {
       const snap = await tx.get(ref);
       const current = snap.exists() ? toKitchen(snap.data()) : null;
+      // Only the own kitchen may be created; a shared one that is gone is not recreated (RL-238).
+      if (!current && kitchenId !== uid) throw new Error('That kitchen no longer exists');
       const before = { shopping: current?.shopping ?? [], pantry: current?.pantry ?? [] };
       const { shopping, pantry } = fn(before);
       if (!kitchenFits({ shopping, pantry }, before)) throw new KitchenFullError();
-      // Update leaves memberUids and ownerUid untouched; the rules refuse any change to them.
+      // Update leaves memberUids, ownerUid and joinCode untouched; the rules refuse any change to them.
       if (current) tx.update(ref, { shopping, pantry, updatedAt: serverTimestamp() });
       else tx.set(ref, { memberUids: [uid], ownerUid: uid, shopping, pantry, updatedAt: serverTimestamp() });
     }),
     'Updating the kitchen',
     KITCHEN_WRITE_TIMEOUT_MS
   );
+}
+
+// --- Household sharing (RL-238): membership, invites and member profiles ---
+
+/** A join the rules refused; the hook works out why (expired, already a member, or full). */
+export class KitchenJoinDeniedError extends Error {
+  constructor() {
+    super('Kitchen join refused');
+    this.name = 'KitchenJoinDeniedError';
+  }
+}
+
+export interface KitchenInvite {
+  code: string;
+  kitchenId: string;
+  ownerUid: string;
+  /** Epoch ms. */
+  expiresAt: number;
+}
+
+export interface KitchenMember {
+  uid: string;
+  name: string | null;
+  /** Spread into `<Avatar>`; null when the profile is missing. */
+  avatar: Pick<UserProfile, 'photoType' | 'photoEmoji' | 'photoBgColor' | 'photoURL'> | null;
+}
+
+/**
+ * The kitchen the user is in: a kitchen whose memberUids hold them, other than their own if
+ * there is one, else their own id. Limit 2, since under one kitchen per person they are in at
+ * most their own (left unused after a join, RL-236) and one shared kitchen. Rejects after 6 s.
+ */
+export async function findKitchenId(uid: string): Promise<string> {
+  if (!firestore) return uid;
+  const snap = await rejectAfter(
+    getDocs(query(collection(firestore, 'kitchens'), where('memberUids', 'array-contains', uid), limit(2))),
+    'Finding your kitchen',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return pickKitchenId(uid, snap.docs.map((d) => d.id));
+}
+
+/** Creates a reusable invite to the caller's kitchen, expiring in just under KITCHEN_INVITE_DAYS. Returns the code. */
+export async function createKitchenInvite(kitchenId: string, ownerName: string): Promise<string> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to invite');
+  const code = newInviteCode();
+  // An hour short of the rules' limit, so a client clock running a little fast is not refused.
+  const expiresAt = new Date(Date.now() + KITCHEN_INVITE_DAYS * 86_400_000 - 3_600_000);
+  await rejectAfter(
+    setDoc(doc(firestore, 'kitchenInvites', code), { kitchenId, ownerUid: uid, ownerName: ownerName.slice(0, 80), expiresAt, createdAt: serverTimestamp() }),
+    'Creating the invite',
+    KITCHEN_WRITE_TIMEOUT_MS
+  );
+  return code;
+}
+
+/** The invite for a code, or null when it does not exist. Rejects after 6 s. */
+export async function getKitchenInvite(code: string): Promise<KitchenInvite | null> {
+  if (!firestore) return null;
+  const snap = await rejectAfter(getDoc(doc(firestore, 'kitchenInvites', code)), 'Reading the invite', COOK_SUMMARY_TIMEOUT_MS);
+  if (!snap.exists()) return null;
+  const d = snap.data();
+  return {
+    code,
+    kitchenId: typeof d.kitchenId === 'string' ? d.kitchenId : '',
+    ownerUid: typeof d.ownerUid === 'string' ? d.ownerUid : '',
+    expiresAt: (d.expiresAt as Timestamp | undefined)?.toMillis?.() ?? 0,
+  };
+}
+
+/**
+ * Adds the caller to the invite's kitchen: arrayUnion of their uid and joinCode '<uid>:<code>',
+ * nothing else, as the join rule requires (a non-member cannot read the kitchen, so no
+ * transaction). A denial, including a missing kitchen, throws KitchenJoinDeniedError.
+ */
+export async function joinKitchenWithInvite(invite: KitchenInvite): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to join a kitchen');
+  try {
+    await rejectAfter(
+      updateDoc(doc(firestore, 'kitchens', invite.kitchenId), { memberUids: arrayUnion(uid), joinCode: `${uid}:${invite.code}` }),
+      'Joining the kitchen',
+      KITCHEN_WRITE_TIMEOUT_MS
+    );
+  } catch (err) {
+    if ((err as { code?: unknown }).code === 'permission-denied') throw new KitchenJoinDeniedError();
+    throw err;
+  }
+}
+
+/** Deletes the caller's own live invites to one kitchen (the rules let the owner list them by ownerUid). */
+async function deleteOwnInvites(fs: Firestore, uid: string, kitchenId: string): Promise<void> {
+  const snap = await getDocs(query(collection(fs, 'kitchenInvites'), where('ownerUid', '==', uid)));
+  const mine = snap.docs.filter((d) => d.data().kitchenId === kitchenId);
+  if (!mine.length) return;
+  const batch = writeBatch(fs);
+  mine.forEach((d) => batch.delete(d.ref));
+  await batch.commit();
+}
+
+/** Deletes the caller's live invites to one kitchen, e.g. their own before they join another (RL-238). */
+export async function deleteKitchenInvites(kitchenId: string): Promise<void> {
+  if (!firestore) return;
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to manage your kitchen');
+  await rejectAfter(deleteOwnInvites(firestore, uid, kitchenId), 'Deleting invites', KITCHEN_WRITE_TIMEOUT_MS);
+}
+
+/** The shape the leave and remove rules require: one uid dropped, updatedAt, joinCode cleared so the same person can rejoin. */
+const membershipDrop = (uid: string) => ({ memberUids: arrayRemove(uid), updatedAt: serverTimestamp(), joinCode: deleteField() });
+
+/** The caller leaves a kitchen they do not own. */
+export async function leaveKitchen(kitchenId: string): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to leave a kitchen');
+  await rejectAfter(updateDoc(doc(firestore, 'kitchens', kitchenId), membershipDrop(uid)), 'Leaving the kitchen', KITCHEN_WRITE_TIMEOUT_MS);
+}
+
+/**
+ * The owner removes one other member. Their live invites go first, so the removed person
+ * cannot walk straight back in with a link they still hold (RL-237).
+ */
+export async function removeKitchenMember(kitchenId: string, memberUid: string): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to manage your kitchen');
+  if (memberUid === uid) throw new Error('The owner cannot remove themselves');
+  const fs = firestore;
+  await rejectAfter(
+    (async () => {
+      await deleteOwnInvites(fs, uid, kitchenId);
+      await updateDoc(doc(fs, 'kitchens', kitchenId), membershipDrop(memberUid));
+    })(),
+    'Removing the member',
+    KITCHEN_WRITE_TIMEOUT_MS
+  );
+}
+
+/** Names and avatars from the public profiles, one read each, at most KITCHEN_MEMBER_CAP. A missing profile gives nulls. */
+export async function getKitchenMembers(uids: readonly string[]): Promise<KitchenMember[]> {
+  const ids = uids.slice(0, KITCHEN_MEMBER_CAP);
+  const profiles = await rejectAfter(Promise.all(ids.map((id) => getProfile(id))), 'Reading kitchen members', COOK_SUMMARY_TIMEOUT_MS);
+  return ids.map((uid, i) => {
+    const p = profiles[i];
+    return {
+      uid,
+      name: p?.displayName ?? null,
+      avatar: p ? { photoType: p.photoType, photoEmoji: p.photoEmoji ?? null, photoBgColor: p.photoBgColor ?? null, photoURL: p.photoURL ?? null } : null,
+    };
+  });
 }
 
 // --- Collections (RL-222): private recipe collections, owner only, collections/{autoId} ---
@@ -2067,7 +2222,7 @@ export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRec
 // list is authorised from its filters and never sees document data (docs/decisions.md):
 // favorites uid, notifications recipientUid, follows followerId and followingId (two
 // queries), suggestions suggestedBy.uid and recipeOwnerId (two queries), messages by
-// parent path, cooks and cookPhotos uid (both public read; RL-207), collections ownerUid, and kitchens/{uid} by id (RL-226). Recipes and profiles
+// parent path, cooks and cookPhotos uid (both public read; RL-207), collections ownerUid, kitchens/{uid} by id (RL-226) and kitchens by memberUids array-contains (RL-238). Recipes and profiles
 // are public. No orderBy, so no composite index. A cook photo row carries its data URL
 // (up to 200000 characters), so it is never logged: a failed read logs the error only.
 
@@ -2162,7 +2317,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, collections: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, kitchenMemberships: error, collections: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
@@ -2199,7 +2354,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, collections] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections] = await Promise.all([
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -2255,9 +2410,18 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
           return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
         })
       : Promise.resolve<Section<CloudDoc | null>>({ error: VERIFY_NOTE }),
+    // The read rule checks memberUids, so the query filters on it (RL-238).
+    emailVerified
+      ? exportSection<CloudDoc[]>('kitchenMemberships', () =>
+          readMerged('kitchen memberships', [async () => {
+            const r = await readAllDocs(collection(fs, 'kitchens'), [where('memberUids', 'array-contains', uid)]);
+            return { rows: r.docs.map(exportDoc), truncated: r.truncated };
+          }])
+        )
+      : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
     emailVerified
       ? exportSection<CloudDoc[]>('collections', () => readMerged('collections', [byField('collections', 'ownerUid')]))
       : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, collections };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections };
 }

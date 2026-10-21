@@ -8,6 +8,7 @@ import { addRecipe, splitByPantry } from '../../lib/shopping';
 import { pluralize } from '../../lib/utils';
 import { getKitchenOnce, getOwnCooksInFamily } from '../../services/firestore';
 import type { PantryItem } from '../../lib/kitchen';
+import { resolveKitchenId } from '../../hooks/useKitchen';
 
 /** The tree's readable limit; the current version always stays in. */
 export const SHOP_FAMILY_MAX = 30;
@@ -52,7 +53,8 @@ function Body({ recipes, currentId, uid, adding, error, onAdd }: Omit<ShopFamily
   useEffect(() => {
     let live = true;
     // A failed read only loses the pantry count and the "you made this" tag; adding still works.
-    getKitchenOnce(uid).then((k) => live && setPantry(k?.pantry ?? []), () => {});
+    // The household's pantry, not the own unused one after a join (RL-238).
+    resolveKitchenId(uid).then(getKitchenOnce).then((k) => live && setPantry(k?.pantry ?? []), () => {});
     const root = recipes.find((r) => r.id === currentId)?.rootId;
     if (root) getOwnCooksInFamily(uid, root).then((c) => live && setMade(new Set(c.map((x) => x.recipeId))), () => {});
     return () => {

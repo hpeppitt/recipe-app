@@ -125,3 +125,37 @@ export function checkCollectionCount(count: number): void {
 export const COLLECTION_GONE_MESSAGE = 'That collection no longer exists.';
 
 export const collectionCount = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`;
+
+// --- Household sharing client (RL-238) ---
+
+const INVITE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+/** Same pattern as the rules' invite id check. */
+const INVITE_CODE = /^[A-Za-z0-9_-]{20,64}$/;
+
+/** A fresh invite code: KITCHEN_INVITE_CODE_MIN URL-safe characters from crypto.getRandomValues (64 symbols, so a byte & 63 is unbiased). */
+export function newInviteCode(random: (bytes: Uint8Array) => Uint8Array = (b) => crypto.getRandomValues(b)): string {
+  return Array.from(random(new Uint8Array(KITCHEN_INVITE_CODE_MIN)), (b) => INVITE_ALPHABET[b & 63]).join('');
+}
+
+export const isInviteCode = (code: string): boolean => INVITE_CODE.test(code);
+
+export const inviteUrl = (origin: string, code: string): string => `${origin}/join/${code}`;
+
+export const INVITE_EXPIRED_MESSAGE = 'This invite has expired. Ask for a new one.';
+export const KITCHEN_MEMBERS_FULL_MESSAGE = 'This kitchen is full.';
+export const KITCHEN_SHARING_FAILED_MESSAGE = "Couldn't update your household. Check your connection and try again.";
+/** One kitchen per person (RL-236): joining refuses rather than leaving the current one silently. */
+export const ALREADY_IN_KITCHEN_MESSAGE = 'You already share a kitchen. Leave it before joining another.';
+export const KITCHEN_SHARING_BUSY_MESSAGE = 'Still updating your household. Try again in a moment.';
+export const OWNER_CANNOT_LEAVE_MESSAGE = "You own this kitchen, so you can't leave it.";
+export const NOT_OWNER_MESSAGE = 'Only the kitchen owner can do that.';
+export const OWNER_HAS_MEMBERS_MESSAGE = 'Others share your kitchen. Remove them before joining another.';
+
+/**
+ * Which kitchen a user is in, from the kitchens whose memberUids hold them (at most two under
+ * one-kitchen-per-person: their own, left unused after a join, and the shared one). A kitchen
+ * other than their own wins; with none, their own id.
+ */
+export function pickKitchenId(uid: string, ids: readonly string[]): string {
+  return ids.find((id) => id !== uid) ?? uid;
+}

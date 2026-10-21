@@ -39,7 +39,17 @@ export interface CloudInput {
   cookPhotos: Section<CloudCookPhoto[]>;
   /** kitchens/{uid} (RL-226): shopping list and pantry. Null when none exists. */
   kitchen: Section<CloudDoc | null>;
+  /** Kitchens whose memberUids hold the user (RL-238), own included; summarised, not copied. */
+  kitchenMemberships: Section<CloudDoc[]>;
   collections: Section<CloudDoc[]>;
+}
+
+/** One kitchen the user belongs to (RL-238). `kitchenId` and `memberUids` are aliased when another person's. */
+export interface KitchenMembership {
+  kitchenId: string;
+  role: 'owner' | 'member';
+  memberCount: number;
+  memberUids: string[];
 }
 
 export interface DataExportInput {
@@ -74,6 +84,7 @@ export interface DataExport {
     cooks: Cook[];
     cookPhotos: CloudCookPhoto[];
     kitchen: CloudDoc | null;
+    kitchenMemberships: KitchenMembership[];
     collections: CloudDoc[];
   } | null;
   note?: string;
@@ -218,6 +229,12 @@ export function assembleDataExport(input: DataExportInput): DataExport {
       ),
       cookPhotos: sorted(take('cookPhotos', c.cookPhotos, [])).map((p) => pick(p, COOK_PHOTO_KEYS)),
       kitchen: kitchenRedact(take('kitchen', c.kitchen, null)),
+      kitchenMemberships: [...take('kitchenMemberships', c.kitchenMemberships, [])]
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((k) => {
+          const members = Array.isArray(k.memberUids) ? k.memberUids.filter((m): m is string => typeof m === 'string') : [];
+          return { kitchenId: alias(k.id), role: k.ownerUid === uid ? 'owner' : 'member', memberCount: members.length, memberUids: members.map(alias) };
+        }),
       collections: sorted(take('collections', c.collections, [])).map((k) => pick(k, COLLECTION_KEYS)),
     };
     // Document ids that embed a uid (follows, favourites) are rewritten last,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX } from './kitchen';
+import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX, newInviteCode, isInviteCode, inviteUrl, pickKitchenId } from './kitchen';
 
 describe('firestore.rules kitchen and collection caps (RL-211)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -82,5 +82,35 @@ describe('checkCollectionCount (RL-222 review)', () => {
   it('allows the 100th collection and refuses the 101st', () => {
     expect(() => checkCollectionCount(COLLECTIONS_PER_USER_MAX - 1)).not.toThrow();
     expect(() => checkCollectionCount(COLLECTIONS_PER_USER_MAX)).toThrow('You have 100 collections. Delete one first.');
+  });
+});
+
+describe('household sharing helpers (RL-238)', () => {
+  it('makes a 20-character URL-safe code the rules accept, from the random bytes given', () => {
+    const code = newInviteCode();
+    expect(code).toHaveLength(KITCHEN_INVITE_CODE_MIN);
+    expect(isInviteCode(code)).toBe(true);
+    expect(newInviteCode()).not.toBe(code);
+    expect(newInviteCode((b) => b.fill(255))).toBe('_'.repeat(20));
+    expect(newInviteCode((b) => b.fill(64))).toBe('A'.repeat(20));
+  });
+
+  it('accepts only 20 to 64 URL-safe characters, so never a colon or a path', () => {
+    expect(isInviteCode('a'.repeat(19))).toBe(false);
+    expect(isInviteCode('a'.repeat(65))).toBe(false);
+    expect(isInviteCode(`${'a'.repeat(20)}:x`)).toBe(false);
+    expect(isInviteCode(`${'a'.repeat(20)}/x`)).toBe(false);
+    expect(isInviteCode('aZ0_-'.repeat(4))).toBe(true);
+  });
+
+  it('builds the join link', () => {
+    expect(inviteUrl('https://example.test', 'abc')).toBe('https://example.test/join/abc');
+  });
+
+  it('prefers a kitchen other than the own one, else the own id', () => {
+    expect(pickKitchenId('me', [])).toBe('me');
+    expect(pickKitchenId('me', ['me'])).toBe('me');
+    expect(pickKitchenId('me', ['me', 'them'])).toBe('them');
+    expect(pickKitchenId('me', ['them', 'me'])).toBe('them');
   });
 });

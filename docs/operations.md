@@ -617,7 +617,8 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | Other users' `cooks` of the uid's recipes (`recipeOwnerId == uid`) | Kept, anonymised: `recipeOwnerId` becomes `deleted-user`, as for suggestions on own recipes. Their cook photos are theirs and untouched |
 
 | `collections` with `ownerUid == uid` (RL-226) | Deleted. Exported whole (name and recipe ids) |
-| `kitchens/{uid}` (RL-226) | Deleted only when `ownerUid == uid` and `memberUids == [uid]`. Otherwise skipped and listed as `SKIPPED` in the dry run and again after the re-check, and the erase exits 3 (not 0) so it cannot be missed: do not delete a kitchen others share (RL-238 decides what to do). Exported with any other uid aliased. Print counts only, never list contents |
+| `kitchenInvites` with `ownerUid == uid` (RL-238) | Deleted. Exported with the kitchen id aliased if another's |
+| `kitchens/{uid}` and `kitchens` whose `memberUids` hold the uid (RL-226, RL-238) | Owned alone (`memberUids == [uid]`): deleted. Owned with others: ownership passes to the longest-standing other member (first in `memberUids`) and the uid is removed; the document keeps its id, the erased uid, which no longer names an account (decision pending, backlog/DECISIONS.md). Belonging to someone else: the uid is removed. In all three, pantry items the uid added get `addedBy: deleted-user`, and a `joinCode` the uid left (`'<uid>:<code>'`) is deleted. The dry run labels each with the number of other members affected and shows another owner's kitchen as `kitchens/<another owner>`, so no other uid is printed. Only a kitchen whose `memberUids` is not a list is skipped (`SKIPPED`, exit 3). Exported: the own kitchen with any other uid aliased and `joinCode` dropped, plus a membership summary per kitchen (`kitchenMemberships`: id, role, member count, members aliased). Print counts only, never list contents |
 
 **Not covered**, so say so in the reply to an erasure request:
 

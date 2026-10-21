@@ -10,6 +10,9 @@ vi.mock('../../services/firestore', () => ({
   getOwnCooksInFamily: (...a: unknown[]) => getOwnCooksInFamily(...a),
 }));
 
+const resolveKitchenId = vi.fn();
+vi.mock('../../hooks/useKitchen', () => ({ resolveKitchenId: (...a: unknown[]) => resolveKitchenId(...a) }));
+
 import { ShopFamilySheet } from './ShopFamilySheet';
 
 const by = (name: string) => ({ uid: name, displayName: name });
@@ -33,6 +36,7 @@ beforeEach(() => {
     this.setAttribute('open', '');
   };
   getKitchenOnce.mockResolvedValue(null);
+  resolveKitchenId.mockImplementation(async (uid: string) => uid);
   getOwnCooksInFamily.mockResolvedValue([]);
 });
 
@@ -51,6 +55,13 @@ describe('ShopFamilySheet', () => {
     setup();
     expect(await screen.findByText('Bo · you made this')).toBeTruthy();
     expect(getOwnCooksInFamily).toHaveBeenCalledWith('u1', 'root');
+  });
+
+  it("reads the pantry of the household the user belongs to, not their own unused kitchen (RL-238)", async () => {
+    resolveKitchenId.mockResolvedValue('owner1');
+    setup();
+    await waitFor(() => expect(getKitchenOnce).toHaveBeenCalledWith('owner1'));
+    expect(resolveKitchenId).toHaveBeenCalledWith('u1');
   });
 
   it('the count leaves out pantry lines', async () => {
