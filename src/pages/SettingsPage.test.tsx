@@ -249,7 +249,7 @@ describe('Settings: layout (RL-093)', () => {
     user = member;
     render();
     expect(screen.queryByText(/sign-in methods/i)).toBeNull();
-    expect(screen.queryByText(/weigh/i)).toBeNull();
+    expect(screen.queryByText(/^weigh(?! spoons)/i)).toBeNull();
   });
 
   it('orders the groups Account, Notify me when, Appearance, Your data, Legal and ends with Sign out', () => {
@@ -384,10 +384,30 @@ describe('Settings: Sign out (moved from the profile, RL-093)', () => {
   });
 });
 
+describe('Settings: weigh spoons and liquids (RL-183)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('is an off switch by default, toggles on, and stores 1', async () => {
+    render();
+    const sw = screen.getByRole('switch', { name: /Weigh spoons and liquids/ });
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    await userEvent.click(sw);
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    expect(store.get('recipe-lab-weigh-volumes')).toBe('1');
+    await userEvent.click(sw);
+    expect(store.has('recipe-lab-weigh-volumes')).toBe(false);
+  });
+});
+
 describe('Settings: analytics switch', () => {
   it('is hidden when PostHog is not configured', () => {
     render();
-    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('switch', { name: /analytics/ })).toBeNull();
   });
 
   it('is a switch named for the setting, sized 44x26, and Space toggles it', async () => {
