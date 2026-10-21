@@ -18,6 +18,16 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-252 Check the import
+- Import a link whose recipe has a fraction amount (for example from a page with "3/4 cup"). After Read it, the "Check the import" screen shows the host and path with "Source kept", the title as an editable field with its emoji, and one row per ingredient.
+- A row whose amount could not be read is tinted, shows "?" in the amount pill and "Check" at the right; the summary says "One amount was unclear." Fix the amount: the tint and the line clear ("All amounts read clearly.").
+- Save and branch: the recipe is saved and the branch composer opens. Try Edit first too: the editor opens on the saved recipe. With a flag left, a "Save with 1 unclear amount?" confirm appears first and the amount stays blank in the editor.
+- Repeat with Snap a page: the pill says "Photo" with no "Source kept". Check the layout at 320px (title, rows wrapping, two footer buttons side by side).
+- Known gap: the flagged amount shows blank with "?", not the model's reading ("3/4 cup?" in the design), because the import forces unclear amounts to null.
+
+- Reviewer round fixed: a non-numeric amount ("1/2") is refused with "Amounts must be numbers like 0.5" and keeps its flag; footer buttons dropped to md so "Save and branch" fits (check 320 to 390px); flagged amounts announce "Amount unclear"; the confirm dialog cannot stick mid-save; the title input shows a solid border on focus.
+- Reviewer noted (ui, low): Close or editing the link discards review edits without asking; the flagged row shifts about 4px when the flag clears; at 320px the name input on a flagged row is about 100px wide; the title input scrolls rather than wraps for long titles.
+
 ### RL-250 Create tab import tiles
 - Open `/new` signed in: under the sentence sit two tiles side by side, Paste a link (sage) and Snap a page (terracotta, camera). The old "Add from a link" row is gone. Check both fit side by side with nothing clipped at 320px and 390px.
 - Paste a link opens `/import`; Snap a page opens `/import?mode=photo`. Open a link preview, then use the browser to go to `?mode=photo`: no stale preview.

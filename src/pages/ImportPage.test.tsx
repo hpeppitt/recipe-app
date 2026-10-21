@@ -44,7 +44,9 @@ function draftOf(title: string, uncertain = 0): ImportDraft {
   const { id, parentId, rootId, depth, createdBy, collaborators, prompt, chatHistory, createdAt, updatedAt, ...rest } = makeRecipe({
     title,
     totalTime: 35,
-    ingredients: [makeIngredient('chicken'), makeIngredient('salt'), makeIngredient('stock')],
+    ingredients: [makeIngredient('chicken'), makeIngredient('salt'), makeIngredient('stock')].map((i, n) =>
+      n < uncertain ? { ...i, amount: null, uncertain: true } : i
+    ),
     instructions: [1, 2].map((step) => ({ step, text: `Step ${step}`, group: null })),
   });
   return { recipe: { ...rest, importedFrom: PAGE }, uncertainCount: uncertain, error: null };
@@ -77,6 +79,9 @@ const status = () => document.querySelector('p[role="status"]')!.textContent;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  // jsdom has no <dialog> modal support.
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
   clearPublishedWindow();
   getAllPublishedRecipes.mockResolvedValue([]);
   publishRecipe.mockResolvedValue(undefined);
@@ -110,18 +115,18 @@ describe('ImportPage', () => {
     expect(status()).toBe('Reading the page…');
     expect(field().readOnly).toBe(true);
     expect(field().disabled).toBe(false);
-    await screen.findByRole('region', { name: 'Recipe preview' });
+    await screen.findByRole('region', { name: 'Check the import' });
     expect(importRecipeFromUrl).toHaveBeenCalledWith(PAGE);
     expect(status()).toBe('Read Chicken Stew, 3 ingredients');
-    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Chicken Stew' }));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: 'Check the import' }));
   });
 
   it('editing the link after a read clears the preview', async () => {
     render();
     readLink();
-    await screen.findByRole('region', { name: 'Recipe preview' });
+    await screen.findByRole('region', { name: 'Check the import' });
     fireEvent.change(field(), { target: { value: `${PAGE}x` } });
-    expect(screen.queryByRole('region', { name: 'Recipe preview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Check the import' })).toBeNull();
   });
 
   it('shows a spinner, not the form, while auth is loading', () => {
@@ -130,28 +135,83 @@ describe('ImportPage', () => {
     expect(screen.getByRole('status', { name: 'Loading' })).toBeTruthy();
   });
 
-  it('shows the preview with counts, time and host, and the uncertain line', async () => {
+  it('shows the review with the source, editable title, rows, flags and summary', async () => {
     importRecipeFromUrl.mockResolvedValue(draftOf('Chicken Stew', 2));
     render();
     readLink();
-    const card = await screen.findByRole('region', { name: 'Recipe preview' });
-    expect(card.textContent).toContain('Chicken Stew');
-    expect(card.textContent).toContain('3 ingredients · 2 steps · 35 min');
-    expect(card.textContent).toContain('seriouseats.com');
-    expect(card.textContent).toContain('2 amounts were unclear. You can fix them after saving.');
+    const review = await screen.findByRole('region', { name: 'Check the import' });
+    expect((screen.getByRole('textbox', { name: 'Recipe title' }) as HTMLInputElement).value).toBe('Chicken Stew');
+    expect(review.textContent).toContain('seriouseats.com/chicken-stew');
+    expect(review.textContent).toContain('Source kept');
+    expect(review.textContent).toContain('3 ingredients, 2 steps read. 2 amounts were unclear.');
+    expect(review.textContent!.match(/Check(?!\s*the)/g)).toHaveLength(2);
+    expect((screen.getByRole('textbox', { name: 'Ingredient 1 amount' }) as HTMLInputElement).value).toBe('');
+    expect((screen.getByRole('textbox', { name: 'Ingredient 3 amount' }) as HTMLInputElement).value).toBe('1');
     expect(screen.queryByRole('region', { name: 'Already in the library' })).toBeNull();
-    expect(screen.getAllByRole('button', { name: /Save as a new original|Add to/ }).map((b) => b.textContent)).toEqual([
-      'Save as a new original',
-    ]);
+    expect(screen.getByRole('button', { name: 'Edit first' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save and branch' })).toBeTruthy();
   });
 
-  it('says One amount for a single unclear amount and nothing when none', async () => {
+  it('says All amounts read clearly with no flags, and One amount for a single flag', async () => {
+    render();
+    readLink();
+    expect((await screen.findByRole('region', { name: 'Check the import' })).textContent).toContain('All amounts read clearly.');
+    importRecipeFromUrl.mockResolvedValue(draftOf('Chicken Stew', 1));
+    fireEvent.change(field(), { target: { value: `${PAGE}x` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Check the import' }).textContent).toContain('One amount was unclear.'));
+  });
+
+  it('editing a flagged amount clears its flag and the summary', async () => {
     importRecipeFromUrl.mockResolvedValue(draftOf('Chicken Stew', 1));
     render();
     readLink();
-    expect((await screen.findByRole('region', { name: 'Recipe preview' })).textContent).toContain(
-      'One amount was unclear. You can fix it after saving.'
-    );
+    const review = await screen.findByRole('region', { name: 'Check the import' });
+    expect(review.textContent).toContain('One amount was unclear.');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Ingredient 1 amount' }), { target: { value: '0.75' } });
+    expect(review.textContent).toContain('All amounts read clearly.');
+    // No flags left: Save and branch saves at once, with the typed amount and the edited title.
+    fireEvent.change(screen.getByRole('textbox', { name: 'Recipe title' }), { target: { value: 'Better Stew' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    await waitFor(() => expect(publishRecipe).toHaveBeenCalled());
+    const saved = publishRecipe.mock.calls[0][0] as Recipe;
+    expect(saved.title).toBe('Better Stew');
+    expect(saved.ingredients[0].amount).toBe(0.75);
+    expect('uncertain' in saved.ingredients[0]).toBe(false);
+  });
+
+  it('with a flag left, asks first; Cancel saves nothing and Save keeps the amount null', async () => {
+    importRecipeFromUrl.mockResolvedValue(draftOf('Chicken Stew', 1));
+    render();
+    readLink();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit first' }));
+    const dialog = await screen.findByRole('dialog', { hidden: true });
+    expect(dialog.textContent).toContain('Save with 1 unclear amount?');
+    expect(dialog.textContent).toContain('It stays blank until you fill it in.');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel', hidden: true }));
+    expect(publishRecipe).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit first' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save', hidden: true }));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/edit\|null$/));
+    expect((publishRecipe.mock.calls[0][0] as Recipe).ingredients[0].amount).toBeNull();
+  });
+
+  it('refuses a typed amount that is not a number, keeping what was typed', async () => {
+    render();
+    readLink();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Ingredient 1 amount' }), { target: { value: '1/2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Amounts must be numbers');
+    expect((screen.getByRole('textbox', { name: 'Ingredient 1 amount' }) as HTMLInputElement).value).toBe('1/2');
+    expect(publishRecipe).not.toHaveBeenCalled();
+  });
+
+  it('Save and branch saves a new original and opens the branch composer', async () => {
+    render();
+    readLink();
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and branch' }));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/vary\|null$/));
+    expect(publishRecipe.mock.calls[0][0]).toMatchObject({ parentId: null, depth: 0, importedFrom: PAGE });
   });
 
   it('offers Add to family first when the library has the same dish, and saves it as a branch', async () => {
@@ -161,10 +221,6 @@ describe('ImportPage', () => {
     const notice = await screen.findByRole('region', { name: 'Already in the library' });
     expect(notice.textContent).toContain("There's already a Chicken Stew family with 1 version");
     expect(notice.textContent).toContain('Ana');
-    expect(screen.getAllByRole('button', { name: /Save as a new original|Add to/ }).map((b) => b.textContent)).toEqual([
-      'Add to Chicken Stew family',
-      'Save as a new original',
-    ]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Add to Chicken Stew family' }));
     await waitFor(() => expect(probe()).toMatch(/^\/recipe\//));
@@ -173,11 +229,11 @@ describe('ImportPage', () => {
     expect(probe()).toBe(`/recipe/${saved.id}|{"saved":"cloud","note":null}`);
   });
 
-  it('Save as a new original beside a family match saves an original', async () => {
+  it('Edit first beside a family match saves an original', async () => {
     await db.recipes.add(makeRecipe({ id: 'root', title: 'Chicken Stew' }));
     render();
     readLink();
-    fireEvent.click(await screen.findByRole('button', { name: 'Save as a new original' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit first' }));
     await waitFor(() => expect(publishRecipe).toHaveBeenCalled());
     expect(publishRecipe.mock.calls[0][0]).toMatchObject({ parentId: null, depth: 0, importedFrom: PAGE });
   });
@@ -187,16 +243,16 @@ describe('ImportPage', () => {
     publishRecipe.mockReturnValue(new Promise((_, reject) => (fail = reject)));
     render();
     readLink();
-    const button = await screen.findByRole('button', { name: 'Save as a new original' });
+    const button = await screen.findByRole('button', { name: 'Edit first' });
     fireEvent.click(button);
     await waitFor(() => expect(button.textContent).toBe('Saving…'));
     expect(button.getAttribute('aria-disabled')).toBe('true');
-    expect(button.parentElement!.getAttribute('aria-busy')).toBe('true');
+    expect(button.parentElement!.parentElement!.getAttribute('aria-busy')).toBe('true');
     fail(new Error('offline'));
     expect((await screen.findByRole('alert')).textContent).toBe(
       "Couldn't save the recipe. Check your connection and try again."
     );
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Save as a new original' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit first' }));
     expect(await db.recipes.count()).toBe(0);
     expect(probe()).toBe('/import|null');
   });
@@ -230,9 +286,9 @@ describe('ImportPage photo mode (RL-251)', () => {
       { route: '/import' }
     );
     readLink();
-    await screen.findByRole('region', { name: 'Recipe preview' });
+    await screen.findByRole('region', { name: 'Check the import' });
     fireEvent.click(screen.getByText('to photo'));
-    expect(screen.queryByRole('region', { name: 'Recipe preview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Check the import' })).toBeNull();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Snap a page');
   });
 
@@ -265,16 +321,18 @@ describe('ImportPage photo mode (RL-251)', () => {
     await screen.findByAltText('Attached photo 2 of 2');
     fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
     expect(status()).toBe('Reading the photos…');
-    const card = await screen.findByRole('region', { name: 'Recipe preview' });
+    const card = await screen.findByRole('region', { name: 'Check the import' });
     expect(importRecipeFromPhotos).toHaveBeenCalledWith([
       { mimeType: 'image/jpeg', base64: `${B64}0` },
       { mimeType: 'image/jpeg', base64: `${B64}1` },
     ]);
     expect(card.textContent).toContain('Photo');
-    expect(card.textContent).toContain('One amount was unclear. You can fix it after saving.');
+    expect(card.textContent).toContain('One amount was unclear.');
+    expect(card.textContent).not.toContain('Source kept');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save as a new original' }));
-    await waitFor(() => expect(probe()).toMatch(/^\/recipe\//));
+    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save', hidden: true }));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/vary/));
     const saved = publishRecipe.mock.calls[0][0] as Recipe;
     expect(saved.prompt).toBe('Imported from a photo');
     expect('importedFrom' in saved).toBe(false);
@@ -306,8 +364,8 @@ describe('ImportPage photo mode (RL-251)', () => {
     pick(file(1), file(2));
     await screen.findByAltText('Attached photo 2 of 2');
     fireEvent.click(screen.getByRole('button', { name: 'Read it' }));
-    await screen.findByRole('region', { name: 'Recipe preview' });
+    await screen.findByRole('region', { name: 'Check the import' });
     fireEvent.click(screen.getByRole('button', { name: 'Remove photo 2' }));
-    expect(screen.queryByRole('region', { name: 'Recipe preview' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Check the import' })).toBeNull();
   });
 });

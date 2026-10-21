@@ -125,3 +125,36 @@ export function toImportDraft(response: string, url: string): ImportDraft {
     error: null,
   };
 }
+
+/** An ingredient on the review screen (RL-252): fields as typed, `flagged` while its amount is unread. */
+export type ReviewRow = { amount: string; unit: string; name: string; flagged: boolean; source: ImportedIngredient };
+
+export function toReviewRows(ingredients: ImportedIngredient[]): ReviewRow[] {
+  return ingredients.map((i) => ({
+    amount: i.amount === null ? '' : String(i.amount),
+    unit: i.unit ?? '',
+    name: i.name,
+    flagged: i.uncertain === true,
+    source: i,
+  }));
+}
+
+/** Rows whose typed amount is not a number: the review refuses to save them, as the editor does, rather than drop what was typed. */
+export function badAmountRows(rows: ReviewRow[]): number[] {
+  return rows.flatMap((r, i) => (r.amount.trim() !== '' && !Number.isFinite(Number(r.amount)) ? [i] : []));
+}
+
+/** Back to ingredients: an empty or non-numeric amount is null, never a guess. Notes and group are kept. */
+export function fromReviewRows(rows: ReviewRow[]): ImportedIngredient[] {
+  return rows.map(({ amount, unit, name, source }) => {
+    const n = amount.trim() === '' ? NaN : Number(amount);
+    return { ...source, amount: Number.isFinite(n) ? n : null, unit: unit.trim() || null, name, uncertain: undefined };
+  });
+}
+
+/** "8 ingredients, 6 steps read. One amount was unclear." (RL-252) */
+export function reviewSummary(ingredients: number, steps: number, flagged: number): string {
+  const read = `${ingredients} ${ingredients === 1 ? 'ingredient' : 'ingredients'}, ${steps} ${steps === 1 ? 'step' : 'steps'} read.`;
+  if (flagged === 0) return `${read} All amounts read clearly.`;
+  return `${read} ${flagged === 1 ? 'One amount was' : `${flagged} amounts were`} unclear.`;
+}

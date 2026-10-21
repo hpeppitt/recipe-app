@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, importHost, normalizeImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
+import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, badAmountRows, fromReviewRows, importHost, reviewSummary, toReviewRows, normalizeImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
 import { makeIngredient, makeRecipe } from '../test/factories';
 
 describe('normalizeImportUrl', () => {
@@ -121,5 +121,42 @@ describe('toImportDraft', () => {
     ]) {
       expect(toImportDraft(JSON.stringify(over), SOURCE)).toEqual(failed);
     }
+  });
+});
+
+describe('import review rows (RL-252)', () => {
+  const ing = (over: object) => ({ amount: 2, unit: 'cup', name: 'flour', notes: 'sifted', group: null, ...over });
+
+  it('round-trips rows, keeps notes and group, and drops the uncertain flag', () => {
+    const out = fromReviewRows(toReviewRows([ing({}), ing({ amount: null, unit: null, uncertain: true })]));
+    expect(out[0]).toMatchObject({ amount: 2, unit: 'cup', notes: 'sifted' });
+    expect(out[1]).toMatchObject({ amount: null, unit: null });
+    expect(out.every((i) => i.uncertain === undefined)).toBe(true);
+  });
+
+  it('flags only uncertain rows, with a blank amount', () => {
+    const rows = toReviewRows([ing({}), ing({ amount: null, uncertain: true })]);
+    expect(rows.map((r) => r.flagged)).toEqual([false, true]);
+    expect(rows[1].amount).toBe('');
+  });
+
+  it('turns blank and unparseable amounts into null, never a guess', () => {
+    const [row] = toReviewRows([ing({})]);
+    expect(fromReviewRows([{ ...row, amount: '' }])[0].amount).toBeNull();
+    expect(fromReviewRows([{ ...row, amount: 'abc' }])[0].amount).toBeNull();
+    expect(fromReviewRows([{ ...row, amount: '0.75' }])[0].amount).toBe(0.75);
+  });
+
+  it('finds typed amounts that are not numbers', () => {
+    const rows = toReviewRows([ing({}), ing({}), ing({ amount: null, uncertain: true })]);
+    rows[0].amount = '1/2';
+    rows[1].amount = '1.5';
+    expect(badAmountRows(rows)).toEqual([0]);
+  });
+
+  it('words the summary', () => {
+    expect(reviewSummary(8, 6, 1)).toBe('8 ingredients, 6 steps read. One amount was unclear.');
+    expect(reviewSummary(8, 6, 3)).toBe('8 ingredients, 6 steps read. 3 amounts were unclear.');
+    expect(reviewSummary(1, 1, 0)).toBe('1 ingredient, 1 step read. All amounts read clearly.');
   });
 });
