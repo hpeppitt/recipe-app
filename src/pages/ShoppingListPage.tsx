@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useKitchen } from '../hooks/useKitchen';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { formatLineAmount, groupByAisle, listSummary, shareText, splitByPantry } from '../lib/shopping';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Button } from '../components/ui/Button';
@@ -22,6 +23,7 @@ function sentence(names: string[]): string {
 export function ShoppingListPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [params, setParams] = useSearchParams();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { kitchen, loading, error, toggleLine, removeSource, boughtItAll } = useKitchen();
   const [showAuth, setShowAuth] = useState(false);
@@ -35,6 +37,33 @@ export function ShoppingListPage() {
     return () => clearTimeout(t);
   }, [toast]);
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
+  // Shop mode is a view of this page (?mode=shop, written with replace so a reload keeps it).
+  const shop = params.get('mode') === 'shop' && verified && !!kitchen && kitchen.shopping.length > 0;
+  const awake = useWakeLock(shop);
+  const doneRef = useRef<HTMLButtonElement>(null);
+  const allDoneRef = useRef<HTMLButtonElement>(null);
+  const focusRef = useRef<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const shopBtnRef = useRef<HTMLButtonElement>(null);
+  const wasShop = useRef(shop);
+  useEffect(() => {
+    if (wasShop.current !== shop) (shop ? doneRef : shopBtnRef).current?.focus();
+    wasShop.current = shop;
+  }, [shop]);
+  // After a tick settles, focus the next unticked row (or All done) once the list has re-rendered.
+  useEffect(() => {
+    const id = focusRef.current;
+    if (!id || pendingId) return;
+    const el =
+      id === 'done'
+        ? allDoneRef.current
+        : [...document.querySelectorAll<HTMLInputElement>('input[data-line]')].find((i) => i.dataset.line === id);
+    if (el) {
+      el.focus();
+      focusRef.current = null;
+    }
+  });
+  const setShop = (on: boolean) => setParams(on ? { mode: 'shop' } : {}, { replace: true });
 
   // useKitchen drops an action started during a write, so lock every control until it settles.
   const run = async (p: () => Promise<void>) => {
@@ -49,6 +78,8 @@ export function ShoppingListPage() {
   };
 
   const { toBuy, inPantry } = kitchen ? splitByPantry(kitchen.shopping, kitchen.pantry) : { toBuy: [], inPantry: [] };
+  const order = groupByAisle(toBuy.filter((l) => !l.done)).flatMap((g) => g.lines.map((l) => l.id));
+  const left = toBuy.filter((l) => !l.done).length;
   const sources = new Map<string, { emoji: string; title: string }>();
   kitchen?.shopping.forEach((l) => l.sources.forEach((s) => sources.set(s.recipeId, s)));
 
@@ -66,7 +97,12 @@ export function ShoppingListPage() {
     }
   };
 
-  const header = (
+  const header = shop ? (
+    <header className="flex items-center justify-between px-3 pt-[50px]">
+      <Button ref={doneRef} variant="secondary" onClick={() => setShop(false)}>Done</Button>
+      <p role="status" aria-atomic="true" className="px-3 text-[15px] font-semibold text-text-primary">{left} left</p>
+    </header>
+  ) : (
     <header className="flex items-center justify-between px-3 pt-[50px]">
       <IconButton
         variant="flat"
@@ -79,6 +115,44 @@ export function ShoppingListPage() {
       )}
     </header>
   );
+  const renderLine = (l: (typeof toBuy)[number]) => {
+    const amt = formatLineAmount(l);
+    return (
+      <li key={l.id} className="border-b border-divider">
+        <label className={`flex items-center gap-3 ${shop ? 'min-h-14' : 'py-[9px]'} ${pendingId === l.id ? 'opacity-60' : ''}`}>
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            data-line={l.id}
+            checked={l.done}
+            // Shop mode locks only the row being written; the hook drops an overlapping write (see QA.md).
+            disabled={shop ? pendingId === l.id : busy}
+            aria-label={amt ? `${l.name}, ${amt}` : l.name}
+            onChange={async (e) => {
+              const checked = e.target.checked;
+              const i = order.indexOf(l.id);
+              focusRef.current = shop && checked ? (order[i + 1] ?? order[i - 1] ?? 'done') : null;
+              setPendingId(l.id);
+              await run(() => toggleLine(l.id, checked));
+              setPendingId(null);
+            }}
+          />
+          <span
+            aria-hidden="true"
+            className={`flex shrink-0 items-center justify-center rounded-full text-surface peer-focus-visible:outline-2 peer-focus-visible:outline-primary-500 ${shop ? 'size-10' : 'size-[26px]'} ${l.done ? 'bg-accent-2-600' : 'shadow-[inset_0_0_0_2px_var(--color-neutral-600)]'}`}
+          >
+            {l.done && <Check className={shop ? 'size-6' : 'size-4'} />}
+          </span>
+          <span className={shop ? 'flex min-w-0 flex-1 flex-col py-1' : 'contents'}>
+            <span className={`min-w-0 flex-1 break-words ${shop ? 'text-[22px]' : 'text-[15px]'} ${l.done ? 'text-neutral-700 line-through' : 'text-text-primary'}`}>{l.name}</span>
+            {amt && <span className={`${shop ? 'text-[22px]' : 'text-[13px]'} font-semibold text-text-primary`}>{amt}</span>}
+          </span>
+          {!shop && <span aria-hidden="true">{l.sources.map((s) => s.emoji).filter((e, i, a) => a.indexOf(e) === i).join('')}</span>}
+        </label>
+      </li>
+    );
+  };
+  const aisleHeading = (a: string, cls = '') => <h2 className={`${shop ? 'text-[14px]' : 'text-xs'} font-bold uppercase text-neutral-700 ${cls}`}>{a}</h2>;
   const title = <h1 className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Shopping list</h1>;
 
   let content;
@@ -120,7 +194,7 @@ export function ShoppingListPage() {
   } else {
     content = (
       <>
-        <p className="px-[22px] pt-1 text-[13px] text-neutral-700">{listSummary({ toBuy, inPantry })}</p>
+        {!shop && <p className="px-[22px] pt-1 text-[13px] text-neutral-700">{listSummary({ toBuy, inPantry })}</p>}
         {error && <p role="alert" className="px-[22px] pt-2 text-[13px] text-danger-600">{error}</p>}
         {kitchen.shopping.length === 0 ? (
           <EmptyState
@@ -132,7 +206,7 @@ export function ShoppingListPage() {
           />
         ) : (
           <>
-            <ul className="flex gap-2 overflow-x-auto px-[22px] pt-[14px]" aria-label="Recipes on the list">
+            {!shop && <ul className="flex gap-2 overflow-x-auto px-[22px] pt-[14px]" aria-label="Recipes on the list">
               {[...sources].map(([id, s], i) => (
                 <li key={id} className={`flex h-[34px] max-w-[70vw] shrink-0 items-center rounded-full pl-3 text-[13px] font-semibold ${CHIP_TINTS[i % 2]}`}>
                   <span className="truncate">{s.emoji} {s.title}</span>
@@ -152,54 +226,40 @@ export function ShoppingListPage() {
                   <Plus className="size-4" />
                 </Link>
               </li>
-            </ul>
+            </ul>}
             <div className="space-y-[14px] px-[22px] pt-4">
-              {groupByAisle(toBuy).map((g) => (
+              {groupByAisle(shop ? toBuy.filter((l) => !l.done) : toBuy).map((g) => (
                 <section key={g.aisle} aria-label={g.aisle}>
-                  <h2 className="text-xs font-bold uppercase text-neutral-700">{g.aisle}</h2>
-                  <ul>
-                    {g.lines.map((l) => {
-                      const amt = formatLineAmount(l);
-                      return (
-                        <li key={l.id} className="border-b border-divider">
-                          <label className="flex items-center gap-3 py-[9px]">
-                            <input
-                              type="checkbox"
-                              className="peer sr-only"
-                              checked={l.done}
-                              disabled={busy}
-                              aria-label={amt ? `${l.name}, ${amt}` : l.name}
-                              onChange={(e) => run(() => toggleLine(l.id, e.target.checked))}
-                            />
-                            <span
-                              aria-hidden="true"
-                              className={`flex size-[26px] shrink-0 items-center justify-center rounded-full text-surface peer-focus-visible:outline-2 peer-focus-visible:outline-primary-500 ${l.done ? 'bg-accent-2-600' : 'shadow-[inset_0_0_0_2px_var(--color-neutral-400)]'}`}
-                            >
-                              {l.done && <Check className="size-4" />}
-                            </span>
-                            <span className={`min-w-0 flex-1 break-words text-[15px] ${l.done ? 'text-neutral-700 line-through' : 'text-text-primary'}`}>{l.name}</span>
-                            {amt && <span className="text-[13px] font-semibold text-text-primary">{amt}</span>}
-                            <span aria-hidden="true">{l.sources.map((s) => s.emoji).filter((e, i, a) => a.indexOf(e) === i).join('')}</span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  {aisleHeading(g.aisle)}
+                  <ul>{g.lines.map(renderLine)}</ul>
                 </section>
               ))}
+              {shop && left === 0 && (
+                <div className="flex flex-col items-center gap-3 py-6 text-center">
+                  <span aria-hidden="true" className="flex size-14 items-center justify-center rounded-full bg-accent-2-600 text-surface"><Check className="size-8" /></span>
+                  <p className="font-heading text-[22px] text-text-primary">All done</p>
+                  <Button ref={allDoneRef} variant="secondary" onClick={() => setShop(false)}>Done</Button>
+                </div>
+              )}
+              {shop && toBuy.some((l) => l.done) && (
+                <section aria-label="Got it">
+                  {aisleHeading(`Got it (${toBuy.filter((l) => l.done).length})`, 'mt-6')}
+                  <ul>{toBuy.filter((l) => l.done).map(renderLine)}</ul>
+                </section>
+              )}
             </div>
-            {inPantry.length > 0 && (
+            {!shop && inPantry.length > 0 && (
               <p className="mx-[22px] mt-4 flex items-center gap-2 rounded-[20px] bg-accent-2-100 px-[14px] py-[10px] text-[13px] text-accent-2-900">
                 <Refrigerator className="size-4 shrink-0" />
                 {sentence(inPantry.map((l) => l.name))}
               </p>
             )}
-            <div className="flex gap-[10px] px-5 pb-7 pt-3">
-              {/* Shop mode (RL-217) has no route yet: focusable but inert. */}
+            {!shop && <div className="flex gap-[10px] px-5 pb-7 pt-3">
               <button
+                ref={shopBtnRef}
                 type="button"
-                aria-disabled="true"
-                aria-label="Shop mode (Soon)"
+                disabled={busy}
+                onClick={() => setShop(true)}
                 className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full font-heading text-[15px] text-text-primary shadow-[inset_0_0_0_2px_var(--color-divider)]"
               >
                 <Store className="size-5" />
@@ -211,7 +271,7 @@ export function ShoppingListPage() {
                   Bought it all
                 </Button>
               )}
-            </div>
+            </div>}
           </>
         )}
         <ConfirmDialog
@@ -242,6 +302,7 @@ export function ShoppingListPage() {
     <div className="mx-auto min-h-dvh w-full max-w-lg bg-surface">
       {header}
       {title}
+      {shop && !awake && <p role="status" className="px-[22px] pt-1 text-[12px] text-text-secondary">Your screen may still dim.</p>}
       {content}
       <div role="status" className={toast ? 'fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-border bg-surface-secondary px-4 py-3 text-sm font-medium text-text-primary shadow-lg' : 'sr-only'}>
         {toast}

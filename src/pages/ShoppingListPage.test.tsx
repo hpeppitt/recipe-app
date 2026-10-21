@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { renderWithProviders } from '../test/renderWithProviders';
 
@@ -121,9 +121,73 @@ describe('ShoppingListPage (RL-216)', () => {
     await waitFor(() => expect(boughtItAll).toHaveBeenCalledTimes(1));
   });
 
-  it('shows Shop mode inactive', () => {
-    renderWithProviders(<ShoppingListPage />);
-    expect(screen.getByRole('button', { name: /Shop mode/ })).toHaveAttribute('aria-disabled', 'true');
+  describe('Shop mode (RL-217)', () => {
+    const wakeRequest = vi.fn(() => Promise.resolve({ release: () => Promise.resolve() }));
+    afterEach(() => {
+      delete (navigator as unknown as { wakeLock?: unknown }).wakeLock;
+    });
+    const withWakeLock = () => Object.defineProperty(navigator, 'wakeLock', { value: { request: wakeRequest }, configurable: true });
+
+    it('toggles with ?mode=shop and hides the normal extras', () => {
+      renderWithProviders(<ShoppingListPage />);
+      fireEvent.click(screen.getByRole('button', { name: /Shop mode/ }));
+      expect(screen.getByRole('button', { name: 'Done' })).toHaveFocus();
+      expect(screen.getByText('2 left')).toBeInTheDocument();
+      expect(screen.queryByRole('list', { name: 'Recipes on the list' })).toBeNull();
+      expect(screen.queryByText(/In your pantry/)).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Share' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Bought it all' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      expect(screen.getByRole('button', { name: /Shop mode/ })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'Bought it all' })).toBeInTheDocument();
+    });
+
+    it('opens from the URL with larger type and targets, and ticked lines move to Got it', () => {
+      (hook.kitchen as { shopping: { done: boolean }[] }).shopping[0].done = true;
+      renderWithProviders(<ShoppingListPage />, { route: '/kitchen/list?mode=shop' });
+      expect(screen.getByText('1 left')).toBeInTheDocument();
+      expect(screen.getByText('Butter')).toHaveClass('text-[22px]');
+      expect(screen.getByRole('heading', { name: 'Dairy' })).toHaveClass('text-[14px]');
+      const got = screen.getByRole('region', { name: 'Got it' });
+      expect(within(got).getByRole('checkbox', { name: 'Onions, 2' })).toBeChecked();
+      expect(within(screen.getByRole('region', { name: 'Dairy' })).queryByRole('checkbox', { name: /Onions/ })).toBeNull();
+      expect(screen.getByText('Your screen may still dim.')).toBeInTheDocument();
+    });
+
+    it('announces N left as a status', () => {
+      renderWithProviders(<ShoppingListPage />, { route: '/kitchen/list?mode=shop' });
+      expect(screen.getByText('2 left')).toHaveAttribute('role', 'status');
+    });
+
+    it('shows All done with a Done button when nothing is left', () => {
+      (hook.kitchen as { shopping: { done: boolean }[] }).shopping.forEach((l) => (l.done = true));
+      renderWithProviders(<ShoppingListPage />, { route: '/kitchen/list?mode=shop' });
+      expect(screen.getByText('All done')).toBeInTheDocument();
+      expect(screen.getByText('0 left')).toBeInTheDocument();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Done' })[1]);
+      expect(screen.getByRole('button', { name: /Shop mode/ })).toBeInTheDocument();
+    });
+
+    it('locks only the row being written, then focuses the next unticked row', async () => {
+      let done!: () => void;
+      toggleLine.mockReturnValue(new Promise<void>((r) => (done = r)));
+      renderWithProviders(<ShoppingListPage />, { route: '/kitchen/list?mode=shop' });
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Butter, 2' }));
+      expect(screen.getByRole('checkbox', { name: 'Butter, 2' })).toBeDisabled();
+      expect(screen.getByRole('checkbox', { name: 'Onions, 2' })).not.toBeDisabled();
+      done();
+      await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Onions, 2' })).toHaveFocus());
+    });
+
+    it('requests the wake lock only in shop mode', async () => {
+      withWakeLock();
+      wakeRequest.mockClear();
+      renderWithProviders(<ShoppingListPage />);
+      expect(wakeRequest).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole('button', { name: /Shop mode/ }));
+      await waitFor(() => expect(wakeRequest).toHaveBeenCalledWith('screen'));
+      expect(screen.queryByText('Your screen may still dim.')).toBeNull();
+    });
   });
 
   it('shows the empty state, a skeleton, and the signed-out card', () => {
