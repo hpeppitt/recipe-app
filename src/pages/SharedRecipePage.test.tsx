@@ -176,7 +176,7 @@ describe('SharedRecipePage /shared/:id', () => {
       message: 'More heat',
       edits: [{ kind: 'general', from: '', to: 'More heat' }],
     });
-    expect((await screen.findByRole('status')).textContent).toBe('Sent to Ada Lovelace');
+    expect(await screen.findByText('Sent to Ada Lovelace')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1, name: 'Soup' })).toBeTruthy();
   });
 
@@ -306,7 +306,7 @@ describe('SharedRecipePage /shared/:id', () => {
     resolve();
     await waitFor(() => expect(submitMock).toHaveBeenCalledTimes(1));
     await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByText(/^Sent to/)).toBeNull();
   });
 });
 

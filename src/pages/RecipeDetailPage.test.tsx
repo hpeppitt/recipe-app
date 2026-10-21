@@ -5,6 +5,7 @@ import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeRecipe } from '../test/factories';
 import type { AppUser } from '../types/recipe';
+import type { AuthContextType } from '../contexts/AuthContext';
 
 let recipe = makeRecipe({ id: 'r1', title: 'Soup' });
 let ancestors: ReturnType<typeof makeRecipe>[] = [];
@@ -80,6 +81,15 @@ vi.mock('../hooks/useSuggestions', () => ({
     suggestions: suggestionRows ?? Array.from({ length: pending }, (_, i) => ({ id: `s${i}`, status: 'pending', suggestedBy: { uid: 'x' }, message: 'm', createdAt: 0 })), apply: applyMock, keepAsBranch: keepAsBranchMock, reject: rejectMock }),
   useSubmitSuggestion: () => ({ submit: (...a: unknown[]) => submitMock(...a) }),
   useSuggestionThread: () => ({ messages: [], error: null, send: vi.fn() }),
+}));
+
+vi.mock('../components/recipe/CookedSheet', () => ({
+  CookedSheet: ({ open, onClose }: { open: boolean; onClose: () => void }) =>
+    open ? (
+      <div role="dialog" aria-label="Cooked sheet">
+        <button onClick={onClose}>Close sheet</button>
+      </div>
+    ) : null,
 }));
 
 import { RecipeDetailPage } from './RecipeDetailPage';
@@ -670,7 +680,7 @@ describe('RecipeDetailPage footer', () => {
   const footerNames = () =>
     screen
       .getAllByRole('button')
-      .map((b) => b.textContent)
+      .map((b) => b.getAttribute('aria-label') ?? b.textContent)
       .filter((t) => t === 'Edit' || t === 'Suggest' || t === 'Branch this recipe');
 
   it('owner: Edit and Branch this recipe, no Suggest', () => {
@@ -849,5 +859,100 @@ describe('RecipeDetailPage suggestions', () => {
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Decline this suggestion?' })).getByRole('button', { name: 'Decline' }));
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't decline that suggestion. Please try again.");
     expect(rejectMock).toHaveBeenCalledWith('a');
+  });
+});
+
+describe('RecipeDetailPage Cooked (RL-198)', () => {
+  const steps = [1, 2, 3].map((step) => ({ step, text: `Do ${step}`, group: null }));
+  beforeEach(() => getPublishedRecipe.mockResolvedValue({ id: 'r1' }));
+  const show = (user: AppUser | null, auth?: Partial<AuthContextType>) => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup', instructions: steps });
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1', user, auth }
+    );
+  };
+  const sheet = () => screen.queryByRole('dialog', { name: 'Cooked sheet' });
+  const cookedBtn = () => screen.findByRole('button', { name: 'Cooked' });
+  const tick = (n: number) => fireEvent.click(screen.getByRole('checkbox', { name: `Do ${n}` }));
+
+  it('sits between Suggest and Branch, with icons hidden under 360px', async () => {
+    source = 'cloud';
+    show(fakeUser);
+    const btn = await cookedBtn();
+    const buttons = Array.from(btn.parentElement!.querySelectorAll('button'));
+    expect(buttons.slice(-3).map((b) => b.textContent)).toEqual(['Suggest', 'Cooked', 'BranchBranch this recipe']);
+    for (const b of buttons.slice(-3)) expect(b.querySelector('svg')!.getAttribute('class')).toMatch(/max-\[(359|399)px\]:hidden/);
+    expect(buttons[buttons.length - 1].getAttribute('aria-label')).toBe('Branch this recipe');
+  });
+
+  it('is hidden in local-only mode', () => {
+    show(fakeUser, { isConfigured: false });
+    expect(screen.queryByRole('button', { name: 'Cooked' })).toBeNull();
+  });
+
+  it('is hidden for an unpublished local recipe', async () => {
+    getPublishedRecipe.mockResolvedValue(null);
+    show(fakeUser);
+    await waitFor(() => expect(getPublishedRecipe).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByRole('button', { name: 'Cooked' })).toBeNull();
+    tick(3);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(sheet()).toBeNull();
+  });
+
+  it('shows for a published recipe the user owns locally, and opens the sheet', async () => {
+    source = 'local';
+    show(fakeUser);
+    fireEvent.click(await cookedBtn());
+    expect(sheet()).not.toBeNull();
+  });
+
+  it.each([['signed out', null], ['anonymous', anon]])('opens the sign-in sheet when %s', async (_n, u) => {
+    show(u);
+    fireEvent.click(await cookedBtn());
+    expect(screen.getByRole('heading', { name: 'Sign in to log a cook' })).toBeTruthy();
+    expect(sheet()).toBeNull();
+  });
+
+  it('offers the sheet once per visit, after a pause, when every step is ticked', async () => {
+    show(fakeUser);
+    await cookedBtn();
+    tick(3);
+    tick(2);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(sheet()).toBeNull();
+    tick(1);
+    expect(sheet()).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Close sheet' }));
+    tick(1); // untick
+    tick(1);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(sheet()).toBeNull();
+  });
+
+  it('opens nothing when a tick is undone within the pause', async () => {
+    show(fakeUser);
+    await cookedBtn();
+    tick(1);
+    tick(2);
+    tick(3);
+    tick(3);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(sheet()).toBeNull();
+  });
+
+  it('does not interrupt a signed-out reader', async () => {
+    show(null);
+    await cookedBtn();
+    tick(1);
+    tick(2);
+    tick(3);
+    await new Promise((r) => setTimeout(r, 500));
+    expect(sheet()).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Sign in to log a cook' })).toBeNull();
   });
 });

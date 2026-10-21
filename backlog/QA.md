@@ -1978,3 +1978,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Nothing reachable yet: RL-198 adds the entry point. Then check on a phone: nothing is picked at first and Save is disabled; Needs a tweak plus a note shows the Grow row (one line, ellipsised); Escape with a note asks before discarding. Emulator walk of a real save (and the cooks indexes) is still owed, as noted under RL-196.
 
 - Reviewer noted (low): after Grow the page navigates away, so the "Saved to your cook log" toast is not seen; the counter's live region may announce on each keystroke past 450 (check with VoiceOver); vote buttons at 320px not checked in a browser.
+
+### RL-198 Cooked in the recipe footer
+- **Do not release before RL-209 deploys the cooks rules and indexes: until then Cooked fails live** (the save is refused and the sheet shows its error).
+- At 320px and 390px, light and dark, on a recipe and on `/shared/<id>`: the footer shows Suggest (or Edit), Cooked, Branch this recipe on one line with no wrap; under 360px the Cooked icon is hidden and its text stays; on the recipe page Branch loses its icon under 400px and reads "Branch" under 360px (measured in headless Chromium at 320, 360 and 390, light and dark, no clipping or wrap). An unpublished local recipe shows no Cooked. Cooked opens the "You made it" sheet.
+- On another recipe, tick every method step: the sheet appears once, about half a second after the last tick; untick and tick again, it does not return. Signed out, ticking does nothing; tapping Cooked opens "Sign in to log a cook". With Firebase off (local-only) there is no Cooked button, and none on a hash share link.
+- Reviewer noted: the saved toast lives in a persistent `role="status"` region on both pages, so tests that look for one status now match by text.
+
+- Reviewer noted (low): the 320px footer was measured with a hand-copied harness (scratchpad), so later footer edits need a re-measure; the visible Branch label is "Branch" under 360px and "Branch this recipe" above. Pane-mode footer (wrapping by design) not measured.
