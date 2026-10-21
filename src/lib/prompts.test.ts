@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from './prompts';
+import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from './prompts';
 
 describe('system prompts', () => {
   it('tell the model how to use attached photos, once, in both prompts', () => {
@@ -11,5 +11,16 @@ describe('system prompts', () => {
       );
       expect(prompt).toContain('say in notes that the photos were not used');
     }
+  });
+});
+
+describe('IMPORT_SYSTEM_PROMPT', () => {
+  it('asks for the recipe as written, with unclear amounts flagged and never guessed', () => {
+    expect(IMPORT_SYSTEM_PROMPT).toContain('exactly as written');
+    expect(IMPORT_SYSTEM_PROMPT).toContain('Never invent an amount and never convert units');
+    expect(IMPORT_SYSTEM_PROMPT).toContain('set amount to null and uncertain to true');
+    expect(IMPORT_SYSTEM_PROMPT).toContain("Keep the source's title and the source's steps");
+    expect(IMPORT_SYSTEM_PROMPT).toContain('food emoji');
+    expect(IMPORT_SYSTEM_PROMPT).toContain('"uncertain"');
   });
 });

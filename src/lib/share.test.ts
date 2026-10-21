@@ -137,4 +137,27 @@ describe('share URL builders', () => {
     expect(decodeRecipeFromHash(hashOf({ ...validPayload(), createdBy: 'me' }))).toBeNull();
     expect(decodeRecipeFromHash(hashOf({ ...validPayload(), createdBy: { uid: 5 } }))).toBeNull();
   });
+
+  it('keeps importedFrom and importedVia when present and adds neither when absent', () => {
+    const via = { uid: 'u1', displayName: 'Ann' };
+    const imported = makeRecipe({ importedFrom: 'https://seriouseats.com/stew', importedVia: via });
+    const decoded = decodeRecipeFromHash(new URL(hashShareUrl(imported, ORIGIN)).hash);
+    expect(decoded?.importedFrom).toBe('https://seriouseats.com/stew');
+    expect(decoded?.importedVia).toEqual(via);
+
+    const plain = decodeRecipeFromHash(new URL(hashShareUrl(makeRecipe(), ORIGIN)).hash);
+    expect(plain).not.toHaveProperty('importedFrom');
+    expect(plain).not.toHaveProperty('importedVia');
+  });
+
+  it('drops an importedFrom that is not a bounded http(s) URL and keeps the rest of the link', () => {
+    for (const bad of ['javascript:alert(1)', 'data:text/html,x', `https://a.com/${'x'.repeat(2048)}`, 5]) {
+      const decoded = decodeRecipeFromHash(hashOf({ ...validPayload(), importedFrom: bad }));
+      expect(decoded?.title).toBe('Stew');
+      expect(decoded?.importedFrom).toBeUndefined();
+    }
+    expect(decodeRecipeFromHash(hashOf({ ...validPayload(), importedFrom: 'http://a.com/x' }))?.importedFrom).toBe(
+      'http://a.com/x'
+    );
+  });
 });

@@ -1914,3 +1914,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Settings > Appearance (signed in or out): turn on "Weigh spoons and liquids". Open a recipe with tbsp and ml: amounts read "≈ g" (390px, light and dark). Hover or long-press shows the original; scaling servings updates them and keeps them terracotta; counts ("2 eggs") are unchanged. Switch off: stored amounts return. The shared page and chat card follow the setting; Suggest mode always shows stored amounts.
 
 - Reviewer noted (low): the original volume is only in the row's title (hover/long-press) and screen-reader text; most touch browsers never show a title, so on a phone there may be no visible way to see "1 tbsp". A tap-to-reveal would be a follow-up. The title shows the scaled, converted volume, not the stored amount.
+
+### RL-185 Import from a link (service only)
+- No UI yet (RL-186). Nothing to see in the browser beyond the unit and service tests.
+- In RL-186's QA, the live call against a real recipe page (for example a Serious Eats recipe) must confirm that AI Logic accepts `responseSchema` together with the URL context tool. If it fails, the console shows "Link import failed for <host>" with the error; a 400 about tools and response schema means drop `generationConfig` from `importRecipeFromUrl` (backlog/DECISIONS.md, RL-185).
+- On that call, check an ingredient with a vague amount comes back with no amount and flagged, and the title and steps match the page.
+- By design a null amount without `uncertain` is accepted ("salt to taste"), so RL-186's review screen should treat every null amount as editable, not only flagged ones.
+- Drafts past the `firestore.rules` caps (title 200 characters, 100 ingredients, 100 steps) fail with the import message rather than saving and being refused later.
+
+- Reviewer noted (low): the private-host check is a suffix list, so a public name resolving to a private IP passes (moot: Google fetches the page). Page text can still fill title, notes and tags (React escapes it); keep imports behind RL-186's review screen. For RL-186: ImportedRecipeSchema (export-file import) drops importedFrom/importedVia, and any importedFrom read from Firestore must get the same http(s) and 2048 bound before it is used as an href.

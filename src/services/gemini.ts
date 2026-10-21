@@ -1,7 +1,8 @@
 import { getAI, getGenerativeModel, GoogleAIBackend, type ChatSession as AIChatSession } from 'firebase/ai';
 import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
-import { RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
-import { RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
+import { IMPORT_RESPONSE_SCHEMA, RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
+import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
+import { IMPORT_ERROR_MESSAGE, importHost, normalizeImportUrl, toImportDraft, type ImportDraft } from '../lib/linkImport';
 import { firebaseApp } from './firebase';
 import { captureAiGeneration } from './analytics';
 import type { GeneratedRecipe } from '../types/api';
@@ -117,4 +118,52 @@ export function createVariationChat(parentRecipe: Recipe): ChatSession {
   });
 
   return toChatSession(buildModel(getVariationSystemPrompt(parentJson)).startChat());
+}
+
+/** A link import is one AI Logic request; past this the page counts as unreadable. */
+export const IMPORT_TIMEOUT_MS = 30_000;
+
+/**
+ * Reads the recipe on one public page through AI Logic's URL context tool (RL-185).
+ *
+ * A one-shot call, not a chat: nothing here touches chat history or photos.
+ * Every failure, including a refused URL, resolves to the same message rather
+ * than throwing, so the URL never reaches an error report. Analytics get the
+ * same fields as a generation and no part of the URL.
+ */
+export async function importRecipeFromUrl(input: string): Promise<ImportDraft> {
+  const url = normalizeImportUrl(input);
+  if (!url) return { recipe: null, uncertainCount: 0, error: IMPORT_ERROR_MESSAGE };
+  try {
+    if (!firebaseApp) throw new Error('Firebase is not configured, so recipes cannot be imported.');
+    const startedAt = performance.now();
+    const ai = getAI(firebaseApp, { backend: new GoogleAIBackend() });
+    const model = getGenerativeModel(
+      ai,
+      {
+        model: MODEL,
+        systemInstruction: IMPORT_SYSTEM_PROMPT,
+        tools: [{ urlContext: {} }],
+        // Whether AI Logic accepts responseSchema alongside URL context is unconfirmed
+        // (backlog/DECISIONS.md, RL-185). The prompt asks for the same JSON, so
+        // toImportDraft still validates if the schema has to come off.
+        generationConfig: { responseMimeType: 'application/json', responseSchema: IMPORT_RESPONSE_SCHEMA },
+      },
+      { timeout: IMPORT_TIMEOUT_MS }
+    );
+    const result = await model.generateContent(url);
+    const draft = toImportDraft(result.response.text(), url);
+    captureAiGeneration({
+      model: MODEL,
+      sessionId: crypto.randomUUID(),
+      traceId: crypto.randomUUID(),
+      latency: (performance.now() - startedAt) / 1000,
+    });
+    return draft;
+  } catch (err) {
+    // Host and error name only: the path can identify what someone reads, and SDK
+    // error messages can embed the full URL. Console is not sent to telemetry.
+    console.warn('Link import failed for', importHost(url), err instanceof Error ? err.name : 'error');
+    return { recipe: null, uncertainCount: 0, error: IMPORT_ERROR_MESSAGE };
+  }
 }

@@ -24,20 +24,20 @@ import { Schema } from 'firebase/ai';
  * redundant.
  */
 
-const ingredientSchema = Schema.object({
-  properties: {
-    // Nullable rather than absent: an ingredient like "salt to taste" genuinely
-    // has no amount, and null says that where 0 would be a claim.
-    amount: Schema.number({ nullable: true }),
-    unit: Schema.string({ nullable: true }),
-    name: Schema.string(),
-    notes: Schema.string({ nullable: true }),
-    group: Schema.string({
-      nullable: true,
-      description: 'Subgroup heading, e.g. "For the sauce". Null when the recipe has no subgroups.',
-    }),
-  },
-});
+const ingredientProperties = {
+  // Nullable rather than absent: an ingredient like "salt to taste" genuinely
+  // has no amount, and null says that where 0 would be a claim.
+  amount: Schema.number({ nullable: true }),
+  unit: Schema.string({ nullable: true }),
+  name: Schema.string(),
+  notes: Schema.string({ nullable: true }),
+  group: Schema.string({
+    nullable: true,
+    description: 'Subgroup heading, e.g. "For the sauce". Null when the recipe has no subgroups.',
+  }),
+};
+
+const ingredientSchema = Schema.object({ properties: ingredientProperties });
 
 const instructionSchema = Schema.object({
   properties: {
@@ -47,7 +47,8 @@ const instructionSchema = Schema.object({
   },
 });
 
-const nutritionSchema = Schema.object({
+const nutritionSchema = (nullable: boolean) => Schema.object({
+  nullable,
   description: 'Per-serving estimates, not totals for the dish.',
   properties: {
     calories: Schema.number({ description: 'kcal per serving.' }),
@@ -57,27 +58,50 @@ const nutritionSchema = Schema.object({
   },
 });
 
-export const RECIPE_RESPONSE_SCHEMA = Schema.object({
+const recipeProperties = {
+  title: Schema.string(),
+  description: Schema.string(),
+  ingredients: Schema.array({ items: ingredientSchema }),
+  instructions: Schema.array({ items: instructionSchema }),
+  notes: Schema.array({
+    items: Schema.string(),
+    description: 'Technique, storage or variation tips.',
+  }),
+  prepTime: Schema.integer({ description: 'Minutes.' }),
+  cookTime: Schema.integer({ description: 'Minutes.' }),
+  totalTime: Schema.integer({ description: 'Minutes.' }),
+  servings: Schema.integer(),
+  difficulty: Schema.enumString({ enum: ['easy', 'medium', 'hard'] }),
+  tags: Schema.array({
+    items: Schema.string(),
+    description: 'Cuisine, dietary and meal-type labels.',
+  }),
+  emoji: Schema.string({ description: 'One food emoji for the recipe.' }),
+  nutrition: nutritionSchema(false),
+};
+
+export const RECIPE_RESPONSE_SCHEMA = Schema.object({ properties: recipeProperties });
+
+/**
+ * The link-import shape (RL-185): the recipe shape plus a per-ingredient
+ * `uncertain` flag, so an amount the page does not make clear comes back as
+ * `amount: null, uncertain: true` instead of a guess. Nutrition is nullable
+ * because a page rarely states it and the import must not invent it.
+ */
+export const IMPORT_RESPONSE_SCHEMA = Schema.object({
   properties: {
-    title: Schema.string(),
-    description: Schema.string(),
-    ingredients: Schema.array({ items: ingredientSchema }),
-    instructions: Schema.array({ items: instructionSchema }),
-    notes: Schema.array({
-      items: Schema.string(),
-      description: 'Technique, storage or variation tips.',
+    ...recipeProperties,
+    ingredients: Schema.array({
+      items: Schema.object({
+        properties: {
+          ...ingredientProperties,
+          uncertain: Schema.boolean({
+            description: 'True when the page does not make the amount clear; amount is then null.',
+          }),
+        },
+      }),
     }),
-    prepTime: Schema.integer({ description: 'Minutes.' }),
-    cookTime: Schema.integer({ description: 'Minutes.' }),
-    totalTime: Schema.integer({ description: 'Minutes.' }),
-    servings: Schema.integer(),
-    difficulty: Schema.enumString({ enum: ['easy', 'medium', 'hard'] }),
-    tags: Schema.array({
-      items: Schema.string(),
-      description: 'Cuisine, dietary and meal-type labels.',
-    }),
-    emoji: Schema.string({ description: 'One food emoji for the recipe.' }),
-    nutrition: nutritionSchema,
+    nutrition: nutritionSchema(true),
   },
 });
 
