@@ -1965,3 +1965,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Nothing to see in the app yet: rules only, in the repo, deployed by RL-209. Logging a cook needs the current Terms, like publishing, suggesting and replying, so a future Terms bump blocks cooks until the user re-accepts. Crediting a branch (`branchId`) only accepts the cook's own existing recipe. A cook can delete their cook even if their email verification lapses.
 
 - Reviewer noted (low): displayName is not tied to the profile (RL-196 takes it from the profile); cooks outlive a deleted recipe by design. At RL-209 deploy: confirm no live recipe lacks a string rootId, or it cannot be cooked.
+
+### RL-195 Pure cook helpers
+- Nothing to check in the browser: pure helpers in src/lib/cooks.ts, covered by unit tests. The UI tickets use them.

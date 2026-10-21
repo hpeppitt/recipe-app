@@ -81,3 +81,19 @@ export interface AppNotification {
   read: boolean;
   createdAt: number;
 }
+
+/** A public cook record (`cooks/{id}`); fields match isWellFormedCook in firestore.rules (RL-194). */
+export interface Cook {
+  id: string;
+  uid: string;
+  displayName: string | null;
+  recipeId: string;
+  rootId: string;
+  recipeOwnerId: string;
+  vote: 'again' | 'tweak';
+  /** At most 500 characters. */
+  note: string | null;
+  /** Set once, to the cook's own branch made from the note. */
+  branchId: string | null;
+  createdAt: number;
+}
