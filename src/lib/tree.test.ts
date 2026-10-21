@@ -154,22 +154,28 @@ describe('familySubtitle', () => {
     makeRecipe({ id: 'root', parentId: null, createdAt: march, createdBy: by('u1', 'Ada'), ...over });
   const child = (uid: string) => makeRecipe({ id: `c-${uid}`, parentId: 'root', createdBy: by(uid, null) });
 
-  it('counts versions and distinct cooks', () => {
+  it('counts versions and distinct people', () => {
     expect(familySubtitle([root(), child('u1'), child('u2')], now)).toBe(
-      '3 versions, 2 cooks, started by Ada in March'
+      '3 versions by 2 people, started by Ada in March'
     );
   });
 
   it('uses singulars', () => {
-    expect(familySubtitle([root()], now)).toBe('1 version, 1 cook, started by Ada in March');
+    expect(familySubtitle([root()], now)).toBe('1 version by 1 person, started by Ada in March');
+  });
+
+  it('adds distinct people who cooked, only above zero', () => {
+    expect(familySubtitle([root()], now, 61)).toBe('1 version by 1 person, cooked by 61, started by Ada in March');
+    expect(familySubtitle([root()], now, 1)).toContain('cooked by 1, started');
+    expect(familySubtitle([root()], now, 0)).not.toContain('cooked by');
   });
 
   it('drops a null name', () => {
-    expect(familySubtitle([root({ createdBy: by('u1', null) })], now)).toBe('1 version, 1 cook, started in March');
+    expect(familySubtitle([root({ createdBy: by('u1', null) })], now)).toBe('1 version by 1 person, started in March');
   });
 
   it('drops the month when createdAt is 0', () => {
-    expect(familySubtitle([root({ createdAt: 0 })], now)).toBe('1 version, 1 cook, started by Ada');
+    expect(familySubtitle([root({ createdAt: 0 })], now)).toBe('1 version by 1 person, started by Ada');
   });
 
   it('appends the year when it is not this year', () => {

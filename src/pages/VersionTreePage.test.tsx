@@ -55,6 +55,10 @@ vi.mock('../hooks/useKitchen', () => ({
 vi.mock('../services/firestore', () => ({
   getKitchenOnce: async () => null,
   getOwnCooksInFamily: async () => [],
+  getFamilyCooks: async () => [
+    { recipeId: 'v1', uid: 'a', createdAt: Date.now() },
+    { recipeId: 'v1', uid: 'b', createdAt: Date.now() },
+  ],
 }));
 
 import { VersionTreePage } from './VersionTreePage';
@@ -83,10 +87,15 @@ describe('VersionTreePage', () => {
     state.cloudError = false;
   });
 
+  it('adds the cooked-by people to the subtitle once the cooks load', async () => {
+    renderPage();
+    expect(await screen.findByText(/cooked by 2, started/)).toBeTruthy();
+  });
+
   it('shows the family title and subtitle across local and cloud versions', () => {
     renderPage();
     expect(screen.getByRole('heading', { level: 1, name: 'Soup' })).toBeTruthy();
-    expect(screen.getByText(/^3 versions, 2 cooks, started by Ada in /)).toBeTruthy();
+    expect(screen.getByText(/^3 versions by 2 people, started by Ada in /)).toBeTruthy();
   });
 
   it('shows the Tree and Timeline switch, and ?view=timeline draws the timeline', () => {
