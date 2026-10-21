@@ -81,3 +81,44 @@ export function tasteHeadline(cookCount: number, branchCount: number): string {
   const n = (c: number, w: string) => `${c} ${w}${c === 1 ? '' : 's'}`;
   return `Learned from ${n(cookCount, 'cook')} and ${n(branchCount, 'branch').replace('branchs', 'branches')}.`;
 }
+
+/** What `tasteProfiles/{uid}` holds. `askedAt` is epoch ms, or null if the user was never asked. */
+export interface TasteProfile {
+  avoids: string[];
+  hidden: string[];
+  askedAt: number | null;
+}
+
+const clean = (s: string) => s.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+/** Length in code points, which is what the cut below keeps within TASTE_TERM_MAX. */
+export const termLength = (s: string) => Array.from(s).length;
+const cut = (s: string) => Array.from(s).slice(0, TASTE_TERM_MAX).join('').trim();
+
+const dedupe = (terms: string[]) => {
+  const seen = new Set<string>();
+  return terms.filter((t) => t && !seen.has(t.toLowerCase()) && !!seen.add(t.toLowerCase()));
+};
+
+/** One avoid: case first (lower, then sentence), then one line, then at most 40 code points. Empty when nothing is left. */
+export function normaliseAvoid(raw: string): string {
+  const [first = '', ...rest] = Array.from(clean(raw.toLowerCase()));
+  return cut(first.toUpperCase() + rest.join(''));
+}
+
+/** Trimmed, one line, sentence case, deduped without regard to case, 40 code points each, at most 12 (the first win). */
+export function normaliseAvoids(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const terms = raw.filter((x): x is string => typeof x === 'string').map(normaliseAvoid);
+  return dedupe(terms).slice(0, TASTE_AVOID_MAX);
+}
+
+/**
+ * Hidden learned terms: strings only, one line, deduped without regard to case, at most 50 (the newest win).
+ * The rules do not check each element, so this is the only guard. A term over 40 code points is dropped, not cut,
+ * because a cut term would no longer match what `learnTaste` derives.
+ */
+export function normaliseHidden(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const terms = raw.filter((x): x is string => typeof x === 'string').map(clean);
+  return dedupe(terms.filter((t) => termLength(t) <= TASTE_TERM_MAX)).slice(-TASTE_HIDDEN_MAX);
+}

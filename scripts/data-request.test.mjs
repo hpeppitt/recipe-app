@@ -144,7 +144,7 @@ describe('resolveTarget', () => {
 
 describe('redactExport', () => {
   const body = {
-    profile: doc(`profiles/${U}`, {}), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), rateLimit: null, writeWindows: [], clientErrors: [],
+    profile: doc(`profiles/${U}`, {}), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), tasteProfile: doc(`tasteProfiles/${U}`, { avoids: ['Coriander'] }), rateLimit: null, writeWindows: [], clientErrors: [],
     recipes: {
       owned: [doc('recipes/r1', { createdBy: { uid: U, displayName: 'T' }, collaborators: [{ uid: O, displayName: 'Omar' }], collaboratorUids: [O] })],
       asCollaborator: [doc('recipes/r2', { createdBy: { uid: O, displayName: 'Omar' }, collaborators: [{ uid: U, displayName: 'T' }], collaboratorUids: [U] })],
@@ -173,6 +173,9 @@ describe('redactExport', () => {
     expect(r.follows[0].data.followerDisplayName).toBeNull();
     expect(r.notifications[0].data).toMatchObject({ recipientUid: U, fromUid: 'other-user-1', fromDisplayName: null });
     expect(r.cooks[0].data).toEqual({ uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: 'other-user-1', note: 'good' });
+  });
+  it('keeps the taste profile in the export', () => {
+    expect(r.tasteProfile).toEqual(body.tasteProfile);
   });
   it('aliases other members of the kitchen and keeps the collections whole', () => {
     expect(r.kitchen.data).toMatchObject({ ownerUid: U, memberUids: [U, 'other-user-1'] });
@@ -208,6 +211,7 @@ describe('buildErasePlan', () => {
     profile: doc(`profiles/${U}`, {}),
     termsAcceptance: doc(`termsAcceptance/${U}`, {}),
     notificationPrefs: doc(`notificationPrefs/${U}`, {}),
+    tasteProfile: doc(`tasteProfiles/${U}`, {}),
     rateLimit: null,
     writeWindows: [doc(`writeWindows/${U}_reply`, {})],
     ownRecipes: [doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] })],
@@ -326,7 +330,7 @@ describe('buildErasePlan', () => {
   it('deletes everything else once', () => {
     expect(deletes).toEqual(expect.arrayContaining([
       'recipes/r1', `favorites/${O}_r1`, `follows/${U}_${O}`, `follows/${O}_${U}`, 'notifications/n1', 'notifications/n2',
-      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `notificationPrefs/${U}`, `writeWindows/${U}_reply`,
+      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `notificationPrefs/${U}`, `tasteProfiles/${U}`, `writeWindows/${U}_reply`,
     ]));
     expect(new Set(deletes).size).toBe(deletes.length);
     expect(plan.deleteAuthUser).toBe(true);

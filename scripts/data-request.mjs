@@ -255,7 +255,7 @@ export function buildErasePlan(uid, fetched) {
 
   for (const n of uniqueByPath(fetched.notifications ?? [])) add('notification (to or from)', [del(n.path)]);
   for (const e of fetched.clientErrors ?? []) add('error report', [del(e.path)]);
-  for (const key of ['profile', 'termsAcceptance', 'notificationPrefs', 'rateLimit']) {
+  for (const key of ['profile', 'termsAcceptance', 'notificationPrefs', 'tasteProfile', 'rateLimit']) {
     if (fetched[key]) add(key, [del(fetched[key].path)]);
   }
   for (const w of fetched.writeWindows ?? []) add('write window', [del(w.path)]);
@@ -396,6 +396,7 @@ async function collect(db, auth, uid) {
     profile: await one(`profiles/${uid}`),
     termsAcceptance: await one(`termsAcceptance/${uid}`),
     notificationPrefs: await one(`notificationPrefs/${uid}`),
+    tasteProfile: await one(`tasteProfiles/${uid}`),
     rateLimit: await one(`rateLimits/${uid}`),
     writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe', 'cook'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
     ownRecipes,
@@ -473,7 +474,7 @@ export function redactExport(uid, body) {
   // Paths last, once every other uid has an alias. Composite ids are joined with `_`.
   const fixPath = (p) => p.split('/').map((seg) => seg.split('_').map((x) => ids.get(x) ?? x).join('_')).join('/');
   const docs = [
-    out.profile, out.termsAcceptance, out.notificationPrefs, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
+    out.profile, out.termsAcceptance, out.notificationPrefs, out.tasteProfile, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
     ...out.cooks, ...out.cookPhotos, out.kitchen, ...out.collections,
@@ -494,6 +495,7 @@ function exportBody(uid, project, target, f) {
     profile: f.profile,
     termsAcceptance: f.termsAcceptance,
     notificationPrefs: f.notificationPrefs,
+    tasteProfile: f.tasteProfile,
     rateLimit: f.rateLimit,
     writeWindows: f.writeWindows,
     recipes: { owned: f.ownRecipes, asCollaborator: f.collaboratorRecipes },
@@ -515,6 +517,7 @@ function countExport(body) {
     profile: body.profile ? 1 : 0,
     termsAcceptance: body.termsAcceptance ? 1 : 0,
     notificationPrefs: body.notificationPrefs ? 1 : 0,
+    tasteProfile: body.tasteProfile ? 1 : 0,
     rateLimit: body.rateLimit ? 1 : 0,
     writeWindows: body.writeWindows.length,
     ownedRecipes: body.recipes.owned.length,

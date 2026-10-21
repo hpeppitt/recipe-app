@@ -32,6 +32,8 @@ export interface CloudInput {
   notifications: Section<AppNotification[]>;
   termsAcceptance: Section<CloudDoc | null>;
   notificationPrefs: Section<CloudDoc | null>;
+  /** tasteProfiles/{uid} (RL-231): stated avoids and hidden learned terms. Null when none exists. */
+  tasteProfile: Section<CloudDoc | null>;
   writeWindows: Section<CloudDoc[]>;
   cooks: Section<Cook[]>;
   cookPhotos: Section<CloudCookPhoto[]>;
@@ -67,6 +69,7 @@ export interface DataExport {
     notifications: AppNotification[];
     termsAcceptance: CloudDoc | null;
     notificationPrefs: CloudDoc | null;
+    tasteProfile: CloudDoc | null;
     writeWindows: CloudDoc[];
     cooks: Cook[];
     cookPhotos: CloudCookPhoto[];
@@ -207,6 +210,7 @@ export function assembleDataExport(input: DataExportInput): DataExport {
       notifications,
       termsAcceptance: take('termsAcceptance', c.termsAcceptance, null),
       notificationPrefs: take('notificationPrefs', c.notificationPrefs, null),
+      tasteProfile: take('tasteProfile', c.tasteProfile, null),
       writeWindows: sorted(take('writeWindows', c.writeWindows, [])),
       // Both are read where uid == the user, so the only other person is the recipe's owner.
       cooks: sorted(take('cooks', c.cooks, [])).map((k) =>

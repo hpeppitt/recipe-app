@@ -34,6 +34,7 @@ import { auth, firestore } from './firebase';
 import { rankByQuery, variationHaystack } from '../lib/search';
 import { collectSubtreeIds, MAX_FAMILY_MOVE, MAX_MOVED_CHILDREN, planFamilyMove, type FamilyMoveResult } from '../lib/tree';
 import { replyRecipient } from '../lib/suggestions';
+import { normaliseAvoids, normaliseHidden, type TasteProfile } from '../lib/taste';
 import { truncateNotificationMessage, type NotificationPrefs } from '../lib/notifications';
 import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMigration';
 import { withTimeout } from '../lib/utils';
@@ -1273,6 +1274,49 @@ export async function setNotificationPrefs(uid: string, prefs: NotificationPrefs
   await setDoc(doc(firestore, 'notificationPrefs', uid), { ...prefs, updatedAt: serverTimestamp() });
 }
 
+const TASTE_TIMEOUT_MS = 5000;
+
+const toTasteProfile = (d: DocumentData | undefined): TasteProfile => ({
+  avoids: normaliseAvoids(d?.avoids),
+  hidden: normaliseHidden(d?.hidden),
+  askedAt: typeof d?.askedAt === 'number' ? Math.min(Math.floor(d.askedAt), Date.now()) : null,
+});
+
+/** The owner's taste profile (RL-231); empty when the document does not exist. Rejects after 5 s. */
+export async function getTasteProfile(uid: string): Promise<TasteProfile> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const snap = await rejectAfter(getDoc(doc(firestore, 'tasteProfiles', uid)), 'Reading your taste profile', TASTE_TIMEOUT_MS);
+  return toTasteProfile(snap.data());
+}
+
+/**
+ * Applies `update` to the freshly read taste profile and returns what was stored, so two devices (or two quick
+ * calls) cannot drop each other's change. `update` may throw to refuse. The rules need all four keys on every
+ * write, so the document is written whole in one transaction; values are normalised and `askedAt` is not future.
+ * Rejects after 5 s; a timed-out transaction may still commit.
+ */
+export async function saveTasteProfile(uid: string, update: (cur: TasteProfile) => Partial<TasteProfile>): Promise<TasteProfile> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const fs = firestore;
+  const ref = doc(fs, 'tasteProfiles', uid);
+  return rejectAfter(
+    runTransaction(fs, async (tx) => {
+      const cur = toTasteProfile((await tx.get(ref)).data());
+      const patch = update(cur);
+      const asked = patch.askedAt === undefined ? cur.askedAt : patch.askedAt;
+      const next: TasteProfile = {
+        avoids: normaliseAvoids(patch.avoids ?? cur.avoids),
+        hidden: normaliseHidden(patch.hidden ?? cur.hidden),
+        askedAt: asked === null ? null : Math.min(Math.floor(asked), Date.now()),
+      };
+      tx.set(ref, { ...next, updatedAt: serverTimestamp() });
+      return next;
+    }),
+    'Saving your taste profile',
+    TASTE_TIMEOUT_MS
+  );
+}
+
 export async function markNotificationRead(
   notificationId: string
 ): Promise<void> {
@@ -2118,7 +2162,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, collections: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, collections: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
@@ -2155,7 +2199,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos, kitchen, collections] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, collections] = await Promise.all([
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -2178,6 +2222,12 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     emailVerified
       ? exportSection('notificationPrefs', async () => {
           const snap = await getDoc(doc(fs, 'notificationPrefs', uid));
+          return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
+        })
+      : Promise.resolve<Section<CloudDoc | null>>({ error: VERIFY_NOTE }),
+    emailVerified
+      ? exportSection('tasteProfile', async () => {
+          const snap = await getDoc(doc(fs, 'tasteProfiles', uid));
           return { data: snap.exists() ? ({ id: snap.id, ...exportFields(snap.data()) } as CloudDoc) : null };
         })
       : Promise.resolve<Section<CloudDoc | null>>({ error: VERIFY_NOTE }),
@@ -2209,5 +2259,5 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
       ? exportSection<CloudDoc[]>('collections', () => readMerged('collections', [byField('collections', 'ownerUid')]))
       : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos, kitchen, collections };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, collections };
 }

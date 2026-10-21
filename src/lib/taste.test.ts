@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { learnTaste, tasteHeadline, TASTE_AVOID_MAX, TASTE_HIDDEN_MAX, TASTE_TERM_MAX } from './taste';
+import { learnTaste, normaliseAvoids, normaliseHidden, tasteHeadline, TASTE_AVOID_MAX, TASTE_HIDDEN_MAX, TASTE_TERM_MAX } from './taste';
 
 describe('firestore.rules taste profile caps (RL-230)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -81,5 +81,30 @@ describe('tasteHeadline', () => {
     expect(tasteHeadline(14, 6)).toBe('Learned from 14 cooks and 6 branches.');
     expect(tasteHeadline(1, 1)).toBe('Learned from 1 cook and 1 branch.');
     expect(tasteHeadline(0, 2)).toBe('Learned from 0 cooks and 2 branches.');
+  });
+});
+
+describe('normalisers (RL-231)', () => {
+  it('puts avoids in one line, sentence case, deduped, 40 characters, at most 12', () => {
+    expect(normaliseAvoids(['  fresh   CORIANDER ', 'coriander', 'a\nb\u0000c', '', 7])).toEqual(['Fresh coriander', 'Coriander', 'A b c']);
+    expect(normaliseAvoids(['Mushrooms', 'mushrooms'])).toEqual(['Mushrooms']);
+    expect(normaliseAvoids(['x'.repeat(60)])[0]).toHaveLength(TASTE_TERM_MAX);
+    expect(normaliseAvoids(Array.from({ length: 20 }, (_, i) => `t${i}`))).toHaveLength(TASTE_AVOID_MAX);
+    expect(normaliseAvoids('nope')).toEqual([]);
+  });
+
+  it('cuts to 40 code points after case folding, never splitting a pair', () => {
+    const out = normaliseAvoids(['\u0130'.repeat(40), 'ß'.repeat(30), '\u{1F35C}'.repeat(60)]);
+    for (const t of out) expect(Array.from(t).length).toBeLessThanOrEqual(TASTE_TERM_MAX);
+    expect(out[1].startsWith('SS')).toBe(true);
+    expect(out[2]).toBe('\u{1F35C}'.repeat(40));
+  });
+
+  it('keeps only short strings in hidden, deduped, newest 50', () => {
+    expect(normaliseHidden(['Curry', 'curry', 4, null, 'x'.repeat(41), ' a\tb '])).toEqual(['Curry', 'a b']);
+    const many = Array.from({ length: 60 }, (_, i) => `t${i}`);
+    const out = normaliseHidden(many);
+    expect(out).toHaveLength(TASTE_HIDDEN_MAX);
+    expect(out.at(-1)).toBe('t59');
   });
 });
