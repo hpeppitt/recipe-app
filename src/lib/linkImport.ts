@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GeneratedRecipeSchema, IngredientSchema } from '../schemas/recipe.schema';
+import { GeneratedRecipeSchema, ImportedFromSchema, IngredientSchema } from '../schemas/recipe.schema';
 import type { Ingredient } from '../types/recipe';
 import type { GeneratedRecipe } from '../types/api';
 
@@ -43,6 +43,18 @@ export function importHost(url: string): string {
   } catch {
     return '';
   }
+}
+
+/**
+ * A recipe read from storage with `importedFrom` kept only when it is a bounded http(s)
+ * URL (ImportedFromSchema), so nothing downstream can render an unchecked link.
+ */
+export function withBoundedImportedFrom<T extends object>(recipe: T): T {
+  if (!('importedFrom' in recipe)) return recipe;
+  const importedFrom = ImportedFromSchema.parse(recipe.importedFrom);
+  if (importedFrom !== undefined) return { ...recipe, importedFrom };
+  const { importedFrom: _dropped, ...rest } = recipe;
+  return rest as T;
 }
 
 export type ImportedIngredient = Ingredient & { uncertain?: boolean };

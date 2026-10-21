@@ -70,7 +70,10 @@ and Cookie policies (RL-044), imported by `lib/legal.ts`. It imports only from `
 For a verified user, Firestore is the source of truth for their own recipes and Dexie is the
 cache and offline copy ([decision 1b](decisions.md)). Saves and edits are cloud first: the
 recipe is published, and only on success cached in Dexie (RL-082, RL-083), so a failure shows
-an error with a retry and leaves nothing local. `hooks/useOwnRecipesSync.ts`, mounted once in
+an error with a retry and leaves nothing local. A new recipe's sequence (publish bounded at 4 s
+with `withTimeout`, then `cacheRecipe`) is one shared helper, `publishThenCache` in
+`services/recipeSave.ts`, used by the chat save (`useRecipeChat.ts`) and the link import
+(`useImportRecipe.ts`, RL-186). `hooks/useOwnRecipesSync.ts`, mounted once in
 `App.tsx`, keeps Dexie in step on every device (RL-078): one `onSnapshot` on the user's own
 recipes (`subscribeOwnRecipes` in `services/firestore.ts`), and each server snapshot applied
 with `applyOwnRecipeSync` (`db/recipes.ts`), which runs the pure `planOwnRecipeSync`

@@ -1,7 +1,6 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import type { Recipe } from '../types/recipe';
-import { z } from 'zod';
-import { CreatedBySchema, GeneratedRecipeSchema } from '../schemas/recipe.schema';
+import { CreatedBySchema, GeneratedRecipeSchema, ImportedFromSchema } from '../schemas/recipe.schema';
 
 export type SharedRecipe = Pick<
   Recipe,
@@ -84,14 +83,7 @@ export function pickShareUrl(
  */
 const SharedRecipeSchema = GeneratedRecipeSchema.extend({
   createdBy: CreatedBySchema.optional(),
-  // Untrusted: RL-186 may render it as a link, so only http(s), bounded. A bad value
-  // drops the field rather than failing the whole link.
-  importedFrom: z
-    .string()
-    .max(2048)
-    .refine((s) => /^https?:\/\//i.test(s))
-    .optional()
-    .catch(undefined),
+  importedFrom: ImportedFromSchema,
   importedVia: CreatedBySchema.optional(),
 });
 

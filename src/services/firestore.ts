@@ -54,6 +54,7 @@ import { toLocalRecipe, type CloudRecipeDoc } from '../lib/recipeSync';
 import { cacheRecipe } from '../db/recipes';
 import type { UserProfile, Follow } from '../types/profile';
 import { VERIFY_NOTE } from '../lib/dataExport';
+import { withBoundedImportedFrom } from '../lib/linkImport';
 import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, Section } from '../lib/dataExport';
 import { reportError } from './telemetry';
 
@@ -123,7 +124,7 @@ export async function getPublishedRecipe(
   if (!firestore) return null;
   const snap = await getDoc(doc(firestore, 'recipes', id));
   if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as SharedRecipe & {
+  return withBoundedImportedFrom({ id: snap.id, ...snap.data() }) as SharedRecipe & {
     id: string;
     favoriteCount: number;
   };
@@ -225,7 +226,7 @@ export async function getPublishedRecipesPage(
   const docs = hasMore ? snap.docs.slice(0, pageSize) : snap.docs;
 
   return {
-    recipes: docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe),
+    recipes: docs.map((d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe),
     cursor: docs.length > 0 ? docs[docs.length - 1] : null,
     hasMore,
   };
@@ -247,7 +248,7 @@ export async function getAllPublishedRecipes(limitTo = 200): Promise<PublishedRe
   );
   const snap = await getDocs(q);
   return snap.docs.map(
-    (d) => ({ id: d.id, ...d.data() }) as PublishedRecipe
+    (d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe
   );
 }
 
@@ -265,7 +266,7 @@ export async function getRecentPublishedRecipes(sinceMs: number, max = 100): Pro
   const snap = await getDocs(
     query(collection(firestore, 'recipes'), where('createdAt', '>=', sinceMs), orderBy('createdAt', 'desc'), limit(max))
   );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+  return snap.docs.map((d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe);
 }
 
 /**
@@ -279,7 +280,7 @@ export async function getPublishedRecipeTree(rootId: string): Promise<PublishedR
   const snap = await getDocs(
     query(collection(firestore, 'recipes'), where('rootId', '==', rootId))
   );
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
+  return snap.docs.map((d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe);
 }
 
 /** RL-180: direct children read for the 6b chip split, and family prompts read for ordering only. */
@@ -326,8 +327,8 @@ export async function getForestFamily(rootId: string): Promise<{ recipes: Publis
     getCountFromServer(q).then((n) => n.data().count, () => null),
     getDoc(doc(firestore, 'recipes', rootId)).catch(() => null),
   ]);
-  const recipes = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe);
-  if (rootSnap?.exists() && !recipes.some((r) => r.id === rootId)) recipes.push({ id: rootId, ...rootSnap.data() } as PublishedRecipe);
+  const recipes = snap.docs.map((d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe);
+  if (rootSnap?.exists() && !recipes.some((r) => r.id === rootId)) recipes.push(withBoundedImportedFrom({ id: rootId, ...rootSnap.data() }) as PublishedRecipe);
   return { recipes, count: Math.max(count ?? 0, recipes.length) };
 }
 
@@ -388,7 +389,7 @@ export async function getRelatedFamilies(recipe: {
     query(collection(firestore, 'recipes'), where('relatedFamilyId', '==', recipe.id), limit(RELATED_FAMILY_FETCH))
   );
   const docs = snap.docs
-    .map((d) => ({ id: d.id, ...d.data() }) as PublishedRecipe)
+    .map((d) => withBoundedImportedFrom({ id: d.id, ...d.data() }) as PublishedRecipe)
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
     .slice(0, RELATED_FAMILY_LIMIT);
   return Promise.all(docs.map(toRelated));

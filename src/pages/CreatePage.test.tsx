@@ -65,6 +65,12 @@ describe('CreatePage', () => {
     expect(probe()).toBe('/search|null');
   });
 
+  it('Add from a link opens /import (RL-186)', () => {
+    render();
+    tap('Add from a link');
+    expect(probe()).toBe('/import|null');
+  });
+
   // jsdom has no layout, so this pins the classes: overflow-hidden would turn the page into the
   // sticky scroller and a consent banner could push the actions under the nav again.
   it('keeps the actions sticky above the nav and the words at a 44px hit height', () => {

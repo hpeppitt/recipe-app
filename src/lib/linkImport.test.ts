@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, importHost, normalizeImportUrl, toImportDraft } from './linkImport';
+import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, importHost, normalizeImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
 import { makeIngredient, makeRecipe } from '../test/factories';
 
 describe('normalizeImportUrl', () => {
@@ -33,6 +33,22 @@ describe('normalizeImportUrl', () => {
       'https://user:pw@example.com/',
     ]) {
       expect(normalizeImportUrl(bad), bad).toBeNull();
+    }
+  });
+});
+
+describe('withBoundedImportedFrom', () => {
+  it('keeps a bounded http(s) importedFrom and returns a recipe without one unchanged', () => {
+    const r = makeRecipe({ importedFrom: 'https://a.com/x' });
+    expect(withBoundedImportedFrom(r)).toEqual(r);
+    const plain = makeRecipe();
+    expect(withBoundedImportedFrom(plain)).toBe(plain);
+  });
+
+  it('drops an importedFrom that is not a bounded http(s) URL and keeps the rest', () => {
+    for (const bad of ['javascript:alert(1)', `https://a.com/${'x'.repeat(2048)}`, 42, null]) {
+      const out = withBoundedImportedFrom({ id: 'a', title: 'T', importedFrom: bad });
+      expect(out).toEqual({ id: 'a', title: 'T' });
     }
   });
 });

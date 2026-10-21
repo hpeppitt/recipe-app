@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
-import { Sparkles } from '../components/ui/icons';
+import { Link as LinkIcon, Sparkles } from '../components/ui/icons';
 import { DEFAULT_SELECTION, buildCreatePrompt, cycleWord, selectedWords, type CreateSlot } from '../lib/createPrompt';
 
 /**
@@ -55,6 +55,10 @@ export function CreatePage() {
         </Button>
         <Button variant="ghost" onClick={() => navigate('/search')} className="h-11">
           Describe it my own way
+        </Button>
+        <Button variant="ghost" onClick={() => navigate('/import')} className="h-11 gap-2">
+          <LinkIcon className="size-5" />
+          Add from a link
         </Button>
       </div>
     </div>

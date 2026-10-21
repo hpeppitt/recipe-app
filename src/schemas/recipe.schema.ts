@@ -51,6 +51,17 @@ export const CreatedBySchema = z.object({
   displayName: z.string().nullable().catch(null),
 });
 
+/**
+ * Where an imported recipe came from (RL-185, RL-186). Untrusted: RL-253 may render it
+ * as a link, so only http(s), bounded. A bad value drops the field, not the record.
+ */
+export const ImportedFromSchema = z
+  .string()
+  .max(2048)
+  .refine((s) => /^https?:\/\//i.test(s))
+  .optional()
+  .catch(undefined);
+
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
@@ -80,6 +91,8 @@ export const ImportedRecipeSchema = GeneratedRecipeSchema.extend({
   collaborators: z.array(CreatedBySchema).default([]),
   prompt: z.string().default(''),
   relatedFamilyId: z.string().nullable().optional(),
+  importedFrom: ImportedFromSchema,
+  importedVia: CreatedBySchema.optional(),
   chatHistory: z.array(ChatMessageSchema).default([]),
   createdAt: z.number().optional(),
   updatedAt: z.number().optional(),

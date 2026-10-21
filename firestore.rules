@@ -238,6 +238,10 @@ service cloud.firestore {
           // RL-162: a recipe id (a UUID); absent or null on most recipes.
           && (d.get('relatedFamilyId', null) == null
             || (d.relatedFamilyId is string && d.relatedFamilyId.size() <= 128))
+          // RL-186: the page an import was read from; absent on most recipes.
+          && (d.get('importedFrom', null) == null
+            || (d.importedFrom is string && d.importedFrom.size() <= 2048
+              && d.importedFrom.matches('https?://.*')))
           // RL-172: credited uids for array-contains; absent on older recipes.
           && (!('collaboratorUids' in d)
             || (d.collaboratorUids is list && d.collaboratorUids.size() <= 50));
