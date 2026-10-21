@@ -2199,3 +2199,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-245 Family cooks hook
 - No UI yet. The `cooks (rootId asc, createdAt desc)` index in `firestore.indexes.json` must be deployed with RL-209 before the query works live; until then the hook reports `family-cooks` and returns empty.
+
+### RL-246 Cook counts on the tree
+- Open the tree of a family where one branch was cooked by 3 people and the original by 1: that branch carries a sage trophy pill and a ChefHat 3, the original a ChefHat 1, and the subtitle reads "N versions by M people, cooked by N, started by ...". Versions nobody cooked show nothing. Timeline and Map are unchanged.
+- Counts arrive after the tree draws, so the title column narrows when they land (nodes keep their width); check a leader that is also the current version does not overflow. Check 390px, light and dark, and the ancestry path stays terracotta.
+- Screen reader: a node reads "cooked by 3 people, most cooked".
+- The 1024px FamilyPanel tree shows no counts yet (it does not call useFamilyCooks).

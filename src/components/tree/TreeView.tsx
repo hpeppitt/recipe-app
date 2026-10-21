@@ -1,16 +1,20 @@
 import { useEffect, useRef } from 'react';
 import type { TreeNode } from '../../lib/tree';
+import { ChefHat, Trophy } from '../ui/icons';
 
 interface TreeViewProps {
   tree: TreeNode;
   currentId?: string;
   onOpen: (id: string) => void;
+  /** Distinct people who cooked each version (RL-245), and the most-cooked version. Omitted or empty shows nothing. */
+  cooks?: { countById: Map<string, number>; leaderId: string | null };
 }
 
 interface Ctx {
   path: string[];
   currentId?: string;
   onOpen: (id: string) => void;
+  cooks?: TreeViewProps['cooks'];
 }
 
 // Connector geometry. A child row is 16px of gap, then a card. The elbow meets the
@@ -38,12 +42,16 @@ function Card({
   onPath,
   isCurrent,
   onOpen,
+  count,
+  isLeader,
 }: {
   node: TreeNode;
   isRoot: boolean;
   onPath: boolean;
   isCurrent: boolean;
   onOpen: (id: string) => void;
+  count: number;
+  isLeader: boolean;
 }) {
   const { recipe } = node;
   const ref = useRef<HTMLButtonElement>(null);
@@ -57,7 +65,7 @@ function Card({
     <button
       ref={ref}
       onClick={() => onOpen(recipe.id)}
-      className={`flex items-center gap-2 w-60 min-w-56 min-h-11 px-3 py-2 text-left rounded-card border transition-colors hover:border-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 ${
+      className={`flex items-center gap-2 w-60 min-h-11 px-3 py-2 text-left rounded-card border transition-colors hover:border-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 ${
         isRoot ? 'bg-surface-secondary' : 'bg-surface'
       } ${onPath ? 'border-primary-500' : 'border-border'} ${isCurrent ? 'ring-2 ring-primary-500' : ''}`}
     >
@@ -68,6 +76,22 @@ function Card({
         <span className="block text-sm font-medium text-text-primary truncate">{recipe.title}</span>
         <span className="block text-xs text-text-tertiary truncate">{`${what} · ${author}`}</span>
       </span>
+      {isLeader && (
+        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent-2-200 text-accent-2-900 flex-shrink-0" aria-hidden="true">
+          <Trophy className="w-3 h-3" />
+        </span>
+      )}
+      {count > 0 && (
+        <span className="flex items-center gap-1 text-[13px] font-semibold text-neutral-700 flex-shrink-0" aria-hidden="true">
+          <ChefHat className="w-3.5 h-3.5" />
+          {count}
+        </span>
+      )}
+      {(count > 0 || isLeader) && (
+        <span className="sr-only">
+          {[count > 0 && `cooked by ${count} ${count === 1 ? 'person' : 'people'}`, isLeader && 'most cooked'].filter(Boolean).join(', ')}
+        </span>
+      )}
       {isCurrent && (
         <>
           <span className="text-[11px] leading-4 rounded-xl bg-primary-50 text-primary-700 px-2 py-0.5 flex-shrink-0" aria-hidden="true">
@@ -136,13 +160,15 @@ function Node({ node, ctx, isRoot }: { node: TreeNode; ctx: Ctx; isRoot: boolean
         onPath={ctx.path.includes(node.recipe.id)}
         isCurrent={node.recipe.id === ctx.currentId}
         onOpen={ctx.onOpen}
+        count={ctx.cooks?.countById.get(node.recipe.id) ?? 0}
+        isLeader={ctx.cooks?.leaderId === node.recipe.id}
       />
       {node.children.length > 0 && <Children node={node} ctx={ctx} />}
     </div>
   );
 }
 
-export function TreeView({ tree, currentId, onOpen }: TreeViewProps) {
+export function TreeView({ tree, currentId, onOpen, cooks }: TreeViewProps) {
   const path = pathTo(tree, currentId);
   return (
     <div
@@ -152,7 +178,7 @@ export function TreeView({ tree, currentId, onOpen }: TreeViewProps) {
       className="overflow-x-auto rounded-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
     >
       <div className="w-max min-w-full p-1">
-        <Node node={tree} ctx={{ path, currentId, onOpen }} isRoot />
+        <Node node={tree} ctx={{ path, currentId, onOpen, cooks }} isRoot />
       </div>
     </div>
   );

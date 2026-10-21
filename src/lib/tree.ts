@@ -126,12 +126,13 @@ export function ancestorChain(recipes: Recipe[], id: string): Recipe[] {
   return chain;
 }
 
-/** "{N} versions, {M} cooks, started by {name} in {Month}" for one family. */
-export function familySubtitle(recipes: Recipe[], now: Date = new Date()): string {
+/** "{N} versions by {M} people, cooked by {P} (when above 0), started by {name} in {Month}" for one family. */
+export function familySubtitle(recipes: Recipe[], now: Date = new Date(), cookedBy = 0): string {
   const root = recipes.find((r) => r.parentId === null);
   const versions = recipes.length;
-  const cooks = new Set(recipes.map((r) => r.createdBy.uid)).size;
-  let text = `${versions} ${versions === 1 ? 'version' : 'versions'}, ${cooks} ${cooks === 1 ? 'cook' : 'cooks'}`;
+  const authors = new Set(recipes.map((r) => r.createdBy.uid)).size;
+  let text = `${versions} ${versions === 1 ? 'version' : 'versions'} by ${authors} ${authors === 1 ? 'person' : 'people'}`;
+  if (cookedBy > 0) text += `, cooked by ${cookedBy}`;
   const name = root?.createdBy.displayName;
   const created = root?.createdAt ?? 0;
   // A createdAt of 0 means a cloud record without one (see toRecipeLike).

@@ -29,6 +29,26 @@ describe('TreeView', () => {
     expect(screen.getByText('Original · Anonymous')).toBeTruthy();
   });
 
+  it('shows counts and the trophy by node id, and nothing at zero', () => {
+    const r = rec('r', null);
+    const a = rec('a', r);
+    const b = rec('b', r);
+    const tree = buildTree([r, a, b])!;
+    const cooks = { countById: new Map([['a', 27], ['b', 1], ['gone', 9]]), leaderId: 'a' };
+    render(<TreeView tree={tree} currentId="r" onOpen={vi.fn()} cooks={cooks} />);
+    expect(screen.getByRole('button', { name: /cooked by 27 people, most cooked/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /cooked by 1 person$/ })).toBeTruthy();
+    expect(screen.getAllByText(/most cooked/)).toHaveLength(1);
+    expect(screen.getByText('27')).toBeTruthy();
+    expect(screen.queryByText('9')).toBeNull();
+  });
+
+  it('shows no trophy when the leader is not in the tree', () => {
+    const r = rec('r', null);
+    render(<TreeView tree={buildTree([r])!} onOpen={vi.fn()} cooks={{ countById: new Map(), leaderId: 'gone' }} />);
+    expect(screen.queryByText(/most cooked/)).toBeNull();
+  });
+
   it('draws connectors down a depth-5 chain, all on the path', () => {
     const chain: Recipe[] = [rec('r', null)];
     for (let i = 1; i <= 5; i++) chain.push(rec(`n${i}`, chain[i - 1]));

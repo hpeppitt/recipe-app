@@ -10,6 +10,7 @@ import type { Recipe } from '../types/recipe';
 import { useRecipeTree } from '../hooks/useRecipeTree';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useRecipe } from '../hooks/useRecipe';
+import { useFamilyCooks } from '../hooks/useFamilyCooks';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
@@ -87,6 +88,7 @@ export function VersionTreePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { recipe, isLoading: recipeLoading, cloudError, retry } = useRecipe(id);
   const { tree, recipes, isLoading: treeLoading } = useRecipeTree(recipe?.rootId);
+  const cooks = useFamilyCooks(recipe?.rootId);
 
   // Anything other than a known view means Tree. Tree is the default, so it is
   // dropped from the URL rather than written.
@@ -150,7 +152,7 @@ export function VersionTreePage() {
             )}
             <div>
               <h1 className="font-heading text-[30px] leading-tight text-text-primary">{tree.recipe.title}</h1>
-              <p className="text-sm text-text-secondary mt-1">{familySubtitle(recipes)}</p>
+              <p className="text-sm text-text-secondary mt-1">{familySubtitle(recipes, undefined, cooks.total)}</p>
             </div>
           </>
         )}
@@ -178,7 +180,7 @@ export function VersionTreePage() {
               ) : view === 'map' ? (
                 <MapView recipes={recipes} currentId={id} onShowTimeline={() => setView('timeline')} />
               ) : (
-                <TreeView tree={tree} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
+                <TreeView tree={tree} cooks={cooks} currentId={id} onOpen={(rid) => navigate(`/recipe/${rid}`)} />
               )}
               {/* The common case is a single card sitting alone with nothing
                   explaining what this screen is for. The sticky bar below is
