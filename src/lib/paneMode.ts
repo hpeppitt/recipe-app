@@ -1,7 +1,13 @@
 import { matchPath } from 'react-router-dom';
 
-/** The lists that open a recipe beside themselves on a wide screen (RL-116). */
-export type ListOrigin = '/' | '/saved';
+/** The lists that open a recipe beside themselves on a wide screen (RL-116, Kitchen RL-225). */
+export type ListOrigin = '/' | '/saved' | '/kitchen' | '/kitchen/list' | '/kitchen/pantry' | '/kitchen/log' | `/kitchen/c/${string}`;
+
+const FIXED_ORIGINS: readonly string[] = ['/', '/saved', '/kitchen', '/kitchen/list', '/kitchen/pantry', '/kitchen/log'];
+
+function isListOrigin(value: unknown): value is ListOrigin {
+  return typeof value === 'string' && (FIXED_ORIGINS.includes(value) || !!matchPath('/kitchen/c/:id', value));
+}
 
 /** Navigation state a list row sets, so the recipe route knows which list it came from. */
 export interface ListOriginState {
@@ -40,7 +46,7 @@ export function paneMode(pathname: string, state: unknown, wide: boolean): PaneM
  */
 export function carriedListOrigin(state: unknown): ListOriginState | undefined {
   const origin = typeof state === 'object' && state !== null ? (state as Partial<ListOriginState>).listOrigin : undefined;
-  return origin === '/' || origin === '/saved' ? listOriginState(origin) : undefined;
+  return isListOrigin(origin) ? listOriginState(origin) : undefined;
 }
 
 // matchPath leaves params encoded; the route's useParams decodes them, so match that.

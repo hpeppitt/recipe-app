@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
 
 const src = (recipeId: string, emoji: string, title: string) => ({ recipeId, emoji, title, amount: null });
@@ -15,7 +16,13 @@ vi.mock('../hooks/useKitchen', () => ({ useKitchen: () => hook }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 
 import { shareText } from '../lib/shopping';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { ShoppingListPage } from './ShoppingListPage';
+
+// Stands in for the recipe route and shows the list origin the link carried (RL-225).
+function Origin() {
+  return <p data-testid="origin">{(useLocation().state as { listOrigin?: string } | null)?.listOrigin}</p>;
+}
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -38,6 +45,32 @@ beforeEach(() => {
 });
 
 describe('ShoppingListPage (RL-216)', () => {
+  it('opens a source chip recipe with the list as its origin', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/kitchen/list" element={<ShoppingListPage />} />
+        <Route path="/recipe/:id" element={<Origin />} />
+      </Routes>,
+      { route: '/kitchen/list' }
+    );
+    fireEvent.click(screen.getByRole('link', { name: /Croissant/ }));
+    expect(screen.getByTestId('origin')).toHaveTextContent('/kitchen/list');
+  });
+
+  it('leaves the h1 to a recipe open beside it and marks its chip current', () => {
+    renderWithProviders(
+      <RecipePaneContext.Provider value="r1">
+        <ShoppingListPage />
+      </RecipePaneContext.Provider>
+    );
+    expect(screen.getByRole('heading', { level: 2, name: 'Shopping list' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.getByRole('heading', { level: 3, name: 'Produce' })).toBeInTheDocument();
+    // The open recipe's chip is the current row, as on Explore and Saved.
+    expect(screen.getByRole('link', { name: /Pasta/ })).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByRole('link', { name: /Croissant/ })).not.toHaveAttribute('aria-current');
+  });
+
   it('groups by aisle, with pantry lines out of the aisles and in the notice', () => {
     renderWithProviders(<ShoppingListPage />);
     expect(screen.getByRole('region', { name: 'Produce' })).toBeInTheDocument();

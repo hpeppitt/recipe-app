@@ -26,8 +26,14 @@ export function RecipeTileGrid({
   tiles,
   onRemove,
   removeDisabled,
+  linkState,
+  currentId,
 }: {
   tiles: readonly RecipeTile[];
+  /** Navigation state for each tile's link, such as the list origin (RL-225). */
+  linkState?: unknown;
+  /** The recipe open beside this grid (RL-225), marked `aria-current`. */
+  currentId?: string | null;
   /** Edit mode (collections): a 44px "Remove <title>" control on each tile. */
   onRemove?: (id: string) => void;
   removeDisabled?: boolean;
@@ -51,7 +57,7 @@ export function RecipeTileGrid({
               <X className="size-5" />
             </button>
           )}
-          <Wrap tile={t}>
+          <Wrap tile={t} state={linkState} current={t.id === currentId}>
             <div
               aria-hidden="true"
               className={`flex aspect-square items-center justify-center rounded-[28px] text-[52px] leading-none ${TILE_TINTS[i % TILE_TINTS.length]}`}
@@ -82,7 +88,7 @@ export function RecipeTileGrid({
   );
 }
 
-function Wrap({ tile, children }: { tile: RecipeTile; children: ReactNode }) {
+function Wrap({ tile, state, current, children }: { tile: RecipeTile; state: unknown; current: boolean; children: ReactNode }) {
   const cls = 'flex min-h-11 flex-col gap-2';
-  return tile.gone ? <div className={cls}>{children}</div> : <Link to={`/recipe/${tile.id}`} className={cls}>{children}</Link>;
+  return tile.gone ? <div className={cls}>{children}</div> : <Link to={`/recipe/${tile.id}`} state={state} aria-current={current ? 'true' : undefined} className={cls}>{children}</Link>;
 }

@@ -10,6 +10,18 @@ describe('paneMode', () => {
     expect(paneMode('/recipe/abc', listOriginState('/saved'), true)).toEqual({ listPath: '/saved', recipeId: 'abc' });
   });
 
+  it('pairs a recipe with each Kitchen list and a collection (RL-225)', () => {
+    for (const origin of ['/kitchen', '/kitchen/list', '/kitchen/pantry', '/kitchen/log', '/kitchen/c/c1'] as const) {
+      expect(paneMode('/recipe/abc', listOriginState(origin), true)).toEqual({ listPath: origin, recipeId: 'abc' });
+    }
+  });
+
+  it('ignores Kitchen paths that are not lists', () => {
+    for (const listOrigin of ['/kitchen/c', '/kitchen/c/', '/kitchen/c/a/b', '/kitchen/other', '/settings']) {
+      expect(paneMode('/recipe/abc', { listOrigin }, true)).toBeNull();
+    }
+  });
+
   it('is off below the wide breakpoint, whatever the state', () => {
     expect(paneMode('/recipe/abc', listOriginState('/'), false)).toBeNull();
     expect(paneMode('/recipe/abc', listOriginState('/saved'), false)).toBeNull();
@@ -42,6 +54,8 @@ describe('carriedListOrigin', () => {
   it('passes on a valid origin and nothing else', () => {
     expect(carriedListOrigin(listOriginState('/saved'))).toEqual({ listOrigin: '/saved' });
     expect(carriedListOrigin({ listOrigin: '/', saved: 'cloud' })).toEqual({ listOrigin: '/' });
+    expect(carriedListOrigin(listOriginState('/kitchen/log'))).toEqual({ listOrigin: '/kitchen/log' });
+    expect(carriedListOrigin(listOriginState('/kitchen/c/c1'))).toEqual({ listOrigin: '/kitchen/c/c1' });
     expect(carriedListOrigin({ listOrigin: '/activity' })).toBeUndefined();
     expect(carriedListOrigin(null)).toBeUndefined();
     expect(carriedListOrigin('x')).toBeUndefined();

@@ -1,5 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
+import { listOriginState } from '../lib/paneMode';
 import { db } from '../db/database';
 import { useAuth } from '../contexts/AuthContext';
 import { COLLECTIONS_LOAD_FAILED_MESSAGE, useCollections } from '../hooks/useCollections';
@@ -43,6 +45,9 @@ export function CollectionPage() {
   const editRef = useRef<HTMLButtonElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const deleted = useRef(false);
+  // A recipe open beside this list (RL-225) is the page's h1.
+  const paneId = useContext(RecipePaneContext);
+  const Heading = paneId ? 'h2' : 'h1';
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
   const collection = collections.find((c) => c.id === id);
   const ids = collection?.recipeIds.join(',') ?? '';
@@ -241,7 +246,7 @@ export function CollectionPage() {
           <IconButton variant="flat" label="More" haspopup="dialog" icon={<EllipsisVertical className="size-6" />} onClick={() => setMenu('more')} />
         </div>
       )}
-      <h1 className="break-words px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">{collection.name}</h1>
+      <Heading className="break-words px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">{collection.name}</Heading>
       <p aria-live="polite" className="px-[22px] pt-1 text-sm text-neutral-700">{collectionCount(list.length)}</p>
       {menu === null && (message || error) && (
         <p role="alert" className="px-[22px] pt-3 text-sm text-danger-600">
@@ -256,6 +261,8 @@ export function CollectionPage() {
             <RecipeTileGrid
               tiles={tiles}
               removeDisabled={busy}
+              linkState={listOriginState(`/kitchen/c/${collection.id}`)}
+              currentId={paneId}
               onRemove={editing ? (rid) => void remove(rid, shownIds.indexOf(rid), shownIds) : undefined}
             />
           </div>

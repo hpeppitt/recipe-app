@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
+import { listOriginState } from '../lib/paneMode';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnCooks } from '../hooks/useCooks';
 import { db } from '../db/database';
@@ -73,6 +75,7 @@ function useCookedMeta(cooks: Cook[]) {
 }
 
 function CookCard({ cook, meta, index, now }: { cook: Cook; meta: Meta | undefined; index: number; now: number }) {
+  const paneId = useContext(RecipePaneContext);
   const tag = cookTag(cook);
   const { label, icon } = COOK_TAGS[tag];
   const Icon = TAG_ICON[icon as keyof typeof TAG_ICON];
@@ -88,6 +91,8 @@ function CookCard({ cook, meta, index, now }: { cook: Cook; meta: Meta | undefin
       <div className="min-w-0 flex-1 pr-24">
         <Link
           to={`/recipe/${cook.recipeId}`}
+          state={listOriginState('/kitchen/log')}
+          aria-current={cook.recipeId === paneId ? 'true' : undefined}
           className="line-clamp-2 break-words text-[15px] font-bold text-text-primary after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
         >
           {title}
@@ -99,6 +104,8 @@ function CookCard({ cook, meta, index, now }: { cook: Cook; meta: Meta | undefin
       {cook.branchId ? (
         <Link
           to={`/recipe/${cook.branchId}`}
+          state={listOriginState('/kitchen/log')}
+          aria-current={cook.branchId === paneId ? 'true' : undefined}
           aria-label="Open the branch"
           className={`absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold before:absolute before:-inset-2 before:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 ${TAG_STYLE[tag]}`}
         >
@@ -133,6 +140,8 @@ export function CookLogPage() {
   const [showAuth, setShowAuth] = useState(false);
   const [now] = useState(() => Date.now());
   const verified = isConfigured && !!user?.emailVerified;
+  // A recipe open beside this list (RL-225) is the page's h1.
+  const Heading = useContext(RecipePaneContext) ? 'h2' : 'h1';
 
   return (
     <div className="mx-auto min-h-dvh w-full max-w-lg bg-surface pb-8">
@@ -144,7 +153,7 @@ export function CookLogPage() {
           onClick={() => (location.key === 'default' ? navigate('/profile') : navigate(-1))}
         />
       </header>
-      <h1 className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Cook log</h1>
+      <Heading className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Cook log</Heading>
       {authLoading ? (
         <CookSkeleton />
       ) : !verified ? (
