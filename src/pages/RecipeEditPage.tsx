@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
+import { IngredientRow, pill, FOCUS_SCROLL } from '../components/recipe/IngredientRow';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Recipe } from '../types/recipe';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
@@ -56,23 +57,10 @@ const timeOptions = (prefix: string) => MINUTES.map((m) => ({ value: String(m), 
 const PREP_OPTIONS = timeOptions('Prep');
 const COOK_OPTIONS = timeOptions('Cook');
 
-/**
- * Pill field styling. Width is deliberately absent: it is set per field, because
- * Tailwind resolves by stylesheet order, so a baked-in `w-full` once defeated the
- * narrow widths on the ingredient row and pushed the name field out of view.
- */
-const pill =
-  'h-11 rounded-full border border-neutral-400 bg-neutral-100 px-3 text-text-primary ' +
-  'placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 ' +
-  'focus:border-transparent transition-shadow';
-
 const textareaClasses =
   'w-full rounded-[22px] border border-neutral-400 bg-neutral-100 px-4 py-3 text-[15px] text-text-primary ' +
   'placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 ' +
   'focus:border-transparent transition-shadow';
-
-/** Keeps a focused or scrolled-to field clear of the header and the sticky footer. */
-const FOCUS_SCROLL = 'scroll-mt-20 scroll-mb-44';
 
 /**
  * The ingredient rows validateDraft is complaining about, so only those inputs are marked
@@ -572,57 +560,36 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                   : {};
               return (
                 <div key={ingKeys[index]} data-ing-row className={`space-y-2 ${dragKey === ingKeys[index] ? 'rounded-2xl bg-surface-secondary shadow-md' : ''}`}>
-                  {/* Wraps instead of squeezing: at 320px the name and remove button
-                      drop to a second line rather than leaving a 68px name field. */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      id={`ingredient-${index}-grip`}
-                      aria-label={`Move ingredient ${index + 1}, ${row.name.trim() || 'unnamed'}`}
-                      aria-describedby="ingredient-move-hint"
-                      onKeyDown={(e) => onGripKey(e, index)}
-                      aria-roledescription="reorder handle"
-                      onPointerDown={(e) => {
-                        if (!e.isPrimary || e.button !== 0) return;
-                        e.currentTarget.setPointerCapture?.(e.pointerId);
-                        dragFrom.current = index;
-                        setDragKey(ingKeys[index]);
-                      }}
-                      onPointerMove={onGripPointerMove}
-                      onPointerUp={endDrag}
-                      onPointerCancel={endDrag}
-                      style={{ touchAction: 'none' }}
-                      className={`${FOCUS_SCROLL} -mx-2 flex h-11 w-11 shrink-0 cursor-grab select-none items-center justify-center text-neutral-500 rounded-full focus:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500`}
-                    >
-                      <GripVertical className="h-4 w-4" />
-                    </button>
-                    <input
-                      id={`ingredient-${index}-amount`}
-                      aria-label={`Ingredient ${index + 1} amount`}
-                      inputMode="decimal"
-                      placeholder="Amount"
-                      value={row.amount}
-                      onChange={(e) => setField('amount', e.target.value)}
-                      {...flag('amount')}
-                      className={`${pill} ${FOCUS_SCROLL} w-[76px] shrink-0 text-sm font-bold`}
-                    />
-                    <input
-                      aria-label={`Ingredient ${index + 1} unit`}
-                      placeholder="Unit"
-                      value={row.unit}
-                      onChange={(e) => setField('unit', e.target.value)}
-                      className={`${pill} w-16 shrink-0 text-sm`}
-                    />
-                    <div className="flex min-w-40 flex-1 items-center gap-2">
-                      <input
-                        id={`ingredient-${index}-name`}
-                        aria-label={`Ingredient ${index + 1} name`}
-                        placeholder="Name"
-                        value={row.name}
-                        onChange={(e) => setField('name', e.target.value)}
-                        {...flag('name')}
-                        className={`${pill} ${FOCUS_SCROLL} min-w-0 flex-1 text-sm`}
-                      />
+                  <IngredientRow
+                    index={index}
+                    row={row}
+                    onField={setField}
+                    amountProps={flag('amount')}
+                    nameProps={flag('name')}
+                    leading={
+                      <button
+                        type="button"
+                        id={`ingredient-${index}-grip`}
+                        aria-label={`Move ingredient ${index + 1}, ${row.name.trim() || 'unnamed'}`}
+                        aria-describedby="ingredient-move-hint"
+                        onKeyDown={(e) => onGripKey(e, index)}
+                        aria-roledescription="reorder handle"
+                        onPointerDown={(e) => {
+                          if (!e.isPrimary || e.button !== 0) return;
+                          e.currentTarget.setPointerCapture?.(e.pointerId);
+                          dragFrom.current = index;
+                          setDragKey(ingKeys[index]);
+                        }}
+                        onPointerMove={onGripPointerMove}
+                        onPointerUp={endDrag}
+                        onPointerCancel={endDrag}
+                        style={{ touchAction: 'none' }}
+                        className={`${FOCUS_SCROLL} -mx-2 flex h-11 w-11 shrink-0 cursor-grab select-none items-center justify-center text-neutral-500 rounded-full focus:outline-none focus-visible:ring-[3px] focus-visible:ring-primary-500`}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </button>
+                    }
+                    trailing={
                       <RemoveRowButton
                         label={`Remove ingredient ${index + 1}${row.name.trim() ? `, ${row.name.trim()}` : ''}`}
                         onClick={() => {
@@ -633,8 +600,8 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
                           );
                         }}
                       />
-                    </div>
-                  </div>
+                    }
+                  />
                   <input
                     aria-label={`Ingredient ${index + 1} notes`}
                     placeholder="Notes (optional)"
