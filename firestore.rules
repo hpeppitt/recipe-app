@@ -685,6 +685,40 @@ service cloud.firestore {
       }
     }
 
+    // --- Cook photos: one public JPEG per cook (RL-193, RL-204) ---
+    //
+    // Keyed by the cook's id, so a second photo for the same cook is a write to
+    // an existing document, which is an update, and there is no update rule.
+    // Public read like the cook. Create: the cook's own writer, verified, with
+    // the current Terms (public content), the cook's recipeId, a JPEG data URL
+    // of at most 200000 characters (well under the 1 MiB document limit, and in
+    // a collection of its own so cook reads and counts never carry it), and
+    // server-time createdAt. Delete: the cook (signed in only, so erasure works
+    // if verification lapses) or the recipe's owner (verified; a deleted recipe
+    // denies). Accesses per create: termsAcceptance and the cook, so 2. Per
+    // delete: none for the cook, the recipe for its owner, so 1.
+    match /cookPhotos/{cookId} {
+      allow read: if true;
+      allow create: if acceptedTerms()
+        && isWellFormedCookPhoto(request.resource.data);
+      allow delete: if (signedIn() && resource.data.uid == request.auth.uid)
+        || (verified()
+          && get(/databases/$(database)/documents/recipes/$(resource.data.recipeId)).data.createdBy.uid == request.auth.uid);
+
+      function isWellFormedCookPhoto(d) {
+        let keys = ['uid', 'recipeId', 'url', 'createdAt'];
+        let cook = get(/databases/$(database)/documents/cooks/$(cookId)).data;
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.uid == request.auth.uid
+          && d.url is string
+          && d.url.size() <= 200000
+          && d.url.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$')
+          && d.createdAt == request.time
+          && cook.uid == request.auth.uid
+          && cook.recipeId == d.recipeId;
+      }
+    }
+
     // --- Client error reports: write-only drop box ---
     //
     // Create-only, by anyone including signed-out visitors, because a failure that

@@ -41,9 +41,9 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Twelve top-level collections (`recipes`, `favorites`,
+Project `recipe-lab-3832b` (`.firebaserc`). Thirteen top-level collections (`recipes`, `favorites`,
 `suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
-`rateLimits`, `follows`, and `cooks`, in the repo since RL-194 and deployed by RL-209) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
+`rateLimits`, `follows`, `cooks`, in the repo since RL-194, and `cookPhotos`, in the repo since RL-204, both deployed by RL-209) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 **Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
@@ -93,6 +93,7 @@ transaction); everything else, `favorites` included, stays.
 | `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification`, `recipe` or `cook` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
+| `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -483,6 +484,22 @@ before logging a cook."). It accepts a `cookId` so `useRecipeCooks` can retry a 
 the same id; an existing cook is left alone and the window does not move. `logCook` takes `displayName` from the signed-in
 account (`AppUser.displayName`, kept in step with the profile by `useProfile.updateName`), never
 from typed input, and trims it to 100 and the note to 500.
+
+**cookPhotos** (RL-204, in the repo, deployed by RL-209): readable by anyone, signed out included.
+Create needs a verified email and the current Terms (`acceptedTerms()`, public content like cooks),
+exactly the keys `uid`, `recipeId`, `url` and `createdAt`, `uid` the writer's own, the cook at
+`cooks/{cookId}` (same id) written by the same uid and carrying the same `recipeId`, `url` a string
+of at most 200000 characters matching `^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$` (a JPEG
+prefix then base64 only; PNG, other prefixes and non-base64 text deny), and `createdAt` equal to the request time. No update, so a second photo for the same cook is
+refused (the document exists, so the write is an update; checked against the emulator). Delete: the
+cook, signed in only (so erasure works if verification lapses, as for cooks), or the recipe's owner,
+verified (moderation of a public photo on their recipe; once the recipe is deleted only the cook can
+delete). A cook's deletion does not cascade to its photo (rules cannot cascade): the client deletes
+`cookPhotos/{cookId}` before the cook, tolerating a missing photo, owned by RL-205. Decision 3's size reasoning is met: the cap
+keeps a photo near 150 KB, well inside the 1 MiB document limit, and the separate collection keeps it
+out of every cook read and count. **Access-call budget**: a create touches `termsAcceptance` and the
+cook (2); the cook's delete touches none, the owner's delete the recipe (1). Emulator-checked
+2026-10-21, including a real 200000-character data URL against the regex (ticket RL-204 Notes).
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
