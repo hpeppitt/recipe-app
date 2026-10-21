@@ -4,6 +4,9 @@ import { render, screen } from '@testing-library/react';
 import { ImportedFrom } from './ImportedFrom';
 import { MetadataPills } from './MetadataPills';
 import { MemoryRouter } from 'react-router-dom';
+import { RecipeContent } from './RecipeContent';
+import { makeRecipe } from '../../test/factories';
+import { renderWithProviders } from '../../test/renderWithProviders';
 
 describe('ImportedFrom', () => {
   it('links to the source with the host shown and safe rel', () => {
@@ -14,7 +17,17 @@ describe('ImportedFrom', () => {
     expect(a.getAttribute('rel')).toBe('noopener noreferrer nofollow');
   });
 
-  it.each([undefined, '', 'javascript:alert(1)', 'not a url'])('renders nothing for %s', (url) => {
+  it("shows a photo import as plain text with no link (RL-263)", () => {
+    const { container } = render(<ImportedFrom url="photo" className="mt-1.5" />);
+    const p = screen.getByText('Imported from a photo');
+    expect(p.tagName).toBe('P');
+    expect(p.className).toContain('text-[13px] text-neutral-700');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(container.querySelector('svg')).toBeNull();
+    expect(container.textContent).not.toContain('opens in a new tab');
+  });
+
+  it.each([undefined, '', 'javascript:alert(1)', 'not a url', 'Photo', 'photo '])('renders nothing for %s', (url) => {
     const { container } = render(<ImportedFrom url={url} />);
     expect(container.innerHTML).toBe('');
   });
@@ -25,5 +38,11 @@ describe('ImportedFrom', () => {
     expect(screen.getByText('via')).toBeInTheDocument();
     rerender(<MemoryRouter><MetadataPills {...pills} /></MemoryRouter>);
     expect(screen.queryByText('via')).toBeNull();
+  });
+
+  it('shows via on the author pill of a photo-imported original (RL-263)', () => {
+    const recipe = makeRecipe({ importedFrom: 'photo', createdBy: { uid: 'u1', displayName: 'Sam' } });
+    renderWithProviders(<RecipeContent recipe={recipe} />);
+    expect(screen.getByText('via')).toBeInTheDocument();
   });
 });

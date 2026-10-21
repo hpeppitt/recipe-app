@@ -335,7 +335,7 @@ describe('ImportPage photo mode (RL-251)', () => {
     await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/vary/));
     const saved = publishRecipe.mock.calls[0][0] as Recipe;
     expect(saved.prompt).toBe('Imported from a photo');
-    expect('importedFrom' in saved).toBe(false);
+    expect(saved.importedFrom).toBe('photo');
     const stored = await db.recipes.get(saved.id);
     for (const value of [
       saved,

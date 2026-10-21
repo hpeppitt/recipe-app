@@ -53,12 +53,14 @@ export const CreatedBySchema = z.object({
 
 /**
  * Where an imported recipe came from (RL-185, RL-186). Untrusted: RL-253 may render it
- * as a link, so only http(s), bounded. A bad value drops the field, not the record.
+ * as a link, so only http(s), bounded, or exactly 'photo' (RL-263), which is shown as
+ * plain text. A bad value drops the field, not the record.
  */
 export const ImportedFromSchema = z
   .string()
   .max(2048)
-  .refine((s) => /^https?:\/\//i.test(s))
+  // 'photo' is PHOTO_SOURCE, the exact marker a photo import stores (RL-263).
+  .refine((s) => s === 'photo' || /^https?:\/\//i.test(s))
   .optional()
   .catch(undefined);
 

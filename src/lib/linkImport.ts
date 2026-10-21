@@ -10,8 +10,8 @@ export const IMPORT_ERROR_MESSAGE = "Couldn't read that page. Check the link, or
 export const PHOTO_IMPORT_ERROR_MESSAGE = "Couldn't read a recipe in those photos. Try a closer, brighter photo of the page.";
 
 /**
- * A photo import's draft `importedFrom` (RL-251). It is not stored: the rules and
- * ImportedFromSchema accept only http(s) URLs (backlog/DECISIONS.md, RL-251).
+ * A photo import's `importedFrom` (RL-251). Stored on the recipe and accepted as this exact
+ * literal by the rules and ImportedFromSchema; shown as plain text, never a link (RL-263).
  */
 export const PHOTO_SOURCE = 'photo';
 
@@ -68,7 +68,7 @@ export function importHost(url: string): string {
 
 /**
  * A recipe read from storage with `importedFrom` kept only when it is a bounded http(s)
- * URL (ImportedFromSchema), so nothing downstream can render an unchecked link.
+ * URL or exactly 'photo' (ImportedFromSchema), so nothing downstream can render an unchecked link.
  */
 export function withBoundedImportedFrom<T extends object>(recipe: T): T {
   if (!('importedFrom' in recipe)) return recipe;

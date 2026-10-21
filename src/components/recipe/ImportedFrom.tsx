@@ -1,7 +1,12 @@
 import { ExternalLink } from '../ui/icons';
+import { PHOTO_SOURCE } from '../../lib/linkImport';
 
-/** "Imported from <host>" linking to the source (RL-253). Renders nothing unless the url is http(s). */
+/**
+ * "Imported from <host>" linking to the source (RL-253), or plain "Imported from a photo" for
+ * PHOTO_SOURCE (RL-263). Renders nothing for anything else.
+ */
 export function ImportedFrom({ url, className = '' }: { url?: string; className?: string }) {
+  if (url === PHOTO_SOURCE) return <p className={`text-[13px] text-neutral-700 ${className}`}>Imported from a photo</p>;
   let host: string | null = null;
   try {
     const u = new URL(url ?? '');

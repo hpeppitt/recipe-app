@@ -152,7 +152,6 @@ export function useImportRecipe() {
         const createdBy = { uid: user.uid, displayName: user.displayName ?? null };
         // `uncertain` only drives the review; the null amount is what stays editable.
         const { importedFrom: _from, ingredients, ...rest } = preview.recipe;
-        // A photo import keeps no importedFrom: the rules accept only an http(s) URL there (RL-251).
         const fromPhoto = preview.url === PHOTO_SOURCE;
         const generated = {
           ...rest,
@@ -170,7 +169,8 @@ export function useImportRecipe() {
             rootId ? 0 : -1,
             createdBy
           ),
-          ...(!fromPhoto && { importedFrom: preview.url }),
+          // PHOTO_SOURCE for a photo import (RL-263), else the page read.
+          importedFrom: preview.url,
           importedVia: createdBy,
         };
         // A retry reuses the earlier id (edits since then still apply), so a publish that landed is merged.

@@ -6,7 +6,7 @@ import { db } from '../db/database';
 import { makeIngredient, makeRecipe } from '../test/factories';
 import { AuthContext, type AuthContextType } from '../contexts/AuthContext';
 import { fakeUser } from '../test/renderWithProviders';
-import { IMPORT_ERROR_MESSAGE, type ImportDraft } from '../lib/linkImport';
+import { IMPORT_ERROR_MESSAGE, PHOTO_SOURCE, type ImportDraft } from '../lib/linkImport';
 import type { Recipe } from '../types/recipe';
 
 const { publishRecipe, importRecipeFromUrl, importRecipeFromPhotos, getAllPublishedRecipes, navigate, notifyBranched, reportError } = vi.hoisted(() => ({
@@ -133,7 +133,7 @@ describe('useImportRecipe readPhotos (RL-251)', () => {
     return { ...d, recipe: { ...d.recipe!, importedFrom: 'photo' } };
   };
 
-  it('previews the photos as "Photo" and saves with no importedFrom and no photo data anywhere', async () => {
+  it('previews the photos as "Photo" and saves importedFrom \'photo\' and no photo data anywhere', async () => {
     importRecipeFromPhotos.mockResolvedValue(photoDraft());
     const { result } = renderImport();
     await act(() => result.current.readPhotos(photos));
@@ -144,13 +144,22 @@ describe('useImportRecipe readPhotos (RL-251)', () => {
 
     const saved = savedRecipe();
     expect(saved.prompt).toBe('Imported from a photo');
-    expect('importedFrom' in saved).toBe(false);
+    expect(saved.importedFrom).toBe(PHOTO_SOURCE);
     expect(saved.importedVia).toEqual({ uid: fakeUser.uid, displayName: fakeUser.displayName });
     const stored = await db.recipes.get(saved.id);
-    expect(stored && 'importedFrom' in stored).toBe(false);
+    expect(stored?.importedFrom).toBe(PHOTO_SOURCE);
     for (const value of [saved, stored, navigate.mock.calls, reportError.mock.calls]) {
       expect(JSON.stringify(value ?? null)).not.toContain(B64);
     }
+  });
+
+  it("saves importedFrom 'photo' on an Add to family branch too (RL-263)", async () => {
+    await db.recipes.add(makeRecipe({ id: 'root', title: 'Gran Scones' }));
+    importRecipeFromPhotos.mockResolvedValue(photoDraft());
+    const { result } = renderImport();
+    await act(() => result.current.readPhotos(photos));
+    await act(() => result.current.save(true));
+    expect(savedRecipe()).toMatchObject({ parentId: 'root', rootId: 'root', depth: 1, prompt: 'Imported from a photo', importedFrom: PHOTO_SOURCE });
   });
 
   it('shows the draft error and calls nothing for no photos', async () => {
