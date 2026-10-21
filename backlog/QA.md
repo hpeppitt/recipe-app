@@ -1955,3 +1955,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Live after RL-191 (Google on). In Settings at 390px, light and dark: an email-link account shows "<email> · Email link" under the name and a "Sign-in methods" row reading 1; an account that signed in with Google shows "<email> · Google" and 1; a guest upgraded through Google on an email account shows both linked and 2. The row is not tappable. A guest and a signed-out visitor see neither the email line nor the row.
 
 - Reviewer noted (low): any non-Google account reads "Email link" (a legacy password account would too). Also restores the RL-188 VITE_ENABLE_GOOGLE_SIGNIN entry in .env.example, which the RL-188 commit missed.
+
+### RL-190 Google and import wording in the policies
+- Author: sign off the Google and import wording in /privacy and /terms before release. New in Privacy: "Signing in with Google" and "Importing a recipe from a link" sections, plus small edits to "Your account" and "Security"; new in Terms: two paragraphs under "Your content and who sees it" and "or with your Google account" under sign-in. `TERMS_VERSION` is not bumped (nobody re-accepts); say if you want it bumped, which needs a rules deploy.
+
+- Not covered: docs/legal/data-inventory.md and claims-to-verify.md do not yet mention Google sign-in or link import, and the Cookie Policy was not checked for Google's sign-in popup storage. Fold into your pre-release policy read.

@@ -6,7 +6,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
-  lastUpdated: '2026-10-19',
+  lastUpdated: '2026-10-21',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
@@ -41,10 +41,30 @@ export const PRIVACY: LegalDocument = {
       heading: 'Your account',
       paragraphs: [
         'What: your email address, an account id, your display name, whether your email is verified, and sign-in records kept by Firebase. Anonymous accounts have an account id and a generated name (such as "CrispyWaffle"), and no email.',
-        'Why: to sign you in with an email link and to tie your content to you.',
+        'Why: to sign you in, with an email link or with your Google account, and to tie your content to you.',
         'Where: Google Firebase Authentication. Google sends the sign-in email.',
         'Who sees it: you and us. Other users see your display name, never your email.',
         'How long: until your account is deleted. There is no automatic expiry, including for anonymous accounts.',
+      ],
+    },
+    {
+      heading: 'Signing in with Google',
+      paragraphs: [
+        'What: if you choose "Continue with Google", Google sends Firebase Authentication your name, your email address and the address of your Google profile photo. Firebase Authentication keeps these in your sign-in record. The app uses only your email address and display name. It does not show, copy or store your Google profile photo, and your profile photo choice stays as you set it in the app. We never receive your Google password.',
+        'Why: to sign you in without a link sent by email. An account has one email address, so Google sign-in and the email link open the same account when the address matches.',
+        'Where: Google Firebase Authentication, and Google\'s own sign-in pages, which Google\'s Privacy Policy covers.',
+        'Who sees it: you and us. Other users see your display name, never your email.',
+        'How long: until your account is deleted. Your Google account stays with Google and is not affected.',
+      ],
+    },
+    {
+      heading: 'Importing a recipe from a link',
+      paragraphs: [
+        'What: when you add a recipe from a link, the web address you enter is sent to Google\'s Gemini AI, which reads the page to find the recipe. The app does not send your email, name or account id with it. The full address is stored on the recipe as its source and is public once the recipe is published. Product analytics, if you allow them, record only the website name from the address, never the full address.',
+        'Why: to turn a web page into a recipe you can edit and branch.',
+        'Where: Google, through Firebase AI Logic and the Gemini Developer API, under the same terms as AI recipe generation above.',
+        'Who sees it: Google processes the address and the page it points to. Anyone can see the source link on a published recipe.',
+        'How long: the source link stays with the recipe until you delete the recipe. Do not import a link that contains a private token, a password or personal information.',
       ],
     },
     {
@@ -229,7 +249,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Security',
       paragraphs: [
-        'Access rules on our database limit who can read and change each kind of record, as described in this policy. Sign-in uses email links, so there are no passwords to leak. No system is perfectly secure.',
+        'Access rules on our database limit who can read and change each kind of record, as described in this policy. Sign-in uses email links or Google, so we hold no passwords to leak. No system is perfectly secure.',
       ],
     },
     {
