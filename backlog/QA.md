@@ -2149,3 +2149,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Drop it and tap Write it: the composer text has no "no peanuts", and a satay may use peanuts. Leave and start another new chat: peanuts are avoided again. Leave Create and come back: nothing is dropped.
 - With four or more avoids: three terms show, then "+N more". Tap it: the rest appear and focus lands on the first new one.
 - Signed out or unverified: no terms. Needs RL-249's rules deploy for a live profile read; until then no terms show.
+
+### RL-237 Kitchen invite and membership rules
+- Nothing to check in the browser: rules only, in the repo, not deployed (RL-249 deploys). Emulator probe codes are in the ticket Notes.

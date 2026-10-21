@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { KITCHEN_ITEM_CAP, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX } from './kitchen';
+import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX } from './kitchen';
 
 describe('firestore.rules kitchen and collection caps (RL-211)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -19,6 +19,17 @@ describe('firestore.rules kitchen and collection caps (RL-211)', () => {
     expect(rules).toContain('d.shopping.size() <= kitchenItemCap()');
     expect(rules).toContain('d.pantry.size() <= kitchenItemCap()');
     expect(rules).toContain('d.recipeIds.size() <= collectionRecipeCap()');
+  });
+
+  it('match the household sharing limits (RL-237)', () => {
+    expect(literal('kitchenMemberCap')).toBe(KITCHEN_MEMBER_CAP);
+    expect(literal('kitchenInviteDays')).toBe(KITCHEN_INVITE_DAYS);
+    expect(literal('kitchenInviteCodeMin')).toBe(KITCHEN_INVITE_CODE_MIN);
+    expect(rules).toContain('request.resource.data.memberUids.size() <= kitchenMemberCap()');
+    expect(rules).toContain("d.expiresAt <= request.time + duration.value(kitchenInviteDays(), 'd')");
+    expect(rules).toContain('code.size() >= kitchenInviteCodeMin()');
+    // The charset regex carries the minimum as a literal.
+    expect(rules).toContain(`code.matches('^[A-Za-z0-9_-]{${KITCHEN_INVITE_CODE_MIN},64}$')`);
   });
 });
 
