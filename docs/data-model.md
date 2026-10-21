@@ -41,10 +41,10 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Fifteen top-level collections (`recipes`, `favorites`,
+Project `recipe-lab-3832b` (`.firebaserc`). Sixteen top-level collections (`recipes`, `favorites`,
 `suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
 `rateLimits`, `follows`, `cooks`, in the repo since RL-194, and `cookPhotos`, in the repo since RL-204, both deployed by RL-209,
-and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
+and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227, and `tasteProfiles`, in the repo since RL-230, deployed by RL-249) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 **Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
@@ -90,6 +90,7 @@ transaction); everything else, `favorites` included, stays.
 | `notifications/{autoId}` | auto | `AppNotification` | Nine types, listed below and in [capabilities.md](capabilities.md). `recipeId`/`recipeTitle`/`recipeEmoji` are optional because `follow` is about a person, not a recipe. |
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings (`photoBgColor` is a `var(--color-...)` token reference since RL-140, a legacy raw hex on older profiles, or null for generated and uploaded avatars; the rules do not constrain it) and the maintained counters `followerCount` and `followingCount` (`recipeCount` is stored but no longer bumped, RL-032). Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
 | `notificationPrefs/{uid}` | user uid | `{ branch, suggestion, follow, updatedAt }` (three bools and a server timestamp) | The account's "Notify me when" choices (RL-152 rules, in the repo, deployed by RL-156; RL-155 writes them). **Private**: owner-only read. Applied when the recipient reads Activity, so a writer never reads someone else's preferences. |
+| `tasteProfiles/{uid}` | user uid | `{ avoids, hidden, askedAt, updatedAt }` (two string lists, an int ms or null, a server timestamp) | The account's stated avoids (at most 12) and the learned terms they hid (at most 50) (RL-230 rules, in the repo, deployed by RL-249; RL-231 writes them). **Private**: owner-only read. The learned profile itself (`learnTaste`, `lib/taste.ts`) is computed on the device and never stored. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
 | `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification`, `recipe` or `cook` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
@@ -376,6 +377,21 @@ upgrade to an email, so an anonymous account has no profile document.
 **follows** — readable by the follower or the followed. The follower creates and deletes,
 with a verified email,
 and the id must be `{their uid}_{followingId}`. No updates.
+
+**tasteProfiles** (RL-230, in the repo, deployed by RL-249): read, create and update only by
+the owner with a verified email; delete by the signed-in owner (no verified email needed, like
+termsAcceptance, so erasure works if verification lapses). Writes take exactly the keys `avoids`,
+`hidden`, `askedAt` and `updatedAt`. `avoids` is a list of at most `TASTE_AVOID_MAX` (12) and
+`hidden` a list of at most `TASTE_HIDDEN_MAX` (50) (`lib/taste.ts`, tied to the rules' literals by
+`taste.test.ts`). Rules cannot loop over a list. Avoids are sent to Gemini, so each of the 12
+slots is checked by index: a string of at most `TASTE_TERM_MAX` (40) characters. `hidden` only
+filters the device's own learned terms, so it gets the cheap bound: its `join('')` must be at
+most 50 x 40 characters, which bounds the document but lets one 41-character term or a
+non-string element through (join stringifies it). Each hidden term's type and length is the
+client's job (RL-231). `askedAt` is null or an int no more
+than 60 seconds ahead of server time (the client's clock, bounded like
+`termsAcceptance.acceptedAt`), and `updatedAt` must equal the request time
+(`serverTimestamp()`). Emulator-checked 2026-10-21 (ticket RL-230 Notes).
 
 **termsAcceptance** (RL-047): readable only by its owner. Created and updated (a `setDoc`
 overwrite) only by the owner with a verified email, with exactly the keys `version`,

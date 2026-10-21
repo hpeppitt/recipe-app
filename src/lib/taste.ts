@@ -1,4 +1,7 @@
-/** Learned taste: computed on the device from the user's own cooks and branches, never stored or sent. */
+/**
+ * Taste. The learned part (learnTaste) is computed on the device from the user's own cooks and
+ * branches and is never stored or sent. The stored profile (avoids, hidden terms) is bounded below.
+ */
 import { BRANCH_CHIPS } from './constants';
 import { promptMatchesChip } from './branchChips';
 
@@ -18,6 +21,11 @@ export interface Taste {
   cookCount: number;
   branchCount: number;
 }
+
+/** Stored taste profile bounds. MUST equal tasteAvoidCap(), tasteHiddenCap() and tasteTermMax() in firestore.rules. */
+export const TASTE_AVOID_MAX = 12;
+export const TASTE_HIDDEN_MAX = 50;
+export const TASTE_TERM_MAX = 40;
 
 const MAX_TERMS = 5;
 const MIN_COUNT = 2;
