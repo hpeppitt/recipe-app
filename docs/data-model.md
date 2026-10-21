@@ -41,9 +41,9 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Eleven top-level collections (`recipes`, `favorites`,
+Project `recipe-lab-3832b` (`.firebaserc`). Twelve top-level collections (`recipes`, `favorites`,
 `suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
-`rateLimits`, `follows`) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
+`rateLimits`, `follows`, and `cooks`, in the repo since RL-194 and deployed by RL-209) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 **Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
@@ -90,8 +90,9 @@ transaction); everything else, `favorites` included, stays.
 | `profiles/{uid}` | user uid | `UserProfile` (`types/profile.ts`) | Public read. Holds avatar settings (`photoBgColor` is a `var(--color-...)` token reference since RL-140, a legacy raw hex on older profiles, or null for generated and uploaded avatars; the rules do not constrain it) and the maintained counters `followerCount` and `followingCount` (`recipeCount` is stored but no longer bumped, RL-032). Uploaded avatars live here as base64 JPEG. `photoURL` must be absent, null, or a `data:image/` string of at most 100000 characters (checked on create and on updates that touch it, RL-019): a third-party-hosted URL would leak the IP and user agent of every viewer, and `Avatar` renders only `data:image/` values. |
 | `notificationPrefs/{uid}` | user uid | `{ branch, suggestion, follow, updatedAt }` (three bools and a server timestamp) | The account's "Notify me when" choices (RL-152 rules, in the repo, deployed by RL-156; RL-155 writes them). **Private**: owner-only read. Applied when the recipient reads Activity, so a writer never reads someone else's preferences. |
 | `termsAcceptance/{uid}` | user uid | `{ version, acceptedAt, recordedAt }` | The account's latest acceptance of the Terms of Service (RL-047). **Private**: owner-only read, never on the public profile and never in analytics. `version` is `TERMS_VERSION` (`lib/legal.ts`), `acceptedAt` the client's ms when the link was sent with the box ticked (or Accept was pressed in `TermsUpdateDialog`), `recordedAt` a server timestamp. Only the latest acceptance is kept; there is no history. |
-| `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification` or `recipe` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
+| `writeWindows/{uid}_{action}` | composite, `action` is `suggestion`, `reply`, `notification`, `recipe` or `cook` | `{ windowStart, count, at, last }` (two timestamps, an int, and the path of the last document counted) | Per-user fixed-window counter for the rules-only write limits (RL-048 and RL-049, in the repo 2026-10-15, deployed by RL-051). Moved in the same transaction as the suggestion, message, notification or recipe create it counts, and `last` names that document. Owner read only, derived from the id. Clients can never delete one; the operator's erase script (RL-055, Admin SDK) does. |
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
+| `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index. Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
 
@@ -387,6 +388,7 @@ Functions:
 | `reply` | 30 | 1 hour | message create | message under the reply box |
 | `notification` | 60 | 1 hour | every notification create (favourite, follow, suggestion, reply, apply, branch, decline) | skipped silently, reported |
 | `recipe` | 30 | 1 day | recipe create only (a re-publish is an update and is not limited) | "You've published a lot today. Try again tomorrow." |
+| `cook` | 20 | 1 day | cook create (RL-194, in the repo, deployed by RL-209) | set by the client ticket, RL-196 |
 
 `createSuggestion`, `addSuggestionMessage`, the create branch of `publishRecipe` and every
 notification writer (through `notify()` in `services/firestore.ts`, after the action it
@@ -395,13 +397,13 @@ announces has committed) run a transaction that reads `writeWindows/{uid}_{actio
 message create rules additionally require `existsAfter()` and `getAfter()` of that window
 with `at == request.time`, which proves the window moved in the same request, so a create
 without it is denied. The window rule: read by its owner only, decided from the document id
-(`{your uid}_` plus one of the four actions), never from `resource.data`, because the
+(`{your uid}_` plus one of the five actions), never from `resource.data`, because the
 client reads a missing window on its first write and a rule that dereferences
 `resource.data` would deny that (RL-026). Create and update need a verified email, that exact
 id, only the keys `windowStart`, `count`, `at` and `last`, an int `count`, a timestamp
 `windowStart`, `at` equal to the request time, and `last` a string of at most 300 characters.
 `last` is the path of the document this bump counts (`suggestions/{id}`,
-`suggestions/{id}/messages/{id}`, `notifications/{id}` or `recipes/{id}`), and each create requires the window's `last` after the
+`suggestions/{id}/messages/{id}`, `notifications/{id}`, `recipes/{id}` or `cooks/{id}`), and each create requires the window's `last` after the
 request to equal its own path. The window has one value after a request, so one bump admits
 exactly one create: without it, one bump in a batch admitted any number of suggestions or
 messages (emulator-proved before the fix, 2026-10-15). Create needs `count == 1` and `windowStart` the request
@@ -417,10 +419,10 @@ matching the counts in the suggestion and reply paragraphs above. **Access-call 
 request (20 accesses). A suggestion create touches the recipe, `termsAcceptance` and the
 window (3 documents); a message create touches the parent suggestion, `termsAcceptance` and
 the window (3); a recipe create touches `termsAcceptance` and the window (2); a notification
-create touches only the window (1); the window write itself touches none. Emulator-checked
+create touches only the window (1); a cook create touches `termsAcceptance`, the recipe and the window (3); the window write itself touches none. Emulator-checked
 2026-10-15 with every guard present (tickets RL-048 and RL-049 Notes). The caps and windows
 live in the rules as `suggestionCap()`, `replyCap()`, `notificationCap()`, `recipeCap()`,
-`windowMs()` and `recipeWindowMs()`, and `src/lib/rateLimit.test.ts` fails when they differ
+`cookCap()`, `windowMs()` and `recipeWindowMs()`, and `src/lib/rateLimit.test.ts` fails when they differ
 from `RATE_LIMITS` in `src/lib/rateLimit.ts`.
 
 A notification is written in its own small transaction after the favourite, follow,
@@ -440,6 +442,32 @@ when the transaction finds the recipe). Before this, a create over an existing r
 accepted by the rules as an owner update and reset its counters. Checked with the web SDK
 against the emulator (ticket RL-049 Notes). `publishRecipe` also rejects, before any read,
 when the recipe's `createdBy.uid` is not the signed-in uid (the rules would deny it).
+
+**cooks** (RL-194, in the repo, deployed by RL-209): readable by anyone, signed out included, so
+counts, votes, notes and cook names show on the recipe; a count query on `recipeId` alone or with
+`vote` is allowed signed out. Create needs a verified email, the current Terms (`acceptedTerms()`, as for recipe,
+suggestion and message creates), and exactly the keys `uid`,
+`displayName`, `recipeId`, `rootId`, `recipeOwnerId`, `vote`, `note`, `branchId` and `createdAt`:
+`uid` the writer's own, `vote` `again` or `tweak`, `note` null or a string of at most 500,
+`branchId` null, `createdAt` equal to the request time (`serverTimestamp()`), `displayName` null
+or a string of at most 100 (not tied to the profile; the client takes it from there), `recipeId`
+a string of at most 128, and `recipeOwnerId` and `rootId` equal to the recipe's `createdBy.uid`
+and `rootId` (the recipe must exist and carry a string `rootId`; every published recipe does,
+since `Recipe.rootId` is required and `publishRecipe` writes the whole record, but the recipe
+rules do not enforce it, so a recipe without one cannot be cooked). The `cook` window must move in the
+same request with `last` equal to `cooks/{id}`, so one bump admits one cook (20 a day, see
+writeWindows below). A Terms bump (`termsVersion()`) therefore denies every cook until the user
+re-accepts; RL-196 must handle that denial as the other contributing writes do. Update: only the
+cook, verified, only `branchId`, once, from null to the id of an existing recipe the cook owns
+(at most 128 characters; crediting a branch grown from the note). Delete: only the cook, signed
+in (no verified email needed, like termsAcceptance and notificationPrefs, so erasure works if
+verification lapses); the recipe owner cannot delete other people's cooks (no moderation, as for
+suggestions). Cooks outlive a deleted recipe (no cascade, by decision), so anything that
+aggregates cooks over a family must tolerate a `recipeId` whose recipe is gone.
+**Access-call budget**: a cook create touches `termsAcceptance`, the recipe (`exists()` and
+`get()` of one path count once) and the window's `getAfter()`, so 3 document accesses and 3
+billed reads in the rules, plus the client's window read in its transaction; a `branchId`
+update touches the branch recipe (1); delete touches none. Emulator-checked 2026-10-21 (ticket RL-194 Notes).
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.

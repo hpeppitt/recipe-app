@@ -66,12 +66,13 @@ service cloud.firestore {
     // --- Write limits (RL-048, RL-049) ---
     //
     // MUST equal RATE_LIMITS in src/lib/rateLimit.ts (SUGGESTION_CAP, REPLY_CAP,
-    // NOTIFICATION_CAP, RECIPE_CAP, WINDOW_MS, RECIPE_WINDOW_MS);
+    // NOTIFICATION_CAP, RECIPE_CAP, COOK_CAP, WINDOW_MS, RECIPE_WINDOW_MS);
     // src/lib/rateLimit.test.ts fails the build when they differ:
     //   suggestions  10 per hour
     //   replies      30 per hour
     //   notifications 60 per hour
     //   recipes      30 per day (creates only; a re-publish is an update)
+    //   cooks        20 per day (RL-194, same day window as recipes)
     //   window       3600000 ms
     //   recipe window 86400000 ms
     function suggestionCap() {
@@ -86,6 +87,9 @@ service cloud.firestore {
     function recipeCap() {
       return 30;
     }
+    function cookCap() {
+      return 20;
+    }
     function windowMs() {
       return 3600000;
     }
@@ -96,10 +100,10 @@ service cloud.firestore {
     // Per-action cap and window length. Only called with an action from
     // ownWindowIds(), so the map lookup never misses.
     function capFor(action) {
-      return {'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap()}[action];
+      return {'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap()}[action];
     }
     function windowMsFor(action) {
-      return {'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs()}[action];
+      return {'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs()}[action];
     }
 
     // Proves the limited create moved writeWindows/{uid}_{action} in the same
@@ -569,7 +573,7 @@ service cloud.firestore {
     // --- Write windows: per-user fixed-window counters (RL-048, RL-049) ---
     //
     // One document per user per action, id {uid}_{action}, written in the same
-    // transaction as the suggestion, message, notification or recipe create it
+    // transaction as the suggestion, message, notification, recipe or cook create it
     // counts (see movedWindow()). Each action has its own cap and window length
     // (capFor(), windowMsFor()); the action is the id after the underscore.
     // `last` is that document's path, relative to the database root.
@@ -604,10 +608,10 @@ service cloud.firestore {
         );
       allow delete: if false;
 
-      // A uid has no underscore, so these four ids are exact.
+      // A uid has no underscore, so these five ids are exact.
       function ownWindowIds() {
         let u = request.auth.uid;
-        return [u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe'];
+        return [u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook'];
       }
 
       // Only meaningful once windowId is in ownWindowIds().
@@ -624,6 +628,60 @@ service cloud.firestore {
           && d.windowStart is timestamp
           && d.count is int
           && d.at == request.time;
+      }
+    }
+
+    // --- Cooks: "I made this" records, public read (RL-192, RL-194) ---
+    //
+    // Every field is public, signed out included, so "Made N times" (a count
+    // query on recipeId, optionally vote) and other cooks' notes show on the
+    // recipe. Create: a verified user with the current Terms (a cook note is
+    // public content, like a recipe, suggestion or message), their own uid, a
+    // fixed key set, server-time createdAt, branchId null, recipeOwnerId and
+    // rootId the recipe's real ones (the recipe must exist), and the `cook`
+    // window moved in the same request (20 a day). displayName is not tied to
+    // the profile; the client takes it from there. The cook may set branchId
+    // once, to their own existing recipe, and may delete their cook (signed in
+    // only, like termsAcceptance, so erasure works if verification lapses);
+    // the recipe owner cannot delete other people's notes (no moderation).
+    // Accesses per create: termsAcceptance, the recipe (exists() and get() of
+    // one path count once) and the window's getAfter(), so 3. Per branchId
+    // update: the branch recipe, so 1.
+    match /cooks/{cookId} {
+      allow read: if true;
+      allow create: if verified()
+        && acceptedTerms()
+        && isWellFormedCook(request.resource.data)
+        && movedWindow('cook', 'cooks/' + cookId);
+      allow update: if verified()
+        && resource.data.uid == request.auth.uid
+        && resource.data.branchId == null
+        && changedKeys().hasOnly(['branchId'])
+        && request.resource.data.branchId is string
+        && request.resource.data.branchId.size() <= 128
+        && isOwnRecipe(/databases/$(database)/documents/recipes/$(request.resource.data.branchId));
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+
+      function isOwnRecipe(path) {
+        return exists(path) && get(path).data.createdBy.uid == request.auth.uid;
+      }
+
+      function isWellFormedCook(d) {
+        let keys = ['uid', 'displayName', 'recipeId', 'rootId', 'recipeOwnerId', 'vote', 'note', 'branchId', 'createdAt'];
+        let recipe = /databases/$(database)/documents/recipes/$(d.recipeId);
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.uid == request.auth.uid
+          && d.vote in ['again', 'tweak']
+          && (d.note == null || (d.note is string && d.note.size() <= 500))
+          && d.branchId == null
+          && d.createdAt == request.time
+          && (d.displayName == null || (d.displayName is string && d.displayName.size() <= 100))
+          && d.recipeId is string && d.recipeId.size() <= 128
+          && exists(recipe)
+          && d.recipeOwnerId == get(recipe).data.createdBy.uid
+          // .get so a recipe without rootId denies as false, not an error.
+          && d.rootId == get(recipe).data.get('rootId', null)
+          && d.rootId is string;
       }
     }
 

@@ -1960,3 +1960,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Author: sign off the Google and import wording in /privacy and /terms before release. New in Privacy: "Signing in with Google" and "Importing a recipe from a link" sections, plus small edits to "Your account" and "Security"; new in Terms: two paragraphs under "Your content and who sees it" and "or with your Google account" under sign-in. `TERMS_VERSION` is not bumped (nobody re-accepts); say if you want it bumped, which needs a rules deploy.
 
 - Not covered: docs/legal/data-inventory.md and claims-to-verify.md do not yet mention Google sign-in or link import, and the Cookie Policy was not checked for Google's sign-in popup storage. Fold into your pre-release policy read.
+
+### RL-194 Cook records in the rules
+- Nothing to see in the app yet: rules only, in the repo, deployed by RL-209. Logging a cook needs the current Terms, like publishing, suggesting and replying, so a future Terms bump blocks cooks until the user re-accepts. Crediting a branch (`branchId`) only accepts the cook's own existing recipe. A cook can delete their cook even if their email verification lapses.
+
+- Reviewer noted (low): displayName is not tied to the profile (RL-196 takes it from the profile); cooks outlive a deleted recipe by design. At RL-209 deploy: confirm no live recipe lacks a string rootId, or it cannot be cooked.

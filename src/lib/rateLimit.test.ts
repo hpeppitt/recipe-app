@@ -7,6 +7,7 @@ import {
   REPLY_CAP,
   NOTIFICATION_CAP,
   RECIPE_CAP,
+  COOK_CAP,
   WINDOW_MS,
   RECIPE_WINDOW_MS,
   RATE_LIMITS,
@@ -105,6 +106,7 @@ describe('per-action limits (RL-049)', () => {
       reply: { cap: REPLY_CAP, windowMs: WINDOW_MS },
       notification: { cap: 60, windowMs: HOUR },
       recipe: { cap: 30, windowMs: 24 * HOUR },
+      cook: { cap: 20, windowMs: 24 * HOUR },
     });
   });
 
@@ -115,21 +117,24 @@ describe('per-action limits (RL-049)', () => {
     expect(rules).toContain(`notifications ${NOTIFICATION_CAP} per hour`);
     expect(rules).toContain(`recipes      ${RECIPE_CAP} per day`);
     expect(rules).toContain(`recipe window ${RECIPE_WINDOW_MS} ms`);
+    expect(literal('cookCap')).toBe(COOK_CAP);
+    expect(rules).toContain(`cooks        ${COOK_CAP} per day`);
   });
 
   it('the rules map every action to its cap and window function', () => {
     expect(rules).toContain(
-      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap()}[action]"
+      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap()}[action]"
     );
     expect(rules).toContain(
-      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs()}[action]"
+      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs()}[action]"
     );
-    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe']");
+    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook']");
   });
 
   it('bind notification and recipe creates to their window bump', () => {
     expect(rules).toContain("movedWindow('notification', 'notifications/' + notificationId)");
     expect(rules).toContain("movedWindow('recipe', 'recipes/' + recipeId)");
+    expect(rules).toContain("movedWindow('cook', 'cooks/' + cookId)");
   });
 
   it('the daily window resets only after a day plus the margin', () => {
