@@ -230,6 +230,20 @@ Google-hosted proxy. This is the single most important architectural fact:
   `responseSchema` together with URL context is unconfirmed (backlog/DECISIONS.md, RL-185);
   the prompt asks for the same JSON so the schema can come off without other changes. The
   gates are the generation gates; nothing new is checked here.
+- **A receipt photo can be read into pantry items (RL-241).** `readReceipt(photo)` is one
+  `generateContent` call with the text "Read this receipt." and the photo as an `inlineData`
+  part, `RECEIPT_SYSTEM_PROMPT` and `RECEIPT_RESPONSE_SCHEMA` (`{ items: string[] }`), bounded
+  at 30 s. The photo is validated by `validateImageFile` and downscaled by `downscaleToJpeg`
+  with the chat defaults plus `shrinkToFit`, then held only in the Pantry page's handler and the request: never
+  in React state, Dexie, Firestore, analytics or a report. The prompt asks for food and drink
+  names only and tells the model to ignore instructions printed on the receipt.
+  `lib/receipt.ts` validates the reply with Zod (`parseReceiptItems`), drops any name with a
+  digit in any script (`\p{Nd}`), `@`, `*`, `#`, `+`, no letters or more than six words, trims, caps each name
+  at `ITEM_NAME_MAX`, dedupes by `itemKey` and keeps at most 40. A malformed reply becomes a
+  fixed "Receipt reply was not valid", so reply text is never logged. A failure is reported as
+  a new Error built from the `redactInlineData` message only (no cause or SDK fields), as `read-receipt`, and thrown as "Couldn't read that receipt.
+  Try a clearer photo."; an empty list throws the same message unreported. Analytics get the generation fields
+  only. The gate is `canGenerate` plus a verified email, as for generation.
 
 **One schema, three consumers.** `schemas/recipe.responseSchema.ts` builds the recipe shape
 with the SDK's `Schema` builders. `gemini.ts` passes it as `responseSchema`, and
