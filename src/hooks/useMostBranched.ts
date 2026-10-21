@@ -28,12 +28,12 @@ const EMPTY = { retry: () => {}, tiles: [] as MostBranchedTile[], allTimeAvailab
  * shortcut: counts only the newest 100 published recipes of the last 90 days, upgrade to a
  * server-side counter. Never writes to Dexie or Firestore; reads nothing in local-only mode.
  */
-export function useMostBranched(range: MostBranchedRange): Result {
+export function useMostBranched(range: MostBranchedRange, enabled = true): Result {
   const [state, setState] = useState<(Omit<Result, 'retry'> & { range: MostBranchedRange }) | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured || !enabled) return;
     let cancelled = false;
     void (async () => {
       const read = await readRecentOrFail('most-branched');
@@ -62,13 +62,13 @@ export function useMostBranched(range: MostBranchedRange): Result {
     return () => {
       cancelled = true;
     };
-  }, [range, attempt]);
+  }, [range, attempt, enabled]);
 
   const retry = () => {
     setState(null);
     setAttempt((n) => n + 1);
   };
-  if (!isFirebaseConfigured) return { status: 'none', ...EMPTY };
+  if (!isFirebaseConfigured || !enabled) return { status: 'none', ...EMPTY };
   // Results from another range never show under this range's label.
   return state && state.range === range ? { ...state, retry } : { status: 'loading', ...EMPTY, retry };
 }

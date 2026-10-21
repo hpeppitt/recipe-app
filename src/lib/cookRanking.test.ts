@@ -80,3 +80,13 @@ describe('parseRecentCooksCache', () => {
     expect(parseRecentCooksCache(null, NOW, ttl)).toBeNull();
   });
 });
+
+describe('spare candidates (RL-243)', () => {
+  it('a larger max returns more for backfill; the defaults are unchanged', () => {
+    const cooks = Array.from({ length: 12 }, (_, i) => cook(`r${i}`, `r${i}`, 1));
+    expect(cookedThisWeek(cooks, NOW)).toHaveLength(8);
+    expect(cookedThisWeek(cooks, NOW, 10)).toHaveLength(10);
+    expect(mostCooked(cooks, NOW, 30)).toHaveLength(3);
+    expect(mostCooked(cooks, NOW, 30, 5)).toHaveLength(5);
+  });
+});

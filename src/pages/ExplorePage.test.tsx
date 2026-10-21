@@ -10,10 +10,14 @@ import type { AppUser, Recipe } from '../types/recipe';
 const getPage = vi.fn();
 const getRecent = vi.fn();
 const getOne = vi.fn();
+const getCooks = vi.fn();
+const getProf = vi.fn();
 vi.mock('../services/firestore', () => ({
   getPublishedRecipesPage: (...a: unknown[]) => getPage(...a),
   getRecentPublishedRecipes: (...a: unknown[]) => getRecent(...a),
   getPublishedRecipe: (...a: unknown[]) => getOne(...a),
+  getRecentCooks: (...a: unknown[]) => getCooks(...a),
+  getProfile: (...a: unknown[]) => getProf(...a),
   getRecipesByUsers: vi.fn(async () => []),
   getCloudFavorites: vi.fn(async () => []),
 }));
@@ -30,7 +34,10 @@ vi.mock('../hooks/useFollow', () => ({
 import { ExplorePage } from './ExplorePage';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { clearBranchingThisWeekCache } from '../hooks/useBranchingThisWeek';
+import { clearRecentCooksCache } from '../hooks/useRecentCooks';
+import { clearCookProfileCache } from '../hooks/useCookSections';
 
+// The 6 hour cooks cache lives in localStorage, which this environment lacks: no cache, one read per session.
 const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const cloud = (over: Partial<Recipe> = {}) => ({ ...makeRecipe(over), favoriteCount: 0, viewCount: 0 });
 const localOnly = { auth: { isConfigured: false } } as const;
@@ -43,6 +50,12 @@ beforeEach(async () => {
   getRecent.mockResolvedValue([]);
   getOne.mockReset();
   getOne.mockResolvedValue(null);
+  getCooks.mockReset();
+  getCooks.mockResolvedValue([]);
+  getProf.mockReset();
+  getProf.mockResolvedValue(null);
+  clearRecentCooksCache();
+  clearCookProfileCache();
   clearBranchingThisWeekCache();
   getPage.mockResolvedValue({ recipes: [], cursor: null, hasMore: false });
 });
@@ -511,6 +524,80 @@ describe('ExplorePage Most branched', () => {
     renderWithProviders(<ExplorePage />, localOnly);
     await screen.findByRole('link', { name: 'Local Loaf' });
     expect(screen.queryByRole('region', { name: 'Most branched' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ExplorePage cook sections (RL-243)', () => {
+  const NOW = Date.now();
+  const DAY = 24 * 60 * 60 * 1000;
+  const cook = (recipeId: string, rootId: string, uid: string, daysAgo: number) => ({ recipeId, rootId, uid, createdAt: NOW - daysAgo * DAY });
+  const root = (id: string) => cloud({ id, title: id, createdAt: NOW - 100 * DAY });
+  beforeEach(() => {
+    getPage.mockResolvedValue({ recipes: [cloud({ id: 'a', title: 'Alpha', createdAt: NOW })], cursor: null, hasMore: false });
+    getOne.mockImplementation(async (id: string) => (id === 'gone' ? null : root(id)));
+  });
+
+  it('leads with Cooked this week tiles, an "N cooked" badge and skips deleted recipes, backfilling the next', async () => {
+    getCooks.mockResolvedValue([cook('gone', 'gone', 'u1', 1), cook('gone', 'gone', 'u2', 1), cook('p', 'p', 'u1', 1), cook('q', 'q', 'u2', 2), cook('q', 'q', 'u3', 2)]);
+    renderWithProviders(<ExplorePage />);
+    const sec = await screen.findByRole('region', { name: 'Cooked this week' });
+    expect(within(sec).getByText('2 cooked')).toBeInTheDocument();
+    expect(within(sec).getByText('1 cooked')).toBeInTheDocument();
+    expect(within(sec).getByRole('link', { name: 'Open q' })).toHaveAccessibleDescription('2 people cooked this week');
+    expect(within(sec).queryByRole('link', { name: 'Open gone' })).not.toBeInTheDocument();
+    expect(within(sec).getByRole('link', { name: 'Open q' })).toHaveAttribute('href', '/recipe/q');
+    expect(within(sec).getByRole('link', { name: 'See all' })).toHaveAttribute('href', '/search');
+    expect(screen.queryByRole('region', { name: 'Branching fast this week' })).not.toBeInTheDocument();
+  });
+
+  it('shows the generic avatar when a profile read fails and reads each uid once', async () => {
+    getCooks.mockResolvedValue([cook('p', 'p', 'u1', 1), cook('q', 'q', 'u1', 1)]);
+    getProf.mockRejectedValue(new Error('denied'));
+    renderWithProviders(<ExplorePage />);
+    await screen.findByRole('region', { name: 'Cooked this week' });
+    await act(async () => {});
+    expect(getProf).toHaveBeenCalledTimes(1);
+  });
+
+  it('Most cooked leads with this month, names the leading branch, and switches range', async () => {
+    getCooks.mockResolvedValue([
+      cook('a', 'a', 'u0', 20),
+      ...['u1', 'u2', 'u3'].map((u) => cook('a2', 'a', u, 5)),
+      cook('b', 'b', 'u1', 60),
+      cook('b', 'b', 'u2', 61),
+    ]);
+    getOne.mockImplementation(async (id: string) => (id === 'a2' ? cloud({ id: 'a2', rootId: 'a', parentId: 'a', title: 'Spicy a', prompt: 'make it spicy' }) : root(id)));
+    renderWithProviders(<ExplorePage />);
+    const sec = await screen.findByRole('region', { name: 'Most cooked' });
+    expect(within(sec).getByRole('button', { name: /this month/ })).toBeInTheDocument();
+    expect(within(sec).getAllByRole('link', { name: /^\d\./ }).map((a) => a.getAttribute('aria-label'))).toEqual(['1. a, 4 cooks']);
+    expect(within(sec).getByRole('link', { name: /^1\. a/ })).toHaveAttribute('href', '/recipe/a');
+    expect(within(sec).getByText('\u201cmake it spicy\u201d')).toBeInTheDocument();
+    expect(getRecent).toHaveBeenCalledTimes(1); // the shared window only; no Most branched read while cooks show
+    fireEvent.click(within(sec).getByRole('button', { name: /this month/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Last 90 days' }));
+    await screen.findByRole('button', { name: /last 90 days/ });
+    await act(async () => {});
+    expect(within(await screen.findByRole('region', { name: 'Most cooked' })).getAllByRole('link', { name: /^\d\./ })).toHaveLength(2);
+  });
+
+  it('falls back to the branch sections with no cooks', async () => {
+    getRecent.mockResolvedValue([cloud({ id: 'k1', rootId: 'a', parentId: 'a', depth: 1, title: 'k1', createdAt: NOW - DAY })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Most branched' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Cooked this week' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to Most branched when cooks are only older than the range, keeping tiles on branches', async () => {
+    getCooks.mockResolvedValue([cook('p', 'p', 'u1', 40)]);
+    getRecent.mockResolvedValue([cloud({ id: 'k1', rootId: 'a', parentId: 'a', depth: 1, title: 'k1', createdAt: NOW - DAY })]);
+    renderWithProviders(<ExplorePage />);
+    expect(await screen.findByRole('region', { name: 'Branching fast this week' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Most cooked' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /last 90 days/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'This month' }));
+    expect(await screen.findByRole('region', { name: 'Most branched' })).toBeInTheDocument();
   });
 });
 

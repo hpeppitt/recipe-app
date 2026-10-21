@@ -2184,4 +2184,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Known limit: names with any digit are dropped, so "7up" or "Cola 2L" never appear (add them by hand). Names that are not food but have no digits ("Thank you Sarah") can still reach the confirm sheet; the user unticks them.
 
 ### RL-242 Recent cooks read
-- No screen uses it yet (RL-243 does). Nothing to look at; if you open Explore with the network tab, no `cooks` query should appear until RL-243 ships.
+- Superseded by RL-243 below: Explore now reads the cooks.
+
+### RL-243 Cooked this week and Most cooked
+- With a few cooks logged this week (use the emulator), Explore opens with "Cooked this week": tiles with an "N cooked" tag top left, up to three overlapping avatars bottom left, and the branch count beside the time. "See all" opens Search. Below, "Most cooked, this month" with ChefHat counts; the pill offers This month and Last 90 days. A family whose branch is cooked 3+ times and 3x the original shows the line `most cook the "..." branch`.
+- With no cooks in the last 7 days the tiles read "Branching fast this week"; with none in the range the ranked section reads "Most branched".
+- Delete a cooked recipe (or point a cook at a missing id): its tile or row is dropped and the next one fills in.
+- Check 390px and 1280px (two-pane: tapping a tile or row opens the recipe beside the list), light and dark. Avatars are 20px, not the design's 22px.
+
