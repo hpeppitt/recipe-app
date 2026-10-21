@@ -2119,3 +2119,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-230 tasteProfiles rules
 - Nothing to check in the browser: rules only, in the repo, not deployed (RL-249 deploys). Emulator probe codes are in the ticket Notes.
+
+### RL-231 useTasteProfile hook
+- Nothing to check in the browser: a hook and data-rights wiring, no UI yet. Needs RL-249's rules deploy before a live write is accepted.
+- Verified account: Settings > Download my data. The file has `cloud.tasteProfile` (null until a profile is saved). Unverified: it lands in errors with the verify note.
+- Operator: `node scripts/data-request.mjs erase <uid> --emulator` (dry run) lists the taste profile delete. Nothing was run against production.

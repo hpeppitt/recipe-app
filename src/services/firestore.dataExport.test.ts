@@ -180,13 +180,21 @@ describe('fetchCloudDataForExport', () => {
     expect('warning' in out.notifications && out.notifications.warning).toMatch(/Stopped after 10000/);
   });
 
-  it('reads the four own writeWindows ids and the profile, terms, notificationPrefs and kitchen by id', async () => {
+  it('reads the four own writeWindows ids and the profile, terms, notificationPrefs, tasteProfiles and kitchen by id', async () => {
     const paths: string[] = [];
     getDocImpl = async (p) => (paths.push(p), missing(p));
     await fetchCloudDataForExport('u1');
     expect(paths.sort()).toEqual([
-      'kitchens/u1', 'notificationPrefs/u1', 'profiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_cook', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
+      'kitchens/u1', 'notificationPrefs/u1', 'profiles/u1', 'tasteProfiles/u1', 'termsAcceptance/u1', 'writeWindows/u1_cook', 'writeWindows/u1_notification', 'writeWindows/u1_recipe', 'writeWindows/u1_reply', 'writeWindows/u1_suggestion',
     ]);
+  });
+
+  it('reports the verify note for tasteProfiles when the email is unverified, without reading it', async () => {
+    const paths: string[] = [];
+    getDocImpl = async (p) => (paths.push(p), missing(p));
+    const out = await fetchCloudDataForExport('u1', false);
+    expect(out.tasteProfile).toEqual({ error: 'Verify your email to include all your online data' });
+    expect(paths).not.toContain('tasteProfiles/u1');
   });
 
   it('reports the verify note for notificationPrefs when the email is unverified, without reading it', async () => {

@@ -21,6 +21,7 @@ const empty: CloudInput = {
   notifications: { data: [] },
   termsAcceptance: { data: null },
   notificationPrefs: { data: null },
+  tasteProfile: { data: null },
   writeWindows: { data: [] },
   cooks: { data: [] },
   cookPhotos: { data: [] },
@@ -85,6 +86,12 @@ describe('assembleDataExport', () => {
     expect(out.cloud?.writeWindows).toHaveLength(1);
     expect(out.cloud?.cooks).toHaveLength(1);
     expect(out.cloud?.cookPhotos).toHaveLength(1);
+  });
+
+  it('exports the taste profile', () => {
+    const input = full();
+    input.cloud!.tasteProfile = { data: { id: ME, avoids: ['Coriander'], hidden: ['Curry'], askedAt: null } };
+    expect(assembleDataExport(input).cloud?.tasteProfile).toMatchObject({ avoids: ['Coriander'], hidden: ['Curry'] });
   });
 
   it('exports the kitchen and collections, aliasing any other uid and dropping unknown keys', () => {
