@@ -23,7 +23,11 @@ Database name `RecipeAppDB`, defined in `src/db/database.ts`. Two tables.
 
 Unindexed fields need no version. `relatedFamilyId` (RL-162) is one: optional on `Recipe`, set
 only on an original saved after "Create New Recipe Anyway", carrying the `rootId` of the first
-match the panel showed. Rows and documents without it are normal.
+match the panel showed. Rows and documents without it are normal. `importedFrom` (the source URL) and `importedVia`
+(the importer, a `CreatedBy`) are two more (RL-185, written by `/import` since RL-186): the own-recipe
+sync and an export-file restore keep them, and the restore drops an `importedFrom` that is not an
+http(s) URL of at most 2048 characters, as do published reads. The recipe create rule has no key
+whitelist; `hasBoundedContent` bounds `importedFrom` (below).
 
 Adding a version means adding a `this.version(n).stores({...})` block and, if existing rows
 need new fields, an `.upgrade()`. Never edit a released version's block: users have that
@@ -206,6 +210,11 @@ iterate a list. A client clock more than a minute fast cannot publish.
 Since RL-162 (in the repo, deployed with RL-160) the same check also requires `relatedFamilyId`
 to be absent, null, or a string of at most 128 characters. Emulator-probed 2026-10-21: 128
 characters 200, 129 characters, a number or a map 403, a normal publish 200.
+Since RL-186 (in the repo, not deployed; it rides with the next rules deploy) the check also
+requires `importedFrom` to be absent, null, or a string of at most 2048 characters matching
+`https?://.*`. Not emulator-checked. The client applies the same bound on every read
+(`withBoundedImportedFrom` in `lib/linkImport.ts` for published reads, `toLocalRecipe` for the
+own-recipe sync), so a bad value is dropped before anything can render it.
 **Moving children up when a version is deleted (RL-158, in the repo, deployed by RL-160).** A
 fourth update shape, `isReparentAfterParentDelete()`: a verified user may change only
 `parentId` and `depth` of a recipe whose stored `parentId` names a version P, when P's

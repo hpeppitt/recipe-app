@@ -1,4 +1,5 @@
 import type { Recipe } from '../types/recipe';
+import { ImportedFromSchema } from '../schemas/recipe.schema';
 
 /** A recipe document as Firestore returns it: Recipe fields plus counters, some optional. */
 export type CloudRecipeDoc = Partial<Omit<Recipe, 'chatHistory'>> & {
@@ -39,6 +40,8 @@ export function toLocalRecipe(doc: CloudRecipeDoc, localRow?: Recipe): Recipe {
     emoji: doc.emoji,
     nutrition: doc.nutrition,
     relatedFamilyId: doc.relatedFamilyId,
+    importedFrom: ImportedFromSchema.parse(doc.importedFrom),
+    importedVia: doc.importedVia,
     prompt: doc.prompt ?? '',
     chatHistory: localRow?.chatHistory ?? [],
     createdAt: doc.createdAt,
@@ -46,6 +49,8 @@ export function toLocalRecipe(doc: CloudRecipeDoc, localRow?: Recipe): Recipe {
   } as Recipe;
   if (recipe.nutrition === undefined) delete recipe.nutrition;
   if (recipe.relatedFamilyId === undefined) delete recipe.relatedFamilyId;
+  if (recipe.importedFrom === undefined) delete recipe.importedFrom;
+  if (recipe.importedVia === undefined) delete recipe.importedVia;
   return recipe;
 }
 

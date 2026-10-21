@@ -28,6 +28,7 @@ const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').t
 const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const CreatePage = lazy(() => import('./pages/CreatePage').then(m => ({ default: m.CreatePage })));
 const ForestPage = lazy(() => import('./pages/ForestPage').then(m => ({ default: m.ForestPage })));
+const ImportPage = lazy(() => import('./pages/ImportPage').then(m => ({ default: m.ImportPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -65,6 +66,8 @@ export function AppRoutes() {
         {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/create" element={<RecipeChatPage />} />
+        {/* Add from a link (RL-186), gated like /create, with its own Close button. */}
+        <Route path="/import" element={<ImportPage />} />
         <Route path="/recipe/:id/vary" element={<RecipeChatPage />} />
         <Route path="/recipe/:id" element={<RecipeDetailPage />} />
         <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />

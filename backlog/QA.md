@@ -1923,3 +1923,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Drafts past the `firestore.rules` caps (title 200 characters, 100 ingredients, 100 steps) fail with the import message rather than saving and being refused later.
 
 - Reviewer noted (low): the private-host check is a suffix list, so a public name resolving to a private IP passes (moot: Google fetches the page). Page text can still fill title, notes and tags (React escapes it); keep imports behind RL-186's review screen. For RL-186: ImportedRecipeSchema (export-file import) drops importedFrom/importedVia, and any importedFrom read from Firestore must get the same http(s) and 2048 bound before it is used as an href.
+
+### RL-186 Add from a link
+- Create tab (`/new`): an "Add from a link" row with a link icon sits under "Describe it my own way" and opens `/import` (390px and desktop, light and dark).
+- Signed out or unverified: `/import` shows the sign-up screen with Close, not the link field.
+- Paste a real recipe link (for example a Serious Eats recipe) into the empty field: it reads without tapping Read it, shows "Reading the page…", then the preview card (emoji, title, "N ingredients · N steps · N min", host tag). Check the title, counts and time match the page. This is also RL-185's live check that AI Logic accepts the response schema with URL context.
+- Try a page with a fraction or vague amount the model may misread: the "One amount was unclear" (or "N amounts") line shows, and after saving that ingredient has no amount and can be fixed in the editor.
+- Save as a new original: opens the recipe with the saved toast; its prompt line says "Imported from <host>".
+- A link to a dish already in the library (same title words): a sage card "There's already a <Title> family with N versions" with the author pill, and Add to <Title> family above Save as a new original. Add to family opens the new recipe as a branch of that family's original (check the tree).
+- A bad link ("localhost", "not a link") and an unreadable page (paywalled or a home page): the error shows under the field and the link stays.
+- Airplane mode, then save: "Couldn't save the recipe. Check your connection and try again." and nothing appears in your recipes.
+- Add to family on someone else's recipe: the original's author gets a branch notification (check their Activity); on your own family nobody is notified.
+- Keyboard and screen reader (VoiceOver): after a read, focus lands on the preview title and "Read <title>, N ingredients" is announced; while saving the button says "Saving…"; a failed save puts focus back on that button.
+- Rules: `firestore.rules` now bounds `importedFrom` in `hasBoundedContent` (absent, null, or an http(s) string of at most 2048). It rides with the next rules deploy and is harmless before it (the client only writes valid URLs). Not emulator-checked; after deploy, an import save should still succeed.
+
+- Reviewer noted (low): closing discards a preview that cost a generation, with no confirm; a long family title truncates in the Add to button; reading has no cancel; if a publish times out but lands and the user then switches between Add to family and Save as new original, two recipes can result. The firestore.rules importedFrom bound is not emulator-probed; probe it with the next rules deploy (RL-160 or later).

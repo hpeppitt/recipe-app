@@ -17,6 +17,18 @@ describe('parseImportedRecipes', () => {
     expect(r.relatedFamilyId).toBe('fam');
   });
 
+  it('keeps importedFrom and importedVia, and drops an importedFrom that is not a bounded http(s) URL (RL-186)', () => {
+    const via = { uid: 'u1', displayName: 'Ana' };
+    const [kept] = parseImportedRecipes([makeRecipe({ id: 'a', importedFrom: 'https://a.com/x', importedVia: via })], NOW).recipes;
+    expect(kept.importedFrom).toBe('https://a.com/x');
+    expect(kept.importedVia).toEqual(via);
+    for (const bad of ['javascript:alert(1)', `https://a.com/${'x'.repeat(2048)}`, 42]) {
+      const { recipes, skipped } = parseImportedRecipes([{ ...makeRecipe({ id: 'b' }), importedFrom: bad }], NOW);
+      expect(skipped).toBe(0);
+      expect(recipes[0].importedFrom).toBeUndefined();
+    }
+  });
+
   it('rejects anything that is not an array', () => {
     for (const raw of [null, undefined, 42, 'nope', { recipes: [] }]) {
       expect(parseImportedRecipes(raw, NOW).recipes).toEqual([]);

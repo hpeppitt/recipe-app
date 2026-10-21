@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { createRecipeChat, createVariationChat, type ChatSession } from '../services/gemini';
 import {
   buildRecipe,
-  cacheRecipe,
   createRecipe,
   getRecipeTree,
   searchRecipes,
@@ -11,17 +10,14 @@ import {
 } from '../db/recipes';
 import {
   notifyBranched,
-  publishRecipe,
   searchPublishedVariations,
   type PublishedRecipe,
 } from '../services/firestore';
 import { readPublishedWindow } from '../services/publishedWindow';
 import { dedupKey, familyCounts, mergeDedupById, rankByQuery, recipeHaystack } from '../lib/search';
-import { withTimeout } from '../lib/utils';
 import {
   describeGenerationError,
   GENERATION_UNAVAILABLE,
-  rateLimitMessage,
   type FriendlyError,
 } from '../lib/errors';
 import { isFirebaseConfigured } from '../services/firebase';
@@ -30,6 +26,7 @@ import type { Recipe, ChatMessage } from '../types/recipe';
 import { trackRecipeCreated } from '../services/analytics';
 import type { GeneratedRecipe } from '../types/api';
 import { reportError } from '../services/telemetry';
+import { publishThenCache } from '../services/recipeSave';
 import {
   IMAGE_ONLY_PROMPT,
   MAX_IMAGES_PER_CHAT,
@@ -37,9 +34,6 @@ import {
   redactInlineData,
   type ImageAttachment,
 } from '../lib/imageAttachments';
-
-/** How long a save waits for the cloud publish before reporting a failure. */
-const PUBLISH_TIMEOUT_MS = 4000;
 
 /** The typing pause after which a new-recipe chat looks for similar recipes (7a, RL-178). */
 export const TYPING_PAUSE_MS = 700;
@@ -88,7 +82,7 @@ export type TypingMatches = {
  * user already has on this device is only ever reported once. A cloud failure
  * degrades to local-only rather than blocking generation.
  */
-async function searchSimilarRecipes(
+export async function searchSimilarRecipes(
   text: string,
   currentUid: string | undefined,
   cloudWindow: () => Promise<PublishedRecipe[] | null>
@@ -494,8 +488,6 @@ export function useRecipeChat(parentRecipe?: Recipe) {
         return;
       }
 
-      // Cloud first (decision 1b): the sync removes own rows the server lacks,
-      // so a Dexie row written before a failed publish would vanish later.
       // Only an original records a related family; a variation clears it.
       const relatedFamilyId = parentRecipe ? null : relatedFamilyRef.current;
       if (parentRecipe) relatedFamilyRef.current = null;
@@ -505,40 +497,18 @@ export function useRecipeChat(parentRecipe?: Recipe) {
           : { ...buildRecipe(...args), ...(relatedFamilyId ? { relatedFamilyId } : {}) };
       builtRef.current = { source: toSave, recipe };
 
-      // Bounded because an unreachable Firestore retries instead of rejecting.
-      const failure = await withTimeout<{ err: unknown } | null>(
-        publishRecipe(recipe).then(
-          () => null,
-          (err: unknown) => ({ err })
-        ),
-        PUBLISH_TIMEOUT_MS,
-        { err: new Error('Publishing the recipe timed out') }
-      );
+      const failure = await publishThenCache(recipe, () => {
+        // Only the parent's author is told, and never yourself (so Keep as branch
+        // stays silent). Fire-and-forget: it cannot fail or delay the save.
+        if (parentRecipe && user && parentRecipe.createdBy.uid !== 'local' && parentRecipe.createdBy.uid !== user.uid) {
+          notifyBranched({ branch: recipe, parent: parentRecipe, from: createdBy });
+        }
+      });
       if (failure) {
-        console.error('Publishing recipe to the cloud failed; nothing was saved', failure.err);
         savingRef.current = false;
         setIsSaving(false);
-        setError({
-          message:
-            rateLimitMessage(failure.err) ??
-            "Couldn't save the recipe. Check your connection and try again.",
-        });
+        setError(failure);
         return;
-      }
-
-      // Only the parent's author is told, and never yourself (so Keep as branch
-      // stays silent). Fire-and-forget: it cannot fail or delay the save.
-      if (parentRecipe && user && parentRecipe.createdBy.uid !== 'local' && parentRecipe.createdBy.uid !== user.uid) {
-        notifyBranched({ branch: recipe, parent: parentRecipe, from: createdBy });
-      }
-
-      try {
-        await cacheRecipe(recipe);
-      } catch (err) {
-        // The recipe is in the cloud, so the save is done; the own-recipe
-        // listener (RL-078) fills the row.
-        console.error('Caching the saved recipe locally failed', err);
-        reportError(err, 'save-recipe-cache');
       }
 
       trackRecipeCreated(recipe.id, !!parentRecipe);

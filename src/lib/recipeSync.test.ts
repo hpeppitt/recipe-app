@@ -49,6 +49,18 @@ describe('toLocalRecipe', () => {
     expect(toLocalRecipe(asDoc(own({ id: 'b' })))).not.toHaveProperty('relatedFamilyId');
   });
 
+  it('carries importedFrom and importedVia, and leaves them off when absent (RL-186)', () => {
+    const via = { uid: ME, displayName: 'Me' };
+    const local = toLocalRecipe(asDoc(own({ id: 'a', importedFrom: 'https://a.com/x', importedVia: via })));
+    expect(local.importedFrom).toBe('https://a.com/x');
+    expect(local.importedVia).toEqual(via);
+    const plain = toLocalRecipe(asDoc(own({ id: 'b' })));
+    expect(plain).not.toHaveProperty('importedFrom');
+    expect(plain).not.toHaveProperty('importedVia');
+    const bad = toLocalRecipe(asDoc(own({ id: 'c', importedFrom: 'javascript:alert(1)' })));
+    expect(bad).not.toHaveProperty('importedFrom');
+  });
+
   it('a synced doc with relatedFamilyId equal to the row plans no put', () => {
     const r = own({ id: 'a', relatedFamilyId: 'fam' });
     expect(planOwnRecipeSync(ME, [r], [asDoc(r)], []).put).toEqual([]);
