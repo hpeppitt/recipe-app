@@ -1,17 +1,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { COLLECTIONS_LOAD_FAILED_MESSAGE, useCollections } from '../hooks/useCollections';
 import { useKitchen } from '../hooks/useKitchen';
 import { useSavedFavorites } from '../hooks/useSavedFavorites';
 import { countUserCooks } from '../services/firestore';
 import { listSummary, splitByPantry } from '../lib/shopping';
 import { pluralize } from '../lib/utils';
 import { AuthModal } from '../components/auth/AuthModal';
+import { CollectionGlyph } from '../components/recipe/CollectionGlyph';
+import { useLocalEmoji } from '../hooks/useLocalEmoji';
+import { collectionCount } from '../lib/kitchen';
 import { TILE_TINTS } from '../components/profile/RecipeTileGrid';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { CalendarDays, ChefHat, CloudOff, Refrigerator, ShoppingBasket, UserRound } from '../components/ui/icons';
+import { CalendarDays, ChefHat, ChevronRight, CloudOff, Refrigerator, ShoppingBasket, UserRound } from '../components/ui/icons';
 
 const TILE = 'flex min-h-[118px] flex-col justify-between gap-3 rounded-[28px] p-4';
 
@@ -37,6 +41,8 @@ export function KitchenPage() {
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { kitchen, loading, error } = useKitchen();
   const { rows: saved, isLoading: savedLoading } = useSavedFavorites();
+  const { collections, error: collectionsError, retry: retryCollections } = useCollections();
+  const emoji = useLocalEmoji(collections, 'kitchen-collections-emoji');
   const [showAuth, setShowAuth] = useState(false);
   const [cooks, setCooks] = useState<number | null>(null);
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
@@ -160,6 +166,31 @@ export function KitchenPage() {
           </ul>
         )}
       </section>
+      {(collections.length > 0 || collectionsError === COLLECTIONS_LOAD_FAILED_MESSAGE) && (
+        <section className="px-5 pt-[18px]" aria-labelledby="kitchen-collections">
+          <h2 id="kitchen-collections" className="font-heading text-[18px] text-text-primary">Collections</h2>
+          {collections.length === 0 && (
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <p className="text-[13px] text-text-tertiary">Couldn't load collections</p>
+              <Button variant="secondary" onClick={retryCollections}>Try again</Button>
+            </div>
+          )}
+          <ul className="flex flex-col gap-2 pt-2">
+            {collections.map((c) => (
+              <li key={c.id}>
+                <Link to={`/kitchen/c/${c.id}`} className="flex min-h-11 items-center gap-3 rounded-[22px] bg-surface-secondary px-3 py-2.5">
+                  <CollectionGlyph collection={c} emoji={emoji} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-bold text-text-primary">{c.name}</span>
+                    <span className="block text-xs text-neutral-700">{collectionCount(c.recipeIds.length)}</span>
+                  </span>
+                  <ChevronRight className="size-5 shrink-0 text-neutral-700" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

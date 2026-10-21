@@ -116,3 +116,5 @@ export function checkCollectionCount(count: number): void {
 }
 
 export const COLLECTION_GONE_MESSAGE = 'That collection no longer exists.';
+
+export const collectionCount = (n: number) => `${n} ${n === 1 ? 'recipe' : 'recipes'}`;

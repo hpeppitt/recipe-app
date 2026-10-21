@@ -29,6 +29,15 @@ async function fetchOne(id: string): Promise<FavoriteFetch> {
   return recipe ? { status: 'recipe', recipe } : { status: 'missing' };
 }
 
+/** One recipe through the session cache (a collection page's missing ids); a failed read is not stored. */
+export async function fetchFavoriteCached(id: string): Promise<FavoriteFetch> {
+  const hit = sessionCache.get(id);
+  if (hit) return hit;
+  const result = await fetchOne(id);
+  if (result.status !== 'failed') sessionCache.set(id, result);
+  return result;
+}
+
 /**
  * The Saved page's rows: saved copies plus the user's favourites (RL-121).
  * Read only. A favourite whose recipe is not on the device is read from the
