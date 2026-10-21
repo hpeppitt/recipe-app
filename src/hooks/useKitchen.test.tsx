@@ -20,7 +20,7 @@ vi.mock('../services/firebase', () => ({ auth: { currentUser: { getIdToken: (...
 const reportError = vi.fn();
 vi.mock('../services/telemetry', () => ({ reportError: (...a: unknown[]) => reportError(...a) }));
 
-import { KITCHEN_FAILED_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_RETRY_MS, useKitchen } from './useKitchen';
+import { KITCHEN_BUSY_MESSAGE, KITCHEN_FAILED_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_RETRY_MS, useKitchen, addRecipeToKitchen } from './useKitchen';
 
 const wrapperFor = (user: AppUser | null) =>
   function Wrapper({ children }: { children: ReactNode }) {
@@ -180,5 +180,28 @@ describe('useKitchen', () => {
     expect(result.current.error).toBeNull();
     unmount();
     vi.useRealTimers();
+  });
+
+  it('addRecipeToKitchen counts lines not in the pantry and never opens the listener', async () => {
+    lists = { shopping: [], pantry: [{ id: 'p1', name: 'rice', group: 'cupboard', addedBy: 'u', addedAt: 0 }] } as unknown as KitchenLists;
+    const recipe = makeRecipe({ id: 'r1', ingredients: [makeIngredient('onion'), makeIngredient('rice')] });
+    await expect(addRecipeToKitchen(fakeUser.uid, recipe, recipe.servings)).resolves.toBe(1);
+    expect(lists.shopping).toHaveLength(2);
+    expect(subscribeKitchen).not.toHaveBeenCalled();
+  });
+
+  it('addRecipeToKitchen rejects instead of reporting success when another write is running', async () => {
+    let release!: () => void;
+    updateKitchen.mockImplementationOnce(() => new Promise<void>((r) => (release = r)));
+    const { result } = renderHook(() => useKitchen(), { wrapper: wrapperFor(fakeUser) });
+    let first!: Promise<void>;
+    act(() => {
+      first = result.current.toggleLine('x', true);
+    });
+    await expect(addRecipeToKitchen(fakeUser.uid, makeRecipe({ id: 'r2' }), 2)).rejects.toThrow(KITCHEN_BUSY_MESSAGE);
+    await act(async () => {
+      release();
+      await first;
+    });
   });
 });

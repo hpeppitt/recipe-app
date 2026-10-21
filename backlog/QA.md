@@ -2068,3 +2068,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-217 Shop mode
 - On a phone, on /kitchen/list tap Shop mode: aisle headings, big lines and large tick circles are readable at arm's length, ticked lines drop to "Got it", "N left" counts down, and the screen stays on (leave it a minute). Done returns to the normal view; reloading in shop mode keeps it. Light and dark.
 - In shop mode only the row being saved is disabled; a second tap on another row during that write is dropped by the hook (tap again). After a tick, focus moves to the next unticked row, or to the All done Done button. Back leaves the page, not the mode (Done leaves the mode). At 320px the amount sits under the name.
+
+### RL-218 Add to shopping list
+- Open a recipe, scale it to 12 with the stepper, More, Add to shopping list. The toast says "Added N things to your list" with View; View opens `/kitchen/list` and the amounts are the 12-serving ones. Add it again: the amounts double (no x2 on the chip; lines do not record repeats). Signed out shows the sign-in sheet; offline shows "Couldn't add to your list. Check your connection and try again." `/shared/:id` has no More sheet, so no row there.
+
+- Reviewer noted: useKitchen's own actions (shopping list and pantry pages) still drop a second call while a write runs; those pages disable their controls during a write, so it should not happen in practice. The add from the recipe page now says so instead. The toast pause and 8 s timing have no test.

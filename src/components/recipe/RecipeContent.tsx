@@ -1,4 +1,4 @@
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import type { Recipe } from '../../types/recipe';
 import { MetadataPills } from './MetadataPills';
 import { IngredientList } from './IngredientList';
@@ -21,6 +21,8 @@ interface RecipeContentProps {
   onAllTicked?: (allDone: boolean) => void;
   /** Ticking an ingredient, with the servings shown at that moment (RL-203). */
   onIngredientTicked?: (servings: number) => void;
+  /** The servings on the stepper, reported on mount and on every change (RL-218). */
+  onServingsChange?: (servings: number) => void;
 }
 
 /**
@@ -37,11 +39,12 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, underMeta, onAllTicked, onIngredientTicked }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, underMeta, onAllTicked, onIngredientTicked, onServingsChange }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
   const [servings, setServings] = useState(recipe.servings);
+  useEffect(() => onServingsChange?.(servings), [servings, onServingsChange]);
   // Cloud documents are not validated on read, so either array can be absent.
   const ingredients = Array.isArray(recipe.ingredients) ? recipe.ingredients : null;
   const instructions = Array.isArray(recipe.instructions) ? recipe.instructions : null;
