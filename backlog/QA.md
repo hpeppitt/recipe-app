@@ -1973,3 +1973,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Nothing to see in the app yet: service functions and hooks only, no UI calls them. Two new composite indexes on `cooks` (recipeId and uid, each with createdAt desc) are in the repo and must ship with the RL-209 deploy, or the recent-notes list and the cook log fail.
 
 - Deploy note: the two cooks composite indexes (recipeId+createdAt desc, uid+createdAt desc) must go out with RL-209, or recent notes and the cook log fail. The hook spots a timeout by its "timed out" message text. Emulator walk not done; do it with RL-197's UI.
+
+### RL-197 I made this sheet
+- Nothing reachable yet: RL-198 adds the entry point. Then check on a phone: nothing is picked at first and Save is disabled; Needs a tweak plus a note shows the Grow row (one line, ellipsised); Escape with a note asks before discarding. Emulator walk of a real save (and the cooks indexes) is still owed, as noted under RL-196.
+
+- Reviewer noted (low): after Grow the page navigates away, so the "Saved to your cook log" toast is not seen; the counter's live region may announce on each keystroke past 450 (check with VoiceOver); vote buttons at 320px not checked in a browser.
