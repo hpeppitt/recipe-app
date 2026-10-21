@@ -54,7 +54,7 @@ export function ConfirmDialog({
       className="backdrop:bg-neutral-900/40 dark:backdrop:bg-black/60 bg-surface rounded-card p-[22px] max-w-sm w-[calc(100%-2rem)] shadow-lg m-auto"
     >
       <div className="flex flex-col gap-2.5">
-      <h2 id={titleId} className="font-heading text-[22px] text-text-primary">
+      <h2 id={titleId} className="break-words font-heading text-[22px] text-text-primary">
         {title}
       </h2>
       <p id={messageId} className="break-words text-sm text-text-secondary">

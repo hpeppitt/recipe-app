@@ -87,6 +87,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted (data, low): anyone can list every public cookbook with its ownerUid and recipeIds (by design); recipeIds elements are not shape-checked in the rules; RL-257 must set lastAddedAt in the same write as the arrayUnion.
 - Policy drift for the author's sign-off: privacy.ts still says collections are "only you" and private; false once RL-257 ships Share.
 
+### RL-264 An Android share asks before reading
+- On an installed Android app, signed in and online, share a recipe page from Chrome to Recipe Lab. A dialog asks "Read this recipe from <host>?". Read it reads the page and shows Check the import; Not now closes it and leaves the link filled, with nothing read.
+- In airplane mode the same share only fills the link, with no dialog.
+- Reviewer noted (low): the offer can show again after a photo-to-link remount while ?url= is still in the address.
+
 ### RL-254 Share a link to Recipe Lab (Android)
 - On an Android phone with Chrome, install Recipe Lab (menu, Install app) after this build is deployed. An already installed copy may need to be removed and reinstalled so the manifest refreshes.
 - In Chrome open a recipe page, tap Share, pick Recipe Lab. The app opens on Add from a link with the link filled in. It must not start reading by itself; tap Read it and the Check the import screen follows.
