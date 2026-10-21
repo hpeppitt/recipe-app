@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import { Routes, Route } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
-import { makeRecipe } from '../test/factories';
+import { makeIngredient, makeRecipe } from '../test/factories';
 import { buildTree } from '../lib/tree';
 import type { Recipe } from '../types/recipe';
 
@@ -16,7 +16,7 @@ const root = makeRecipe({
   createdAt: march,
   createdBy: { uid: 'u1', displayName: 'Ada' },
 });
-const local = makeRecipe({ id: 'v1', parentId: 'root', rootId: 'root', title: 'Spicy Soup', createdBy: { uid: 'u1', displayName: 'Ada' } });
+const local = makeRecipe({ id: 'v1', parentId: 'root', rootId: 'root', title: 'Spicy Soup', ingredients: [makeIngredient('chilli')], createdBy: { uid: 'u1', displayName: 'Ada' } });
 // A cloud-only variation by a second account, as useRecipeTree merges it.
 const cloud = makeRecipe({ id: 'v2', parentId: 'root', rootId: 'root', title: 'Soup 2', createdBy: { uid: 'u2', displayName: 'Bo' } });
 
@@ -44,6 +44,18 @@ vi.mock('../hooks/useRecipeTree', () => ({
   }),
 }));
 
+const addRecipeToKitchen = vi.fn();
+vi.mock('../hooks/useKitchen', () => ({
+  addRecipeToKitchen: (...a: unknown[]) => addRecipeToKitchen(...a),
+  KITCHEN_BUSY_MESSAGE: 'busy',
+  KITCHEN_FULL_MESSAGE: 'full',
+  KITCHEN_MAYBE_SAVED_MESSAGE: 'maybe',
+}));
+vi.mock('../services/firestore', () => ({
+  getKitchenOnce: async () => null,
+  getOwnCooksInFamily: async () => [],
+}));
+
 import { VersionTreePage } from './VersionTreePage';
 
 function renderPage(route = '/recipe/v1/tree') {
@@ -59,6 +71,13 @@ describe('VersionTreePage', () => {
   beforeEach(() => {
     navigateSpy.mockClear();
     retry.mockClear();
+    addRecipeToKitchen.mockReset();
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    };
     state.recipes = [root, local, cloud];
     state.cloudError = false;
   });
@@ -93,5 +112,35 @@ describe('VersionTreePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(retry).toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: /Branch from/ })).toBeNull();
+  });
+
+  it('adds the version the user is on from the header button and toasts the count', async () => {
+    addRecipeToKitchen.mockResolvedValue(3);
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to shopping list' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Add \d+ things? to the list/ }));
+    expect(await screen.findByText('Added 3 things to your list')).toBeTruthy();
+    expect(addRecipeToKitchen).toHaveBeenCalledWith('test-user', local, local.servings);
+  });
+
+  it('says so when the add fails', async () => {
+    addRecipeToKitchen.mockRejectedValue(new Error('boom'));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to shopping list' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Add \d+ things? to the list/ }));
+    expect((await screen.findByRole('alert')).textContent).toBe("Couldn't add to your list. Check your connection and try again.");
+    // The sheet stays open on failure.
+    expect(screen.getByRole('radiogroup', { name: /shopping for/ })).toBeTruthy();
+  });
+
+  it('sends a signed-out visitor to sign in, without opening the sheet', () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+      </Routes>,
+      { route: '/recipe/v1/tree', user: null }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add to shopping list' }));
+    expect(screen.queryByRole('radiogroup', { name: /shopping for/ })).toBeNull();
   });
 });

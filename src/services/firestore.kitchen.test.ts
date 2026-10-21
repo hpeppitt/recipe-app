@@ -17,6 +17,7 @@ vi.mock('./telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/'), id: segments.at(-1) }),
   serverTimestamp: () => 'SERVER_TS',
+  getDoc: async (ref: { path: string }) => ({ exists: () => stored[ref.path] != null, data: () => stored[ref.path] }),
   onSnapshot: (ref: { path: string }, next: (s: unknown) => void) => {
     const data = stored[ref.path];
     next({ exists: () => data != null, data: () => data });
@@ -37,7 +38,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { subscribeKitchen, updateKitchen } from './firestore';
+import { getKitchenOnce, subscribeKitchen, updateKitchen } from './firestore';
 
 const line = (id: string): Item => ({ id, name: id, amount: null, unit: null, aisle: 'Other', sources: [], done: false });
 const pantryItem = (id: string): PantryItem => ({ id, name: id, group: 'cupboard', addedBy: 'u1', addedAt: 1 });
@@ -120,5 +121,13 @@ describe('subscribeKitchen', () => {
     stored['kitchens/u1'] = { memberUids: ['u1'], ownerUid: 'u1', shopping: [line('a')], pantry: [], updatedAt: { toMillis: () => 7 } };
     subscribeKitchen('u1', (k) => seen.push(k));
     expect(seen).toEqual([null, { memberUids: ['u1'], ownerUid: 'u1', shopping: [line('a')], pantry: [], updatedAt: 7 }]);
+  });
+});
+
+describe('getKitchenOnce', () => {
+  it('reads the document once, and gives null when there is none', async () => {
+    expect(await getKitchenOnce('u1')).toBeNull();
+    stored['kitchens/u1'] = { memberUids: ['u1'], ownerUid: 'u1', shopping: [], pantry: [pantryItem('salt')] };
+    expect((await getKitchenOnce('u1'))?.pantry).toEqual([pantryItem('salt')]);
   });
 });

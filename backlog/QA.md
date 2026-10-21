@@ -2073,3 +2073,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Open a recipe, scale it to 12 with the stepper, More, Add to shopping list. The toast says "Added N things to your list" with View; View opens `/kitchen/list` and the amounts are the 12-serving ones. Add it again: the amounts double (no x2 on the chip; lines do not record repeats). Signed out shows the sign-in sheet; offline shows "Couldn't add to your list. Check your connection and try again." `/shared/:id` has no More sheet, so no row there.
 
 - Reviewer noted: useKitchen's own actions (shopping list and pantry pages) still drop a second call while a write runs; those pages disable their controls during a write, so it should not happen in practice. The add from the recipe page now says so instead. The toast pause and 8 s timing have no test.
+
+### RL-219 Add to list from the family tree
+- On a family with three versions open the tree page, tap the basket in the header, pick a branch, change Makes, then Add. The toast says how many were added; View opens `/kitchen/list` and the amounts are that branch's at that serving count. The button count leaves out pantry lines (check with a pantry item that is in the recipe). Versions you cooked say "you made this". Signed out shows the sign-in sheet. Check at 390px, light and dark.
+- Not built: the "Most cooked" tag (RL-245 does not exist), the recipe's own unit word for Makes (recipes have none, so it says servings), and the toast pause on hover or focus.

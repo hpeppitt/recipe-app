@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useRecipe, useRecipeLineage } from '../hooks/useRecipe';
 import { useFavorite } from '../hooks/useFavorites';
 import { useSuggestions, useSubmitSuggestion } from '../hooks/useSuggestions';
@@ -48,6 +48,7 @@ import { canManageRecipe } from '../lib/ownership';
 import { rateLimitMessage, TooManyMovedBranchesError } from '../lib/errors';
 import { MAX_MOVED_CHILDREN, buildTree } from '../lib/tree';
 import type { Recipe } from '../types/recipe';
+import { ListAddedToast, type ListToast } from '../components/ui/ListAddedToast';
 import { SavedToast } from '../components/recipe/SavedToast';
 import { FamilyPanel } from '../components/tree/FamilyPanel';
 import { useMediaQuery } from '../hooks/useMediaQuery';
@@ -240,9 +241,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const [showListAuth, setShowListAuth] = useState(false);
   const [showListSignUp, setShowListSignUp] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
-  const [listToast, setListToast] = useState<{ text: string; view: boolean } | null>(null);
-  // As the cook offer: the timer waits while the toast is hovered or focused (WCAG 2.2.1).
-  const [listHold, setListHold] = useState({ hover: false, focus: false });
+  const [listToast, setListToast] = useState<ListToast | null>(null);
   // The recipe id suggest mode is open for, so it closes by itself when the
   // route moves to another recipe (this page stays mounted across ids).
   const [suggestingFor, setSuggestingFor] = useState<string | null>(null);
@@ -253,7 +252,6 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   useEffect(() => {
     idRef.current = id;
     setListToast(null);
-    setListHold({ hover: false, focus: false });
   }, [id]);
   // A pending title focus is only for the parent a delete moved to; any other move drops it.
   useEffect(() => {
@@ -575,13 +573,6 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   // Firestore project, that inflated live view counts. The ref survives the
   // remount because React reuses the same component instance, so it is the
   // standard guard for a genuinely one-shot side effect.
-  useEffect(() => {
-    if (!listToast) return;
-    if (listHold.hover || listHold.focus) return;
-    const t = setTimeout(() => setListToast(null), listToast.view ? 8000 : 5000);
-    return () => clearTimeout(t);
-  }, [listToast, listHold]);
-
   useEffect(() => {
     if (!sentTo) return;
     const timer = setTimeout(() => setSentTo(null), 3000);
@@ -1107,23 +1098,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         </div>
       )}
 
-      {listToast && (
-        <div
-          role="status"
-          onPointerEnter={(e) => e.pointerType !== 'touch' && setListHold((h) => ({ ...h, hover: true }))}
-          onPointerLeave={(e) => e.pointerType !== 'touch' && setListHold((h) => ({ ...h, hover: false }))}
-          onFocus={() => setListHold((h) => ({ ...h, focus: true }))}
-          onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setListHold((h) => ({ ...h, focus: false }))}
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex w-[calc(100%-2rem)] max-w-sm items-center justify-between gap-3 rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
-        >
-          <p className="break-words text-sm font-medium text-text-primary">{listToast.text}</p>
-          {listToast.view && (
-            <Link to="/kitchen/list" className="inline-flex min-h-11 items-center px-2 text-sm font-semibold text-accent-700">
-              View
-            </Link>
-          )}
-        </div>
-      )}
+      <ListAddedToast toast={listToast} onDismiss={() => setListToast(null)} />
 
       {showSavedToast && savedOutcome && <SavedToast outcome={savedOutcome} note={savedState?.note} />}
 

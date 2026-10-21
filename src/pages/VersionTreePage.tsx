@@ -1,4 +1,12 @@
+import { useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { addRecipeToKitchen, KITCHEN_BUSY_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE } from '../hooks/useKitchen';
+import { AuthModal } from '../components/auth/AuthModal';
+import { SignUpDialog } from '../components/auth/SignUpDialog';
+import { ListAddedToast, type ListToast } from '../components/ui/ListAddedToast';
+import { ShopFamilySheet } from '../components/tree/ShopFamilySheet';
+import type { Recipe } from '../types/recipe';
 import { useRecipeTree } from '../hooks/useRecipeTree';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useRecipe } from '../hooks/useRecipe';
@@ -10,7 +18,7 @@ import { TreeView } from '../components/tree/TreeView';
 import { TimelineView } from '../components/tree/TimelineView';
 import { MapView } from '../components/tree/MapView';
 import { familySubtitle } from '../lib/tree';
-import { ChevronLeft, CloudOff, RotateCw } from '../components/ui/icons';
+import { ChevronLeft, CloudOff, RotateCw, ShoppingBasket } from '../components/ui/icons';
 
 // The switch only renders once there is more than one view.
 const VIEWS = [
@@ -37,6 +45,45 @@ export function VersionTreePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { branch, signUp } = useBranchEntry();
+  const { user, isConfigured } = useAuth();
+  // Add to shopping list (RL-219), toasting as the recipe page does (RL-218).
+  const [shopOpen, setShopOpen] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [adding, setAdding] = useState(false);
+  // Shown inside the sheet: a toast sits under a modal dialog.
+  const [shopError, setShopError] = useState<string | null>(null);
+  const [toast, setToast] = useState<ListToast | null>(null);
+  const openShop = () => {
+    if (!user || user.isAnonymous || !user.emailVerified) {
+      // AuthModal closes itself for anyone already signed in, so an anonymous or unverified user gets the sign-up dialog.
+      (user ? setShowSignUp : setShowAuth)(true);
+      return;
+    }
+    setShopError(null);
+    setShopOpen(true);
+  };
+  const addToList = async (r: Recipe, servings: number) => {
+    if (!user || adding) return;
+    setAdding(true);
+    setShopError(null);
+    try {
+      const n = await addRecipeToKitchen(user.uid, r, servings);
+      setToast(
+        n === 0
+          ? { text: 'Everything is already in your pantry', view: false }
+          : { text: `Added ${n} ${n === 1 ? 'thing' : 'things'} to your list`, view: true }
+      );
+      setShopOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setShopError(
+        [KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE, KITCHEN_BUSY_MESSAGE].includes(msg) ? msg : "Couldn't add to your list. Check your connection and try again."
+      );
+    } finally {
+      setAdding(false);
+    }
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   const { recipe, isLoading: recipeLoading, cloudError, retry } = useRecipe(id);
   const { tree, recipes, isLoading: treeLoading } = useRecipeTree(recipe?.rootId);
@@ -84,7 +131,18 @@ export function VersionTreePage() {
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
       <header className="px-4 pt-3 max-w-lg w-full mx-auto space-y-3">
-        <BackButton />
+        <div className="flex items-center justify-between">
+          <BackButton />
+          {showTree && isConfigured && (
+            <button
+              onClick={openShop}
+              className="w-11 h-11 flex items-center justify-center flex-shrink-0 rounded-full border border-border-strong text-text-primary hover:bg-surface-tertiary transition-colors"
+              aria-label="Add to shopping list"
+            >
+              <ShoppingBasket className="w-5 h-5" />
+            </button>
+          )}
+        </div>
         {showTree && (
           <>
             {VIEWS.length > 1 && (
@@ -157,6 +215,22 @@ export function VersionTreePage() {
         </div>
       )}
       {signUp}
+      {showTree && user && (
+        <ShopFamilySheet open={shopOpen} onClose={() => setShopOpen(false)} recipes={recipes} currentId={recipe.id} uid={user.uid} adding={adding} error={shopError} onAdd={addToList} />
+      )}
+      <AuthModal open={showAuth} action={{ kind: 'continue' }} onAuthenticated={() => setShowAuth(false)} onDismiss={() => setShowAuth(false)} />
+      <SignUpDialog
+        open={showSignUp}
+        action={{ kind: 'continue' }}
+        body={
+          user && !user.isAnonymous
+            ? 'Check your inbox to verify your email, then add to your list again.'
+            : "Your shopping list lives in your kitchen, which needs an account with a verified email. Once you're signed in, add to your list again."
+        }
+        onClose={() => setShowSignUp(false)}
+      />
+      {/* bottom-28 clears the sticky Branch bar. */}
+      <ListAddedToast toast={toast} onDismiss={() => setToast(null)} bottomClass="bottom-28" />
     </div>
   );
 }
