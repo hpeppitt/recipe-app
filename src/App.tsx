@@ -44,7 +44,7 @@ function OwnRecipesSync() {
 }
 
 /**
- * The route table. A recipe opened from Explore or Saved renders the shell against the
+ * The route table. A recipe opened from a list (Explore, Saved, Kitchen) renders the shell against the
  * list's location at every width, so the list and the recipe are the same elements on
  * both sides of lg: AppShell shows them side by side from lg (RL-116) and the recipe alone
  * below it, and a resize changes only the layout (2026-10-20). Everywhere else it is the
@@ -72,11 +72,15 @@ export function AppRoutes() {
         </Route>
         {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
         <Route path="/settings" element={<SettingsPage />} />
-        {/* Cook log (RL-200): takes its final name now so Kitchen only adds a tile. */}
-        <Route path="/kitchen/list" element={<ShoppingListPage />} />
-        <Route path="/kitchen/c/:id" element={<CollectionPage />} />
-        <Route path="/kitchen/pantry" element={<PantryPage />} />
-        <Route path="/kitchen/log" element={<CookLogPage />} />
+        {/* Kitchen's own pages carry their own Back button, so below lg the shell shows no chrome
+            around them; they are in the shell so a recipe can open beside them from lg (RL-225). */}
+        <Route element={<AppShell bare />}>
+          <Route path="/kitchen/list" element={<ShoppingListPage />} />
+          <Route path="/kitchen/c/:id" element={<CollectionPage />} />
+          <Route path="/kitchen/pantry" element={<PantryPage />} />
+          {/* Cook log (RL-200): takes its final name now so Kitchen only adds a tile. */}
+          <Route path="/kitchen/log" element={<CookLogPage />} />
+        </Route>
         <Route path="/create" element={<RecipeChatPage />} />
         {/* Add from a link (RL-186), gated like /create, with its own Close button. */}
         <Route path="/import" element={<ImportPage />} />

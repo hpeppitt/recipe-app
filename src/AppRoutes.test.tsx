@@ -2,10 +2,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useEffect, useState } from 'react';
-import { Link, MemoryRouter, useNavigate, useParams } from 'react-router-dom';
+import { Link, MemoryRouter, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 // The real AppShell and route table run; pages and the shell's chrome are stand-ins.
-const mounts = vi.hoisted(() => ({ explore: 0, saved: 0, recipe: 0 }));
+const mounts = vi.hoisted(() => ({ explore: 0, saved: 0, recipe: 0, list: 0 }));
 vi.mock('./pages/ExplorePage', () => ({
   ExplorePage: () => {
     useEffect(() => {
@@ -34,6 +34,23 @@ vi.mock('./pages/SavedPage', () => ({
       <div>
         <p>Saved list</p>
         <Link to="/recipe/s1" state={{ listOrigin: '/saved' }}>Row s1</Link>
+      </div>
+    );
+  },
+}));
+vi.mock('./pages/ShoppingListPage', () => ({
+  ShoppingListPage: () => {
+    useEffect(() => {
+      mounts.list++;
+    }, []);
+    const [ticked, setTicked] = useState(false);
+    const [params, setParams] = useSearchParams();
+    return (
+      <div>
+        <p>Shopping list</p>
+        <button onClick={() => setTicked(true)}>Milk {ticked ? 'ticked' : 'open'}</button>
+        <button onClick={() => setParams({ mode: 'shop' }, { replace: true })}>Shop mode {params.get('mode') === 'shop' ? 'on' : 'off'}</button>
+        <Link to="/recipe/k1" state={{ listOrigin: '/kitchen/list' }}>Chip k1</Link>
       </div>
     );
   },
@@ -85,6 +102,7 @@ beforeEach(() => {
   mounts.explore = 0;
   mounts.saved = 0;
   mounts.recipe = 0;
+  mounts.list = 0;
   wide = false;
   listeners.clear();
   // jsdom has no scrolling; the shell moves offsets across a resize.
@@ -332,5 +350,59 @@ describe('AppRoutes across a resize from narrow', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Row r1' }));
     expect(await screen.findByRole('button', { name: 'Servings 1' })).toBeInTheDocument();
     expect(mounts).toMatchObject({ explore: 2, recipe: 2 });
+  });
+});
+
+describe('AppRoutes from a Kitchen list (RL-225)', () => {
+  it('below 1024px shows the list without the nav and opens a recipe alone', async () => {
+    renderAt('/kitchen/list');
+    expect(await screen.findByText('Shopping list')).toBeInTheDocument();
+    // jsdom has no CSS: the nav is in a wrapper hidden below lg, a rail from lg.
+    expect(nav()?.parentElement).toHaveClass('hidden', 'lg:block');
+    fireEvent.click(screen.getByRole('link', { name: 'Chip k1' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Recipe k1' })).toBeInTheDocument();
+    expect(screen.queryByText('Shopping list')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Shopping list')).toBeInTheDocument();
+    expect(mounts.list).toBe(2);
+  });
+
+  it('from 1024px shows the recipe beside the list without remounting it', async () => {
+    wide = true;
+    renderAt('/kitchen/list');
+    fireEvent.click(await screen.findByRole('button', { name: 'Milk open' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Chip k1' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Recipe k1' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Recipe list' })).toHaveTextContent('Milk ticked');
+    expect(screen.getByRole('region', { name: 'Recipe' })).toHaveTextContent('Recipe k1');
+    expect(nav()?.parentElement).toHaveClass('lg:block');
+    expect(mounts.list).toBe(1);
+  });
+
+  it('keeps ticks and the recipe across a resize to narrow and back', async () => {
+    wide = true;
+    renderAt('/kitchen/list');
+    fireEvent.click(await screen.findByRole('button', { name: 'Milk open' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Chip k1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Servings 1' }));
+
+    setWide(false);
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    expect(screen.getByText('Shopping list')).not.toBeVisible();
+    setWide(true);
+    expect(screen.getByRole('button', { name: 'Milk ticked' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Servings 2' })).toBeInTheDocument();
+    expect(mounts).toMatchObject({ list: 1, recipe: 1 });
+  });
+
+  it('keeps the shop mode flag and ticks on the list alone across a resize', async () => {
+    renderAt('/kitchen/list');
+    fireEvent.click(await screen.findByRole('button', { name: 'Milk open' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Shop mode off' }));
+    setWide(true);
+    expect(screen.getByRole('button', { name: 'Shop mode on' })).toBeInTheDocument();
+    setWide(false);
+    expect(screen.getByRole('button', { name: 'Milk ticked' })).toBeInTheDocument();
+    expect(mounts.list).toBe(1);
   });
 });

@@ -11,9 +11,10 @@ import { WIDE_QUERY } from '../../lib/paneMode';
 
 const RecipeDetailPage = lazy(() => import('../../pages/RecipeDetailPage').then(m => ({ default: m.RecipeDetailPage })));
 
-export function AppShell() {
+/** `bare`: Kitchen's own pages (RL-225), which below lg keep their full-screen look without the shell's chrome. */
+export function AppShell({ bare = false }: { bare?: boolean }) {
   useEffect(clearLeftoverGaCookies, []);
-  // Set when a recipe was opened from Explore or Saved (RL-116), at any width.
+  // Set when a recipe was opened from a list origin (RL-116, RL-225), at any width.
   const recipeId = useContext(RecipePaneContext);
   const wide = useMediaQuery(WIDE_QUERY);
   // Side by side from lg; below it the recipe fills the screen as its own route did. One tree for
@@ -81,9 +82,13 @@ export function AppShell() {
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
       {/* Below lg a recipe has the screen to itself, without the shell's chrome, as before RL-116. */}
-      {!alone && <ConsentBanner />}
+      {!alone && (
+        <div className={bare ? 'hidden lg:block' : undefined}>
+          <ConsentBanner />
+        </div>
+      )}
       {/* The 78px bar plus its safe-area growth, plus 8px of air. At lg the nav is a rail, so no bottom padding and a 220px left margin. */}
-      <main className={alone ? 'flex-1' : 'flex-1 pb-[calc(78px_+_max(8px,env(safe-area-inset-bottom)))] lg:ml-[220px] lg:pb-0'}>
+      <main className={alone ? 'flex-1' : bare ? 'flex-1 lg:ml-[220px]' : 'flex-1 pb-[calc(78px_+_max(8px,env(safe-area-inset-bottom)))] lg:ml-[220px] lg:pb-0'}>
         {/* Keeps the nav alive when a shell page throws. */}
         <RouteErrorBoundary>
           <Suspense fallback={<PageFallback />}>
@@ -95,7 +100,7 @@ export function AppShell() {
                   hidden={alone}
                   role={beside ? 'region' : undefined}
                   aria-label={beside ? 'Recipe list' : undefined}
-                  className={beside ? 'min-h-dvh w-[420px] shrink-0 pt-3 shadow-[1px_0_0_var(--color-border)]' : 'lg:max-w-lg lg:mx-auto'}
+                  className={beside ? `min-h-dvh w-[420px] shrink-0 ${bare ? '' : 'pt-3'} shadow-[1px_0_0_var(--color-border)]` : 'lg:max-w-lg lg:mx-auto'}
                 >
                   <Outlet />
                 </div>
@@ -126,7 +131,12 @@ export function AppShell() {
           </Suspense>
         </RouteErrorBoundary>
       </main>
-      {!alone && <BottomNav />}
+      {/* A bare page gets the rail from lg only; the wrapper is always there so the nav never remounts. */}
+      {!alone && (
+        <div className={bare ? 'hidden lg:block' : undefined}>
+          <BottomNav />
+        </div>
+      )}
     </div>
   );
 }

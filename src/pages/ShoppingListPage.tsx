@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { listOriginState } from '../lib/paneMode';
 import { useAuth } from '../contexts/AuthContext';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { useKitchen } from '../hooks/useKitchen';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { formatLineAmount, groupByAisle, listSummary, shareText, splitByPantry } from '../lib/shopping';
@@ -24,6 +26,10 @@ export function ShoppingListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
+  // A recipe open beside this list (RL-225): it is the page's h1, and from lg the toast centres on
+  // this page's column, beside the rail or in the 420px list pane.
+  const paneId = useContext(RecipePaneContext);
+  const beside = paneId !== null;
   const { user, isConfigured, isLoading: authLoading } = useAuth();
   const { kitchen, loading, error, toggleLine, removeSource, boughtItAll } = useKitchen();
   const [showAuth, setShowAuth] = useState(false);
@@ -152,8 +158,10 @@ export function ShoppingListPage() {
       </li>
     );
   };
-  const aisleHeading = (a: string, cls = '') => <h2 className={`${shop ? 'text-[14px]' : 'text-xs'} font-bold uppercase text-neutral-700 ${cls}`}>{a}</h2>;
-  const title = <h1 className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Shopping list</h1>;
+  const Heading = beside ? 'h2' : 'h1';
+  const Sub = beside ? 'h3' : 'h2';
+  const aisleHeading = (a: string, cls = '') => <Sub className={`${shop ? 'text-[14px]' : 'text-xs'} font-bold uppercase text-neutral-700 ${cls}`}>{a}</Sub>;
+  const title = <Heading className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Shopping list</Heading>;
 
   let content;
   if (authLoading || (verified && !kitchen && loading)) {
@@ -209,7 +217,15 @@ export function ShoppingListPage() {
             {!shop && <ul className="flex gap-2 overflow-x-auto px-[22px] pt-[14px]" aria-label="Recipes on the list">
               {[...sources].map(([id, s], i) => (
                 <li key={id} className={`flex h-[34px] max-w-[70vw] shrink-0 items-center rounded-full pl-3 text-[13px] font-semibold ${CHIP_TINTS[i % 2]}`}>
-                  <span className="truncate">{s.emoji} {s.title}</span>
+                  {/* Opens the recipe, beside the list from lg (RL-225); 44px tall with the hit area. */}
+                  <Link
+                    to={`/recipe/${id}`}
+                    state={listOriginState('/kitchen/list')}
+                    aria-current={id === paneId ? 'true' : undefined}
+                    className="relative flex min-w-0 before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-['']"
+                  >
+                    <span className="truncate">{s.emoji} {s.title}</span>
+                  </Link>
                   <button
                     type="button"
                     aria-label={`Remove ${s.title}`}
@@ -304,7 +320,7 @@ export function ShoppingListPage() {
       {title}
       {shop && !awake && <p role="status" className="px-[22px] pt-1 text-[12px] text-text-secondary">Your screen may still dim.</p>}
       {content}
-      <div role="status" className={toast ? 'fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-border bg-surface-secondary px-4 py-3 text-sm font-medium text-text-primary shadow-lg' : 'sr-only'}>
+      <div role="status" className={toast ? `fixed bottom-24 left-1/2 z-50 -translate-x-1/2 ${beside ? 'lg:left-[430px]' : 'lg:left-[calc(50%+110px)]'} rounded-xl border border-border bg-surface-secondary px-4 py-3 text-sm font-medium text-text-primary shadow-lg` : 'sr-only'}>
         {toast}
       </div>
     </div>

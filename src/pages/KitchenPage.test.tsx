@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 
 type Line = { id: string; name: string; amount: number | null; unit: string | null; aisle: string; sources: never[]; done: boolean };
@@ -24,6 +25,11 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 
 import { KitchenPage } from './KitchenPage';
 
+// Stands in for the recipe route and shows the list origin the link carried (RL-225).
+function Origin() {
+  return <p data-testid="origin">{(useLocation().state as { listOrigin?: string } | null)?.listOrigin}</p>;
+}
+
 beforeEach(() => {
   hook = { kitchen: { shopping: [line('milk'), line('eggs')], pantry: [{ id: 'p', name: 'salt' }] }, loading: false };
   saved = [];
@@ -34,6 +40,19 @@ beforeEach(() => {
 });
 
 describe('KitchenPage (RL-214)', () => {
+  it('opens a Saved tile with Kitchen as its origin', () => {
+    saved = [{ id: 'r1', title: 'Dal', emoji: '🍲' }];
+    renderWithProviders(
+      <Routes>
+        <Route path="/kitchen" element={<KitchenPage />} />
+        <Route path="/recipe/:id" element={<Origin />} />
+      </Routes>,
+      { route: '/kitchen' }
+    );
+    fireEvent.click(screen.getByRole('link', { name: 'Dal' }));
+    expect(screen.getByTestId('origin')).toHaveTextContent('/kitchen');
+  });
+
   it('shows the counts, with Shopping list and Cook log the linked tiles', async () => {
     renderWithProviders(<KitchenPage />);
     expect(screen.getByText('2 to buy')).toBeInTheDocument();

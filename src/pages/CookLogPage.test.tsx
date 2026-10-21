@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeCook, makeRecipe } from '../test/factories';
 import { db } from '../db/database';
@@ -14,6 +15,11 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 
 import { CookLogPage } from './CookLogPage';
 
+// Stands in for the recipe route and shows the list origin the link carried (RL-225).
+function Origin() {
+  return <p data-testid="origin">{(useLocation().state as { listOrigin?: string } | null)?.listOrigin}</p>;
+}
+
 const now = Date.now();
 beforeEach(async () => {
   await db.recipes.clear();
@@ -22,6 +28,23 @@ beforeEach(async () => {
 });
 
 describe('CookLogPage (RL-200)', () => {
+  it.each([
+    ['the recipe', /Dal/],
+    ['the branch', 'Open the branch'],
+  ])('opens %s with the cook log as its origin', async (_, name) => {
+    await db.recipes.add(makeRecipe({ id: 'r1', title: 'Dal', emoji: '🍲' }));
+    own = { status: 'ready', cooks: [makeCook({ id: 'a', recipeId: 'r1', vote: 'tweak', branchId: 'br', createdAt: now })] };
+    renderWithProviders(
+      <Routes>
+        <Route path="/kitchen/log" element={<CookLogPage />} />
+        <Route path="/recipe/:id" element={<Origin />} />
+      </Routes>,
+      { route: '/kitchen/log' }
+    );
+    fireEvent.click(await screen.findByRole('link', { name }));
+    expect(screen.getByTestId('origin')).toHaveTextContent('/kitchen/log');
+  });
+
   it('shows the summary, titles, notes and tags with the branch link', async () => {
     await db.recipes.add(makeRecipe({ id: 'r1', title: 'Dal', emoji: '🍲' }));
     getPublishedRecipe.mockResolvedValue({ title: 'Soup', emoji: '🥣' });

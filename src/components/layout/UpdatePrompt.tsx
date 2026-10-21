@@ -6,7 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { Button } from '../ui/Button';
 
 // The routes AppShell wraps, where the nav is a left rail from lg (RL-115).
-const SHELL_PATHS = ['/', '/search', '/saved', '/new', '/activity', '/profile'];
+const SHELL_PATHS = ['/', '/search', '/saved', '/new', '/activity', '/profile', '/kitchen', '/kitchen/list', '/kitchen/pantry', '/kitchen/log', '/kitchen/c/:id'];
 
 // One registration for the whole app, even if the effect runs twice (StrictMode).
 let updateSW: ((reload?: boolean) => Promise<void>) | undefined;

@@ -48,6 +48,10 @@ beforeEach(() => {
   mocks.fetch.mockReset().mockResolvedValue({ status: 'missing' });
 });
 
+// Stands in for the recipe route and shows the list origin the link carried (RL-225).
+function Origin() {
+  return <p data-testid="origin">{(useLocation().state as { listOrigin?: string } | null)?.listOrigin}</p>;
+}
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
@@ -56,6 +60,7 @@ const show = () =>
     <Routes>
       <Route path="/kitchen/c/:id" element={<CollectionPage />} />
       <Route path="/kitchen" element={<Where />} />
+      <Route path="/recipe/:id" element={<Origin />} />
     </Routes>,
     { route: '/kitchen/c/c1' }
   );
@@ -68,6 +73,12 @@ describe('CollectionPage (RL-224)', () => {
     expect(await screen.findByRole('link', { name: /Dal/ })).toHaveAttribute('href', '/recipe/a');
     await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(1));
     expect(mocks.fetch).toHaveBeenCalledWith('b');
+  });
+
+  it('opens a tile with the collection as its origin', async () => {
+    show();
+    fireEvent.click(await screen.findByRole('link', { name: /Dal/ }));
+    expect(screen.getByTestId('origin')).toHaveTextContent('/kitchen/c/c1');
   });
 
   it('shows a missing recipe as A deleted recipe, removable in edit mode', async () => {

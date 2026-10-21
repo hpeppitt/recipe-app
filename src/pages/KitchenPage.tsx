@@ -1,5 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { RecipePaneContext } from '../contexts/RecipePaneContext';
+import { listOriginState } from '../lib/paneMode';
 import { useAuth } from '../contexts/AuthContext';
 import { COLLECTIONS_LOAD_FAILED_MESSAGE, useCollections } from '../hooks/useCollections';
 import { useKitchen } from '../hooks/useKitchen';
@@ -46,6 +48,10 @@ export function KitchenPage() {
   const [showAuth, setShowAuth] = useState(false);
   const [cooks, setCooks] = useState<number | null>(null);
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
+  // A recipe open beside this list (RL-225) is the page's h1.
+  const paneId = useContext(RecipePaneContext);
+  const Heading = paneId ? 'h2' : 'h1';
+  const Sub = paneId ? 'h3' : 'h2';
   const uid = verified ? user.uid : null;
 
   useEffect(() => {
@@ -66,7 +72,7 @@ export function KitchenPage() {
 
   return (
     <div className="pb-8">
-      <h1 className="px-5 pt-[52px] font-heading text-[30px] leading-tight text-text-primary">Kitchen</h1>
+      <Heading className="px-5 pt-[52px] font-heading text-[30px] leading-tight text-text-primary">Kitchen</Heading>
       <div className="px-5 pt-[18px]">
         {wait ? (
           <div className="grid grid-cols-2 gap-3" role="status" aria-label="Loading kitchen">
@@ -139,7 +145,7 @@ export function KitchenPage() {
       </div>
       <section className="px-5 pt-[18px]" aria-labelledby="kitchen-saved">
         <div className="flex items-baseline justify-between">
-          <h2 id="kitchen-saved" className="font-heading text-[18px] text-text-primary">Saved</h2>
+          <Sub id="kitchen-saved" className="font-heading text-[18px] text-text-primary">Saved</Sub>
           <Link to="/saved" className="inline-flex min-h-[44px] items-center text-[13px] text-accent-700">See all</Link>
         </div>
         {savedLoading ? (
@@ -156,6 +162,8 @@ export function KitchenPage() {
               <li key={r.id} className="shrink-0">
                 <Link
                   to={`/recipe/${r.id}`}
+                  state={listOriginState('/kitchen')}
+                  aria-current={r.id === paneId ? 'true' : undefined}
                   aria-label={r.title}
                   className={`flex size-[84px] items-center justify-center rounded-[26px] text-[40px] leading-none ${TILE_TINTS[i % TILE_TINTS.length]}`}
                 >
@@ -168,7 +176,7 @@ export function KitchenPage() {
       </section>
       {(collections.length > 0 || collectionsError === COLLECTIONS_LOAD_FAILED_MESSAGE) && (
         <section className="px-5 pt-[18px]" aria-labelledby="kitchen-collections">
-          <h2 id="kitchen-collections" className="font-heading text-[18px] text-text-primary">Collections</h2>
+          <Sub id="kitchen-collections" className="font-heading text-[18px] text-text-primary">Collections</Sub>
           {collections.length === 0 && (
             <div className="flex items-center justify-between gap-3 pt-2">
               <p className="text-[13px] text-text-tertiary">Couldn't load collections</p>

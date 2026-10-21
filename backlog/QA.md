@@ -2099,3 +2099,12 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - More > Rename: new name shows here and in Kitchen. More > Delete: confirm "Delete <name>? The recipes stay saved."; Delete returns to Kitchen without the row. The recipes are still in Saved.
 - Delete a recipe you own that is in a collection (or use one deleted elsewhere): its tile reads "A deleted recipe" and can be removed. Delete the collection on a second device while open here: "This collection is gone" with a link to Kitchen.
 - Network panel on a collection with recipes not on this device: reads come in batches of 24 and only after Show more. Needs RL-227's rules deployed. 390px, light and dark.
+
+### RL-225 Kitchen pages in the list pane
+- At 1280px open Kitchen, the shopping list, the pantry, the cook log and a collection: each shows the rail and its usual phone layout in the middle. From Kitchen tap a Saved tile, on the shopping list tap a source chip's title, on the cook log tap a card and a Branched tag, and on a collection tap a tile: the recipe opens beside the page in a 420px pane, the URL is `/recipe/<id>`, Back returns to the page as it was. Light and dark.
+- With a recipe beside the shopping list, tick a line, then resize to 390px: the recipe fills the screen with no nav. Resize back: the list is there with the tick, at the same scroll. Back at 390px returns to the list as it was.
+- On the shopping list alone, turn on Shop mode and resize across 1024px both ways: Shop mode stays on, ticks stay.
+- At 390px every Kitchen sub-page looks as before (no bottom bar, no consent banner, own Back button). Source chip titles are now links at every width; the X still removes the source.
+- Share on the shopping list on desktop: "Copied" appears under the list column, not over the recipe or the rail.
+
+- Orchestrator check: a headless probe of the built app (signed out) showed no bottom nav and no sideways scroll on /kitchen/list, /kitchen/pantry and /kitchen/log at 390px, and the 220px rail on all four Kitchen pages at 1280px. Not checked signed in. Phone behaviour change: shopping list chip titles are now links. List pages' Back closes a recipe beside them first. aria-current is tested on the shopping list only.
