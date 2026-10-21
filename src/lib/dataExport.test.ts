@@ -26,6 +26,7 @@ const empty: CloudInput = {
   cooks: { data: [] },
   cookPhotos: { data: [] },
   kitchen: { data: null },
+  kitchenMemberships: { data: [] },
   collections: { data: [] },
 };
 
@@ -106,6 +107,33 @@ describe('assembleDataExport', () => {
     expect((out.kitchen as unknown as { pantry: { addedBy: string }[] }).pantry[0].addedBy).toBe('other-user-1');
     expect(out.kitchen).not.toHaveProperty('stray');
     expect(out.collections).toEqual([{ id: 'c1', ownerUid: ME, name: 'Dinner', visibility: 'private', recipeIds: ['r1'], createdAt: 1, updatedAt: 2 }]);
+  });
+
+  it('summarises kitchen membership with role and member count, other members anonymised (RL-238)', () => {
+    const input = full();
+    input.cloud!.kitchenMemberships = {
+      data: [
+        { id: ME, ownerUid: ME, memberUids: [ME], shopping: [{ id: 'a', name: 'Egg' }], pantry: [] },
+        { id: BOB, ownerUid: BOB, memberUids: [BOB, ME, CAL], joinCode: `${ME}:x`, shopping: [], pantry: [{ id: 'p', name: 'Salt', addedBy: CAL }] },
+      ],
+    };
+    const out = assembleDataExport(input).cloud!;
+    const json = JSON.stringify(out.kitchenMemberships);
+    expect(json).not.toContain(BOB);
+    expect(json).not.toContain(CAL);
+    expect(json).not.toContain('Salt');
+    const bob = out.kitchenMemberships.find((m) => m.role === 'member')!;
+    expect(out.kitchenMemberships).toContainEqual({ kitchenId: ME, role: 'owner', memberCount: 1, memberUids: [ME] });
+    expect(bob).toMatchObject({ role: 'member', memberCount: 3 });
+    expect(bob.memberUids).toEqual([bob.kitchenId, ME, expect.stringMatching(/^other-user-\d+$/)]);
+  });
+
+  it('reports a failed membership read in errors', () => {
+    const input = full();
+    input.cloud!.kitchenMemberships = { error: 'permission-denied' };
+    const out = assembleDataExport(input);
+    expect(out.cloud!.kitchenMemberships).toEqual([]);
+    expect(out.errors).toContainEqual({ section: 'kitchenMemberships', message: 'permission-denied' });
   });
 
   it("keeps the user's cooks and photos whole and aliases the recipe owner of a cook", () => {

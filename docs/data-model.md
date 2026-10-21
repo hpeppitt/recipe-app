@@ -96,8 +96,8 @@ transaction); everything else, `favorites` included, stays.
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
-| `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: members only, verified. Up to 6 members (`KITCHEN_MEMBER_CAP`); join, leave and remove rules in the repo since RL-237, deployed by RL-249. An optional sixth key, `joinCode` (`'<uid>:<code>'`), is left by the last join. Element shapes are the client's job. |
-| `kitchenInvites/{code}` | the invite code, at least 20 random characters (`KITCHEN_INVITE_CODE_MIN`) | `{ kitchenId, ownerUid, ownerName, expiresAt, createdAt }` (`ownerName` at most 80 characters, `expiresAt` within 7 days (`KITCHEN_INVITE_DAYS`), `createdAt` a server timestamp) | A reusable invite to a kitchen, valid until it expires or its owner deletes it (decision "A household shares one kitchen by invite link", RL-236; rules in the repo since RL-237, deployed by RL-249; no client yet). **Get only** for any verified user by its code; only the owner may list their own. |
+| `kitchens/{uid}` | the owner's uid (a kitchen whose ownership passed on in an erase keeps its id) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213; sharing client since RL-238). **Private**: members only, verified. Up to 6 members (`KITCHEN_MEMBER_CAP`); join, leave and remove rules in the repo since RL-237, deployed by RL-249. An optional sixth key, `joinCode` (`'<uid>:<code>'`), is left by the last join. Element shapes are the client's job. |
+| `kitchenInvites/{code}` | the invite code, at least 20 random characters (`KITCHEN_INVITE_CODE_MIN`) | `{ kitchenId, ownerUid, ownerName, expiresAt, createdAt }` (`ownerName` at most 80 characters, `expiresAt` within 7 days (`KITCHEN_INVITE_DAYS`), `createdAt` a server timestamp) | A reusable invite to a kitchen, valid until it expires or its owner deletes it (decision "A household shares one kitchen by invite link", RL-236; rules in the repo since RL-237, deployed by RL-249; client since RL-238, which deletes the owner's invites when it removes a member). **Get only** for any verified user by its code; only the owner may list their own. |
 | `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). **Private**: owner only, verified. Public cookbooks are RL-256. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
@@ -595,6 +595,34 @@ adding again." rather than inviting a retry. One write runs at a time; a call ma
 dropped. A failed listener is reported, retried once after 2 s (refreshing the ID token first on
 permission-denied), and shows `kitchen: null` until a snapshot arrives.
 
+**Kitchen sharing client** (RL-238, `useKitchen` over `findKitchenId`, `createKitchenInvite`,
+`getKitchenInvite`, `joinKitchenWithInvite`, `leaveKitchen`, `removeKitchenMember` and
+`getKitchenMembers` in `services/firestore.ts`). Before subscribing, the hook resolves which kitchen
+the user is in with one query, `kitchens where memberUids array-contains uid limit 2`: a kitchen other
+than `kitchens/{uid}` wins, else the own uid (`pickKitchenId`, `lib/kitchen.ts`). Limit 2, not 1,
+because a user who joined still has their own document, unused (RL-236), and both match. The id is
+resolved once per session and shared by the listener and the one-shot writers
+(`addRecipeToKitchen`, `addLeftoversToPantry`); it is resolved again on the next mount after the
+last holder unmounts, when the listener fails, and after a write is denied or finds the kitchen gone
+(so a removed member falls back to their own kitchen). `ShopFamilySheet` reads the pantry of the
+resolved kitchen too. `updateKitchen` writes to the resolved id and creates only `kitchens/{uid}`.
+Members' names and avatars come from `profiles/{uid}`, one `getDoc` each, at most 6, read once per
+change of the member set (no listener per member). `createInvite()` (owner only) makes sure the
+kitchen document exists, then writes `kitchenInvites/{code}` with a 20-character code from
+`crypto.getRandomValues` (`newInviteCode`) and `expiresAt` an hour short of 7 days, and returns
+`<origin>/join/<code>`. `joinKitchen(code)` reads the invite (missing or expired: "This invite has
+expired. Ask for a new one."), treats the kitchen it already resolves to as joined, refuses while in
+another shared kitchen or while owning one with members (one kitchen per person; the UI can offer
+Leave first), deletes the joiner's own invites to their own kitchen (it goes unused), then writes
+only `memberUids: arrayUnion(uid)` and `joinCode`. A non-member cannot read the kitchen, so after a
+denied join the hook re-reads the invite (gone or expired: the expired copy), then re-resolves (already
+a member: joined), else shows "This kitchen is full." One membership action runs at a time. Leave and
+remove send `arrayRemove`, `updatedAt` and `deleteField()` on `joinCode`; remove deletes the owner's
+invites to that kitchen first. The owner cannot leave. Any other failure is reported and shows
+"Couldn't update your household. Check your connection and try again." Cost: the lookup is one
+query (one read per match, one if none); a join is one invite read plus one write; members cost one
+read each per member set change.
+
 **collections** (RL-211, in the repo, deployed by RL-227): read and update by the owner
 (`ownerUid`), verified, so a `where ownerUid ==` own-uid query is allowed. Create: verified, own
 `ownerUid`, `createdAt` equal to the request time. Exactly the keys `ownerUid`, `name`,
@@ -649,9 +677,12 @@ anonymises other people's cooks of the user's recipes (see docs/operations.md, D
 id (`cloud.kitchen`, null when none) and `collections` where `ownerUid ==` the user
 (`cloud.collections`), both verified-only reads, additive so `DATA_EXPORT_VERSION` stays 1. Any other
 uid in a kitchen (`memberUids`, `ownerUid`, a pantry item's `addedBy`) becomes `other-user-N`
-(none in Phase 2). The operator's erase script deletes the collections and the kitchen. It
-deletes a kitchen only when the uid is its owner and sole member; otherwise it skips it and
-reports it (RL-238 must decide what leaving or erasing means for a shared kitchen).
+(none in Phase 2). Since RL-238 it also reads `kitchens where memberUids array-contains` the user
+(`cloud.kitchenMemberships`: per kitchen `kitchenId`, `role` owner or member, `memberCount` and
+`memberUids`, other people aliased; the shared lists are not copied). The operator's erase script
+deletes the collections, the user's invites and a kitchen the uid owns alone; it passes a kitchen
+the uid owns with others to the longest-standing other member, removes the uid from a kitchen they
+belong to, and anonymises pantry items they added (see docs/operations.md, Data requests).
 
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.

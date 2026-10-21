@@ -60,12 +60,13 @@ describe('fetchCloudDataForExport', () => {
       'favorites:uid',
       'follows:followerId',
       'follows:followingId',
+      'kitchens:memberUids',
       'notifications:recipientUid',
       'recipes:createdBy.uid',
       'suggestions:recipeOwnerId',
       'suggestions:suggestedBy.uid',
     ]);
-    expect(queries.every((q) => q.wheres.every((w) => w[1] === '==' && w[2] === 'u1'))).toBe(true);
+    expect(queries.every((q) => q.wheres.every((w) => (q.col === 'kitchens' ? w[1] === 'array-contains' : w[1] === '==') && w[2] === 'u1'))).toBe(true);
     expect(writes).not.toHaveBeenCalled();
   });
 
@@ -107,6 +108,15 @@ describe('fetchCloudDataForExport', () => {
     const unverified = await fetchCloudDataForExport('u1', false);
     expect('error' in unverified.kitchen && 'error' in unverified.collections).toBe(true);
     expect(queries.some((q) => q.col === 'collections')).toBe(false);
+    expect('error' in unverified.kitchenMemberships).toBe(true);
+    expect(queries.some((q) => q.col === 'kitchens')).toBe(false);
+  });
+
+  it('reads kitchen memberships with memberUids array-contains the uid (RL-238)', async () => {
+    getDocsImpl = async (q) => ({ docs: q.col === 'kitchens' ? [row('owner1', { ownerUid: 'owner1', memberUids: ['owner1', 'u1'] })] : [] });
+    const out = await fetchCloudDataForExport('u1');
+    expect(queries.find((q) => q.col === 'kitchens')?.wheres).toEqual([['memberUids', 'array-contains', 'u1']]);
+    expect('data' in out.kitchenMemberships && out.kitchenMemberships.data).toMatchObject([{ id: 'owner1', ownerUid: 'owner1' }]);
   });
 
   it('keeps the cook photo pages that arrived when the deadline passes', async () => {

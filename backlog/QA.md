@@ -2152,3 +2152,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-237 Kitchen invite and membership rules
 - Nothing to check in the browser: rules only, in the repo, not deployed (RL-249 deploys). Emulator probe codes are in the ticket Notes.
+
+### RL-238 Kitchen sharing hook and data requests
+- No UI yet (RL-239, RL-240), so nothing new to see. Check that nothing regressed: as a verified user, the shopping list, pantry, "Add to shopping list" on a recipe and "Add leftovers" after cooking still work, and a reload keeps them. Needs RL-249's rules deploy for live writes.
+- Settings > Download my data (verified): the file has `cloud.kitchenMemberships`, one entry with your id, `role: "owner"` and `memberCount: 1` if you have a kitchen.
+- Operator, emulator only: `node scripts/data-request.mjs erase <uid> --emulator` for a user who owns a kitchen with a second member prints "shared kitchen passed to its longest-standing member (1 other member affected)" and no other uid.

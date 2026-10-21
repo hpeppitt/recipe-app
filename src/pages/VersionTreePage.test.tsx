@@ -47,6 +47,7 @@ vi.mock('../hooks/useRecipeTree', () => ({
 const addRecipeToKitchen = vi.fn();
 vi.mock('../hooks/useKitchen', () => ({
   addRecipeToKitchen: (...a: unknown[]) => addRecipeToKitchen(...a),
+  resolveKitchenId: async (uid: string) => uid,
   KITCHEN_BUSY_MESSAGE: 'busy',
   KITCHEN_FULL_MESSAGE: 'full',
   KITCHEN_MAYBE_SAVED_MESSAGE: 'maybe',

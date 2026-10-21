@@ -134,6 +134,41 @@ export function anonymisedOwnerCookPatch() {
   return { recipeOwnerId: PLACEHOLDER_UID };
 }
 
+/**
+ * The update that takes the uid out of a kitchen (RL-238): memberUids loses the uid, pantry
+ * items they added get addedBy = PLACEHOLDER_UID, and with `newOwner` the ownership passes on.
+ * A joinCode the uid left ('<uid>:<code>') is deleted (`deleteFields`). Null when there is
+ * nothing to change. `note` describes it without any uid, for the log.
+ */
+export function kitchenErasePatch(uid, kitchen, newOwner) {
+  const { memberUids, pantry } = kitchen.data;
+  const set = {};
+  const notes = [];
+  if (newOwner) {
+    set.ownerUid = newOwner;
+    notes.push('ownerUid set to the longest-standing member');
+  }
+  const added = Array.isArray(pantry) ? pantry.filter((p) => p?.addedBy === uid).length : 0;
+  if (added) {
+    set.pantry = pantry.map((p) => (p?.addedBy === uid ? { ...p, addedBy: PLACEHOLDER_UID } : p));
+    notes.push(`addedBy anonymised on ${added} pantry item${added === 1 ? '' : 's'}`);
+  }
+  const member = Array.isArray(memberUids) && memberUids.includes(uid);
+  if (member) notes.push('memberUids remove the uid');
+  // The uid's own last join leaves it in joinCode (RL-237).
+  const joinCode = typeof kitchen.data.joinCode === 'string' && kitchen.data.joinCode.startsWith(`${uid}:`);
+  if (joinCode) notes.push('joinCode removed');
+  if (!notes.length) return null;
+  return {
+    kind: 'update',
+    path: kitchen.path,
+    ...(Object.keys(set).length ? { set } : {}),
+    ...(member ? { arrayRemove: { memberUids: [uid] } } : {}),
+    ...(joinCode ? { deleteFields: ['joinCode'] } : {}),
+    note: notes.join(', '),
+  };
+}
+
 /** What stays on a reply the uid wrote in a thread that is kept. */
 export function anonymisedMessagePatch() {
   return { fromUid: PLACEHOLDER_UID, fromDisplayName: null };
@@ -242,15 +277,33 @@ export function buildErasePlan(uid, fetched) {
     if (c.data.uid !== uid) add("another user's cook of an own recipe (kept, owner anonymised)", [{ kind: 'update', path: c.path, set: anonymisedOwnerCookPatch() }]);
   }
 
-  // Collections are owner-only (RL-226). The kitchen is deleted only when the uid owns it and is its
-  // sole member; a shared kitchen (RL-238) is skipped and reported, never deleted from under others.
+  // Collections are owner-only (RL-226). Kitchens (RL-238): the uid's invites are deleted; a
+  // kitchen they own alone is deleted; one they own with others passes to the longest-standing
+  // other member (first in memberUids) with the uid removed; one they belong to loses the uid.
+  // Pantry items they added keep their place with addedBy anonymised. Other members' uids are
+  // never printed: a kitchen at another owner's id is shown as kitchens/<another owner>.
   for (const c of fetched.collections ?? []) add('own collection', [del(c.path)]);
+  for (const i of fetched.kitchenInvites ?? []) add('own kitchen invite', [del(i.path)]);
   const skipped = [];
-  const k = fetched.kitchen;
-  if (k) {
-    const members = Array.isArray(k.data.memberUids) ? k.data.memberUids : [];
-    if (k.data.ownerUid === uid && members.length === 1 && members[0] === uid) add('own kitchen', [del(k.path)]);
-    else skipped.push(`${k.path} not deleted: not owned by the uid alone (owner and members are not printed). Handle it by hand.`);
+  for (const k of uniqueByPath([fetched.kitchen, ...(fetched.kitchenMemberships ?? [])].filter(Boolean))) {
+    const shown = k.path === `kitchens/${uid}` ? k.path : 'kitchens/<another owner>';
+    const members = k.data.memberUids;
+    if (!Array.isArray(members)) {
+      skipped.push(`${shown} not changed: memberUids is not a list. Handle it by hand.`);
+      continue;
+    }
+    const others = members.filter((m) => typeof m === 'string' && m !== uid);
+    const affected = `${others.length} other member${others.length === 1 ? '' : 's'} affected`;
+    if (k.data.ownerUid === uid && !others.length) {
+      add('own kitchen', [del(k.path)]);
+      continue;
+    }
+    const op = kitchenErasePatch(uid, k, k.data.ownerUid === uid ? others[0] : null);
+    if (!op) continue; // already handled, e.g. ownership passed on by an earlier run
+    op.shown = shown;
+    if (k.data.ownerUid === uid) add(`shared kitchen passed to its longest-standing member (${affected})`, [op]);
+    else if (members.includes(uid)) add(`left a shared kitchen (${affected})`, [op]);
+    else add('kitchen the uid no longer belongs to (pantry anonymised)', [op]);
   }
 
   for (const n of uniqueByPath(fetched.notifications ?? [])) add('notification (to or from)', [del(n.path)]);
@@ -284,7 +337,7 @@ export function chunkPlan(groups, limit = BATCH_LIMIT) {
   return batches;
 }
 
-/** Exit 3 when the erase left something skipped on purpose (a shared kitchen), so it cannot be missed. */
+/** Exit 3 when the erase left something skipped on purpose (a kitchen it could not read), so it cannot be missed. */
 export function exitCodeFor(plan) {
   return plan.skipped?.length ? 3 : 0;
 }
@@ -298,6 +351,7 @@ export function summarise(plan) {
 
 export function describeOp(op) {
   if (op.kind === 'delete') return `DELETE ${op.path}`;
+  if (op.note) return `UPDATE ${op.shown ?? op.path} ${op.note}`;
   if (op.set) return `UPDATE ${op.path} set ${JSON.stringify(op.set)}`;
   if (op.arrayRemove) {
     const parts = Object.entries(op.arrayRemove).map(([field, values]) => `${field} remove ${JSON.stringify(values)}`);
@@ -416,6 +470,8 @@ async function collect(db, auth, uid) {
     cooks: await q(db.collection('cooks').where('uid', '==', uid)),
     cookPhotos: await q(db.collection('cookPhotos').where('uid', '==', uid)),
     kitchen: await one(`kitchens/${uid}`),
+    kitchenMemberships: await q(db.collection('kitchens').where('memberUids', 'array-contains', uid)),
+    kitchenInvites: await q(db.collection('kitchenInvites').where('ownerUid', '==', uid)),
     collections: await q(db.collection('collections').where('ownerUid', '==', uid)),
     cooksOnOwn: (await q(db.collection('cooks').where('recipeOwnerId', '==', uid))).filter((c) => c.data.uid !== uid),
     counters,
@@ -465,8 +521,15 @@ export function redactExport(uid, body) {
     n.data.recipientUid = alias(n.data.recipientUid);
   }
   for (const c of out.cooks) c.data.recipeOwnerId = alias(c.data.recipeOwnerId);
+  for (const i of out.kitchenInvites ?? []) i.data.kitchenId = alias(i.data.kitchenId);
+  for (const m of out.kitchenMemberships ?? []) {
+    m.kitchenId = alias(m.kitchenId);
+    m.memberUids = m.memberUids.map(alias);
+  }
   if (out.kitchen) {
     const d = out.kitchen.data;
+    // '<uid>:<code>' of the last joiner, who may be someone else (RL-238 review).
+    delete d.joinCode;
     d.ownerUid = alias(d.ownerUid);
     if (Array.isArray(d.memberUids)) d.memberUids = d.memberUids.map(alias);
     for (const p of Array.isArray(d.pantry) ? d.pantry : []) if (p) p.addedBy = alias(p.addedBy);
@@ -477,11 +540,19 @@ export function redactExport(uid, body) {
     out.profile, out.termsAcceptance, out.notificationPrefs, out.tasteProfile, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
-    ...out.cooks, ...out.cookPhotos, out.kitchen, ...out.collections,
+    ...out.cooks, ...out.cookPhotos, out.kitchen, ...(out.kitchenInvites ?? []), ...out.collections,
   ].filter(Boolean);
   for (const d of docs) d.path = fixPath(d.path);
   out.redaction = "Other people's account ids are replaced with other-user-N and their display names removed. Content is kept.";
   return out;
+}
+
+/** Which kitchens the uid belongs to (RL-238), summarised: the shared lists are the household's, not copied. */
+export function kitchenMemberships(uid, kitchens) {
+  return kitchens.map((k) => {
+    const members = Array.isArray(k.data.memberUids) ? k.data.memberUids.filter((m) => typeof m === 'string') : [];
+    return { kitchenId: k.path.split('/')[1], role: k.data.ownerUid === uid ? 'owner' : 'member', memberCount: members.length, memberUids: members };
+  });
 }
 
 /** The export: the uid's own data. Other users' bookmarks of the uid's recipes are left out. */
@@ -507,6 +578,8 @@ function exportBody(uid, project, target, f) {
     cooks: f.cooks,
     cookPhotos: f.cookPhotos,
     kitchen: f.kitchen,
+    kitchenMemberships: kitchenMemberships(uid, f.kitchenMemberships ?? []),
+    kitchenInvites: f.kitchenInvites ?? [],
     collections: f.collections,
   };
 }
@@ -531,6 +604,8 @@ function countExport(body) {
     cooks: body.cooks.length,
     cookPhotos: body.cookPhotos.length,
     kitchen: body.kitchen ? 1 : 0,
+    kitchenMemberships: body.kitchenMemberships.length,
+    kitchenInvites: body.kitchenInvites.length,
     collections: body.collections.length,
   };
 }
@@ -539,13 +614,13 @@ async function execute(db, admin, plan) {
   const { FieldValue } = admin;
   const add = (batch, op) => {
     const ref = db.doc(op.path);
-    if (op.kind === 'delete') batch.delete(ref);
-    else if (op.set) batch.update(ref, op.set);
-    else if (op.arrayRemove) {
-      const patch = Object.entries(op.arrayRemove).map(([field, values]) => [field, FieldValue.arrayRemove(...values)]);
-      batch.update(ref, Object.fromEntries(patch));
-    }
-    else batch.update(ref, { [op.increment.field]: FieldValue.increment(op.increment.by) });
+    if (op.kind === 'delete') return batch.delete(ref);
+    // A kitchen update (RL-238) carries both a set and an arrayRemove, so the parts are combined.
+    const patch = { ...op.set };
+    for (const [field, values] of Object.entries(op.arrayRemove ?? {})) patch[field] = FieldValue.arrayRemove(...values);
+    if (op.increment) patch[op.increment.field] = FieldValue.increment(op.increment.by);
+    for (const field of op.deleteFields ?? []) patch[field] = FieldValue.delete();
+    batch.update(ref, patch);
   };
   const failed = [];
   const batches = chunkPlan(plan.groups);

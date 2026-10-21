@@ -17,6 +17,8 @@ import {
   emulatorHosts,
   resolveTarget,
   redactExport,
+  kitchenMemberships,
+  kitchenErasePatch,
   REPO_ROOT,
   PLACEHOLDER_UID,
 } from './data-request.mjs';
@@ -158,7 +160,12 @@ describe('redactExport', () => {
     notifications: [doc('notifications/n1', { recipientUid: U, fromUid: O, fromDisplayName: 'Omar' })],
     cooks: [doc('cooks/k1', { uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: O, note: 'good' })],
     cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
-    kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U, O], shopping: [], pantry: [{ id: 'p', name: 'Salt', addedBy: O, addedAt: 1 }] }),
+    kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U, O], joinCode: `${O}:abc`, shopping: [], pantry: [{ id: 'p', name: 'Salt', addedBy: O, addedAt: 1 }] }),
+    kitchenMemberships: kitchenMemberships(U, [
+      doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U, O] }),
+      doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O, U, 'cal'] }),
+    ]),
+    kitchenInvites: [doc('kitchenInvites/code1', { kitchenId: U, ownerUid: U, ownerName: 'T' })],
     collections: [doc('collections/c1', { ownerUid: U, name: 'Dinner', recipeIds: ['r1'] })],
   };
   const r = redactExport(U, body);
@@ -180,7 +187,16 @@ describe('redactExport', () => {
   it('aliases other members of the kitchen and keeps the collections whole', () => {
     expect(r.kitchen.data).toMatchObject({ ownerUid: U, memberUids: [U, 'other-user-1'] });
     expect(r.kitchen.data.pantry[0].addedBy).toBe('other-user-1');
+    expect(r.kitchen.data).not.toHaveProperty('joinCode');
     expect(r.collections).toEqual(body.collections);
+  });
+  it('summarises kitchen membership with role and member count, other members aliased (RL-238)', () => {
+    expect(r.kitchenMemberships).toEqual([
+      { kitchenId: U, role: 'owner', memberCount: 2, memberUids: [U, 'other-user-1'] },
+      { kitchenId: 'other-user-1', role: 'member', memberCount: 3, memberUids: ['other-user-1', U, 'other-user-2'] },
+    ]);
+    expect(JSON.stringify(r)).not.toContain('"cal"');
+    expect(r.kitchenInvites[0].data.kitchenId).toBe(U);
   });
   it('keeps the cook photo whole', () => {
     expect(r.cookPhotos).toEqual(body.cookPhotos);
@@ -336,19 +352,77 @@ describe('buildErasePlan', () => {
     expect(plan.deleteAuthUser).toBe(true);
   });
 
-  it('deletes an own sole-member kitchen and its collections, and skips a shared one with a report', () => {
+  it('deletes an own sole-member kitchen and its collections', () => {
     expect(deletes).toEqual(expect.arrayContaining([`kitchens/${U}`, 'collections/c1']));
     expect(plan.skipped).toEqual([]);
-    for (const data of [{ ownerUid: O, memberUids: [O, U] }, { ownerUid: U, memberUids: [U, O] }]) {
-      const p = buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, data) });
+  });
+
+  describe('shared kitchens (RL-238)', () => {
+    const pantry = [{ id: 'p1', name: 'Salt', addedBy: U, addedAt: 1 }, { id: 'p2', name: 'Rice', addedBy: O, addedAt: 2 }];
+    const anonPantry = [{ ...pantry[0], addedBy: PLACEHOLDER_UID }, pantry[1]];
+
+    it('passes an owned shared kitchen to the longest-standing member and removes the uid', () => {
+      const k = doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U, O, 'cal'], pantry });
+      const p = buildErasePlan(U, { kitchen: k, kitchenMemberships: [k] });
+      expect(p.groups).toHaveLength(1);
+      expect(p.groups[0].label).toBe('shared kitchen passed to its longest-standing member (2 other members affected)');
+      expect(p.groups[0].ops).toEqual([{
+        kind: 'update', path: `kitchens/${U}`, set: { ownerUid: O, pantry: anonPantry }, arrayRemove: { memberUids: [U] }, shown: `kitchens/${U}`,
+        note: 'ownerUid set to the longest-standing member, addedBy anonymised on 1 pantry item, memberUids remove the uid',
+      }]);
+      expect(describeOp(p.groups[0].ops[0])).not.toContain(O);
+      expect(p.skipped).toEqual([]);
+      expect(exitCodeFor(p)).toBe(0);
+    });
+
+    it('removes the uid from a kitchen it belongs to, anonymises its pantry items, and never prints the owner', () => {
+      const k = doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O, U], pantry });
+      const p = buildErasePlan(U, { kitchenMemberships: [k] });
+      expect(p.groups.map((g) => g.label)).toEqual(['left a shared kitchen (1 other member affected)']);
+      const op = p.groups[0].ops[0];
+      expect(op).toMatchObject({ path: `kitchens/${O}`, set: { pantry: anonPantry }, arrayRemove: { memberUids: [U] } });
+      expect(op.set.ownerUid).toBeUndefined();
+      expect(describeOp(op)).toBe('UPDATE kitchens/<another owner> addedBy anonymised on 1 pantry item, memberUids remove the uid');
+      expect(JSON.stringify(summarise(p))).not.toContain(O);
+    });
+
+    it('deletes the uid\'s invites', () => {
+      const p = buildErasePlan(U, { kitchenInvites: [doc('kitchenInvites/c1', { ownerUid: U, kitchenId: U })] });
+      expect(p.groups).toEqual([{ label: 'own kitchen invite', ops: [{ kind: 'delete', path: 'kitchenInvites/c1' }] }]);
+    });
+
+    it('finds nothing left on a re-run after ownership passed on', () => {
+      const k = doc(`kitchens/${U}`, { ownerUid: O, memberUids: [O, 'cal'], pantry: anonPantry });
+      const p = buildErasePlan(U, { kitchen: k });
+      expect(p.groups).toEqual([]);
+      expect(p.skipped).toEqual([]);
+    });
+
+    it('anonymises pantry items left in a kitchen the uid no longer belongs to', () => {
+      const p = buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, { ownerUid: O, memberUids: [O], pantry }) });
+      expect(p.groups[0].ops[0]).toMatchObject({ set: { pantry: anonPantry } });
+      expect(p.groups[0].ops[0].arrayRemove).toBeUndefined();
+    });
+
+    it('skips, reports and exits 3 only for a kitchen it cannot read the members of', () => {
+      const p = buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: 'broken' }) });
       expect(p.groups).toEqual([]);
       expect(p.skipped).toHaveLength(1);
-      expect(p.skipped[0]).not.toContain(O);
-    }
-  });
-  it('exits 3 when something was skipped, 0 otherwise', () => {
-    expect(exitCodeFor(plan)).toBe(0);
-    expect(exitCodeFor(buildErasePlan(U, { kitchen: doc(`kitchens/${U}`, { ownerUid: O, memberUids: [O, U] }) }))).toBe(3);
+      expect(exitCodeFor(p)).toBe(3);
+      expect(exitCodeFor(plan)).toBe(0);
+    });
+
+    it('deletes a joinCode the uid left, and leaves another joiner\'s', () => {
+      const mine = kitchenErasePatch(U, doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O, U], joinCode: `${U}:abc` }), null);
+      expect(mine).toMatchObject({ deleteFields: ['joinCode'], arrayRemove: { memberUids: [U] } });
+      expect(mine.note).toBe('memberUids remove the uid, joinCode removed');
+      const theirs = kitchenErasePatch(U, doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O, U], joinCode: `${O}x:abc` }), null);
+      expect(theirs.deleteFields).toBeUndefined();
+    });
+
+    it('kitchenErasePatch is null when there is nothing to change', () => {
+      expect(kitchenErasePatch(U, doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O], pantry: [] }), null)).toBeNull();
+    });
   });
   it('deletes the uid\'s cook photos before its cooks and anonymises other cooks of own recipes', () => {
     const paths = ops.map((o) => o.path);
