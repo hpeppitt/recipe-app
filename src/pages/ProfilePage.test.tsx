@@ -156,6 +156,13 @@ describe('Forest view button (RL-175)', () => {
   });
 });
 
+describe('Cook log row (RL-200)', () => {
+  it('links the own profile to the cook log', () => {
+    renderAt('/profile', fakeUser);
+    expect(screen.getByRole('link', { name: 'Cook log' })).toHaveAttribute('href', '/kitchen/log');
+  });
+});
+
 describe('OwnProfile sign out (moved to Settings, RL-093)', () => {
   it.each([
     ['verified', fakeUser],
