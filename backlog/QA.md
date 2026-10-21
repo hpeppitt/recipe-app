@@ -2124,3 +2124,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Nothing to check in the browser: a hook and data-rights wiring, no UI yet. Needs RL-249's rules deploy before a live write is accepted.
 - Verified account: Settings > Download my data. The file has `cloud.tasteProfile` (null until a profile is saved). Unverified: it lands in errors with the verify note.
 - Operator: `node scripts/data-request.mjs erase <uid> --emulator` (dry run) lists the taste profile delete. Nothing was run against production.
+
+### RL-232 Your taste page
+- Verified account: Settings > Account > Your taste. After a few cooks and branches the two learned cards fill (cooks need the recipe on this device). Signed out or unverified: no row; opening `/settings/taste` shows the Sign in or verify card.
+- Add an avoid (Add chip, type, Enter): it appears as a filled chip. Try a duplicate and a 13th: the message appears under the card and Add disables at 12. Remove one with its X.
+- Hide a learned term: toast "Hidden. Undo" stays while hovered or focused; Undo brings the term back. Needs RL-249's rules deploy before live writes work.
+
+- Reviewer noted (low): after Undo, keyboard focus drops to the page body; the Undo toast stays while focused. Live writes need RL-249's rules deploy.

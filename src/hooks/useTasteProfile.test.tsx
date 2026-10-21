@@ -101,6 +101,8 @@ describe('useTasteProfile', () => {
     await act(async () => result.current.markAsked());
     expect(server.askedAt).toEqual(expect.any(Number));
     await expect(result.current.hideTerm('x'.repeat(41))).rejects.toThrow('too long');
+    await act(async () => result.current.unhideTerm(' curry'));
+    expect(server.hidden).toEqual([]);
   });
 
   it('re-reads the server document after a failed write', async () => {
