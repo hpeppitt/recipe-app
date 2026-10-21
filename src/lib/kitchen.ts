@@ -9,6 +9,13 @@ export const KITCHEN_ITEM_CAP = 300;
 /** Most recipe ids in one collection's `recipeIds`. */
 export const COLLECTION_RECIPE_CAP = 200;
 
+/** Household sharing limits enforced by firestore.rules (RL-237); kitchen.test.ts ties them to the rules. */
+export const KITCHEN_MEMBER_CAP = 6;
+/** An invite's `expiresAt` is at most this many days after it is created. */
+export const KITCHEN_INVITE_DAYS = 7;
+/** Shortest invite code, which is the `kitchenInvites` document id. */
+export const KITCHEN_INVITE_CODE_MIN = 20;
+
 /** Per-item limits the helpers apply, since the rules cap list lengths only (RL-211 review). */
 export const ITEM_NAME_MAX = 80;
 /** Most recipes recorded on one shopping line; a ninth starts a new line with the same key. */

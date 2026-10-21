@@ -41,10 +41,10 @@ Dexie's `update()` is not used anywhere in this codebase. `ChatMessage.recipe` m
 
 ## Firestore
 
-Project `recipe-lab-3832b` (`.firebaserc`). Sixteen top-level collections (`recipes`, `favorites`,
+Project `recipe-lab-3832b` (`.firebaserc`). Seventeen top-level collections (`recipes`, `favorites`,
 `suggestions`, `notifications`, `notificationPrefs`, `profiles`, `termsAcceptance`, `writeWindows`, `clientErrors`,
 `rateLimits`, `follows`, `cooks`, in the repo since RL-194, and `cookPhotos`, in the repo since RL-204, both deployed by RL-209,
-and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227, and `tasteProfiles`, in the repo since RL-230, deployed by RL-249) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
+and `kitchens` and `collections`, in the repo since RL-211, deployed by RL-227, and `tasteProfiles`, in the repo since RL-230, and `kitchenInvites`, in the repo since RL-237, both deployed by RL-249) plus one subcollection (`suggestions/{id}/messages`). Recipe documents use the same UUID as the IndexedDB row, which is what makes
 the dual store addressable by one id.
 
 **Write order of a new recipe** (RL-082, decision 1b): for a configured app the chat save
@@ -96,7 +96,8 @@ transaction); everything else, `favorites` included, stays.
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
-| `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: members only, verified. `memberUids` is a list already so RL-237 only adds the invite path. Element shapes are the client's job. |
+| `kitchens/{uid}` | the owner's uid (Phase 2) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213). **Private**: members only, verified. Up to 6 members (`KITCHEN_MEMBER_CAP`); join, leave and remove rules in the repo since RL-237, deployed by RL-249. An optional sixth key, `joinCode` (`'<uid>:<code>'`), is left by the last join. Element shapes are the client's job. |
+| `kitchenInvites/{code}` | the invite code, at least 20 random characters (`KITCHEN_INVITE_CODE_MIN`) | `{ kitchenId, ownerUid, ownerName, expiresAt, createdAt }` (`ownerName` at most 80 characters, `expiresAt` within 7 days (`KITCHEN_INVITE_DAYS`), `createdAt` a server timestamp) | A reusable invite to a kitchen, valid until it expires or its owner deletes it (decision "A household shares one kitchen by invite link", RL-236; rules in the repo since RL-237, deployed by RL-249; no client yet). **Get only** for any verified user by its code; only the owner may list their own. |
 | `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` (`name` 1 to 60 characters, `visibility` always `'private'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), two server timestamps) | Private recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). **Private**: owner only, verified. Public cookbooks are RL-256. |
 | `clientErrors/{autoId}` | auto | `ErrorReport` plus `uid`, `receivedAt`, `userAgent` | Write-only drop box for the error beacon. Creatable by **anyone, including signed-out visitors**, because a failure during sign-in is exactly the kind that was invisible. No client read, update or delete. Shape is constrained in rules (known keys only, typed, length-capped) because it is an unauthenticated write path. If `receivedAt` is present it must equal the server request time (RL-020). |
 | `rateLimits/{uid}` | user uid | fixed-window counter | Written **only** by the undeployed `generateRecipe` Cloud Function via the Admin SDK, which bypasses rules. Closed to clients entirely, which is what stops a user resetting their own quota. |
@@ -532,11 +533,52 @@ is the writer's uid, `ownerUid` the writer and `memberUids` exactly `[uid]`. Exa
 `memberUids`, `ownerUid`, `shopping`, `pantry` and `updatedAt`, `shopping` and `pantry` lists of at
 most 300 (`kitchenItemCap()`, `KITCHEN_ITEM_CAP`), `updatedAt` equal to the request time, on create
 and on every update. Update: a member, verified, the same shape, and `memberUids` and `ownerUid`
-unchanged (Phase 2; RL-237 opens the invite path). Delete: the owner, signed in only (so erasure
-works if verification lapses, as for cooks). Rules cannot iterate a list, so a list is checked by
+unchanged; membership changes only through the three RL-237 branches below. Delete: the owner, signed in only (so erasure
+works if verification lapses, as for cooks), and since RL-237 only when the owner is the sole member. Rules cannot iterate a list, so a list is checked by
 size only; a 300-item list costs one `size()` per list. A member's `array-contains` query on
 `memberUids` for their own uid is allowed; one for another uid is denied. **Access-call budget**:
-none in any rule.
+none, except the join below.
+
+**Kitchen membership** (RL-237, in the repo, deployed by RL-249). The own-uid read branch now
+covers a missing document only (`resource == null`); any existing kitchen is read by its members
+only, so a removed member loses read access at once (RL-211 review). Three update branches sit
+beside the ordinary one, each its own `allow update`:
+
+- *Join*: a verified non-member; the changed keys are exactly `memberUids` and `joinCode` (so
+  `updatedAt`, `shopping` and `pantry` stay as they were); the new `memberUids` is the old one plus
+  the writer's uid, one longer, at most 6 (`kitchenMemberCap()`); `joinCode` is
+  `'<writer uid>:<code>'`, the uid part equal to the writer and the code part 20 to 64 URL-safe
+  characters (`A-Z a-z 0-9 _ -`) naming a `kitchenInvites` document whose `kitchenId` is this kitchen and whose `expiresAt` is
+  later than the request time (one `get`). The uid prefix binds the stored value to its joiner, so
+  a `joinCode` left on the document is useless to anyone else and never needs clearing; a second
+  joiner with the same link writes their own value. A member joining again is denied, not a no-op. So is a former member rejoining while their own
+  identical value still lingers, which is why leave and remove clear `joinCode` (RL-238).
+- *Leave*: a member, signed in only (so a member whose verification lapsed can still leave), drops
+  only their own uid; the owner cannot.
+- *Remove*: the owner, verified, drops exactly one member who is not the owner.
+
+Leave and remove use the ordinary shape, may change only `memberUids`, `updatedAt` and `joinCode`,
+and drop exactly one uid while adding none. `joinCode` is an optional sixth key everywhere but the
+join: `isWellFormedKitchen` accepts it absent or present on both sides with the same value (so it
+cannot be added, even as null), and never on create, so an ordinary update that does not mention it passes and old clients keep working.
+Delete now also needs `memberUids` to be just the owner: the owner removes the others first. Rules
+do not stop a user being a member of two kitchens; the client enforces one at a time (RL-236).
+**Access-call budget**: the join 1 (the invite); everything else 0. Emulator-checked 2026-10-21
+against a 300 + 300 item kitchen, with the 67 RL-211 probes unchanged and a mutation run showing
+each key deny flips to allowed when its clause is removed (ticket RL-237 Notes).
+
+**kitchenInvites** (RL-237, in the repo, deployed by RL-249): `get` by any verified user, so the
+joiner can see who invited them; `list` only by the owner, through a `where ownerUid ==` own-uid
+query (so they can find and delete their live invites), so other users cannot enumerate codes.
+Create: verified, the document id 20 to 64 URL-safe characters (`kitchenInviteCodeMin()`,
+`KITCHEN_INVITE_CODE_MIN`, and `^[A-Za-z0-9_-]{20,64}$`, so never a `:`), exactly the keys `kitchenId`, `ownerUid`, `ownerName`, `expiresAt` and
+`createdAt`, `ownerUid` the writer, `ownerName` a string of at most 80, `createdAt` the request
+time, `expiresAt` a timestamp after the request time and at most 7 days later
+(`kitchenInviteDays()`, `KITCHEN_INVITE_DAYS`), and the writer the `ownerUid` of
+`kitchens/{kitchenId}` (one `get`). No update. Delete: its owner, signed in only. Nothing removes an
+expired invite; it simply stops admitting joins. `ownerName` is not verified, so the client shows
+the inviter's name from `profiles/{ownerUid}`. `src/lib/kitchen.test.ts` ties the three numbers to
+the rules text.
 
 **Kitchen client cost** (RL-213, `subscribeKitchen` and `updateKitchen` in `services/firestore.ts`,
 through `useKitchen`): one listener per session for a verified user on `kitchens/{uid}`, shared by

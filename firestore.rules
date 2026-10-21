@@ -784,18 +784,33 @@ service cloud.firestore {
     function collectionRecipeCap() {
       return 200;
     }
+    // Household sharing (RL-237). MUST equal KITCHEN_MEMBER_CAP,
+    // KITCHEN_INVITE_DAYS and KITCHEN_INVITE_CODE_MIN in src/lib/kitchen.ts.
+    function kitchenMemberCap() {
+      return 6;
+    }
+    function kitchenInviteDays() {
+      return 7;
+    }
+    function kitchenInviteCodeMin() {
+      return 20;
+    }
 
-    // One kitchen per user in Phase 2, keyed by their uid, with memberUids
-    // already a list so RL-237 only adds the invite path. Read, update: a
-    // member, verified; reading kitchens/{own uid} is also allowed so a client
+    // A kitchen is created at its owner's uid. Read, update: a member,
+    // verified; reading a missing kitchens/{own uid} is also allowed so a client
     // can tell a missing kitchen from a denied one. Create: the kitchen at the
-    // writer's own uid, owned by them, with them as the only member. Updates may
-    // not touch memberUids or ownerUid in Phase 2. Delete: the owner, signed in
-    // only (like cooks, so erasure works if verification lapses). No document
-    // accesses in any rule.
+    // writer's own uid, owned by them, with them as the only member. The
+    // ordinary update may not touch memberUids or ownerUid; membership changes
+    // only through the join, leave and remove branches below (RL-237). Delete:
+    // the owner, signed in only (like cooks, so erasure works if verification
+    // lapses), and only once the owner is the last member. Only the join reads
+    // another document.
     match /kitchens/{kitchenId} {
+      // The own-uid branch only covers a missing kitchen, so a user removed from
+      // a kitchen cannot keep reading it (RL-211 review, RL-237).
       allow read: if verified()
-        && (kitchenId == request.auth.uid || request.auth.uid in resource.data.memberUids);
+        && ((kitchenId == request.auth.uid && resource == null)
+          || request.auth.uid in resource.data.memberUids);
       allow create: if verified()
         && kitchenId == request.auth.uid
         && request.resource.data.ownerUid == request.auth.uid
@@ -805,14 +820,110 @@ service cloud.firestore {
         && request.auth.uid in resource.data.memberUids
         && !changedKeys().hasAny(['memberUids', 'ownerUid'])
         && isWellFormedKitchen(request.resource.data);
-      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
 
+      // Join (RL-237): a verified non-member adds only their own uid, proving a
+      // live invite for this kitchen by writing joinCode = '<own uid>:<code>'.
+      // The uid prefix binds the value to the joiner, and joinCode must change
+      // in this write, so a value left by an earlier join is useless to anyone
+      // else and never needs clearing. Nothing else may change, updatedAt
+      // included. One document access.
+      allow update: if verified()
+        && !(request.auth.uid in resource.data.memberUids)
+        && changedKeys().hasOnly(['memberUids', 'joinCode'])
+        && changedKeys().hasAll(['memberUids', 'joinCode'])
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.toSet()
+          == resource.data.memberUids.toSet().union([request.auth.uid].toSet())
+        && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+        && request.resource.data.memberUids.size() <= kitchenMemberCap()
+        && isOwnLiveInvite(request.resource.data.joinCode);
+
+      // Leave (RL-237): a member removes only themselves; never the owner.
+      // Signed in only, so a member whose verification lapsed can still leave.
+      allow update: if signedIn()
+        && isMembershipDrop()
+        && removedUids() == [request.auth.uid].toSet();
+
+      // Remove (RL-237): the owner removes any one member who is not the owner.
+      allow update: if verified()
+        && isMembershipDrop()
+        && resource.data.ownerUid == request.auth.uid;
+
+      // Only a kitchen with no one but the owner left (RL-237): the owner removes
+      // the others first.
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid
+        && resource.data.memberUids.size() == 1;
+
+      function isOwnLiveInvite(joinCode) {
+        let parts = joinCode.split(':');
+        let code = parts[1];
+        let invite = get(/databases/$(database)/documents/kitchenInvites/$(code)).data;
+        return joinCode is string
+          && parts.size() == 2
+          && parts[0] == request.auth.uid
+          && code.size() >= kitchenInviteCodeMin()
+          && code.matches('^[A-Za-z0-9_-]{20,64}$')
+          && invite.kitchenId == kitchenId
+          && invite.expiresAt > request.time;
+      }
+
+      function removedUids() {
+        return resource.data.memberUids.toSet().difference(request.resource.data.memberUids.toSet());
+      }
+
+      // A member's write that drops exactly one uid, never the owner, adds none,
+      // and otherwise has the ordinary shape.
+      function isMembershipDrop() {
+        return request.auth.uid in resource.data.memberUids
+          && changedKeys().hasOnly(['memberUids', 'updatedAt', 'joinCode'])
+          && isWellFormedKitchen(request.resource.data)
+          && request.resource.data.memberUids is list
+          && request.resource.data.memberUids.toSet().difference(resource.data.memberUids.toSet()).size() == 0
+          && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+          && removedUids().size() == 1
+          && !(resource.data.ownerUid in removedUids());
+      }
+
+      // joinCode (RL-237) is optional: absent, or kept exactly as the last join
+      // left it. Never on create, since there is no previous document.
       function isWellFormedKitchen(d) {
         let keys = ['memberUids', 'ownerUid', 'shopping', 'pantry', 'updatedAt'];
-        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys.concat(['joinCode']))
+          && (!('joinCode' in d) || (resource != null && 'joinCode' in resource.data && d.joinCode == resource.data.joinCode))
           && d.shopping is list && d.shopping.size() <= kitchenItemCap()
           && d.pantry is list && d.pantry.size() <= kitchenItemCap()
           && d.updatedAt == request.time;
+      }
+    }
+
+    // Kitchen invites (RL-236, RL-237): the document id is the code,
+    // kitchenInviteCodeMin() to 64 URL-safe characters (A-Z a-z 0-9 _ -), so
+    // it cannot contain the ':' of a joinCode. Get by any verified user, so the
+    // joiner can see who invited them; list only by the owner, so codes cannot
+    // be enumerated. Create: the owner of the named kitchen (one document access),
+    // expiring within kitchenInviteDays(). Reusable until it expires or its
+    // owner deletes it. No update.
+    match /kitchenInvites/{code} {
+      allow get: if verified();
+      // The owner may list their own (a where ownerUid == uid query), to delete them.
+      allow list: if verified() && resource.data.ownerUid == request.auth.uid;
+      allow create: if verified()
+        && code.size() >= kitchenInviteCodeMin()
+        && code.matches('^[A-Za-z0-9_-]{20,64}$')
+        && isWellFormedInvite(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      function isWellFormedInvite(d) {
+        let keys = ['kitchenId', 'ownerUid', 'ownerName', 'expiresAt', 'createdAt'];
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.ownerUid == request.auth.uid
+          && d.ownerName is string && d.ownerName.size() <= 80
+          && d.createdAt == request.time
+          && d.expiresAt is timestamp
+          && d.expiresAt > request.time
+          && d.expiresAt <= request.time + duration.value(kitchenInviteDays(), 'd')
+          && d.kitchenId is string
+          && get(/databases/$(database)/documents/kitchens/$(d.kitchenId)).data.ownerUid == request.auth.uid;
       }
     }
 
