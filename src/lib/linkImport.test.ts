@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, badAmountRows, fromReviewRows, importHost, reviewSummary, toReviewRows, normalizeImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
+import { IMPORT_ERROR_MESSAGE, IMPORT_LIMITS, badAmountRows, fromReviewRows, importHost, reviewSummary, toReviewRows, normalizeImportUrl, sharedImportUrl, toImportDraft, withBoundedImportedFrom } from './linkImport';
 import { makeIngredient, makeRecipe } from '../test/factories';
 
 describe('normalizeImportUrl', () => {
@@ -158,5 +158,19 @@ describe('import review rows (RL-252)', () => {
     expect(reviewSummary(8, 6, 1)).toBe('8 ingredients, 6 steps read. One amount was unclear.');
     expect(reviewSummary(8, 6, 3)).toBe('8 ingredients, 6 steps read. 3 amounts were unclear.');
     expect(reviewSummary(1, 1, 0)).toBe('1 ingredient, 1 step read. All amounts read clearly.');
+  });
+});
+
+describe('sharedImportUrl', () => {
+  const q = (s: string) => sharedImportUrl(new URLSearchParams(s));
+  it('prefers url, then the first http(s) link in text', () => {
+    expect(q('url=https%3A%2F%2Fa.com%2Fr&text=https%3A%2F%2Fb.com')).toBe('https://a.com/r');
+    expect(q('title=Stew&text=Try%20this%20http%3A%2F%2Fb.com%2Fstew.%20Yum%20https%3A%2F%2Fc.com')).toBe('http://b.com/stew');
+  });
+  it('is null for nothing usable or unsafe input', () => {
+    expect(q('')).toBeNull();
+    expect(q('text=no%20link%20here')).toBeNull();
+    expect(q('text=javascript%3Aalert(1)')).toBeNull();
+    expect(q('url=http%3A%2F%2F127.0.0.1%2Fx')).toBeNull();
   });
 });

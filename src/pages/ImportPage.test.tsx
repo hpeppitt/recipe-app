@@ -369,3 +369,11 @@ describe('ImportPage photo mode (RL-251)', () => {
     expect(screen.queryByRole('region', { name: 'Check the import' })).toBeNull();
   });
 });
+
+describe('ImportPage share target (RL-254)', () => {
+  it('prefills the shared link without reading', () => {
+    render(fakeUser, `/import?title=Stew&text=${encodeURIComponent(`Look ${PAGE}.`)}`);
+    expect(field().value).toBe(PAGE);
+    expect(importRecipeFromUrl).not.toHaveBeenCalled();
+  });
+});
