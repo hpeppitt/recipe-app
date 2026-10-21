@@ -25,6 +25,7 @@ const CookLogPage = lazy(() => import('./pages/CookLogPage').then(m => ({ defaul
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
+const KitchenPage = lazy(() => import('./pages/KitchenPage').then(m => ({ default: m.KitchenPage })));
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then(m => ({ default: m.ActivityPage })));
 const SuggestionThreadPage = lazy(() => import('./pages/SuggestionThreadPage').then(m => ({ default: m.SuggestionThreadPage })));
 const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
@@ -57,6 +58,7 @@ export function AppRoutes() {
           {/* Search (RL-124) keeps the Explore tab highlighted, so it stays in the shell. */}
           <Route path="/search" element={<SearchPage />} />
           <Route path="/saved" element={<SavedPage />} />
+          <Route path="/kitchen" element={<KitchenPage />} />
           <Route path="/new" element={<CreatePage />} />
           <Route path="/activity" element={<ActivityPage />} />
           {/* Own profile is a top-level destination now that it has a nav tab;

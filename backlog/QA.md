@@ -2049,3 +2049,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-213 useKitchen hook
 - No UI yet, so nothing to see in the app. The hook and service are covered by mocked tests; the first real check comes with the shopping list UI. When it lands, on the emulator: add a recipe on two devices at once and confirm neither loses lines, and confirm offline shows "Couldn't update your kitchen. Check your connection and try again."
+
+### RL-214 Kitchen page
+- Open `/kitchen` by URL (not in the nav until RL-215) at 390px, light and dark, verified and signed out. Verified: four tiles (Shopping list, Pantry, This week "Soon" that does nothing when tapped, Cook log with its count); skeleton tiles first; the Saved row of emoji tiles with See all, and the empty line with nothing saved. Signed out: the "Sign in to keep a shopping list and pantry" card, Sign in opens the sheet, Saved row still shows. `/kitchen/list` and `/kitchen/pantry` are blank until their tickets land.
+
+- Reviewer noted (med, temporary): the Shopping list and Pantry stub tiles read poorly to screen readers (aria-disabled on a plain div, title and count run together, no "soon" hint) and opacity-70 lowers their text contrast; both become links again in RL-216 and RL-220. Try again on a kitchen load error reloads the page (useKitchen has no retry). See all link is narrow.
