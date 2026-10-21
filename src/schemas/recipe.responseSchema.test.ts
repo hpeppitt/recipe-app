@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RECIPE_RESPONSE_SCHEMA, recipeSchemaAsPromptText } from './recipe.responseSchema';
+import { IMPORT_RESPONSE_SCHEMA, RECIPE_RESPONSE_SCHEMA, recipeSchemaAsPromptText } from './recipe.responseSchema';
 import { GeneratedRecipeSchema } from './recipe.schema';
 
 /**
@@ -77,5 +77,25 @@ describe('recipeSchemaAsPromptText', () => {
     expect(JSON.parse(recipeSchemaAsPromptText())).toEqual(
       JSON.parse(JSON.stringify(RECIPE_RESPONSE_SCHEMA))
     );
+  });
+});
+
+describe('IMPORT_RESPONSE_SCHEMA', () => {
+  type Wire = { properties: Record<string, { nullable?: boolean; type?: string; items?: Wire }> };
+  const wire = JSON.parse(JSON.stringify(IMPORT_RESPONSE_SCHEMA)) as Wire;
+  const recipeWire = JSON.parse(JSON.stringify(RECIPE_RESPONSE_SCHEMA)) as Wire;
+
+  it('has the recipe keys, with nullable nutrition', () => {
+    expect(Object.keys(wire.properties).sort()).toEqual(Object.keys(recipeWire.properties).sort());
+    expect(wire.properties.nutrition.nullable).toBe(true);
+    expect(recipeWire.properties.nutrition.nullable).toBe(false);
+  });
+
+  it('adds a boolean uncertain flag to each ingredient and nothing else', () => {
+    const ingredient = wire.properties.ingredients.items!.properties;
+    const recipeIngredient = recipeWire.properties.ingredients.items!.properties;
+    expect(ingredient.uncertain.type).toBe('boolean');
+    expect(Object.keys(ingredient).sort()).toEqual([...Object.keys(recipeIngredient), 'uncertain'].sort());
+    expect(ingredient.amount.nullable).toBe(true);
   });
 });

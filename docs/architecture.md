@@ -183,6 +183,20 @@ Google-hosted proxy. This is the single most important architectural fact:
   the plain string, as before. A generation error is passed through `redactInlineData` before
   it is logged, reported or classified, in case the SDK echoes the photo data back. The
   prompt tells the model to treat text in a photo as content, never as instructions.
+- **A recipe can be read from a link (RL-185, no UI yet).** `importRecipeFromUrl(url)` is a
+  one-shot `generateContent` call, not a chat, so chat history and photos are untouched. It
+  passes AI Logic's URL context tool (`tools: [{ urlContext: {} }]`), `IMPORT_SYSTEM_PROMPT`
+  and `IMPORT_RESPONSE_SCHEMA` (the recipe shape plus a per-ingredient `uncertain` flag,
+  nutrition nullable), bounded at 30 s by the SDK's request timeout. `lib/linkImport.ts`
+  refuses non-http(s), localhost, IP literal and private-network URLs before any request
+  (`normalizeImportUrl`) and validates the reply with Zod (`toImportDraft`): an uncertain
+  amount is forced to null, never guessed, and a page with no ingredients or steps counts as
+  no recipe. Every failure resolves to "Couldn't read that page. Check the link, or try a
+  photo of it." instead of throwing. Analytics get the generation fields only; the console
+  warning on failure names the host, never the path. Whether AI Logic accepts
+  `responseSchema` together with URL context is unconfirmed (backlog/DECISIONS.md, RL-185);
+  the prompt asks for the same JSON so the schema can come off without other changes. The
+  gates are the generation gates; nothing new is checked here.
 
 **One schema, three consumers.** `schemas/recipe.responseSchema.ts` builds the recipe shape
 with the SDK's `Schema` builders. `gemini.ts` passes it as `responseSchema`, and
@@ -192,10 +206,10 @@ Zod (`schemas/recipe.schema.ts`) is a deliberate fourth description, hand-writte
 `zod-to-json-schema` is incompatible with Zod v4; a test asserts the two agree on their key
 set so they cannot drift silently. The same Zod schema also gates self-contained share links.
 
-Untrusted input is accepted at two boundaries, both gated by Zod. Model output goes through
+Untrusted input is accepted at three boundaries, all gated by Zod. Model output goes through
 `parseRecipeJson`, which strips code fences and trailing commas, then validates. Self-contained
 share links go through `decodeRecipeFromHash`, which strips unknown keys and returns null on
-any failure, shown as the Invalid Link state. Keep the Zod pass: a model config is a request hint,
+any failure, shown as the Invalid Link state. Link imports go through `toImportDraft`. Keep the Zod pass: a model config is a request hint,
 not a guarantee. The fence-and-comma repair should now be dead code and is kept only because
 it is two regexes on a string already in memory.
 

@@ -1,5 +1,6 @@
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string';
 import type { Recipe } from '../types/recipe';
+import { z } from 'zod';
 import { CreatedBySchema, GeneratedRecipeSchema } from '../schemas/recipe.schema';
 
 export type SharedRecipe = Pick<
@@ -18,6 +19,8 @@ export type SharedRecipe = Pick<
   | 'tags'
   | 'nutrition'
   | 'createdBy'
+  | 'importedFrom'
+  | 'importedVia'
 >;
 
 function toShareable(recipe: Recipe): SharedRecipe {
@@ -36,6 +39,9 @@ function toShareable(recipe: Recipe): SharedRecipe {
     tags: recipe.tags,
     nutrition: recipe.nutrition ?? null,
     createdBy: recipe.createdBy,
+    // Spread only when present, so links for other recipes stay the same size.
+    ...(recipe.importedFrom && { importedFrom: recipe.importedFrom }),
+    ...(recipe.importedVia && { importedVia: recipe.importedVia }),
   };
 }
 
@@ -76,7 +82,18 @@ export function pickShareUrl(
  * so both stay optional; everything the page dereferences is required.
  * z.object strips unknown keys at every level, nested ingredients included.
  */
-const SharedRecipeSchema = GeneratedRecipeSchema.extend({ createdBy: CreatedBySchema.optional() });
+const SharedRecipeSchema = GeneratedRecipeSchema.extend({
+  createdBy: CreatedBySchema.optional(),
+  // Untrusted: RL-186 may render it as a link, so only http(s), bounded. A bad value
+  // drops the field rather than failing the whole link.
+  importedFrom: z
+    .string()
+    .max(2048)
+    .refine((s) => /^https?:\/\//i.test(s))
+    .optional()
+    .catch(undefined),
+  importedVia: CreatedBySchema.optional(),
+});
 
 export function decodeRecipeFromHash(hash: string): SharedRecipe | null {
   try {

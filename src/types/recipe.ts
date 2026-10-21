@@ -78,6 +78,10 @@ export interface Recipe {
    * similar match shown (RL-161, RL-162). Absent otherwise. Not indexed in Dexie.
    */
   relatedFamilyId?: string | null;
+  /** The page a link import read (RL-185). Absent on every other recipe. */
+  importedFrom?: string;
+  /** Who imported it; RL-186 writes this and `importedFrom`. */
+  importedVia?: CreatedBy;
   prompt: string;
   chatHistory: ChatMessage[];
   createdAt: number;
