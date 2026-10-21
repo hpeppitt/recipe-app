@@ -153,6 +153,14 @@ same transaction, a retry under the same `cookId` a no-op); `setCookBranch` is t
 newest 20, bounded at 6 s, through `useRecipeCooks`) and `subscribeOwnCooks` (the user's newest
 200, through `useOwnCooks`, verified users only), both in `hooks/useCooks.ts`.
 
+The kitchen (RL-213) is cloud only too. `hooks/useKitchen.ts` holds one `onSnapshot` on
+`kitchens/{uid}` (`subscribeKitchen`) per session for a verified user, in a module-level store
+shared by every component that calls `useKitchen`, closed when the last one unmounts. Its
+mutations (add a recipe, tick a line, remove a source, bought it all, add or remove a pantry item)
+go through `updateKitchen`, a transaction that reads the current lists, applies the
+`lib/shopping.ts` helper and writes, so two devices do not drop each other's lines. Offline or
+failed writes reject with user copy and set `error`; nothing is queued (decision 1b).
+
 What can still disagree: **other users' recipes and saved copies.** A recipe published by
 someone else lives only in the cloud unless it was saved to this device, so local-only
 features (the version tree, local search) cannot see all of it, and a saved copy is not

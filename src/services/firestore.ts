@@ -38,6 +38,7 @@ import { selectFavoritesToPush, type CloudFavoriteRow } from '../lib/favoritesMi
 import { withTimeout } from '../lib/utils';
 import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAttachments';
 import { normalizeTags } from '../lib/library';
+import { KitchenFullError, kitchenFits, type KitchenLists } from '../lib/kitchen';
 import { TERMS_VERSION } from '../lib/legal';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, RecipeNotPublishedError, TermsNotAcceptedError, TooManyMovedBranchesError } from '../lib/errors';
@@ -1514,6 +1515,71 @@ export async function getRecipePhoto(recipeId: string, knownCooks: Cook[] = []):
     })(),
     'Reading the recipe photo',
     COOK_SUMMARY_TIMEOUT_MS
+  );
+}
+
+// --- Kitchens (RL-213): one private document per user, kitchens/{uid} in Phase 2 ---
+
+export interface Kitchen extends KitchenLists {
+  memberUids: string[];
+  ownerUid: string;
+  /** Epoch ms; estimated while a write is pending. */
+  updatedAt: number | null;
+}
+
+const KITCHEN_WRITE_TIMEOUT_MS = 5000;
+
+function toKitchen(data: DocumentData): Kitchen {
+  return {
+    memberUids: Array.isArray(data.memberUids) ? data.memberUids : [],
+    ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : '',
+    shopping: Array.isArray(data.shopping) ? data.shopping : [],
+    pantry: Array.isArray(data.pantry) ? data.pantry : [],
+    updatedAt: (data.updatedAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
+  };
+}
+
+/** One kitchen document, live; null while it does not exist. One read per change. */
+export function subscribeKitchen(
+  kitchenId: string,
+  onChange: (kitchen: Kitchen | null) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!firestore) return () => {};
+  return onSnapshot(
+    doc(firestore, 'kitchens', kitchenId),
+    (snap) => onChange(snap.exists() ? toKitchen(snap.data({ serverTimestamps: 'estimate' })) : null),
+    onError
+  );
+}
+
+/**
+ * Read-modify-write of a kitchen's lists in a transaction, so two devices do not
+ * drop each other's lines. Creates the document on first write as the rules
+ * require (own uid, sole member). Throws KitchenFullError before writing past a
+ * cap or the size guard. Rejects after 5 s; a timed-out transaction may still commit.
+ */
+export async function updateKitchen(kitchenId: string, fn: (lists: KitchenLists) => KitchenLists): Promise<void> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error('Sign in to update your kitchen');
+  // Phase 2: a user's only kitchen is kitchens/{uid}; RL-238 lifts this.
+  if (kitchenId !== uid) throw new Error('Only your own kitchen can be updated');
+  const fs = firestore;
+  const ref = doc(fs, 'kitchens', kitchenId);
+  await rejectAfter(
+    runTransaction(fs, async (tx) => {
+      const snap = await tx.get(ref);
+      const current = snap.exists() ? toKitchen(snap.data()) : null;
+      const before = { shopping: current?.shopping ?? [], pantry: current?.pantry ?? [] };
+      const { shopping, pantry } = fn(before);
+      if (!kitchenFits({ shopping, pantry }, before)) throw new KitchenFullError();
+      // Update leaves memberUids and ownerUid untouched; the rules refuse any change to them.
+      if (current) tx.update(ref, { shopping, pantry, updatedAt: serverTimestamp() });
+      else tx.set(ref, { memberUids: [uid], ownerUid: uid, shopping, pantry, updatedAt: serverTimestamp() });
+    }),
+    'Updating the kitchen',
+    KITCHEN_WRITE_TIMEOUT_MS
   );
 }
 
