@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { db } from '../db/database';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
 import { makeIngredient, makeRecipe } from '../test/factories';
@@ -216,6 +216,24 @@ describe('ImportPage photo mode (RL-251)', () => {
     let n = 0;
     downscaleToJpeg.mockImplementation(async () => ({ mimeType: 'image/jpeg', base64: `${B64}${n++}` }));
     importRecipeFromPhotos.mockResolvedValue(photoDraft());
+  });
+
+  it('drops the link preview when ?mode changes while mounted (RL-250)', async () => {
+    importRecipeFromUrl.mockResolvedValue(draftOf('Chicken Stew'));
+    renderWithProviders(
+      <>
+        <Link to="/import?mode=photo">to photo</Link>
+        <Routes>
+          <Route path="/import" element={<ImportPage />} />
+        </Routes>
+      </>,
+      { route: '/import' }
+    );
+    readLink();
+    await screen.findByRole('region', { name: 'Recipe preview' });
+    fireEvent.click(screen.getByText('to photo'));
+    expect(screen.queryByRole('region', { name: 'Recipe preview' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Snap a page');
   });
 
   it('shows Snap a page with the photo picker instead of the link field', () => {

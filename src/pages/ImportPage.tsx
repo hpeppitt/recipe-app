@@ -54,6 +54,12 @@ const PreviewCard = forwardRef<HTMLHeadingElement, { preview: ImportPreview }>(f
  * link, held in memory only, with the same preview and save.
  */
 export function ImportPage() {
+  const { search } = useLocation();
+  // Keyed on the mode so a link preview or photos never carry over to the other mode (RL-250).
+  return <ImportPageBody key={new URLSearchParams(search).get('mode') === 'photo' ? 'photo' : 'link'} />;
+}
+
+function ImportPageBody() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isLoading: authLoading, isConfigured } = useAuth();

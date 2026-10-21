@@ -76,10 +76,19 @@ describe('CreatePage', () => {
     expect(probe()).toBe('/search|null');
   });
 
-  it('Add from a link opens /import (RL-186)', () => {
+  it('shows two import tiles instead of the old link row (RL-250)', () => {
     render();
-    tap('Add from a link');
+    expect(screen.queryByText('Add from a link')).toBeNull();
+    expect(screen.getByRole('link', { name: /Paste a link/ }).getAttribute('href')).toBe('/import');
+    expect(screen.getByRole('link', { name: /Snap a page/ }).getAttribute('href')).toBe('/import?mode=photo');
+    fireEvent.click(screen.getByRole('link', { name: /Snap a page/ }));
     expect(probe()).toBe('/import|null');
+  });
+
+  it('hides both tiles in local-only mode', () => {
+    renderWithProviders(<CreatePage />, { route: '/new', auth: { isConfigured: false } });
+    expect(screen.queryByRole('link', { name: /Paste a link/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Snap a page/ })).toBeNull();
   });
 
   // jsdom has no layout, so this pins the classes: overflow-hidden would turn the page into the

@@ -18,8 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-250 Create tab import tiles
+- Open `/new` signed in: under the sentence sit two tiles side by side, Paste a link (sage) and Snap a page (terracotta, camera). The old "Add from a link" row is gone. Check both fit side by side with nothing clipped at 320px and 390px.
+- Paste a link opens `/import`; Snap a page opens `/import?mode=photo`. Open a link preview, then use the browser to go to `?mode=photo`: no stale preview.
+- With Firebase unconfigured (local-only) neither tile shows.
+
+- Reviewer noted (ui, low): on a 320x568 phone the tiles may sit behind the sticky Write it bar until scrolled; at 320px the sub-lines wrap and the two tiles can differ in height.
+
 ### RL-251 Snap a page reads a recipe from up to three photos
-- On a phone, signed in with a verified email, open `/import?mode=photo` (the Create tab tile is RL-250, not built yet). The header says "Snap a page"; there is no link field.
+- On a phone, signed in with a verified email, open `/import?mode=photo` (or the Create tab's Snap a page tile, RL-250). The header says "Snap a page"; there is no link field.
 - Add photos offers the camera or the library. Snap a printed cookbook recipe (two photos if it runs over a page). The thumbnails and the Gemini notice appear; a fourth photo is refused with the chat's limit message.
 - Read it: "Reading the photos…" with the skeleton, then the preview with the title, counts and a "Photo" pill. Check the title, ingredients and steps match the page as written, in order.
 - Snap a handwritten card with at least one smudged or unclear amount. Check the preview says "One amount was unclear" (or N) and, after saving, that amount is empty in the editor rather than guessed. Clear amounts must not be flagged.

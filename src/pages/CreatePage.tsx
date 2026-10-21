@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Link as LinkIcon, Sparkles } from '../components/ui/icons';
+import { Camera, Link as LinkIcon, Sparkles } from '../components/ui/icons';
 import { DEFAULT_SELECTION, buildCreatePrompt, createTerms, cycleWord, selectedWords, type CreateSlot } from '../lib/createPrompt';
 import { useTasteProfile } from '../hooks/useTasteProfile';
 
@@ -16,6 +17,7 @@ const SHOWN_TERMS = 3;
  */
 export function CreatePage() {
   const navigate = useNavigate();
+  const { isConfigured } = useAuth();
   const hintId = useId();
   const [selection, setSelection] = useState(DEFAULT_SELECTION);
   const words = selectedWords(selection);
@@ -107,6 +109,25 @@ export function CreatePage() {
       <p className="sr-only" role="status">
         {status}
       </p>
+      {/* Importing reads a page with AI, so local-only mode (no Firebase) has no tiles (RL-250). */}
+      {isConfigured && (
+        <div className="relative mt-8 grid grid-cols-2 gap-2.5">
+          <Link to="/import" className="flex min-h-[110px] flex-col gap-2.5 rounded-[28px] bg-accent-2-200 p-4 text-accent-2-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
+              <LinkIcon className="size-5 text-accent-2-700" />
+            </span>
+            <span className="font-heading text-base">Paste a link</span>
+            <span className="text-xs">From any recipe site</span>
+          </Link>
+          <Link to="/import?mode=photo" className="flex min-h-[110px] flex-col gap-2.5 rounded-[28px] bg-accent-200 p-4 text-accent-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
+              <Camera className="size-5 text-accent-700" />
+            </span>
+            <span className="font-heading text-base">Snap a page</span>
+            <span className="text-xs">Cookbook or handwritten card</span>
+          </Link>
+        </div>
+      )}
       <div className="flex-1" />
       {/* Sticky above the nav, so an in-flow banner over the page cannot push the actions under it.
           overflow-clip (not hidden) on the page, because hidden would make it the sticky scroller. */}
@@ -125,10 +146,6 @@ export function CreatePage() {
         </Button>
         <Button variant="ghost" onClick={() => navigate('/search')} className="h-11">
           Describe it my own way
-        </Button>
-        <Button variant="ghost" onClick={() => navigate('/import')} className="h-11 gap-2">
-          <LinkIcon className="size-5" />
-          Add from a link
         </Button>
       </div>
     </div>
