@@ -9,6 +9,7 @@ import {
   searchVariations,
 } from '../db/recipes';
 import {
+  getTasteProfile,
   notifyBranched,
   searchPublishedVariations,
   setCookBranch,
@@ -158,6 +159,21 @@ async function searchSimilarVariations(
   });
 }
 
+/**
+ * The verified user's stored avoids for a new chat session (RL-233), or null when the read failed.
+ * One read, bounded by getTasteProfile's 5 s. Permission denied means no profile can be stored yet
+ * (rules not deployed, RL-249), so it counts as no avoids, not a failure; other errors are reported.
+ */
+async function readAvoids(uid: string): Promise<string[] | null> {
+  try {
+    return (await getTasteProfile(uid)).avoids;
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code === 'permission-denied') return [];
+    reportError(err, 'taste-avoids');
+    return null;
+  }
+}
+
 /** `fromCookId` is the cook whose note this variation was grown from (RL-197), credited on save (RL-201). */
 export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -228,6 +244,18 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
   const typingAnnouncedRef = useRef(false);
   const navigate = useNavigate();
   const { user } = useAuth();
+  // The avoids read starts on mount so it is usually done by the first send (RL-233).
+  const avoidsUid = isFirebaseConfigured && user?.emailVerified ? user.uid : null;
+  const avoidsRef = useRef<{ uid: string; read: Promise<string[] | null> } | null>(null);
+  const [avoidsUnavailable, setAvoidsUnavailable] = useState(false);
+  const startAvoids = useCallback(() => {
+    if (!avoidsUid) return null;
+    if (avoidsRef.current?.uid !== avoidsUid) avoidsRef.current = { uid: avoidsUid, read: readAvoids(avoidsUid) };
+    return avoidsRef.current.read;
+  }, [avoidsUid]);
+  useEffect(() => {
+    void startAvoids();
+  }, [startAvoids]);
 
   useEffect(() => () => clearTimeout(typingTimerRef.current), []);
 
@@ -311,13 +339,21 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
       setLoadingPhase('generating');
 
       try {
-        if (!chatRef.current) {
-          chatRef.current = parentRecipe
-            ? createVariationChat(parentRecipe)
-            : createRecipeChat();
+        let chat = chatRef.current;
+        if (!chat) {
+          // Avoids live in the session's system prompt, so they are fixed when it opens:
+          // a change mid-chat applies from the next chat, never mid-conversation.
+          const read = startAvoids();
+          const avoids = read ? await read : [];
+          setAvoidsUnavailable(avoids === null);
+          chat = parentRecipe ? createVariationChat(parentRecipe, avoids ?? []) : createRecipeChat(avoids ?? []);
+          // Allergy safety: a session opened without the avoids is used for this send only.
+          // The next send reads again and opens a fresh session (losing this one's history).
+          if (avoids === null) avoidsRef.current = null;
+          else chatRef.current = chat;
         }
 
-        const generated = await chatRef.current.sendMessage(text, images);
+        const generated = await chat.sendMessage(text, images);
         chatImageCountRef.current += images?.length ?? 0;
         lastImagesRef.current = undefined;
         generatedOnceRef.current = true;
@@ -344,7 +380,7 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
         generatingRef.current = false;
       }
     },
-    [parentRecipe]
+    [parentRecipe, startAvoids]
   );
 
   /**
@@ -542,6 +578,8 @@ export function useRecipeChat(parentRecipe?: Recipe, fromCookId?: string) {
     // only then discover generation is impossible. Users no longer supply a key —
     // AI Logic holds it — so the only remaining precondition is a Firebase project.
     generationUnavailable: !isFirebaseConfigured,
+    /** The newest session opened without the user's avoids because reading them failed (RL-233). */
+    avoidsUnavailable,
     latestRecipe,
     similarRecipes,
     loadingPhase,

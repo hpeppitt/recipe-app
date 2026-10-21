@@ -10,8 +10,9 @@ import { fakeUser } from '../test/renderWithProviders';
 import type { GeneratedRecipe } from '../types/api';
 import type { Recipe } from '../types/recipe';
 
-const { publishRecipe, notifyBranched, setCookBranch, navigate, reportError, config } = vi.hoisted(() => ({
+const { publishRecipe, notifyBranched, setCookBranch, getTasteProfile, navigate, reportError, config } = vi.hoisted(() => ({
   publishRecipe: vi.fn(),
+  getTasteProfile: vi.fn(),
   notifyBranched: vi.fn(),
   setCookBranch: vi.fn(),
   navigate: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock('../services/firestore', () => ({
   publishRecipe: (...a: unknown[]) => publishRecipe(...a),
   notifyBranched: (...a: unknown[]) => notifyBranched(...a),
   setCookBranch: (...a: unknown[]) => setCookBranch(...a),
+  getTasteProfile: (...a: unknown[]) => getTasteProfile(...a),
   getAllPublishedRecipes: vi.fn(),
   searchPublishedVariations: vi.fn(),
 }));
@@ -40,7 +42,8 @@ vi.mock('../db/recipes', async (importOriginal) => {
 });
 
 import { useRecipeChat } from './useRecipeChat';
-import { createRecipeChat } from '../services/gemini';
+import { createRecipeChat, createVariationChat } from '../services/gemini';
+import { trackRecipeCreated } from '../services/analytics';
 import { getAllPublishedRecipes } from '../services/firestore';
 import { clearPublishedWindow } from '../services/publishedWindow';
 import { buildRecipe } from '../db/recipes';
@@ -67,6 +70,7 @@ const published = () => publishRecipe.mock.calls.map((c) => (c[0] as Recipe).id)
 beforeEach(async () => {
   vi.clearAllMocks();
   config.firebase = true;
+  getTasteProfile.mockResolvedValue({ avoids: [], hidden: [], askedAt: null });
   clearPublishedWindow();
   await db.recipes.clear();
   vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -820,5 +824,127 @@ describe('useRecipeChat typing-pause dedup card (RL-178)', () => {
     await pause();
     expect(local.result.current.typingMatches).toBeNull();
     expect(getAllPublishedRecipes).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useRecipeChat sends the stored avoids with a new session (RL-233)', () => {
+  const session = vi.fn();
+  const profile = { avoids: ['Peanuts', 'Pork'], hidden: [], askedAt: null };
+
+  beforeEach(() => {
+    session.mockResolvedValue(generated('Soup'));
+    vi.mocked(createRecipeChat).mockReturnValue({ sendMessage: session });
+    vi.mocked(createVariationChat).mockReturnValue({ sendMessage: session });
+    vi.mocked(getAllPublishedRecipes).mockResolvedValue([]);
+    getTasteProfile.mockResolvedValue(profile);
+  });
+
+  it('reads the profile once when the session opens and passes the avoids to it', async () => {
+    const { result } = renderChat();
+
+    await act(() => result.current.sendMessage('satay'));
+    getTasteProfile.mockResolvedValue({ ...profile, avoids: ['Fish'] });
+    await act(() => result.current.sendMessage('make it quicker'));
+
+    expect(getTasteProfile).toHaveBeenCalledTimes(1);
+    expect(getTasteProfile).toHaveBeenCalledWith(fakeUser.uid);
+    expect(createRecipeChat).toHaveBeenCalledTimes(1);
+    expect(createRecipeChat).toHaveBeenCalledWith(['Peanuts', 'Pork']);
+    expect(session).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes them to a variation session too', async () => {
+    const { searchPublishedVariations } = await import('../services/firestore');
+    vi.mocked(searchPublishedVariations).mockResolvedValue([]);
+    const parent = makeRecipe({ id: 'p1' });
+    const { result } = renderHook(() => useRecipeChat(parent), { wrapper });
+
+    await act(() => result.current.sendMessage('make it quicker'));
+
+    expect(createVariationChat).toHaveBeenCalledWith(parent, ['Peanuts', 'Pork']);
+  });
+
+  it('reads nothing for an unverified user and generates without avoids', async () => {
+    const unverified = ({ children }: { children: ReactNode }) => (
+      <AuthContext.Provider value={{ user: { ...fakeUser, emailVerified: false } } as AuthContextType}>
+        {children}
+      </AuthContext.Provider>
+    );
+    const { result } = renderHook(() => useRecipeChat(), { wrapper: unverified });
+
+    await act(() => result.current.sendMessage('satay'));
+
+    expect(getTasteProfile).not.toHaveBeenCalled();
+    expect(createRecipeChat).toHaveBeenCalledWith([]);
+  });
+
+  it('starts the read when the hook mounts, before any send', async () => {
+    renderChat();
+    await act(async () => {});
+
+    expect(getTasteProfile).toHaveBeenCalledTimes(1);
+    expect(createRecipeChat).not.toHaveBeenCalled();
+  });
+
+  it('a failed read is reported, generates without avoids, shows the notice and is retried on the next send', async () => {
+    getTasteProfile.mockRejectedValueOnce(new Error('Reading your taste profile timed out'));
+    const { result } = renderChat();
+
+    await act(() => result.current.sendMessage('satay'));
+
+    expect(createRecipeChat).toHaveBeenLastCalledWith([]);
+    expect(result.current.latestRecipe?.title).toBe('Soup');
+    expect(result.current.avoidsUnavailable).toBe(true);
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'taste-avoids');
+
+    await act(() => result.current.sendMessage('make it quicker'));
+
+    expect(getTasteProfile).toHaveBeenCalledTimes(2);
+    expect(createRecipeChat).toHaveBeenCalledTimes(2);
+    expect(createRecipeChat).toHaveBeenLastCalledWith(['Peanuts', 'Pork']);
+    expect(result.current.avoidsUnavailable).toBe(false);
+
+    await act(() => result.current.sendMessage('less salt'));
+    expect(createRecipeChat).toHaveBeenCalledTimes(2);
+  });
+
+  it('no profile document is not a failure: no notice, no report', async () => {
+    getTasteProfile.mockResolvedValue({ avoids: [], hidden: [], askedAt: null });
+    const { result } = renderChat();
+
+    await act(() => result.current.sendMessage('satay'));
+
+    expect(createRecipeChat).toHaveBeenCalledWith([]);
+    expect(result.current.avoidsUnavailable).toBe(false);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('permission denied (rules not deployed) counts as no avoids: no notice, no report', async () => {
+    getTasteProfile.mockRejectedValue(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }));
+    const { result } = renderChat();
+
+    await act(() => result.current.sendMessage('satay'));
+    await act(() => result.current.sendMessage('less salt'));
+
+    expect(createRecipeChat).toHaveBeenCalledTimes(1);
+    expect(createRecipeChat).toHaveBeenCalledWith([]);
+    expect(result.current.avoidsUnavailable).toBe(false);
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('no telemetry or analytics call carries avoid text', async () => {
+    const { result } = renderChat();
+    await act(() => result.current.sendMessage('satay'));
+    session.mockRejectedValueOnce(new Error('model failed'));
+    await act(() => result.current.sendMessage('again'));
+    await act(() => result.current.saveRecipe());
+
+    const sent = JSON.stringify([
+      ...reportError.mock.calls.map((c) => [String(c[0]), c[1]]),
+      ...vi.mocked(trackRecipeCreated).mock.calls,
+    ]);
+    expect(reportError).toHaveBeenCalled();
+    expect(trackRecipeCreated).toHaveBeenCalled();
+    expect(sent.toLowerCase()).not.toMatch(/peanut|pork/);
   });
 });

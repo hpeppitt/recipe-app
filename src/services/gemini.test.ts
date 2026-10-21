@@ -20,9 +20,9 @@ vi.mock('firebase/ai', async (importOriginal) => ({
 vi.mock('./firebase', () => ({ firebaseApp: {} }));
 vi.mock('./analytics', () => ({ captureAiGeneration }));
 
-import { createRecipeChat, importRecipeFromUrl, IMPORT_TIMEOUT_MS } from './gemini';
+import { createRecipeChat, createVariationChat, importRecipeFromUrl, IMPORT_TIMEOUT_MS } from './gemini';
 import { IMPORT_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
-import { IMPORT_SYSTEM_PROMPT } from '../lib/prompts';
+import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT } from '../lib/prompts';
 import { IMPORT_ERROR_MESSAGE } from '../lib/linkImport';
 
 function modelReply() {
@@ -81,6 +81,35 @@ describe('ChatSession.sendMessage', () => {
     const fields = captureAiGeneration.mock.calls[0][0] as Record<string, unknown>;
     expect(Object.keys(fields).sort()).toEqual(['latency', 'model', 'sessionId', 'traceId']);
     expect(JSON.stringify(fields)).not.toContain('AAAA');
+  });
+});
+
+describe('avoids in the system prompt (RL-233)', () => {
+  const systemInstruction = (n = 0) =>
+    (getGenerativeModel.mock.calls[n] as unknown as [unknown, { systemInstruction: string }])[1].systemInstruction;
+
+  it('leaves the prompt unchanged with no avoids and adds the line with some', async () => {
+    createRecipeChat();
+    createRecipeChat(['Peanuts']);
+    createVariationChat(makeRecipe(), ['Pork']);
+
+    expect(systemInstruction(0)).toBe(RECIPE_SYSTEM_PROMPT);
+    expect(systemInstruction(1)).toContain('The cook never eats: "peanuts".');
+    expect(systemInstruction(2)).toContain('The cook never eats: "pork".');
+  });
+
+  it('sends no avoid text in the message or analytics', async () => {
+    await createRecipeChat(['Peanuts']).sendMessage('satay');
+
+    expect(chatSend.mock.calls[0]).toEqual(['satay']);
+    expect(JSON.stringify(captureAiGeneration.mock.calls).toLowerCase()).not.toContain('peanut');
+  });
+
+  it('import never uses avoids: its prompt is IMPORT_SYSTEM_PROMPT as is', async () => {
+    await importRecipeFromUrl('https://example.com/satay');
+
+    expect(systemInstruction()).toBe(IMPORT_SYSTEM_PROMPT);
+    expect(systemInstruction()).not.toContain('never eats');
   });
 });
 

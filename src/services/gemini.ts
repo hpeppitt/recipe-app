@@ -1,7 +1,7 @@
 import { getAI, getGenerativeModel, GoogleAIBackend, type ChatSession as AIChatSession } from 'firebase/ai';
 import { GeneratedRecipeSchema } from '../schemas/recipe.schema';
 import { IMPORT_RESPONSE_SCHEMA, RECIPE_RESPONSE_SCHEMA } from '../schemas/recipe.responseSchema';
-import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt } from '../lib/prompts';
+import { IMPORT_SYSTEM_PROMPT, RECIPE_SYSTEM_PROMPT, getVariationSystemPrompt, withAvoids } from '../lib/prompts';
 import { IMPORT_ERROR_MESSAGE, importHost, normalizeImportUrl, toImportDraft, type ImportDraft } from '../lib/linkImport';
 import { firebaseApp } from './firebase';
 import { captureAiGeneration } from './analytics';
@@ -97,11 +97,12 @@ function toChatSession(chat: AIChatSession): ChatSession {
   };
 }
 
-export function createRecipeChat(): ChatSession {
-  return toChatSession(buildModel(RECIPE_SYSTEM_PROMPT).startChat());
+/** `avoids` are the user's stored avoids (RL-233); they shape the system prompt only and never reach analytics. */
+export function createRecipeChat(avoids: readonly string[] = []): ChatSession {
+  return toChatSession(buildModel(withAvoids(RECIPE_SYSTEM_PROMPT, avoids)).startChat());
 }
 
-export function createVariationChat(parentRecipe: Recipe): ChatSession {
+export function createVariationChat(parentRecipe: Recipe, avoids: readonly string[] = []): ChatSession {
   const parentJson = JSON.stringify({
     title: parentRecipe.title,
     description: parentRecipe.description,
@@ -117,7 +118,7 @@ export function createVariationChat(parentRecipe: Recipe): ChatSession {
     emoji: parentRecipe.emoji,
   });
 
-  return toChatSession(buildModel(getVariationSystemPrompt(parentJson)).startChat());
+  return toChatSession(buildModel(withAvoids(getVariationSystemPrompt(parentJson), avoids)).startChat());
 }
 
 /** A link import is one AI Logic request; past this the page counts as unreadable. */
