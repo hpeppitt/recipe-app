@@ -1474,6 +1474,26 @@ export async function getRecentCooks(sinceMs: number, max = 200): Promise<Recent
   });
 }
 
+/**
+ * The newest `max` cooks of one family (RL-245), reduced to the four slim fields. Equality on
+ * `rootId` plus `orderBy createdAt desc` needs the (rootId asc, createdAt desc) composite index.
+ * One read per cook returned. Local-only returns empty. Rejects after 6 s.
+ *
+ * shortcut: counts only the newest 200 cooks of a family, upgrade to a counter
+ */
+export async function getFamilyCooks(rootId: string, max = 200): Promise<RecentCook[]> {
+  if (!firestore) return [];
+  const snap = await rejectAfter(
+    getDocs(query(collection(firestore, 'cooks'), where('rootId', '==', rootId), orderBy('createdAt', 'desc'), limit(max))),
+    'Reading family cooks',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return snap.docs.map((d) => {
+    const c = toCook(d);
+    return { recipeId: c.recipeId, rootId: c.rootId, uid: c.uid, createdAt: c.createdAt };
+  });
+}
+
 /** How many cooks a person has logged: one count read (single-field, public read). Null when Firebase is off. Rejects after 6 s. */
 export async function countUserCooks(uid: string): Promise<number | null> {
   if (!firestore) return null;

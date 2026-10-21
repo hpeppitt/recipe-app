@@ -62,6 +62,14 @@
       "collectionGroup": "cooks",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "rootId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cooks",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "uid", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
