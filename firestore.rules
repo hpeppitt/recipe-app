@@ -719,6 +719,77 @@ service cloud.firestore {
       }
     }
 
+    // --- Kitchens and collections: private to their owner (RL-210, RL-211) ---
+    //
+    // MUST equal KITCHEN_ITEM_CAP and COLLECTION_RECIPE_CAP in src/lib/kitchen.ts;
+    // src/lib/kitchen.test.ts fails the build when they differ. Rules cannot
+    // iterate a list, so a list is checked by size only and the shape of each
+    // element is the client's job.
+    function kitchenItemCap() {
+      return 300;
+    }
+    function collectionRecipeCap() {
+      return 200;
+    }
+
+    // One kitchen per user in Phase 2, keyed by their uid, with memberUids
+    // already a list so RL-237 only adds the invite path. Read, update: a
+    // member, verified; reading kitchens/{own uid} is also allowed so a client
+    // can tell a missing kitchen from a denied one. Create: the kitchen at the
+    // writer's own uid, owned by them, with them as the only member. Updates may
+    // not touch memberUids or ownerUid in Phase 2. Delete: the owner, signed in
+    // only (like cooks, so erasure works if verification lapses). No document
+    // accesses in any rule.
+    match /kitchens/{kitchenId} {
+      allow read: if verified()
+        && (kitchenId == request.auth.uid || request.auth.uid in resource.data.memberUids);
+      allow create: if verified()
+        && kitchenId == request.auth.uid
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.memberUids == [request.auth.uid]
+        && isWellFormedKitchen(request.resource.data);
+      allow update: if verified()
+        && request.auth.uid in resource.data.memberUids
+        && !changedKeys().hasAny(['memberUids', 'ownerUid'])
+        && isWellFormedKitchen(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      function isWellFormedKitchen(d) {
+        let keys = ['memberUids', 'ownerUid', 'shopping', 'pantry', 'updatedAt'];
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.shopping is list && d.shopping.size() <= kitchenItemCap()
+          && d.pantry is list && d.pantry.size() <= kitchenItemCap()
+          && d.updatedAt == request.time;
+      }
+    }
+
+    // Private recipe collections, owner-only in Phase 2 (visibility is always
+    // 'private'; public cookbooks are RL-256). Read, update: the owner,
+    // verified. Delete: the owner, signed in only, as for kitchens. Create: own
+    // ownerUid, server-time createdAt. Updates may not change ownerUid,
+    // createdAt or visibility. No document accesses in any rule.
+    match /collections/{collectionId} {
+      allow read: if verified() && resource.data.ownerUid == request.auth.uid;
+      allow create: if verified()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && isWellFormedCollection(request.resource.data);
+      allow update: if verified()
+        && resource.data.ownerUid == request.auth.uid
+        && !changedKeys().hasAny(['ownerUid', 'createdAt', 'visibility'])
+        && isWellFormedCollection(request.resource.data);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      function isWellFormedCollection(d) {
+        let keys = ['ownerUid', 'name', 'visibility', 'recipeIds', 'createdAt', 'updatedAt'];
+        return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+          && d.visibility == 'private'
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+          && d.recipeIds is list && d.recipeIds.size() <= collectionRecipeCap()
+          && d.updatedAt == request.time;
+      }
+    }
+
     // --- Client error reports: write-only drop box ---
     //
     // Create-only, by anyone including signed-out visitors, because a failure that
