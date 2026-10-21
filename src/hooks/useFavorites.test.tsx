@@ -35,7 +35,7 @@ function wrapperFor(user: AppUser | null, isLoading = false) {
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }
-const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const meta = { ownerId: 'owner', title: 'Soup', emoji: '🍲' };
 
 describe('useFavorite', () => {

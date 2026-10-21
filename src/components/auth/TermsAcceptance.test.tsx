@@ -61,7 +61,7 @@ const forms = [
     button: 'Add Email',
     mount: (spy: () => Promise<void>) =>
       renderWithProviders(<EmailLinkingForm />, {
-        user: { uid: 'a', displayName: 'X', email: null, isAnonymous: true, emailVerified: false },
+        user: { uid: 'a', displayName: 'X', email: null, isAnonymous: true, emailVerified: false, providers: [] },
         auth: { linkEmail: spy },
       }),
   },

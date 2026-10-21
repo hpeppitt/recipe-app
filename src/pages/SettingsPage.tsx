@@ -72,7 +72,12 @@ export function SettingsPage() {
   const accountReloads = isConfigured && !!user && !user.isAnonymous && user.emailVerified;
   const navigate = useNavigate();
   const accountName = user?.displayName ?? 'Anonymous';
-  const accountSub = user?.isAnonymous ? 'Guest · this device only' : user?.email;
+  // Google wins the label when both are linked (RL-189).
+  const guestLine = user?.isAnonymous ? 'Guest · this device only' : null;
+  const providerLabel = user?.providers.includes('google') ? 'Google' : 'Email link';
+  const accountLabel = [accountName, guestLine ?? user?.email, user?.emailVerified && 'edit avatar']
+    .filter(Boolean)
+    .join(', ');
   const [showAuth, setShowAuth] = useState(false);
   // The Sign in row unmounts on sign-in; move focus to the heading so it does not drop to the body.
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -224,7 +229,7 @@ export function SettingsPage() {
               <Row><button
                 type="button"
                 className={ROW}
-                aria-label={user.emailVerified ? `${accountName}, ${accountSub}, edit avatar` : `${accountName}, ${accountSub}`}
+                aria-label={accountLabel}
                 aria-haspopup={user.emailVerified ? 'dialog' : undefined}
                 onClick={() => (user.emailVerified ? setEditingAvatar(true) : navigate('/profile'))}
               >
@@ -243,13 +248,31 @@ export function SettingsPage() {
                     <span className="block truncate font-bold">
                       {accountName}
                     </span>
-                    <span className="block truncate text-xs text-text-tertiary">
-                      {accountSub}
-                    </span>
+                    {guestLine ? (
+                      <span className="block truncate text-xs text-text-tertiary">{guestLine}</span>
+                    ) : (
+                      user.email && (
+                        <span className="flex text-xs text-text-tertiary">
+                          <span className="truncate">{user.email}</span>
+                          <span className="flex-shrink-0">{` · ${providerLabel}`}</span>
+                        </span>
+                      )
+                    )}
                   </span>
                 </span>
                 <ChevronRight className="h-5 w-5 flex-shrink-0 text-text-tertiary" />
               </button></Row>
+              {!user.isAnonymous && user.providers.length > 0 && (
+                <Row>
+                  <div className={ROW}>
+                    <span>
+                      Sign-in methods
+                      <span className="sr-only">, {user.providers.length} {pluralize(user.providers.length, 'method')}</span>
+                    </span>
+                    <span aria-hidden className="text-text-tertiary">{user.providers.length}</span>
+                  </div>
+                </Row>
+              )}
             </div>
             {user.isAnonymous && (
               <p className="mt-2 ml-1.5 text-xs text-text-tertiary">

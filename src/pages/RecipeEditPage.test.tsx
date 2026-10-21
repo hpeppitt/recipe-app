@@ -40,7 +40,7 @@ vi.mock('../hooks/useRecipe', () => ({
 
 import { RecipeEditPage } from './RecipeEditPage';
 
-const anon: AppUser = { uid: fakeUser.uid, displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: fakeUser.uid, displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 
 function Saved() {
   const { state } = useLocation();

@@ -1950,3 +1950,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - With an address that already has an email-link account, Google may answer "That email already has an account. Sign in with your email link instead." rather than carrying over, depending on the code Firebase returns; note which happens.
 
 - Reviewer noted (low): on a guest-to-existing-account carry-over, runMigration can run twice at once (auth listener plus upgrade), as on the email path already; check the guest's bookmarks and local recipes arrive once. Before RL-191 ships: add VITE_ENABLE_GOOGLE_SIGNIN to the preview workflow and the release .env.
+
+### RL-189 Settings sign-in methods
+- Live after RL-191 (Google on). In Settings at 390px, light and dark: an email-link account shows "<email> · Email link" under the name and a "Sign-in methods" row reading 1; an account that signed in with Google shows "<email> · Google" and 1; a guest upgraded through Google on an email account shows both linked and 2. The row is not tappable. A guest and a signed-out visitor see neither the email line nor the row.
+
+- Reviewer noted (low): any non-Google account reads "Email link" (a legacy password account would too). Also restores the RL-188 VITE_ENABLE_GOOGLE_SIGNIN entry in .env.example, which the RL-188 commit missed.

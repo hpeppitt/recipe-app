@@ -14,6 +14,7 @@ export const fakeUser: AppUser = {
   email: 'cook@example.com',
   isAnonymous: false,
   emailVerified: true,
+  providers: ['email'],
 };
 
 const noop = async () => {};
