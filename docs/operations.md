@@ -49,6 +49,7 @@ Copy `.env.example` to `.env`. Every value is public by design; **never put a se
 | `VITE_POSTHOG_KEY` | optional | PostHog project key. A public key, not a secret. Unset (the production state today) means no consent banner, no Settings privacy toggle and no analytics. Read through `isPostHogConfigured()` in `services/analytics.ts`, which needs both this and `VITE_POSTHOG_HOST` |
 | `VITE_POSTHOG_HOST` | optional | PostHog ingestion host, for example `https://eu.i.posthog.com`. Set it with the key; either one alone counts as unset |
 | `VITE_APPCHECK_DEBUG_TOKEN` | local dev only | App Check enforcement blocks localhost unless the token is registered under App Check → Apps → Manage debug tokens. Leave blank to let the SDK mint a fresh one each run, then register that |
+| `VITE_ENABLE_GOOGLE_SIGNIN` | optional | `true` shows "Continue with Google" (RL-188). Not a secret. Leave unset until RL-191 enables the Google provider in the console, or the button fails live. The Auth emulator accepts Google with fake accounts, so set it for emulated dev |
 | `VITE_USE_EMULATORS` | local dev only | `true` routes Auth and Firestore at the emulator suite. Double-guarded on `import.meta.env.DEV`, so a production build can never redirect writes away from the real project |
 
 There is deliberately no Gemini key variable. Firebase AI Logic holds it server-side.
@@ -162,6 +163,8 @@ load the Firebase layer), `VITE_RECAPTCHA_SITE_KEY` (required for recipe generat
 `VITE_FIREBASE_APP_ID` (not required by `isFirebaseConfigured`, so the layer loads without it,
 but it is passed into the SDK config and identifies the web app, so set it).
 `VITE_APPCHECK_DEBUG_TOKEN` and `VITE_USE_EMULATORS` are local-dev only and are not mapped.
+`VITE_ENABLE_GOOGLE_SIGNIN` (RL-188) is not mapped yet, so previews have no Google button; RL-191
+maps it when it turns Google on.
 Values are the same as in your local `.env`.
 
 Without the secret the workflow skips with a note in the job summary instead of failing, and

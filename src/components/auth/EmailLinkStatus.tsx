@@ -32,7 +32,8 @@ export function EmailLinkStatus() {
   // changing, and a plain sign-in even less. Only `linked` is worth a word,
   // because "your bookmarks came with you" is the reassurance the user wants.
   // Derived from linkState, so dismissing (back to idle) closes it for good.
-  const open = linkState.status !== 'idle' && !(linkState.status === 'done' && !linkState.linked);
+  const open =
+    linkState.status !== 'idle' && !(linkState.status === 'done' && !linkState.linked && !linkState.existing);
   const stateKey = linkState.status === 'error' ? linkState.reason : linkState.status;
 
   // Runs after Sheet's own effect has opened the dialog. The control that had focus
@@ -65,6 +66,23 @@ export function EmailLinkStatus() {
         <Body id={bodyId}>
           This is the same account you were already using, now reachable by email on
           any device.
+        </Body>
+        <Button fullWidth size="lg" className="h-[52px]" onClick={dismissLinkState}>
+          Got it
+        </Button>
+      </>
+    );
+  } else if (linkState.status === 'done' && linkState.existing) {
+    // A guest's Google account already had a Recipe Lab account (RL-188). Unlike a spent email
+    // link, the sign-in went through and the carry-over ran, so the body says so.
+    content = (
+      <>
+        <Circle className="bg-accent-2-200 text-accent-2-800">
+          <Check className="h-6 w-6" />
+        </Circle>
+        {headline('That email already has an account')}
+        <Body id={bodyId}>
+          You're signed in to it now, and the bookmarks you made here as a guest came with you.
         </Body>
         <Button fullWidth size="lg" className="h-[52px]" onClick={dismissLinkState}>
           Got it
@@ -119,6 +137,15 @@ export function EmailLinkStatus() {
       failed: {
         title: "That sign-in link didn't work",
         body: 'Something went wrong finishing your sign-in. Requesting a new link is the quickest fix.',
+      },
+      // A Google redirect that failed on return (RL-188); the sheet that started it is gone.
+      google: {
+        title: "Couldn't sign in with Google",
+        body: 'Try again or use your email.',
+      },
+      'google-exists': {
+        title: 'That email already has an account',
+        body: 'Sign in with your email link instead.',
       },
     }[linkState.reason];
     const Icon = linkState.reason === 'expired' ? Hourglass : TriangleAlert;

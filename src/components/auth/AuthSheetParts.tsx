@@ -1,6 +1,9 @@
-import { useEffect, useId, useRef, type ReactNode, type Ref } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useAuth, isGoogleAccountExists } from '../../contexts/AuthContext';
+import type { PendingIntent } from '../../lib/pendingAction';
 import { Button } from '../ui/Button';
-import { GitBranchPlus, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
+import { Spinner } from '../ui/Spinner';
+import { GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
 
 /**
  * What the visitor was doing when the sheet opened (RL-108). It names the headline
@@ -49,6 +52,86 @@ export function ActionIntro({ action, titleId, body }: { action: AuthAction; tit
         Sign in to {text}
       </h2>
       <p className="text-sm text-text-secondary">{body}</p>
+    </>
+  );
+}
+
+/**
+ * "Continue with Google" (RL-188), for the first step of a sign-in sheet. Renders nothing while
+ * the flag is off (the context omits `signInWithGoogle`). The host keeps it disabled until the
+ * Terms box is ticked. A popup the user closed is not an error, so it shows nothing.
+ */
+export function GoogleSignIn({
+  disabled,
+  describedBy,
+  pending,
+  onSignedIn,
+  onBusyChange,
+}: {
+  disabled: boolean;
+  describedBy?: string;
+  pending?: PendingIntent;
+  onSignedIn: () => void;
+  /** True while the popup is open, so the host can hold its other buttons. */
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const { signInWithGoogle } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
+  // The box toggling or the guest option starting flips `disabled`: an old error no longer applies.
+  const [wasDisabled, setWasDisabled] = useState(disabled);
+  if (disabled !== wasDisabled) {
+    setWasDisabled(disabled);
+    setError(null);
+  }
+  if (!signInWithGoogle) return null;
+
+  const handle = async () => {
+    if (busy || disabled) return;
+    setBusy(true);
+    onBusyChange(true);
+    setError(null);
+    try {
+      if (await signInWithGoogle(pending)) onSignedIn();
+    } catch (err) {
+      setError(
+        isGoogleAccountExists(err)
+          ? 'That email already has an account. Sign in with your email link instead.'
+          : "Couldn't sign in with Google. Try again or use your email."
+      );
+    } finally {
+      setBusy(false);
+      onBusyChange(false);
+    }
+  };
+
+  return (
+    <>
+      <Button
+        fullWidth
+        size="lg"
+        variant="secondary"
+        className="h-[52px] gap-2"
+        onClick={handle}
+        disabled={busy || disabled}
+        aria-busy={busy || undefined}
+        aria-describedby={[describedBy, error ? errorId : undefined].filter(Boolean).join(' ') || undefined}
+      >
+        {busy ? (
+          <Spinner size="sm" label="Signing in with Google" />
+        ) : (
+          <>
+            <GoogleG className="h-5 w-5 shrink-0" />
+            Continue with Google
+          </>
+        )}
+      </Button>
+      {error && (
+        <p id={errorId} role="alert" className="text-sm text-danger-700">
+          {error}
+        </p>
+      )}
     </>
   );
 }

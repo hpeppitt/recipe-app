@@ -6,13 +6,25 @@ import { TERMS_VERSION } from '../lib/legal';
 import { MemoryRouter, Link } from 'react-router-dom';
 import { TermsGate } from '../components/auth/TermsUpdateDialog';
 
-type FakeUser = { uid: string; displayName: string | null; email: string | null; isAnonymous: boolean; emailVerified: boolean };
+type FakeUser = {
+  uid: string;
+  displayName: string | null;
+  email: string | null;
+  isAnonymous: boolean;
+  emailVerified: boolean;
+  providerData?: { providerId: string }[];
+};
 
 let authListener: (u: FakeUser | null) => void = () => {};
 const completeEmailSignIn = vi.fn();
 const signInAnonymously = vi.fn();
+const signInWithGoogle = vi.fn();
+const completeGoogleRedirect = vi.fn(async (): Promise<unknown> => null);
 vi.mock('../services/firebase', () => ({
   isFirebaseConfigured: true,
+  isGoogleSignInEnabled: true,
+  signInWithGoogle: () => signInWithGoogle(),
+  completeGoogleRedirect: () => completeGoogleRedirect(),
   auth: { currentUser: null },
   onAuthStateChanged: (cb: (u: FakeUser | null) => void) => {
     authListener = cb;
@@ -57,6 +69,10 @@ vi.mock('../services/storage', () => ({
   addPreviousUid: vi.fn(),
   getDeviceId: vi.fn(),
   getTermsAcceptance: () => storedTerms,
+  setTermsAcceptance: (t: typeof storedTerms) => {
+    storedTerms = t;
+  },
+  setPendingAction: vi.fn(),
   normaliseEmail: (e: string) => e.trim().toLowerCase(),
   clearTermsAcceptance: () => {
     storedTerms = null;
@@ -617,5 +633,187 @@ describe('AuthProvider terms acceptance (RL-047)', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'leave' }));
     expect(dialogOpen()).toBe(true);
+  });
+});
+
+describe('AuthProvider Google sign-in (RL-188)', () => {
+  const google = (u: FakeUser): FakeUser => ({ ...u, providerData: [{ providerId: 'google.com' }] });
+  const newUser = google({ uid: 'g-1', displayName: 'Gee', email: 'g@gmail.com', isAnonymous: false, emailVerified: true });
+  const linkedGuest = google({ ...anon, email: 'g@gmail.com', isAnonymous: false, emailVerified: true });
+
+  beforeEach(() => {
+    cleanup();
+    order.length = 0;
+    storedTerms = null;
+    reportError.mockClear();
+    recordTermsAcceptance.mockClear();
+    claimPendingAction.mockClear();
+    clearPendingAction.mockClear();
+    pushLocalFavoritesToCloud.mockClear();
+    getAcceptedTermsVersion.mockReset();
+    getAcceptedTermsVersion.mockResolvedValue(null);
+    completeEmailSignIn.mockReset();
+    completeEmailSignIn.mockResolvedValue(null);
+    signInWithGoogle.mockReset();
+    completeGoogleRedirect.mockReset();
+    completeGoogleRedirect.mockResolvedValue(null);
+  });
+
+  it('new user: records the box ticked before the popup and claims the intent, with no sheet', async () => {
+    signInWithGoogle.mockImplementation(async () => {
+      // The entry is stored before the popup opens.
+      expect(storedTerms).toMatchObject({ version: TERMS_VERSION, email: 'google.com' });
+      return { user: newUser, previousUid: null, linked: false };
+    });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let signedIn = false;
+    await act(async () => {
+      signedIn = await result.current.signInWithGoogle!();
+    });
+
+    expect(signedIn).toBe(true);
+    expect(recordTermsAcceptance).toHaveBeenCalledWith('g-1', expect.any(Number));
+    expect(storedTerms).toBeNull();
+    expect(claimPendingAction).toHaveBeenCalledWith('g-1');
+    expect(result.current.linkState).toEqual({ status: 'idle' });
+  });
+
+  it('anonymous link: keeps the uid, records the Terms, pushes bookmarks and says they came along', async () => {
+    signInWithGoogle.mockResolvedValue({ user: linkedGuest, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(anon));
+    await act(async () => {
+      await result.current.signInWithGoogle!();
+    });
+
+    expect(result.current.user).toMatchObject({ uid: 'anon-1', isAnonymous: false, emailVerified: true });
+    expect(recordTermsAcceptance).toHaveBeenCalledWith('anon-1', expect.any(Number));
+    await waitFor(() => expect(pushLocalFavoritesToCloud).toHaveBeenCalledWith('anon-1'));
+    expect(result.current.linkState).toEqual({ status: 'done', linked: true });
+  });
+
+  it('existing account: Terms, then the local carry-over, and the "already has an account" sheet', async () => {
+    signInWithGoogle.mockResolvedValue({ user: google(verified), previousUid: 'anon-1', linked: false });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    act(() => authListener(anon));
+    await act(async () => {
+      await result.current.signInWithGoogle!();
+    });
+
+    await waitFor(() => expect(order).toEqual(['terms:me', 'migrate:anon-1->me', 'push:me']));
+    expect(result.current.linkState).toEqual({ status: 'done', linked: false, existing: true });
+    expect(claimPendingAction).toHaveBeenCalledWith('me');
+  });
+
+  it('popup closed: nothing signed in, nothing reported, and the tick and intent are dropped', async () => {
+    signInWithGoogle.mockResolvedValue(null);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let signedIn = true;
+    await act(async () => {
+      signedIn = await result.current.signInWithGoogle!({ kind: 'save', recipeId: 'r1' });
+    });
+
+    expect(signedIn).toBe(false);
+    expect(storedTerms).toBeNull();
+    expect(clearPendingAction).toHaveBeenCalled();
+    expect(reportError).not.toHaveBeenCalled();
+    expect(result.current.linkState).toEqual({ status: 'idle' });
+  });
+
+  it('a real failure rejects for the sheet to show, and drops the tick', async () => {
+    signInWithGoogle.mockRejectedValue(Object.assign(new Error('x'), { code: 'auth/internal-error' }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await expect(result.current.signInWithGoogle!()).rejects.toThrow('x');
+    });
+
+    expect(storedTerms).toBeNull();
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'google-sign-in');
+  });
+
+  it('redirect completion on load: finishes the guest upgrade with the stored tick', async () => {
+    storedTerms = { version: TERMS_VERSION, acceptedAt: 7, email: 'google.com' };
+    completeGoogleRedirect.mockResolvedValue({ user: linkedGuest, previousUid: null, linked: true });
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'done', linked: true }));
+    expect(recordTermsAcceptance).toHaveBeenCalledWith('anon-1', 7);
+    expect(claimPendingAction).toHaveBeenCalledWith('anon-1');
+  });
+
+  it('redirect completion that fails shows the Google error sheet', async () => {
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {});
+    completeGoogleRedirect.mockRejectedValue(new Error('boom'));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'error', reason: 'google' }));
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'google-sign-in');
+  });
+
+  it('an address with an email-link account rejects for its own copy, unreported', async () => {
+    signInWithGoogle.mockRejectedValue(Object.assign(new Error('x'), { code: 'auth/account-exists-with-different-credential' }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await act(async () => {
+      await expect(result.current.signInWithGoogle!()).rejects.toThrow('x');
+    });
+    expect(storedTerms).toBeNull();
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('the same on a redirect return shows the "already has an account" sheet', async () => {
+    completeGoogleRedirect.mockRejectedValue(Object.assign(new Error('x'), { code: 'auth/account-exists-with-different-credential' }));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.linkState).toEqual({ status: 'error', reason: 'google-exists' }));
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it('leaving for a redirect keeps the tick and the intent for the return', async () => {
+    signInWithGoogle.mockResolvedValue('redirecting');
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let signedIn = true;
+    await act(async () => {
+      signedIn = await result.current.signInWithGoogle!({ kind: 'save', recipeId: 'r1' });
+    });
+    expect(signedIn).toBe(false);
+    expect(storedTerms).toMatchObject({ email: 'google.com' });
+    expect(clearPendingAction).not.toHaveBeenCalled();
+  });
+
+  it('an ordinary load drops a Google tick left by an abandoned redirect, and only that', async () => {
+    storedTerms = { version: TERMS_VERSION, acceptedAt: 7, email: 'google.com' };
+    renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(storedTerms).toBeNull());
+
+    cleanup();
+    storedTerms = { version: TERMS_VERSION, acceptedAt: 7, email: 'c@example.com' };
+    renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(completeGoogleRedirect).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    expect(storedTerms).not.toBeNull();
+  });
+
+  it('a failure after the sign-in is reported, and the sign-in still counts', async () => {
+    getAcceptedTermsVersion.mockRejectedValue(new Error('read'));
+    recordTermsAcceptance.mockRejectedValueOnce(new Error('write'));
+    signInWithGoogle.mockResolvedValue({ user: google(verified), previousUid: 'anon-1', linked: false });
+    const { migrateFavoritesUid } = await import('../db/favorites');
+    vi.mocked(migrateFavoritesUid).mockRejectedValueOnce(new Error('dexie'));
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    let signedIn = false;
+    await act(async () => {
+      signedIn = await result.current.signInWithGoogle!();
+    });
+    expect(signedIn).toBe(true);
+    expect(reportError).toHaveBeenCalledWith(expect.any(Error), 'google-sign-in-finish');
+  });
+
+  it('a Google tick never counts for an email-only account', async () => {
+    storedTerms = { version: TERMS_VERSION, acceptedAt: 7, email: 'google.com' };
+    renderHook(() => useAuth(), { wrapper });
+    act(() => authListener({ ...verified, providerData: [{ providerId: 'password' }] }));
+    await waitFor(() => expect(getAcceptedTermsVersion).toHaveBeenCalledWith('me'));
+    await act(async () => {});
+
+    expect(recordTermsAcceptance).not.toHaveBeenCalled();
   });
 });

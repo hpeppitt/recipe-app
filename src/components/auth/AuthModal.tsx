@@ -8,7 +8,7 @@ import { Button } from '../ui/Button';
 import { Sheet } from '../ui/Sheet';
 import { Spinner } from '../ui/Spinner';
 import { Mail } from '../ui/icons';
-import { ActionIntro, EmailField, EmailStepHeading, EmailStepNotes, SentStep, type AuthAction } from './AuthSheetParts';
+import { ActionIntro, GoogleSignIn, EmailField, EmailStepHeading, EmailStepNotes, SentStep, type AuthAction } from './AuthSheetParts';
 
 interface AuthModalProps {
   open: boolean;
@@ -26,17 +26,21 @@ interface AuthModalProps {
  * places where that is enough.
  */
 export function AuthModal({ open, action, onAuthenticated, onDismiss, pending }: AuthModalProps) {
-  const { user, signInAnonymously, sendEmailLink } = useAuth();
+  const { user, signInAnonymously, sendEmailLink, signInWithGoogle } = useAuth();
   const [step, setStep] = useState<'choose' | 'email' | 'sent'>('choose');
   const [email, setEmail] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
   // Exactly one step renders at a time, so a single id can label the sheet and
   // follow the heading from step to step.
   const titleId = useId();
   const hintId = useId();
+  // With Google on (RL-188) the Terms box leads the first step and gates both sign-in buttons.
+  const termsFirst = !!signInWithGoogle;
+  const busy = loading || googleBusy;
 
   // Each opening starts fresh.
   if (open !== wasOpen) {
@@ -100,7 +104,8 @@ export function AuthModal({ open, action, onAuthenticated, onDismiss, pending }:
   };
 
   return (
-    <Sheet open={open && !user} onClose={onDismiss} labelledBy={titleId}>
+    // Not dismissible while the Google popup is open, so a late success has a sheet to close.
+    <Sheet open={open && !user} onClose={onDismiss} labelledBy={titleId} dismissible={!googleBusy}>
       <div className="flex min-w-0 flex-col gap-3 pb-[env(safe-area-inset-bottom)]">
         {step === 'choose' && (
           <>
@@ -109,8 +114,24 @@ export function AuthModal({ open, action, onAuthenticated, onDismiss, pending }:
               titleId={titleId}
               body="Sign in to save recipes and get credited as the creator."
             />
+            {termsFirst && (
+              <TermsCheckbox
+                checked={accepted}
+                onChange={setAccepted}
+                disabled={busy}
+                describedBy={accepted ? undefined : hintId}
+                autoFocus={!accepted}
+              />
+            )}
+            <GoogleSignIn
+              disabled={loading || !accepted}
+              describedBy={accepted ? undefined : hintId}
+              pending={pending}
+              onSignedIn={onAuthenticated}
+              onBusyChange={setGoogleBusy}
+            />
             {/*
-              Email leads because it is the option that keeps the user's work. The
+              Email leads (after Google, when on) because it keeps the user's work. The
               guest option is a text link with its trade-off stated, not a peer button.
             */}
             <Button
@@ -118,17 +139,19 @@ export function AuthModal({ open, action, onAuthenticated, onDismiss, pending }:
               size="lg"
               className="h-[52px] gap-2"
               // Back from the email step remounts this, so focus lands here, not on <body>.
-              autoFocus
+              autoFocus={!termsFirst || accepted}
               onClick={() => {
                 setStep('email');
                 setError(null);
               }}
-              disabled={loading}
+              disabled={busy || (termsFirst && !accepted)}
+              aria-describedby={termsFirst && !accepted ? hintId : undefined}
             >
               <Mail className="h-5 w-5 shrink-0" />
               Continue with email
             </Button>
-            <Button fullWidth variant="ghost" onClick={handleAnonymous} disabled={loading}>
+            {termsFirst && !accepted && <TermsHint id={hintId} />}
+            <Button fullWidth variant="ghost" onClick={handleAnonymous} disabled={busy}>
               {loading ? <Spinner size="sm" /> : 'Continue without an account'}
             </Button>
             <p className="mx-auto max-w-[290px] text-center text-xs text-text-tertiary">

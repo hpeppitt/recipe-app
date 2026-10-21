@@ -22,6 +22,7 @@ export function TermsCheckbox({
   disabled = false,
   invalid = false,
   describedBy,
+  autoFocus = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
@@ -29,6 +30,8 @@ export function TermsCheckbox({
   invalid?: boolean;
   /** Id of the TermsHint, while it shows. */
   describedBy?: string;
+  /** For a sheet whose first control is this box (Google on, RL-188). */
+  autoFocus?: boolean;
 }) {
   return (
     // The whole row is the label, so the tap target is the full width and at least 44px tall.
@@ -42,6 +45,7 @@ export function TermsCheckbox({
         aria-required="true"
         aria-invalid={invalid || undefined}
         aria-describedby={describedBy}
+        autoFocus={autoFocus}
         className={`mt-2 h-5 w-5 shrink-0 rounded accent-primary-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 ${
           invalid ? 'outline-2 outline-offset-2 outline-danger-500' : ''
         }`}
