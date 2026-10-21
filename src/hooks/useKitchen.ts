@@ -179,6 +179,18 @@ export function useKitchen() {
       },
       [mutate, uid]
     ),
+    /** Several names in ONE write (a second write while one runs is dropped). */
+    addPantryItems: useCallback(
+      async (names: string[]) => {
+        const lines = names
+          .map((n) => n.trim().slice(0, ITEM_NAME_MAX))
+          .filter(Boolean)
+          .map((name) => ({ id: '', name, amount: null, unit: null, aisle: aisleFor(name), sources: [], done: false }));
+        if (!lines.length) return;
+        await mutate((k) => ({ ...k, pantry: boughtItAll(lines, k.pantry, Date.now(), uid ?? '').pantry }));
+      },
+      [mutate, uid]
+    ),
     removePantry: useCallback(
       (id: string) => mutate((k) => ({ ...k, pantry: k.pantry.filter((p) => p.id !== id) })),
       [mutate]

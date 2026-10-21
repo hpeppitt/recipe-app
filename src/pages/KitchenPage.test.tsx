@@ -29,7 +29,7 @@ describe('KitchenPage (RL-214)', () => {
     expect(screen.getByText('2 to buy')).toBeInTheDocument();
     expect(screen.getByText('1 thing')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Shopping list/ })).toHaveAttribute('href', '/kitchen/list');
-    expect(screen.queryByRole('link', { name: /Pantry/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /Pantry/ })).toHaveAttribute('href', '/kitchen/pantry');
     expect(await screen.findByRole('link', { name: /Cook log.*14 cooks/ })).toHaveAttribute('href', '/kitchen/log');
     expect(countUserCooks).toHaveBeenCalledWith(fakeUser.uid);
   });

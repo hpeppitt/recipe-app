@@ -2077,3 +2077,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 ### RL-219 Add to list from the family tree
 - On a family with three versions open the tree page, tap the basket in the header, pick a branch, change Makes, then Add. The toast says how many were added; View opens `/kitchen/list` and the amounts are that branch's at that serving count. The button count leaves out pantry lines (check with a pantry item that is in the recipe). Versions you cooked say "you made this". Signed out shows the sign-in sheet. Check at 390px, light and dark.
 - Not built: the "Most cooked" tag (RL-245 does not exist), the recipe's own unit word for Makes (recipes have none, so it says servings), and the toast pause on hover or focus.
+
+### RL-220 Pantry page
+- Open Kitchen, tap Pantry (`/kitchen/pantry`). Add five items, two of them in one go with a comma ("eggs, milk"): they appear as pills under Fresh or Cupboard, adding "Eggs" again adds nothing, and the X on a pill removes it. Cook from what's here opens Search with the "Using ..." line and matching recipes. Bought it all on the shopping list adds its lines here. Empty pantry shows the empty state and a disabled Cook button. 390px, light and dark.
+- The Kitchen tile count matches the page.
