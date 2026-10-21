@@ -13,7 +13,7 @@ import { PantryPage } from './PantryPage';
 
 const item = (name: string, group: 'fresh' | 'cupboard') => ({ id: name, name, group, addedBy: 'u', addedAt: 1 });
 const setPantry = (pantry: ReturnType<typeof item>[], extra: Record<string, unknown> = {}) => {
-  hook = { kitchen: { shopping: [], pantry }, loading: false, error: null, addPantryItems, removePantry, ...extra };
+  hook = { kitchen: { shopping: [], pantry }, loading: false, error: null, members: [], addPantryItems, removePantry, ...extra };
 };
 
 beforeEach(() => {
@@ -97,5 +97,11 @@ describe('PantryPage (RL-220)', () => {
     hook = { kitchen: null, loading: true, error: null };
     renderWithProviders(<PantryPage />);
     expect(screen.getByRole('status', { name: 'Loading pantry' })).toBeInTheDocument();
+  });
+
+  it('shows the household avatars in a pill, labelled with who shares it (RL-239)', () => {
+    setPantry([], { members: [{ uid: 'test-user', name: 'Me', avatar: null }, { uid: 'ola', name: 'Ola', avatar: null }] });
+    renderWithProviders(<PantryPage />);
+    expect(screen.getByRole('img', { name: 'Shared with Ola' })).toBeInTheDocument();
   });
 });

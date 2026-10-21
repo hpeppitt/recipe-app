@@ -36,6 +36,7 @@ const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default:
 const CreatePage = lazy(() => import('./pages/CreatePage').then(m => ({ default: m.CreatePage })));
 const ForestPage = lazy(() => import('./pages/ForestPage').then(m => ({ default: m.ForestPage })));
 const ImportPage = lazy(() => import('./pages/ImportPage').then(m => ({ default: m.ImportPage })));
+const JoinKitchenPage = lazy(() => import('./pages/JoinKitchenPage').then(m => ({ default: m.JoinKitchenPage })));
 const ProfilePage = lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 
 // Mounted beside the routes so the own-recipes listener covers every page (RL-078).
@@ -98,6 +99,8 @@ export function AppRoutes() {
         <Route path="/terms" element={<LegalPage doc="terms" />} />
         <Route path="/privacy" element={<LegalPage doc="privacy" />} />
         <Route path="/cookies" element={<LegalPage doc="cookies" />} />
+        {/* A kitchen invite (RL-239): a sheet over a plain ground, outside the shell. */}
+        <Route path="/join/:code" element={<JoinKitchenPage />} />
         <Route path="/shared" element={<SharedRecipePage />} />
         <Route path="/shared/:id" element={<SharedRecipePage />} />
         {/* 4b Forest view (RL-175), with its own Back button like /settings. */}

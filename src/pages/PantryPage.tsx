@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useKitchen } from '../hooks/useKitchen';
 import { itemKey } from '../lib/shopping';
+import { sharedWithLine } from '../lib/kitchen';
+import { AvatarStack } from '../components/kitchen/KitchenPeople';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -20,7 +22,7 @@ export function PantryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
-  const { kitchen, loading, error, addPantryItems, removePantry } = useKitchen();
+  const { kitchen, loading, error, addPantryItems, removePantry, members } = useKitchen();
   const [showAuth, setShowAuth] = useState(false);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
@@ -63,13 +65,18 @@ export function PantryPage() {
   };
 
   const header = (
-    <header className="flex items-center px-3 pt-[50px]">
+    <header className="flex items-center justify-between px-3 pt-[50px]">
       <IconButton
         variant="flat"
         label="Back"
         icon={<ChevronLeft className="size-6" />}
         onClick={() => (location.key === 'default' ? navigate('/kitchen') : navigate(-1))}
       />
+      {verified && kitchen && (
+        <Link to="/kitchen" className="mr-2 flex min-h-11 items-center rounded-full bg-surface-secondary px-2">
+          <AvatarStack members={members} ring="ring-surface-secondary" label={sharedWithLine(members.filter((m) => m.uid !== user.uid).map((m) => m.name))} />
+        </Link>
+      )}
     </header>
   );
   const title = <h1 className="px-[22px] pt-4 font-heading text-[30px] leading-[1.1] text-text-primary">Pantry</h1>;
