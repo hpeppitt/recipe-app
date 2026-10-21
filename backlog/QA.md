@@ -18,6 +18,18 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-256 Public cookbook and follow rules (repo only)
+- Nothing to see in the app yet: the rules are in the repo and reach production with RL-261, and the client is RL-257 to RL-259.
+- At RL-261, after the deploy: share a collection, open its link signed out (it loads), stop sharing and reload (denied), follow it from a second verified account (works only while public), and confirm the second account cannot rename it or add a recipe.
+- At RL-261 also: sharing a cookbook from an account that has not accepted the current Terms is refused; following and unfollowing moves the follower count by one each time and it never goes below 0.
+- Decide the pending RL-256 row in backlog/DECISIONS.md (unfollow allowed without the public check; no write window on publishing).
+- Emulator probes reworked after review (103, all as expected): a bump without a follow 403, follow plus bump in one batch 200, unfollow plus -1 200, -1 below zero 403, publishing without Terms 403. Table in the RL-256 ticket Notes.
+
+- Reviewer round fixed (data, med): the followerCount bump is tied to the writer's own follow doc (+1 only on a public cookbook, never below 0); publishing or keeping a cookbook public needs the current Terms.
+- MUST land before RL-261 deploys (data, med): cookbookFollows is missing from Download my data and scripts/data-request.mjs erase; COLLECTION_KEYS in src/lib/dataExport.ts drops description, lastAddedAt and followerCount. Needs a ticket via /groom.
+- Reviewer noted (data, low): anyone can list every public cookbook with its ownerUid and recipeIds (by design); recipeIds elements are not shape-checked in the rules; RL-257 must set lastAddedAt in the same write as the arrayUnion.
+- Policy drift for the author's sign-off: privacy.ts still says collections are "only you" and private; false once RL-257 ships Share.
+
 ### RL-254 Share a link to Recipe Lab (Android)
 - On an Android phone with Chrome, install Recipe Lab (menu, Install app) after this build is deployed. An already installed copy may need to be removed and reinstalled so the manifest refreshes.
 - In Chrome open a recipe page, tap Share, pick Recipe Lab. The app opens on Add from a link with the link filled in. It must not start reading by itself; tap Read it and the Check the import screen follows.
