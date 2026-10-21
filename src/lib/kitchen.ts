@@ -70,3 +70,49 @@ export function kitchenFits(next: KitchenLists, before?: KitchenLists): boolean 
   if (before && size <= bytes(before)) return true;
   return next.shopping.length <= KITCHEN_ITEM_CAP && next.pantry.length <= KITCHEN_ITEM_CAP && size <= KITCHEN_DOC_MAX_BYTES;
 }
+
+/** Most characters in a collection name, as the rules allow. */
+export const COLLECTION_NAME_MAX = 60;
+/** Longest recipe id a collection accepts; recipe ids are 36-character UUIDs (RL-211 review). */
+export const COLLECTION_RECIPE_ID_MAX = 36;
+
+/** A collection write refused before it reached Firestore; `message` is the user copy. */
+export class CollectionRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CollectionRefusedError';
+  }
+}
+
+/**
+ * The trimmed name, or throws CollectionRefusedError with the copy to show. UTF-16 length is at
+ * least the character count the rules measure, so a name that passes here passes there.
+ */
+export function collectionName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) throw new CollectionRefusedError('Give it a name.');
+  if (trimmed.length > COLLECTION_NAME_MAX) throw new CollectionRefusedError('Keep it under 60 characters.');
+  return trimmed;
+}
+
+/** Throws unless `id` is a non-empty string of at most 36 characters. */
+export function checkCollectionRecipeId(id: string): void {
+  if (typeof id !== 'string' || !id || id.length > COLLECTION_RECIPE_ID_MAX) {
+    throw new CollectionRefusedError("That recipe can't be added to a collection.");
+  }
+}
+
+/** Throws "This collection is full." unless one more id fits under the cap. */
+export function checkCollectionRoom(recipeIds: readonly string[]): void {
+  if (recipeIds.length >= COLLECTION_RECIPE_CAP) throw new CollectionRefusedError('This collection is full.');
+}
+
+/** Most collections one user may create; client-side only, the rules do not bound it (RL-222 review). */
+export const COLLECTIONS_PER_USER_MAX = 100;
+
+/** Throws unless the user has room for one more collection. */
+export function checkCollectionCount(count: number): void {
+  if (count >= COLLECTIONS_PER_USER_MAX) throw new CollectionRefusedError('You have 100 collections. Delete one first.');
+}
+
+export const COLLECTION_GONE_MESSAGE = 'That collection no longer exists.';
