@@ -15,7 +15,7 @@ import { EmailLinkingForm } from './EmailLinkingForm';
 import type { AuthAction } from './AuthSheetParts';
 
 const BOX = 'I accept the Terms of Service and have read the Privacy Policy';
-const anon: AppUser = { uid: 'a', displayName: 'X', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'a', displayName: 'X', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 
 beforeAll(() => {
   // jsdom has no <dialog> modal support.

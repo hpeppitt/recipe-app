@@ -45,6 +45,8 @@ export interface AppUser {
    * instead would let the UI and the rules disagree.
    */
   emailVerified: boolean;
+  /** How the account signs in (RL-189); empty for an anonymous account. */
+  providers: ('google' | 'email')[];
 }
 
 export interface Collaborator {

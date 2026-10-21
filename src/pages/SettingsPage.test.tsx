@@ -245,10 +245,9 @@ describe('Settings: Delete recipes on this device copy', () => {
 });
 
 describe('Settings: layout (RL-093)', () => {
-  it('has no Sign-in methods or Weigh rows', () => {
+  it('has no Weigh row', () => {
     user = member;
     render();
-    expect(screen.queryByText(/sign-in methods/i)).toBeNull();
     expect(screen.queryByText(/^weigh(?! spoons)/i)).toBeNull();
   });
 
@@ -268,6 +267,24 @@ describe('Settings: layout (RL-093)', () => {
     user = u;
     render();
     expect(screen.getByRole('button', { name }).getAttribute('aria-haspopup')).toBe(popup);
+  });
+
+  it.each([
+    ['email only', ['email'], 'cook@example.com · Email link', '1'],
+    ['Google only', ['google'], 'cook@example.com · Google', '1'],
+    ['both', ['email', 'google'], 'cook@example.com · Google', '2'],
+  ] as const)('shows the sign-in line and method count for %s', (_n, providers, line, count) => {
+    user = { ...member, providers: [...providers] };
+    render();
+    expect(screen.getByText(line.split(' · ')[0]).parentElement?.textContent).toBe(line);
+    expect(screen.getByText('Sign-in methods').textContent).toBe(`Sign-in methods, ${count} ${count === '1' ? 'method' : 'methods'}`);
+  });
+
+  it('shows no email line or Sign-in methods row for an anonymous account', () => {
+    user = anon;
+    render();
+    expect(screen.queryByText(/cook@example.com/)).toBeNull();
+    expect(screen.queryByText('Sign-in methods')).toBeNull();
   });
 
   it('Account row opens the avatar sheet for a verified account, and closes it on save', async () => {

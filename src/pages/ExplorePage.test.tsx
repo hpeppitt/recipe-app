@@ -31,7 +31,7 @@ import { ExplorePage } from './ExplorePage';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { clearBranchingThisWeekCache } from '../hooks/useBranchingThisWeek';
 
-const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const cloud = (over: Partial<Recipe> = {}) => ({ ...makeRecipe(over), favoriteCount: 0, viewCount: 0 });
 const localOnly = { auth: { isConfigured: false } } as const;
 

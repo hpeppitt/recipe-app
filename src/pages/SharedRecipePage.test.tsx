@@ -40,7 +40,7 @@ vi.mock('../hooks/useSuggestions', () => ({
 
 import { SharedRecipePage } from './SharedRecipePage';
 
-const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const author = { uid: 'ada', displayName: 'Ada Lovelace' };
 
 function cloudDoc(over: Record<string, unknown> = {}) {

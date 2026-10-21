@@ -54,7 +54,7 @@ vi.mock('../hooks/useCollabRecipes', () => ({ useCollabRecipes: (u?: string, e?:
 
 import { ProfilePage } from './ProfilePage';
 
-const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'anon-1', displayName: 'CrispyWaffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 
 const verified: AppUser = { ...anon, uid: 'v-1', isAnonymous: false, emailVerified: true, email: 'v@example.com' };
 

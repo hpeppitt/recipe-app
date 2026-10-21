@@ -84,7 +84,7 @@ vi.mock('../hooks/useSuggestions', () => ({
 
 import { RecipeDetailPage } from './RecipeDetailPage';
 
-const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false };
+const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const writeText = vi.fn();
 
 beforeAll(() => {

@@ -129,6 +129,10 @@ function toAppUser(user: User): AppUser {
     // getIdToken(true) is needed. That would change if a path ever verified an
     // address out of band, e.g. sendEmailVerification clicked through elsewhere.
     emailVerified: user.emailVerified,
+    providers: [
+      ...(user.providerData?.some((p) => p.providerId === 'password') ? (['email'] as const) : []),
+      ...(user.providerData?.some((p) => p.providerId === 'google.com') ? (['google'] as const) : []),
+    ],
   };
 }
 
