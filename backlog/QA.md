@@ -2003,3 +2003,6 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - A failed save (go offline, Save Variation) credits nothing; retry online and the cook is credited once. A plain branch with no Grow leaves the cook log unchanged.
 
 - Reviewer noted (low): a credit that fails offline is not retried (fire-and-forget by design), so that cook never shows Branched; Back into /vary after saving can re-attempt the credit, which the rules refuse and telemetry logs as cook-branch.
+
+### RL-202 Cooked stat tile
+- **Needs RL-209 deployed (cooks rules), or the emulators.** On You the tiles read Started, Grew, Cooked, Followers. Log a cook, return to You: Cooked is up by one. Another cook's profile shows the same tiles. The "N views · N saves" line sits under the tiles (hidden at zero). Check 320px: four tiles still fit.

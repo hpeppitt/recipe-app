@@ -1403,6 +1403,17 @@ export async function getRecipeCookSummary(recipeId: string): Promise<RecipeCook
   return { total: total.data().count, again: again.data().count, recent: snap.docs.map(toCook) };
 }
 
+/** How many cooks a person has logged: one count read (single-field, public read). Null when Firebase is off. Rejects after 6 s. */
+export async function countUserCooks(uid: string): Promise<number | null> {
+  if (!firestore) return null;
+  const n = await rejectAfter(
+    getCountFromServer(query(collection(firestore, 'cooks'), where('uid', '==', uid))),
+    'Counting cooks',
+    COOK_SUMMARY_TIMEOUT_MS
+  );
+  return n.data().count;
+}
+
 /** The user's own newest 200 cooks, live, for the cook log and the Cooked stat. One read per cook. */
 export function subscribeOwnCooks(
   uid: string,

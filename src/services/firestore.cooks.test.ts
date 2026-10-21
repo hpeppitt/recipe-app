@@ -74,7 +74,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-const { logCook, newCookId, getRecipeCookSummary, subscribeOwnCooks, setCookBranch, deleteCook } = await import('./firestore');
+const { logCook, newCookId, getRecipeCookSummary, countUserCooks, subscribeOwnCooks, setCookBranch, deleteCook } = await import('./firestore');
 
 const NOW = 1_800_000_000_000;
 const params = {
@@ -195,6 +195,14 @@ describe('logCook', () => {
     const p = logCook(params).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(5000);
     expect(((await p) as Error).message).toMatch(/timed out/);
+  });
+});
+
+describe('countUserCooks', () => {
+  it('counts the cooks where uid matches with one count query', async () => {
+    queries.length = 0;
+    expect(await countUserCooks('u1')).toBe(7);
+    expect(queries).toEqual([[['where', 'uid', '==', 'u1']]]);
   });
 });
 
