@@ -39,6 +39,7 @@ type Chat = {
   typingAnnouncement?: string;
   pendingQuery?: string | null;
   dismissSimilar?: () => void;
+  avoidsUnavailable?: boolean;
 };
 let chat: Chat;
 let setChat: (c: Chat) => void;
@@ -724,3 +725,20 @@ describe('RecipeChatPage branch composer (/recipe/:id/vary)', () => {
     expect(screen.getByRole('dialog', { name: 'Discard this variation?' })).toBeTruthy();
   });
 });
+
+describe('RecipeChatPage avoids notice (RL-233)', () => {
+  const NOTICE = "Your avoids couldn't be loaded, so this recipe may include them.";
+
+  it('shows a status notice when the session opened without the avoids', () => {
+    chat = { ...withRecipes('Satay'), avoidsUnavailable: true };
+    view();
+    expect(screen.getByText(NOTICE)).toHaveAttribute('role', 'status');
+  });
+
+  it('shows nothing otherwise', () => {
+    chat = withRecipes('Satay');
+    view();
+    expect(screen.queryByText(NOTICE)).toBeNull();
+  });
+});
+

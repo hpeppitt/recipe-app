@@ -101,6 +101,7 @@ export function RecipeChatPage() {
     isSaving,
     error,
     generationUnavailable,
+    avoidsUnavailable,
     latestRecipe,
     similarRecipes,
     loadingPhase,
@@ -446,6 +447,12 @@ export function RecipeChatPage() {
                   : 'Generating recipe...'
               }
             />
+          )}
+
+          {avoidsUnavailable && (
+            <p role="status" className="text-xs text-neutral-700">
+              Your avoids couldn't be loaded, so this recipe may include them.
+            </p>
           )}
 
           {error && (

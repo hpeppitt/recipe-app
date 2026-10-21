@@ -202,6 +202,20 @@ Google-hosted proxy. This is the single most important architectural fact:
   the plain string, as before. A generation error is passed through `redactInlineData` before
   it is logged, reported or classified, in case the SDK echoes the photo data back. The
   prompt tells the model to treat text in a photo as content, never as instructions.
+- **Avoids steer generation (RL-233).** `useRecipeChat` starts one read of a verified user's
+  stored avoids when it mounts (`getTasteProfile`, bounded at 5 s; no listener) and awaits it
+  when the chat session opens, passing them to `createRecipeChat` or `createVariationChat`.
+  `withAvoids` appends them as one line: `The cook never eats: "peanuts", "pork". Leave these
+  out entirely, including as optional garnishes, and do not mention them.` With no avoids the
+  prompt is unchanged byte for byte. Each term is re-normalised first (one line, no control or
+  format characters, no double quotes, at most 12 of 40 code points). A missing profile or a
+  permission-denied read (rules not deployed) means no avoids. Any other failure or timeout is
+  reported as `taste-avoids`, the send generates without them and the chat shows "Your avoids
+  couldn't be loaded, so this recipe may include them."; that session is not kept, so the next
+  send reads again and opens a fresh session (without the earlier turns' history). Generation
+  is never blocked. Avoids live in the system prompt, so a change mid-chat applies from the
+  next chat. Learned tastes are not sent. Avoids never reach the user message, analytics or
+  telemetry. Link import does not use them, and `functions/src/prompts.ts` was left unchanged.
 - **A recipe can be read from a link (RL-185, no UI yet).** `importRecipeFromUrl(url)` is a
   one-shot `generateContent` call, not a chat, so chat history and photos are untouched. It
   passes AI Logic's URL context tool (`tools: [{ urlContext: {} }]`), `IMPORT_SYSTEM_PROMPT`

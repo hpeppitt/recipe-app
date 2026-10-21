@@ -1,4 +1,5 @@
 import { IMPORT_RESPONSE_SCHEMA, recipeSchemaAsPromptText } from '../schemas/recipe.responseSchema';
+import { normaliseAvoids } from './taste';
 
 // Serialised from the same Schema object the model config enforces, rather than
 // hand-written a second time. The hand-written copy that used to live here had no
@@ -37,6 +38,22 @@ The user is creating a variation of an existing recipe. Here is the parent recip
 ${parentRecipeJson}
 
 Apply the user's requested modifications to this recipe. Always return the complete modified recipe as JSON.`;
+}
+
+/**
+ * Adds the user's avoids (RL-233) as one "never eats" line. With none the prompt is returned unchanged.
+ * The avoids are user text going into a system prompt, so they are re-normalised here (one line each,
+ * no control or format characters, at most 12 of 40 code points) even though the store already normalises them.
+ */
+export function withAvoids(systemPrompt: string, avoids: readonly string[]): string {
+  // Quoted so a term reads as data; a quote inside a term is dropped so it cannot close the quotes.
+  const terms = normaliseAvoids(avoids)
+    .map((a) => a.toLowerCase().replace(/"/g, '').trim())
+    .filter(Boolean);
+  if (!terms.length) return systemPrompt;
+  return `${systemPrompt}
+
+The cook never eats: ${terms.map((t) => `"${t}"`).join(', ')}. Leave these out entirely, including as optional garnishes, and do not mention them.`;
 }
 
 /**

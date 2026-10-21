@@ -2131,3 +2131,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Hide a learned term: toast "Hidden. Undo" stays while hovered or focused; Undo brings the term back. Needs RL-249's rules deploy before live writes work.
 
 - Reviewer noted (low): after Undo, keyboard focus drops to the page body; the Undo toast stays while focused. Live writes need RL-249's rules deploy.
+
+### RL-233 Avoids in generation
+- Verified account, Settings > Your taste: add Peanuts as an avoid. Start a new chat and ask for a satay: the recipe leaves peanuts out (or says it cannot make it without them). Needs RL-249's rules deploy so the avoid saves live.
+- Open a recipe with peanuts, Branch it, "make it quicker": peanuts are dropped from the branch.
+- Remove the avoid mid-chat: that chat keeps leaving peanuts out; the next chat does not.
+- Hard to force live: if the avoids read fails (for example offline at chat open, then back online), the chat shows a small "Your avoids couldn't be loaded" line and the next send tries again.

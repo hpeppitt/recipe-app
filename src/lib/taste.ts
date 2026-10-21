@@ -89,7 +89,8 @@ export interface TasteProfile {
   askedAt: number | null;
 }
 
-const clean = (s: string) => s.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+// Format characters (zero-width, bidi overrides) are invisible, so they are dropped rather than spaced.
+const clean = (s: string) => s.replace(/\p{Cf}/gu, '').replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
 /** Length in code points, which is what the cut below keeps within TASTE_TERM_MAX. */
 export const termLength = (s: string) => Array.from(s).length;
 const cut = (s: string) => Array.from(s).slice(0, TASTE_TERM_MAX).join('').trim();
