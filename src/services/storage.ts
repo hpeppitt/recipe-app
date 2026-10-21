@@ -266,3 +266,15 @@ export function getKitchenTipDone(): boolean {
 export function setKitchenTipDone(): void {
   safeSet(KITCHEN_TIP_KEY, '1');
 }
+
+// --- Pantry ageing nudge (RL-240) ---
+// The local date (YYYY-MM-DD) the nudge was dismissed for; it comes back the next day.
+const PANTRY_NUDGE_KEY = 'recipe-lab-pantry-nudge-dismissed';
+
+export function getPantryNudgeDismissed(day: string): boolean {
+  return safeGet(PANTRY_NUDGE_KEY) === day;
+}
+
+export function setPantryNudgeDismissed(day: string): void {
+  safeSet(PANTRY_NUDGE_KEY, day);
+}

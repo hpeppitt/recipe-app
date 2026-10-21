@@ -105,3 +105,36 @@ describe('PantryPage (RL-220)', () => {
     expect(screen.getByRole('img', { name: 'Shared with Ola' })).toBeInTheDocument();
   });
 });
+
+describe('PantryPage ageing and avatars (RL-240)', () => {
+  const DAY = 86_400_000;
+  const old = (name: string, days: number, addedBy = 'u') => ({ id: name, name, group: 'fresh' as const, addedBy, addedAt: Date.now() - days * DAY });
+  const members = [{ uid: 'u', name: 'Ola', avatar: null }];
+
+  it('labels the avatar with who added it and when, and "someone" for a former member', () => {
+    setPantry([old('bananas', 8), old('milk', 1, 'gone')], { members });
+    renderWithProviders(<PantryPage />);
+    expect(screen.getByRole('img', { name: 'added by Ola 8 days ago' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'added by a former member 1 day ago' })).toBeInTheDocument();
+  });
+
+  it('tints old fresh items and shows the nudge with a safe link', () => {
+    setPantry([old('bananas', 8), old('feta, aged', 9), old('kale', 2)], { members });
+    renderWithProviders(<PantryPage />);
+    expect(screen.getByText('bananas').closest('li')).toHaveClass('bg-accent-100');
+    expect(screen.getByText('kale').closest('li')).not.toHaveClass('bg-accent-100');
+    expect(screen.getByText(/Been in the pantry over a week: bananas and feta, aged\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Find something to use them' })).toHaveAttribute('href', '/search?p=bananas%2Cfeta+aged');
+  });
+
+  it('shows no nudge when nothing is old, and dismiss hides it for the day', () => {
+    setPantry([old('kale', 2)], { members });
+    const { unmount } = renderWithProviders(<PantryPage />);
+    expect(screen.queryByText('Find something to use them')).toBeNull();
+    unmount();
+    setPantry([old('bananas', 8)], { members });
+    renderWithProviders(<PantryPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss for today' }));
+    expect(screen.queryByText('Find something to use them')).toBeNull();
+  });
+});

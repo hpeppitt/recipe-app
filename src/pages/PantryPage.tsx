@@ -2,15 +2,22 @@ import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useKitchen } from '../hooks/useKitchen';
-import { itemKey } from '../lib/shopping';
-import { sharedWithLine } from '../lib/kitchen';
+import { ageingLine, agedItems, itemKey } from '../lib/shopping';
+import { sharedWithLine, type PantryItem } from '../lib/kitchen';
+import { getPantryNudgeDismissed, setPantryNudgeDismissed } from '../services/storage';
+import { Avatar } from '../components/ui/Avatar';
 import { AvatarStack } from '../components/kitchen/KitchenPeople';
 import { AuthModal } from '../components/auth/AuthModal';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { Skeleton } from '../components/ui/Skeleton';
-import { ChevronLeft, CloudOff, Plus, Refrigerator, Sparkles, UserRound, X } from '../components/ui/icons';
+import { ChevronLeft, Clock, CloudOff, Plus, Refrigerator, Sparkles, UserRound, X } from '../components/ui/icons';
+
+const DAY_MS = 86_400_000;
+const today = () => new Date().toLocaleDateString('en-CA'); // local YYYY-MM-DD
+// Commas separate the names in ?p=; URLSearchParams escapes the rest.
+const searchLink = (names: string[]) => `/search?${new URLSearchParams({ p: names.map((n) => n.replace(/,\s*/g, ' ')).join(',') })}`;
 
 const GROUPS = [
   { id: 'fresh', label: 'Fresh' },
@@ -27,6 +34,7 @@ export function PantryPage() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [note, setNote] = useState('');
+  const [dismissedDay, setDismissedDay] = useState(() => (getPantryNudgeDismissed(today()) ? today() : ''));
   const fieldRef = useRef<HTMLInputElement>(null);
   const verified = isConfigured && !!user && !user.isAnonymous && !!user.emailVerified;
 
@@ -128,8 +136,17 @@ export function PantryPage() {
     content = skeleton;
   } else {
     const pantry = kitchen.pantry;
-    // Commas separate the names in ?p=; URLSearchParams escapes the rest.
-    const cook = `/search?${new URLSearchParams({ p: pantry.map((i) => i.name.replace(/,\s*/g, ' ')).join(',') })}`;
+    const cook = searchLink(pantry.map((i) => i.name));
+    const now = Date.now();
+    const aged = agedItems(pantry, now);
+    const agedIds = new Set(aged.map((i) => i.id));
+    const showNudge = aged.length > 0 && dismissedDay !== today();
+    const addedLabel = (i: PantryItem) => {
+      const who = members.find((m) => m.uid === i.addedBy);
+      const days = Math.max(0, Math.floor((now - i.addedAt) / DAY_MS));
+      const when = days === 0 ? 'today' : `${days} ${days === 1 ? 'day' : 'days'} ago`;
+      return `added by ${who ? who.name?.trim() || 'a cook' : 'a former member'} ${when}`;
+    };
     content = (
       <>
         <form
@@ -160,6 +177,30 @@ export function PantryPage() {
             </button>
           </div>
         </form>
+        {showNudge && (
+          <div className="mx-[22px] mt-4 flex items-start gap-2.5 rounded-[22px] border border-accent-300 bg-accent-100 px-[14px] py-3 text-[13px] text-accent-900">
+            <Clock className="mt-0.5 size-4 shrink-0" />
+            <p className="min-w-0 flex-1">
+              {ageingLine(aged.map((i) => i.name))}{' '}
+              <Link to={searchLink(aged.map((i) => i.name))} className="font-bold underline">
+                Find something to use them
+              </Link>
+            </p>
+            <button
+              type="button"
+              aria-label="Dismiss for today"
+              onClick={() => {
+                setPantryNudgeDismissed(today());
+                setDismissedDay(today());
+                setNote('Reminder dismissed for today');
+                fieldRef.current?.focus();
+              }}
+              className="relative inline-flex size-6 shrink-0 before:absolute before:-inset-x-3 before:-inset-y-1.5 before:content-[''] items-center justify-center rounded-full"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
         {error && <p role="alert" className="px-[22px] pt-2 text-[13px] text-danger-600">{error}</p>}
         {pantry.length === 0 ? (
           <EmptyState
@@ -178,8 +219,12 @@ export function PantryPage() {
                     <h2 className="text-xs font-bold uppercase text-neutral-700">{g.label}</h2>
                     <ul className="flex flex-wrap gap-1.5 pt-2">
                       {items.map((i) => (
-                        <li key={i.id} className="flex max-w-full items-center break-words rounded-full bg-surface-secondary py-[7px] pl-[14px] pr-[10px] text-[14px] text-text-primary">
-                          {i.name}
+                        <li key={i.id} className={`flex max-w-full items-center break-words rounded-full py-[7px] pl-[14px] pr-[10px] text-[14px] ${agedIds.has(i.id) ? 'border border-accent-300 bg-accent-100 text-accent-900' : 'border border-transparent bg-surface-secondary text-text-primary'}`}>
+                          {agedIds.has(i.id) && <Clock className="mr-1 size-3.5 shrink-0" />}
+                          <span className="min-w-0 break-words">{i.name}</span>
+                          <span role="img" aria-label={addedLabel(i)} className="ml-1.5 flex shrink-0">
+                            <Avatar uid={members.some((m) => m.uid === i.addedBy) ? i.addedBy : 'former'} name={members.find((m) => m.uid === i.addedBy)?.name ?? null} size="sm" {...members.find((m) => m.uid === i.addedBy)?.avatar} />
+                          </span>
                           <button
                             type="button"
                             aria-label={`Remove ${i.name}`}
@@ -187,7 +232,7 @@ export function PantryPage() {
                             onClick={async () => {
                               if (await run(() => removePantry(i.id))) setNote(`Removed ${i.name}`);
                             }}
-                            className="relative ml-1 inline-flex size-6 shrink-0 before:absolute before:-inset-3 before:content-[''] items-center justify-center rounded-full disabled:opacity-60"
+                            className="relative ml-1 inline-flex size-6 shrink-0 before:absolute before:-inset-x-3 before:-inset-y-1.5 before:content-[''] items-center justify-center rounded-full disabled:opacity-60"
                           >
                             <X className="size-3.5" />
                           </button>

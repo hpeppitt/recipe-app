@@ -2167,3 +2167,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - A: tap the avatars, Remove B, confirm. B's Kitchen goes back to their own list.
 - Edge cases: a mangled link (/join/abc) shows "This invite has expired" at once. B, already in A's kitchen, opening an invite from someone else sees "You already share a kitchen. Leave it before joining another." A opening their own link sees "This is your own invite".
 - VoiceOver: the avatar button reads "People. Shared with B"; each state's heading is announced as the sheet changes; Remove and Leave each ask first.
+
+### RL-240 Pantry avatars and ageing nudge
+- In the emulator, set a Fresh pantry item's `addedAt` to 8 days ago. Its pill turns warm (accent tint) and a card above the groups reads "Been in the pantry over a week: bananas." with "Find something to use them"; the link opens Search filtered to those items.
+- Each pill ends in a small avatar of who added it; with a second member, items they added show their colour. Check the X on a pill is still easy to hit. Check both themes for text contrast on the tinted pill and card.
+- Tap the X on the card: it goes away and stays away on reload until tomorrow.

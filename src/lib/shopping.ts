@@ -194,3 +194,19 @@ export function shareText(toBuy: Item[]): string {
   );
   return ['Shopping list', ...body].join('\n\n');
 }
+
+const DAY_MS = 86_400_000;
+
+/** Fresh pantry items added `days` or more ago (RL-240). Approximate: the added date, not an expiry. */
+export function agedItems(pantry: PantryItem[], now: number, days = 7): PantryItem[] {
+  return pantry.filter((i) => i.group === 'fresh' && now - i.addedAt >= days * DAY_MS);
+}
+
+/** "Been in the pantry over a week: bananas and spinach." Verb-free so the grammar never breaks. */
+export function ageingLine(names: string[]): string {
+  const head = 'Been in the pantry over a week: ';
+  if (names.length === 0) return '';
+  if (names.length === 1) return `${head}${names[0]}.`;
+  if (names.length === 2) return `${head}${names[0]} and ${names[1]}.`;
+  return `${head}${names[0]}, ${names[1]} and ${names.length - 2} more.`;
+}
