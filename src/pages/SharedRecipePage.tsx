@@ -13,6 +13,8 @@ import { SuggestMode } from '../components/recipe/SuggestMode';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
 import { useCookedEntry } from '../hooks/useCookedEntry';
+import { useRecipeCooks } from '../hooks/useCooks';
+import { MadeByRow } from '../components/recipe/MadeByRow';
 import { usePendingAction } from '../hooks/usePendingAction';
 import { SignUpDialog } from '../components/auth/SignUpDialog';
 import { Button } from '../components/ui/Button';
@@ -58,7 +60,8 @@ function SharedRecipeView() {
   const { user, isConfigured } = useAuth();
   const { branch, signUp: branchSignUp } = useBranchEntry();
   const [recipe, setRecipe] = useState<FullSharedRecipe | null>(null);
-  const cooked = useCookedEntry(paramId ? { id: paramId } : undefined, true);
+  const cooks = useRecipeCooks(paramId);
+  const cooked = useCookedEntry(paramId ? { id: paramId } : undefined, true, cooks.log);
   // 'not-found' is a permanent dead end (bad or corrupted link); 'failed' is a
   // fetch that blew up and is worth retrying. Conflating them told users with a
   // flaky connection that a perfectly good link was corrupt.
@@ -393,7 +396,7 @@ function SharedRecipeView() {
             )}
           </div>
 
-          <RecipeContent recipe={fullRecipe} hideHeader onAllTicked={cooked.onAllTicked} />
+          <RecipeContent recipe={fullRecipe} hideHeader onAllTicked={cooked.onAllTicked} underMeta={<MadeByRow cooks={cooks} />} />
 
           {recipe.collaborators && recipe.collaborators.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">

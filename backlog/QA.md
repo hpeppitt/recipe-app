@@ -1986,3 +1986,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Reviewer noted: the saved toast lives in a persistent `role="status"` region on both pages, so tests that look for one status now match by text.
 
 - Reviewer noted (low): the 320px footer was measured with a hand-copied harness (scratchpad), so later footer edits need a re-measure; the visible Branch label is "Branch" under 360px and "Branch this recipe" above. Pane-mode footer (wrapping by design) not measured.
+
+### RL-199 Made-by row and Notes sheet
+- **Needs RL-209 deployed (cooks rules and indexes) to work live; otherwise use the emulators.** Log two cooks on one recipe from two accounts (one with a note each, one Needs a tweak). Open the recipe signed out and at `/shared/<id>`: the row sits under the pills with two avatars, "Made 2 times · 1 would make again" and Notes. It is absent on a recipe with no cooks and in the chat card.
+- Tap Notes: "Notes from cooks" lists both newest first with name, day, Again or Tweak tag and italic note. Signed in as one of them, only your note has Delete; it asks "Delete this cook?", and after Delete the count drops and the note goes. Check 320px and dark theme, and that the row reads as one sentence in VoiceOver.
+- Log a cook yourself from the footer: the row updates without a reload.
+
