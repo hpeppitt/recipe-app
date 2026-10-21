@@ -19,6 +19,8 @@ interface RecipeContentProps {
   afterMeta?: ReactNode;
   /** Ticking the last method step (RL-198). */
   onAllTicked?: (allDone: boolean) => void;
+  /** Ticking an ingredient, with the servings shown at that moment (RL-203). */
+  onIngredientTicked?: (servings: number) => void;
 }
 
 /**
@@ -35,7 +37,7 @@ export function RecipeContent(props: RecipeContentProps) {
   return <RecipeContentBody key={props.recipe.id} {...props} />;
 }
 
-function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, underMeta, onAllTicked }: RecipeContentProps) {
+function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterMeta, underMeta, onAllTicked, onIngredientTicked }: RecipeContentProps) {
   // Display-only, and deliberately not persisted: cooking for eight tonight says
   // nothing about next time, and a recipe that silently remembered a scale would
   // eventually mislead.
@@ -91,6 +93,7 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterM
         <IngredientList
           ingredients={scaled.ingredients}
           checkable={!compact}
+          onTick={onIngredientTicked && (() => onIngredientTicked(scaled.servings))}
           scaled={servings !== recipe.servings && recipe.servings > 0}
           headingAside={!compact && <ServingStepper servings={scaled.servings} onChange={setServings} />}
           belowHeading={

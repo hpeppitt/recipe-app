@@ -19,9 +19,11 @@ interface IngredientListProps {
   belowHeading?: ReactNode;
   /** Amounts are shown at a count other than the stored one: they turn terracotta. */
   scaled?: boolean;
+  /** Called on each tick (not untick), so the recipe page can offer cook mode (RL-203). */
+  onTick?: () => void;
 }
 
-export function IngredientList({ ingredients, checkable = false, headingAside, belowHeading, scaled = false }: IngredientListProps) {
+export function IngredientList({ ingredients, checkable = false, headingAside, belowHeading, scaled = false, onTick }: IngredientListProps) {
   const groups = groupIngredients(ingredients);
   // Deliberately not persisted. A tick means "I have this out on the counter
   // right now"; restoring yesterday's ticks would be actively misleading.
@@ -29,13 +31,15 @@ export function IngredientList({ ingredients, checkable = false, headingAside, b
   const { unitSystem } = useUnitSystem();
   const { weighVolumes } = useWeighVolumes();
 
-  const toggle = (key: string) =>
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const toggle = (key: string) => {
+    const next = new Set(checked);
+    if (next.has(key)) next.delete(key);
+    else {
+      next.add(key);
+      onTick?.();
+    }
+    setChecked(next);
+  };
 
   return (
     <div className="mt-6">

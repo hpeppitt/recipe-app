@@ -26,7 +26,8 @@ import { RelatedFamilies } from '../components/recipe/RelatedFamilyCard';
 import { LineageStrip } from '../components/recipe/LineageStrip';
 import { BranchCarousel } from '../components/recipe/BranchCarousel';
 import { Button } from '../components/ui/Button';
-import { ChefHat, GitBranchPlus, MessageCircle, Network, Pencil } from '../components/ui/icons';
+import { ChefHat, GitBranchPlus, MessageCircle, Network, Pencil, X } from '../components/ui/icons';
+import type { CookModeState } from './CookModePage';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { AuthModal } from '../components/auth/AuthModal';
 import { useBranchEntry } from '../hooks/useBranchEntry';
@@ -56,6 +57,8 @@ import { countRecipeViewed, markSeen, shouldShowTreeIntro } from '../lib/onboard
 const SHARE_PUBLISH_TIMEOUT_MS = 4000;
 /** How long Delete waits on the cloud before telling the user copies may remain. */
 const CLOUD_DELETE_TIMEOUT_MS = 10000;
+/** How long the Start cooking offer stays up (RL-203). */
+const COOK_OFFER_MS = 8000;
 
 /** A branch delete: the version as it was when the dialog opened, and its direct children's ids. */
 type DeleteFailure = 'too-many' | 'others' | 'pending';
@@ -98,13 +101,64 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
   const cooks = useRecipeCooks(recipe?.id);
   const cooked = useCookedEntry(recipe ?? undefined, source === 'cloud', cooks.log);
   const location = useLocation();
+  // RL-203: the first ingredient tick offers cook mode for 8 seconds, once per recipe visit.
+  // The timer waits while the bar is hovered or focused, and starts again on leave (WCAG 2.2.1).
+  const [cookOffer, setCookOffer] = useState<string | null>(null);
+  const [offerHover, setOfferHover] = useState(false);
+  const [offerFocus, setOfferFocus] = useState(false);
+  const cookOfferedFor = useRef<string | null>(null);
+  const cookServings = useRef(0);
+  const closeCookOffer = () => {
+    setCookOffer(null);
+    setOfferHover(false);
+    setOfferFocus(false);
+  };
+  useEffect(() => {
+    if (!cookOffer || offerHover || offerFocus) return;
+    const t = setTimeout(() => setCookOffer(null), COOK_OFFER_MS);
+    return () => clearTimeout(t);
+  }, [cookOffer, offerHover, offerFocus]);
+  useEffect(() => {
+    if (!cookOffer) return;
+    const onKey = (e: KeyboardEvent) => {
+      // A dialog's own Escape is not for the bar.
+      if (e.key !== 'Escape' || e.defaultPrevented || (e.target as Element | null)?.closest?.('dialog, [role="dialog"]')) return;
+      setCookOffer(null);
+      setOfferHover(false);
+      setOfferFocus(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [cookOffer]);
+  // Cook mode replaces itself with this page after a cook is saved (RL-203); its own toast went with it.
+  // The flag is cleared from history once read, so Back or a reload does not show it again.
+  const [cookedToast, setCookedToast] = useState(() => !!(location.state as { cooked?: boolean } | null)?.cooked);
+  const cookedFlagCleared = useRef(false);
+  useEffect(() => {
+    if (!cookedToast) return;
+    if (!cookedFlagCleared.current) {
+      cookedFlagCleared.current = true;
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    const t = setTimeout(() => setCookedToast(false), 3000);
+    return () => clearTimeout(t);
+  }, [cookedToast, navigate, location.pathname]);
+  const onIngredientTicked = (servings: number) => {
+    cookServings.current = servings;
+    if (!recipe || cookOfferedFor.current === recipe.id || !Array.isArray(recipe.instructions) || recipe.instructions.length === 0) return;
+    cookOfferedFor.current = recipe.id;
+    setCookOffer(recipe.id);
+  };
   // One hook, and cloud-aware: a feed-browsed recipe now shows its real
   // variations, lineage and descendant count instead of local-only emptiness.
   const { children, ancestors, descendantCount, recipes: family, isLoading: treeLoading } = useRecipeLineage(recipe);
   // RL-144: from lg the Family button and tree icon open a pull-out; the page stays mounted across ids, so it closes on a change.
   const wide = useMediaQuery(WIDE_QUERY);
   const [familyOpen, setFamilyOpen] = useState(false);
-  useEffect(() => setFamilyOpen(false), [id]);
+  useEffect(() => {
+    setFamilyOpen(false);
+    setCookOffer(null);
+  }, [id]);
   useEffect(() => {
     if (!wide) setFamilyOpen(false);
   }, [wide]);
@@ -736,6 +790,7 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
             recipe={recipe}
             hideHeader
             onAllTicked={cooked.onAllTicked}
+            onIngredientTicked={onIngredientTicked}
             underMeta={<MadeByRow cooks={cooks} />}
             afterMeta={
               <>
@@ -883,6 +938,49 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
         </div>
       </div>
 
+      {/* Above the footer when scrolled to it: the footer is 92px plus the safe area. */}
+      {/* Always mounted, so the bar is announced when it appears inside it. */}
+      <div role="status">
+        {cookOffer === recipe.id && (
+          <div
+            // Touch has no hover; a tap must not hold the bar open.
+            onPointerEnter={(e) => e.pointerType !== 'touch' && setOfferHover(true)}
+            onPointerLeave={(e) => e.pointerType !== 'touch' && setOfferHover(false)}
+            onFocus={() => setOfferFocus(true)}
+            onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOfferFocus(false)}
+            className="fixed inset-x-0 bottom-[calc(96px+env(safe-area-inset-bottom))] z-40 px-4 motion-safe:animate-[offer-in_250ms_ease-out]"
+          >
+            <div className="mx-auto flex max-w-lg items-center gap-2 rounded-[22px] bg-accent-2-100 py-1.5 pl-3.5 pr-1 shadow-lg">
+              <ChefHat className="h-5 w-5 shrink-0 text-text-primary" />
+              {/* The pill drops under the text when the bar is too narrow for both (measured at 320 to 768px). */}
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
+                <p className="min-w-[min(100%,200px)] flex-1 text-[14px] leading-snug text-text-primary">
+                  Start cooking? Steps one at a time, screen stays on.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/recipe/${recipe.id}/cook`, { state: { servings: cookServings.current } satisfies CookModeState })}
+                  className="group -my-1 ml-auto flex h-11 shrink-0 items-center focus-visible:outline-none"
+                >
+                  {/* 36px to look at, 44px to hit. */}
+                  <span className="inline-flex h-9 items-center whitespace-nowrap rounded-full bg-primary-600 px-3.5 font-heading text-[14px] text-on-accent group-hover:bg-primary-700 group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-primary-500">
+                    Start cooking
+                  </span>
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={closeCookOffer}
+                aria-label="Dismiss"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-primary focus-visible:outline-2 focus-visible:outline-primary-500"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {deleteDialogs}
 
       {branchSignUp}
@@ -918,6 +1016,15 @@ export function RecipeDetailPage({ id: paneId, onShown, beside = true }: PanePro
           className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
         >
           <p className="break-words text-sm font-medium text-text-primary">Sent to {sentTo}</p>
+        </div>
+      )}
+
+      {cookedToast && (
+        <div
+          role="status"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg"
+        >
+          <p className="text-sm font-medium text-text-primary">Saved to your cook log</p>
         </div>
       )}
 

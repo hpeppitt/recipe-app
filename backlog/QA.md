@@ -2006,3 +2006,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-202 Cooked stat tile
 - **Needs RL-209 deployed (cooks rules), or the emulators.** On You the tiles read Started, Grew, Cooked, Followers. Log a cook, return to You: Cooked is up by one. Another cook's profile shows the same tiles. The "N views · N saves" line sits under the tiles (hidden at zero). Check 320px: four tiles still fit.
+
+### RL-203 Cook mode
+- **Real phone only (wake lock cannot be checked in a desktop browser).** Open a recipe and tick one ingredient: a green "Start cooking?" bar rises above the footer and leaves after about 8 seconds; ticking again in the same visit does not bring it back. Tap Start cooking, then leave the phone untouched for two minutes: the screen stays on. Switch to another app and back: still on. Swipe left and right through the steps, and use Back and Next step. Open Ingredients: amounts match the servings chosen on the recipe page. On the last step Done opens the I made this sheet (published recipe, verified account); saving lands on the recipe. With reduce motion on, the bar appears without sliding. At 320px the bar's Start cooking button sits under the text and the bar clears the footer when scrolled to the bottom.
+- **Author question:** Cook mode is only offered by the 8-second bar after ticking an ingredient; once it is dismissed there is no way in for that visit. Add a permanent entry (e.g. in the recipe's overflow or next to Method)?

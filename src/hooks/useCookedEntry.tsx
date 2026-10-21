@@ -17,11 +17,13 @@ const OFFER_DELAY_MS = 400;
  * `canCook` is false in local-only mode and until the recipe is known to be published (a cook
  * needs the cloud copy). Pass `published` when the caller already read it from the cloud.
  * `log` is the page's `useRecipeCooks().log`; it refreshes the page's Made-by row.
+ * `onSaved` runs once a cook is saved (cook mode returns to the recipe, RL-203).
  */
 export function useCookedEntry(
   recipe: Pick<Recipe, 'id'> | undefined,
   published = false,
-  log: LogCook
+  log: LogCook,
+  onSaved?: (cookId: string) => void
 ): { canCook: boolean; open: () => void; onAllTicked: (allDone: boolean) => void; sheets: ReactNode } {
   const { user, isConfigured } = useAuth();
   const [sheet, setSheet] = useState<'cook' | 'auth' | null>(null);
@@ -55,7 +57,7 @@ export function useCookedEntry(
   };
   const sheets = recipe && (
     <>
-      <CookedSheet open={sheet === 'cook'} recipe={recipe} onClose={() => setSheet(null)} log={log} />
+      <CookedSheet open={sheet === 'cook'} recipe={recipe} onClose={() => setSheet(null)} log={log} onSaved={onSaved} />
       <SignUpDialog open={sheet === 'auth'} action={{ kind: 'cook' }} body={BODY} onClose={() => setSheet(null)} />
     </>
   );

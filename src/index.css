@@ -351,3 +351,11 @@ body {
     opacity: 0;
   }
 }
+
+/* The Start cooking offer slides up (RL-203); used under motion-safe only. */
+@keyframes offer-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}

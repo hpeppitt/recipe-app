@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { renderWithProviders, fakeUser } from '../test/renderWithProviders';
-import { makeRecipe } from '../test/factories';
+import { makeIngredient, makeRecipe } from '../test/factories';
 import type { AppUser } from '../types/recipe';
 import type { AuthContextType } from '../contexts/AuthContext';
 
@@ -775,7 +775,8 @@ describe('RecipeDetailPage suggest mode', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Suggest a change to 2 clove garlic' }));
     fireEvent.change(screen.getByLabelText('New amount'), { target: { value: '4 cloves' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send to Ada' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Sent to Ada Lovelace'));
+    // The cook-offer status region (RL-203) is always mounted, so find the toast by its text.
+    await waitFor(() => expect(screen.getByText('Sent to Ada Lovelace').closest('[role="status"]')).not.toBeNull());
     expect(submitMock).toHaveBeenCalledWith({
       recipeId: 'r1',
       recipeOwnerId: 'owner',
@@ -957,5 +958,94 @@ describe('RecipeDetailPage Cooked (RL-198)', () => {
     await new Promise((r) => setTimeout(r, 500));
     expect(sheet()).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Sign in to log a cook' })).toBeNull();
+  });
+});
+
+describe('RecipeDetailPage Start cooking offer (RL-203)', () => {
+  const show = () => {
+    recipe = makeRecipe({
+      id: 'r1',
+      title: 'Soup',
+      servings: 2,
+      ingredients: [makeIngredient('salt'), makeIngredient('leek')],
+      instructions: [{ step: 1, text: 'Do 1', group: null }],
+    });
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: '/recipe/r1' }
+    );
+  };
+  const offer = () => screen.queryByRole('button', { name: 'Start cooking' });
+  const tick = (name: string) => fireEvent.click(screen.getByRole('checkbox', { name: new RegExp(name) }));
+
+  it('appears on the first ingredient tick and opens cook mode with the servings', () => {
+    show();
+    expect(offer()).toBeNull();
+    tick('salt');
+    fireEvent.click(offer()!);
+    expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1/cook', { state: { servings: 2 } });
+  });
+
+  it('is offered once per visit', () => {
+    show();
+    tick('salt');
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(offer()).toBeNull();
+    tick('leek');
+    tick('salt');
+    expect(offer()).toBeNull();
+  });
+
+  it('waits while focused, restarts on blur, and Escape dismisses it', () => {
+    vi.useFakeTimers();
+    try {
+      show();
+      tick('salt');
+      expect(offer()!.closest('[role="status"]')).not.toBeNull();
+      fireEvent.focus(offer()!);
+      act(() => vi.advanceTimersByTime(9000));
+      expect(offer()).not.toBeNull();
+      fireEvent.blur(offer()!);
+      act(() => vi.advanceTimersByTime(7000));
+      expect(offer()).not.toBeNull();
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      document.body.appendChild(dialog);
+      fireEvent.keyDown(dialog, { key: 'Escape' });
+      expect(offer()).not.toBeNull();
+      dialog.remove();
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(offer()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('confirms a cook saved in cook mode', () => {
+    recipe = makeRecipe({ id: 'r1', title: 'Soup' });
+    renderWithProviders(
+      <Routes>
+        <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+      </Routes>,
+      { route: { pathname: '/recipe/r1', state: { cooked: true } } }
+    );
+    expect(screen.getByText('Saved to your cook log')).toBeInTheDocument();
+    expect(navigateSpy).toHaveBeenCalledWith('/recipe/r1', { replace: true, state: null });
+    expect(navigateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes away after 8 seconds', () => {
+    vi.useFakeTimers();
+    try {
+      show();
+      tick('salt');
+      expect(offer()).not.toBeNull();
+      act(() => vi.advanceTimersByTime(8000));
+      expect(offer()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

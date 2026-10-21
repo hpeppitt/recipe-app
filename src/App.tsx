@@ -19,6 +19,7 @@ const RecipeDetailPage = lazy(() => import('./pages/RecipeDetailPage').then(m =>
 const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ default: m.RecipeEditPage })));
 const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
 const RecipeChangesPage = lazy(() => import('./pages/RecipeChangesPage').then(m => ({ default: m.RecipeChangesPage })));
+const CookModePage = lazy(() => import('./pages/CookModePage').then(m => ({ default: m.CookModePage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const CookLogPage = lazy(() => import('./pages/CookLogPage').then(m => ({ default: m.CookLogPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
@@ -75,6 +76,8 @@ export function AppRoutes() {
         <Route path="/recipe/:id" element={<RecipeDetailPage />} />
         <Route path="/recipe/:id/edit" element={<RecipeEditPage />} />
         <Route path="/recipe/:id/tree" element={<VersionTreePage />} />
+        {/* Cook mode (RL-203): full screen, so Back closes it. */}
+        <Route path="/recipe/:id/cook" element={<CookModePage />} />
         <Route path="/recipe/:id/changes" element={<RecipeChangesPage />} />
         {/* The reply thread on one suggestion (RL-106), with its own Back button. */}
         <Route path="/recipe/:id/suggestion/:suggestionId" element={<SuggestionThreadPage />} />
