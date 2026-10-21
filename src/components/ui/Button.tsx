@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils';
-import type { ButtonHTMLAttributes, AnchorHTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, AnchorHTMLAttributes, Ref } from 'react';
 
 interface ButtonStyleProps {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -14,7 +14,7 @@ interface ButtonStyleProps {
  * to widen the primitive rather than style an anchor at the call site.
  */
 type ButtonProps =
-  | (ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button' })
+  | (ButtonStyleProps & ButtonHTMLAttributes<HTMLButtonElement> & { as?: 'button'; ref?: Ref<HTMLButtonElement> })
   | (ButtonStyleProps & AnchorHTMLAttributes<HTMLAnchorElement> & { as: 'a' });
 
 // The danger fill flips in dark but white text does not: white on dark danger-600 is 2.77:1, ink is 6.30:1.
