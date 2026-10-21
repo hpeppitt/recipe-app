@@ -5,7 +5,9 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
 
 const mocks = vi.hoisted(() => ({
-  collections: [] as { id: string; name: string; recipeIds: string[] }[],
+  collections: [] as { id: string; name: string; recipeIds: string[]; visibility?: string; description?: string | null }[],
+  share: vi.fn(),
+  ensure: vi.fn(),
   loading: false,
   error: null as string | null,
   rename: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock('../hooks/useCollections', () => ({
     renameCollection: mocks.rename,
     deleteCollection: mocks.del,
     removeFromCollection: mocks.remove,
+    setCookbookSharing: mocks.share,
   }),
 }));
 vi.mock('../hooks/useSavedFavorites', () => ({ fetchFavoriteCached: (id: string) => mocks.fetch(id) }));
@@ -32,6 +35,7 @@ vi.mock('../db/database', () => ({ db: { recipes: { bulkGet: mocks.bulkGet } } }
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 
 import { CollectionPage } from './CollectionPage';
+import { TermsContext } from '../contexts/AuthContext';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -44,6 +48,8 @@ beforeEach(() => {
   mocks.rename.mockReset().mockResolvedValue(undefined);
   mocks.del.mockReset().mockResolvedValue(undefined);
   mocks.remove.mockReset().mockResolvedValue(undefined);
+  mocks.share.mockReset().mockResolvedValue(undefined);
+  mocks.ensure.mockReset().mockResolvedValue(true);
   mocks.bulkGet.mockReset().mockImplementation(async (ids: string[]) => ids.map((id) => (id === 'a' ? { id, title: 'Dal', emoji: '🍲', totalTime: 30 } : undefined)));
   mocks.fetch.mockReset().mockResolvedValue({ status: 'missing' });
 });
@@ -161,5 +167,55 @@ describe('CollectionPage (RL-224)', () => {
     a.unmount();
     renderWithProviders(<CollectionPage />, { user: null });
     expect(screen.getByText('Sign in to use collections')).toBeInTheDocument();
+  });
+
+  describe('Share as a cookbook (RL-257)', () => {
+    const mount = () =>
+      renderWithProviders(
+        <TermsContext.Provider value={{ pending: false, accept: async () => {}, decline: async () => {}, ensureCurrent: mocks.ensure }}>
+          <Routes>
+            <Route path="/kitchen/c/:id" element={<CollectionPage />} />
+          </Routes>
+        </TermsContext.Provider>,
+        { route: '/kitchen/c/c1' }
+      );
+    const open = () => {
+      mount();
+      fireEvent.click(screen.getByRole('button', { name: 'More' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Share as a cookbook' }));
+    };
+
+    it('shares with the trimmed description after the Terms check, and says how many recipes will not show', async () => {
+      open();
+      expect(screen.getByText(/Anyone with the link can see it/)).toBeInTheDocument();
+      expect(await screen.findByText("1 recipe isn't published and won't show.")).toBeInTheDocument();
+      const box = screen.getByPlaceholderText('What makes these worth cooking?');
+      expect(box).toHaveAttribute('maxlength', '280');
+      fireEvent.change(box, { target: { value: '  Fast  ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+      await waitFor(() => expect(mocks.share).toHaveBeenCalledWith('c1', 'public', 'Fast'));
+      expect(mocks.ensure).toHaveBeenCalled();
+    });
+
+    it('does not write when the Terms are owed', async () => {
+      mocks.ensure.mockResolvedValue(false);
+      open();
+      fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+      expect(await screen.findByText('Accept the Terms, then press Share again.')).toBeInTheDocument();
+      expect(mocks.share).not.toHaveBeenCalled();
+    });
+
+    it('shows the link and Stop sharing once public, and checks Terms before a rename', async () => {
+      mocks.collections = [{ id: 'c1', name: 'Weeknights', recipeIds: ['a'], visibility: 'public', description: 'Fast' }];
+      open();
+      expect(screen.getByLabelText('Cookbook link')).toHaveValue(`${window.location.origin}/c/c1`);
+      fireEvent.click(screen.getByRole('button', { name: 'Stop sharing' }));
+      expect(screen.getByText('The link stops working for anyone who has it.')).toBeInTheDocument();
+      expect(mocks.share).not.toHaveBeenCalled();
+      fireEvent.click(screen.getAllByRole('button', { name: 'Stop sharing' }).at(-1)!);
+      await waitFor(() => expect(mocks.share).toHaveBeenCalledWith('c1', 'private', 'Fast'));
+      mocks.ensure.mockResolvedValue(false);
+      fireEvent.keyDown(document, { key: 'Escape' });
+    });
   });
 });

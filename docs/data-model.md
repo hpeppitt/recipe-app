@@ -645,7 +645,7 @@ budget**: none. Both blocks emulator-checked 2026-10-21, including another user'
 301-item lists (403) (ticket RL-211 Notes). `src/lib/kitchen.test.ts` ties the two caps to the
 rules text.
 
-**collections as public cookbooks** (RL-256, in the repo, deployed by RL-261): read also by anyone,
+**collections as public cookbooks** (RL-256, in the repo, deployed by RL-261): read also by anyone, Client (RL-257): `setCookbookSharing` writes only `visibility`, `description`, `updatedAt`; `addToCollection` adds `lastAddedAt` to the same update when public; `COLLECTION_KEYS` in the data export now keeps `description`, `lastAddedAt` and `followerCount`.
 signed out included, when `visibility` is `'public'`, so a signed-out get of a public cookbook and a
 `where visibility == 'public'` query are allowed; a private or missing one denies (403, not 404).
 The whole document is public, `ownerUid` and `recipeIds` included. The owner's update may now change

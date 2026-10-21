@@ -3,10 +3,10 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { listOriginState } from '../lib/paneMode';
 import { db } from '../db/database';
-import { useAuth } from '../contexts/AuthContext';
+import { TermsContext, useAuth } from '../contexts/AuthContext';
 import { COLLECTIONS_LOAD_FAILED_MESSAGE, useCollections } from '../hooks/useCollections';
 import { fetchFavoriteCached } from '../hooks/useSavedFavorites';
-import { COLLECTION_GONE_MESSAGE, COLLECTION_NAME_MAX, collectionCount } from '../lib/kitchen';
+import { COLLECTION_GONE_MESSAGE, COLLECTION_NAME_MAX, COOKBOOK_DESCRIPTION_MAX, collectionCount } from '../lib/kitchen';
 import { reportError } from '../services/telemetry';
 import { AuthModal } from '../components/auth/AuthModal';
 import { RecipeTileGrid, type RecipeTile } from '../components/profile/RecipeTileGrid';
@@ -29,11 +29,16 @@ export function CollectionPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isConfigured, isLoading: authLoading } = useAuth();
-  const { collections, loading, error, retry, renameCollection, deleteCollection, removeFromCollection } = useCollections();
+  const { collections, loading, error, retry, renameCollection, deleteCollection, removeFromCollection, setCookbookSharing } = useCollections();
+  const terms = useContext(TermsContext);
   const [showAuth, setShowAuth] = useState(false);
   const [edit, setEdit] = useState(false);
-  const [menu, setMenu] = useState<'more' | 'rename' | null>(null);
+  const [menu, setMenu] = useState<'more' | 'rename' | 'share' | null>(null);
+  const [description, setDescription] = useState('');
+  const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -41,6 +46,8 @@ export function CollectionPage() {
   const [known, setKnown] = useState<ReadonlyMap<string, Known>>(new Map());
   const [localDone, setLocalDone] = useState(false);
   const titleId = useId();
+  const descId = useId();
+  const countId = useId();
   const inFlight = useRef(new Set<string>());
   const editRef = useRef<HTMLButtonElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -105,14 +112,45 @@ export function CollectionPage() {
     }
   };
 
+  // A public collection's every owner write needs the current Terms: open the dialog instead of failing.
+  const termsOk = async () => (await terms?.ensureCurrent?.()) ?? true;
   const rename = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    if (await run(() => renameCollection(id, name))) setMenu(null);
+    if (await run(async () => {
+      if (collection?.visibility === 'public' && !(await termsOk())) throw new Error('Accept the Terms, then try again.');
+      await renameCollection(id, name);
+    })) setMenu(null);
+  };
+  const setSharing = (on: boolean) =>
+    run(async () => {
+      if (on && !(await termsOk())) throw new Error('Accept the Terms, then press Share again.');
+      await setCookbookSharing(id, on ? 'public' : 'private', on ? description.trim() || null : collection?.description ?? null);
+      setStatus(on ? 'Shared. Link ready.' : 'Sharing stopped.');
+    });
+  const link = `${window.location.origin}/c/${id}`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setMessage(null);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setMessage("Couldn't copy the link.");
+    }
+  };
+  const shareLink = async () => {
+    try {
+      await navigator.share({ title: collection?.name, url: link });
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'AbortError')) setMessage("Couldn't share the link.");
+    }
   };
   const closeMenu = () => {
     setMenu(null);
     setMessage(null);
+    setCopied(false);
+    setStatus('');
   };
   const retryTile = (rid: string) =>
     setKnown((prev) => {
@@ -121,7 +159,10 @@ export function CollectionPage() {
       return next;
     });
   const remove = async (rid: string, pos: number, shownIds: string[]) => {
-    if (!(await run(() => removeFromCollection(id, rid)))) return;
+    if (!(await run(async () => {
+      if (collection?.visibility === 'public' && !(await termsOk())) throw new Error('Accept the Terms, then try again.');
+      await removeFromCollection(id, rid);
+    }))) return;
     // The removed tile unmounts, so move focus to its neighbour (or Edit) before it is lost.
     const to = shownIds[pos + 1] ?? shownIds[pos - 1];
     const target = to && gridRef.current?.querySelector<HTMLElement>(`[data-remove-id="${CSS.escape(to)}"]`);
@@ -217,6 +258,7 @@ export function CollectionPage() {
   }
 
   const list = collection.recipeIds;
+  const unpublished = list.filter((rid) => known.get(rid) === 'gone').length;
   const shownIds = list.slice(0, shown);
   const editing = edit && list.length > 0;
   const tiles: RecipeTile[] = shownIds.map((rid, i) => {
@@ -295,6 +337,41 @@ export function CollectionPage() {
             <Button type="submit" disabled={busy}>Save</Button>
             <Button type="button" variant="ghost" disabled={busy} onClick={closeMenu}>Cancel</Button>
           </form>
+        ) : menu === 'share' ? (
+          <div className="flex flex-col gap-3">
+            <h2 id={titleId} className="font-heading text-[22px] text-text-primary">Share as a cookbook</h2>
+            {collection.visibility === 'public' ? (
+              <>
+                <input aria-label="Cookbook link" autoFocus readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="min-h-11 rounded-full border border-neutral-400 bg-neutral-100 px-4 text-base text-text-primary" />
+                {message && <p role="alert" className="text-sm text-danger-700">{message}</p>}
+                <p role="status" className="sr-only">{copied ? 'Link copied' : status}</p>
+                <Button onClick={() => void copy()}>{copied ? 'Copied' : 'Copy link'}</Button>
+                {typeof navigator.share === 'function' && <Button variant="secondary" onClick={() => void shareLink()}>Share</Button>}
+                <Button variant="ghost" disabled={busy} onClick={() => setStopping(true)}>Stop sharing</Button>
+              </>
+            ) : (
+              <>
+                <label htmlFor={descId} className="text-sm font-semibold text-text-primary">Description</label>
+                <textarea
+                  id={descId}
+                  aria-describedby={countId}
+                  autoFocus
+                  rows={3}
+                  value={description}
+                  disabled={busy}
+                  maxLength={COOKBOOK_DESCRIPTION_MAX}
+                  placeholder="What makes these worth cooking?"
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="rounded-2xl border border-neutral-400 bg-neutral-100 px-4 py-3 text-base text-text-primary"
+                />
+                <p id={countId} className="text-[13px] text-neutral-700">{description.length}/{COOKBOOK_DESCRIPTION_MAX}</p>
+                {unpublished > 0 && <p className="text-[13px] text-neutral-700">{unpublished === 1 ? "1 recipe isn't" : `${unpublished} recipes aren't`} published and won't show.</p>}
+                <p className="text-[13px] text-neutral-700">Anyone with the link can see it. Recipes only on your device stay hidden.</p>
+                {message && <p role="alert" className="text-sm text-danger-700">{message}</p>}
+                <Button disabled={busy} onClick={() => void setSharing(true)}>Share</Button>
+              </>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-2">
             <h2 id={titleId} className="font-heading text-xl text-text-primary">{collection.name}</h2>
@@ -311,6 +388,16 @@ export function CollectionPage() {
             <Button
               variant="secondary"
               onClick={() => {
+                setDescription(collection.description ?? '');
+                setMessage(null);
+                setMenu('share');
+              }}
+            >
+              Share as a cookbook
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
                 setMenu(null);
                 setConfirming(true);
               }}
@@ -320,6 +407,16 @@ export function CollectionPage() {
           </div>
         )}
       </Sheet>
+      <ConfirmDialog
+        open={stopping}
+        title="Stop sharing?"
+        message="The link stops working for anyone who has it."
+        confirmLabel="Stop sharing"
+        confirmVariant="danger"
+        busy={busy}
+        onConfirm={() => void setSharing(false).then(() => setStopping(false))}
+        onCancel={() => setStopping(false)}
+      />
       <ConfirmDialog
         open={confirming}
         title={`Delete ${collection.name}?`}

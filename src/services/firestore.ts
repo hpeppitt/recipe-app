@@ -1850,6 +1850,10 @@ export interface RecipeCollection {
   ownerUid: string;
   name: string;
   recipeIds: string[];
+  /** Absent on RL-211 documents, which are private. */
+  visibility: 'private' | 'public';
+  /** Cookbook blurb (RL-257); null when none. */
+  description: string | null;
   /** Epoch ms; estimated while a write is pending. */
   createdAt: number | null;
   updatedAt: number | null;
@@ -1863,6 +1867,8 @@ function toCollection(id: string, data: DocumentData): RecipeCollection {
     ownerUid: typeof data.ownerUid === 'string' ? data.ownerUid : '',
     name: typeof data.name === 'string' ? data.name : '',
     recipeIds: Array.isArray(data.recipeIds) ? data.recipeIds : [],
+    visibility: data.visibility === 'public' ? 'public' : 'private',
+    description: typeof data.description === 'string' ? data.description : null,
     createdAt: (data.createdAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
     updatedAt: (data.updatedAt as Timestamp | null | undefined)?.toMillis?.() ?? null,
   };
@@ -1928,6 +1934,19 @@ export async function renameCollection(id: string, name: string): Promise<void> 
   );
 }
 
+/**
+ * Turns Share as a cookbook on or off and stores its description (null when blank). Publishing
+ * needs the current Terms, which the caller checks first. Never touches followerCount.
+ */
+export async function setCookbookSharing(id: string, visibility: 'private' | 'public', description: string | null): Promise<void> {
+  const { fs } = collectionsDb();
+  await rejectAfter(
+    updateDoc(doc(fs, 'collections', id), { visibility, description, updatedAt: serverTimestamp() }),
+    'Updating the cookbook',
+    COLLECTION_WRITE_TIMEOUT_MS
+  );
+}
+
 export async function deleteCollection(id: string): Promise<void> {
   const { fs } = collectionsDb();
   await rejectAfter(deleteDoc(doc(fs, 'collections', id)), 'Deleting the collection', COLLECTION_WRITE_TIMEOUT_MS);
@@ -1946,10 +1965,15 @@ export async function addToCollection(id: string, recipeId: string): Promise<voi
     runTransaction(fs, async (tx) => {
       const snap = await tx.get(ref);
       if (!snap.exists()) throw new CollectionRefusedError(COLLECTION_GONE_MESSAGE);
-      const { recipeIds } = toCollection(id, snap.data());
+      const { recipeIds, visibility } = toCollection(id, snap.data());
       if (recipeIds.includes(recipeId)) return;
       checkCollectionRoom(recipeIds);
-      tx.update(ref, { recipeIds: arrayUnion(recipeId), updatedAt: serverTimestamp() });
+      // The rules accept lastAddedAt only in a write that grows recipeIds, so it is set here and never on a no-op.
+      tx.update(ref, {
+        recipeIds: arrayUnion(recipeId),
+        updatedAt: serverTimestamp(),
+        ...(visibility === 'public' && { lastAddedAt: serverTimestamp() }),
+      });
     }),
     'Adding to the collection',
     COLLECTION_WRITE_TIMEOUT_MS

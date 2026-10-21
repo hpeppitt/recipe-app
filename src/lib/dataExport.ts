@@ -108,7 +108,7 @@ const MESSAGE_KEYS = ['id', 'fromUid', 'fromDisplayName', 'text', 'createdAt'];
 const COOK_KEYS = ['id', 'uid', 'displayName', 'recipeId', 'rootId', 'recipeOwnerId', 'vote', 'note', 'branchId', 'createdAt'];
 const COOK_PHOTO_KEYS = ['id', 'uid', 'recipeId', 'url', 'createdAt'];
 const KITCHEN_KEYS = ['id', 'memberUids', 'ownerUid', 'shopping', 'pantry', 'updatedAt'];
-const COLLECTION_KEYS = ['id', 'ownerUid', 'name', 'visibility', 'recipeIds', 'createdAt', 'updatedAt'];
+const COLLECTION_KEYS = ['id', 'ownerUid', 'name', 'visibility', 'recipeIds', 'description', 'lastAddedAt', 'followerCount', 'createdAt', 'updatedAt'];
 const NOTIFICATION_KEYS = ['id', 'recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'];
 
 const sorted = <T extends { createdAt?: unknown; id?: string }>(rows: T[]): T[] => [...rows].sort(byCreatedAt);
