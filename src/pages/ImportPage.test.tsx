@@ -185,7 +185,7 @@ describe('ImportPage', () => {
     render();
     readLink();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit first' }));
-    const dialog = await screen.findByRole('dialog', { hidden: true });
+    const dialog = await screen.findByRole('dialog', { hidden: true, name: /Save with/ });
     expect(dialog.textContent).toContain('Save with 1 unclear amount?');
     expect(dialog.textContent).toContain('It stays blank until you fill it in.');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel', hidden: true }));
@@ -370,10 +370,61 @@ describe('ImportPage photo mode (RL-251)', () => {
   });
 });
 
-describe('ImportPage share target (RL-254)', () => {
-  it('prefills the shared link without reading', () => {
-    render(fakeUser, `/import?title=Stew&text=${encodeURIComponent(`Look ${PAGE}.`)}`);
+describe('ImportPage share target (RL-254, RL-264)', () => {
+  const SHARE = `/import?title=Stew&text=${encodeURIComponent(`Look ${PAGE}.`)}`;
+  const asking = () => document.querySelector('dialog[open]');
+  const askTitle = 'Read this recipe from seriouseats.com?';
+  const setOnline = (value: boolean) => vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(value);
+
+  it('asks first, and Read it reads the link once', async () => {
+    render(fakeUser, SHARE);
+    const dialog = (await screen.findByRole('dialog', { hidden: true, name: askTitle })) as HTMLElement;
+    expect(asking()).toBe(dialog);
+    expect(dialog.textContent).toContain(askTitle);
+    expect(dialog.textContent).toContain("Recipe Lab reads the page with AI. You check the recipe before it's saved.");
+    expect(importRecipeFromUrl).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Read it', hidden: true }).find((b) => dialog.contains(b))!);
+    await screen.findByRole('region', { name: 'Check the import' });
+    expect(importRecipeFromUrl).toHaveBeenCalledTimes(1);
+    expect(importRecipeFromUrl).toHaveBeenCalledWith(PAGE);
+    expect(asking()).toBeNull();
+  });
+
+  it('Not now reads nothing, keeps the link and does not ask again', async () => {
+    render(fakeUser, SHARE);
+    await screen.findByRole('dialog', { hidden: true, name: askTitle });
+    expect(asking()).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now', hidden: true }));
+    expect(importRecipeFromUrl).not.toHaveBeenCalled();
+    expect(field().value).toBe(PAGE);
+    expect(asking()).toBeNull();
+    expect(document.activeElement).toBe(field());
+  });
+
+  it('only prefills when offline', () => {
+    setOnline(false);
+    render(fakeUser, SHARE);
+    expect(asking()).toBeNull();
     expect(field().value).toBe(PAGE);
     expect(importRecipeFromUrl).not.toHaveBeenCalled();
+  });
+
+  it('shows the sign-up screen, no dialog, when not allowed to generate', () => {
+    render({ ...fakeUser, emailVerified: false }, SHARE);
+    expect(asking()).toBeNull();
+    expect(screen.getByText('Sign up to add recipes from links')).toBeTruthy();
+  });
+
+  it('only prefills for a direct visit with no link', () => {
+    render(fakeUser, '/import');
+    expect(asking()).toBeNull();
+  });
+
+  it('asks once auth has loaded', async () => {
+    const view = renderWithProviders(<ImportPage />, { route: SHARE, auth: { isLoading: true } });
+    expect(asking()).toBeNull();
+    view.unmount();
+    render(fakeUser, SHARE);
+    await waitFor(() => expect(asking()?.textContent).toContain(askTitle));
   });
 });

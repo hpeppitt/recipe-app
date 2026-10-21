@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useImportRecipe } from '../hooks/useImportRecipe';
@@ -13,12 +13,14 @@ import { Camera, Link as LinkIcon, Sparkles, X } from '../components/ui/icons';
 import { ImportReview } from '../components/recipe/ImportReview';
 import { PhotoTray } from '../components/chat/PhotoTray';
 import { usePhotoTray } from '../components/chat/usePhotoTray';
-import { sharedImportUrl } from '../lib/linkImport';
+import { importHost, sharedImportUrl } from '../lib/linkImport';
+import { useOnline } from '../hooks/useOnline';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { ACCEPTED_IMAGE_TYPES } from '../lib/imageAttachments';
 
 /**
  * `/import?url=&text=` is the Android share target (RL-254): the shared link fills the field and
- * the user still taps Read it.
+ * the user still taps Read it, unless they can read it now, when a confirm dialog asks first (RL-264).
  * `/import`, "Add from a link" (RL-186): paste a recipe page, check what was read (RL-252),
  * and save it as a new original or, when the library already has the dish, as a
  * branch of that family. Gated like `/create`, since reading a page is a generation.
@@ -50,8 +52,16 @@ function ImportPageBody() {
     handlePick,
     removePhoto,
   } = usePhotoTray();
-  const [url, setUrl] = useState(() => (photoMode ? '' : (sharedImportUrl(new URLSearchParams(location.search)) ?? '')));
+  const [shared] = useState(() => (photoMode ? null : sharedImportUrl(new URLSearchParams(location.search))));
+  const [url, setUrl] = useState(shared ?? '');
+  const online = useOnline();
+  // Decided once, when auth settles: a share that can be read now asks first (RL-264).
+  const [offer, setOffer] = useState<'pending' | 'open' | 'done'>(shared && importHost(shared) ? 'pending' : 'done');
+  if (offer === 'pending' && !authLoading) {
+    setOffer(online && canGenerate({ isConfigured, user }) ? 'open' : 'done');
+  }
   const errorId = useId();
+  const urlRef = useRef<HTMLInputElement>(null);
   const goBack = () => (location.key === 'default' ? navigate('/new') : navigate(-1));
 
   const header = (
@@ -101,6 +111,21 @@ function ImportPageBody() {
   return (
     <div className="min-h-dvh flex flex-col bg-surface">
       {header}
+      <ConfirmDialog
+        open={offer === 'open'}
+        title={`Read this recipe from ${importHost(shared ?? '')}?`}
+        message="Recipe Lab reads the page with AI. You check the recipe before it's saved."
+        confirmLabel="Read it"
+        cancelLabel="Not now"
+        onConfirm={() => {
+          setOffer('done');
+          if (shared) void read(shared);
+        }}
+        onCancel={() => {
+          setOffer('done');
+          urlRef.current?.focus();
+        }}
+      />
       {/* Persistent, so the change from reading to read is announced. */}
       <p role="status" className="sr-only">
         {isReading
@@ -172,6 +197,7 @@ function ImportPageBody() {
               <div className="flex h-[52px] items-center gap-2 rounded-full bg-neutral-100 pl-4 pr-1.5 shadow-sm">
                 <LinkIcon className="size-5 flex-shrink-0 text-text-tertiary" />
                 <input
+                  ref={urlRef}
                   type="text"
                   inputMode="url"
                   autoComplete="off"
