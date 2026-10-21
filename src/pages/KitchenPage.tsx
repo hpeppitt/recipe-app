@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
 import { listOriginState } from '../lib/paneMode';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,12 +12,13 @@ import { pluralize } from '../lib/utils';
 import { AuthModal } from '../components/auth/AuthModal';
 import { CollectionGlyph } from '../components/recipe/CollectionGlyph';
 import { useLocalEmoji } from '../hooks/useLocalEmoji';
-import { collectionCount } from '../lib/kitchen';
+import { collectionCount, sharedWithLine } from '../lib/kitchen';
+import { AvatarStack, InviteSheet, PeopleSheet } from '../components/kitchen/KitchenPeople';
 import { TILE_TINTS } from '../components/profile/RecipeTileGrid';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
-import { CalendarDays, ChefHat, ChevronRight, CloudOff, Refrigerator, ShoppingBasket, UserRound } from '../components/ui/icons';
+import { CalendarDays, ChefHat, ChevronRight, CloudOff, Refrigerator, ShoppingBasket, UserPlus, UserRound } from '../components/ui/icons';
 
 const TILE = 'flex min-h-[118px] flex-col justify-between gap-3 rounded-[28px] p-4';
 
@@ -41,7 +42,16 @@ function Tile({ title, sub, icon, tone, to }: { title: string; sub: string; icon
 /** The Kitchen hub (Organic 24a, RL-214): list, pantry, week and cook log tiles over a row of saved recipes. */
 export function KitchenPage() {
   const { user, isConfigured, isLoading: authLoading } = useAuth();
-  const { kitchen, loading, error } = useKitchen();
+  const { kitchen, loading, error, members, isOwner, createInvite, removeMember, leaveKitchen } = useKitchen();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [showPeople, setShowPeople] = useState(false);
+  const [invite, setInvite] = useState<{ url: string | null; error: string } | null>(null);
+  // "You're in Hana's kitchen" after a join (RL-239), carried in the navigation state once.
+  const [toast, setToast] = useState(() => {
+    const joined = (location.state as { joined?: string } | null)?.joined;
+    return joined === undefined ? '' : joined ? `You're in ${joined}'s kitchen` : "You're in the kitchen";
+  });
   const { rows: saved, isLoading: savedLoading } = useSavedFavorites();
   const { collections, error: collectionsError, retry: retryCollections } = useCollections();
   const emoji = useLocalEmoji(collections, 'kitchen-collections-emoji');
@@ -68,11 +78,52 @@ export function KitchenPage() {
     };
   }, [uid]);
 
+  useEffect(() => {
+    if (!toast) return;
+    if ((location.state as { joined?: string } | null)?.joined !== undefined) navigate(location.pathname, { replace: true, state: null });
+    const t = setTimeout(() => setToast(''), 3000);
+    return () => clearTimeout(t);
+  }, [toast, navigate, location.pathname, location.state]);
+
+  const openInvite = () => {
+    setInvite({ url: null, error: '' });
+    createInvite().then(
+      (url) => setInvite((v) => v && { url, error: '' }),
+      (e: unknown) => setInvite((v) => v && { url: null, error: e instanceof Error ? e.message : String(e) })
+    );
+  };
+
+  const household = uid && kitchen ? sharedWithLine(members.filter((m) => m.uid !== uid).map((m) => m.name)) : null;
+
   const wait = authLoading || (verified && !kitchen && loading);
 
   return (
     <div className="pb-8">
-      <Heading className="px-5 pt-[52px] font-heading text-[30px] leading-tight text-text-primary">Kitchen</Heading>
+      <div className="flex items-center justify-between gap-3 px-5 pt-[52px]">
+        <Heading className="font-heading text-[30px] leading-tight text-text-primary">Kitchen</Heading>
+        {household && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={`People. ${household}`}
+            onClick={() => setShowPeople(true)}
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full"
+          >
+            <AvatarStack members={members} label={household} />
+          </button>
+        )}
+      </div>
+      {household && (
+        <div className="flex items-center justify-between gap-3 px-5">
+          <p className="min-w-0 break-words text-[13px] text-neutral-700">{household}</p>
+          {isOwner && (
+            <Button variant="secondary" size="sm" className="gap-1.5" aria-haspopup="dialog" onClick={openInvite}>
+              <UserPlus className="size-4" />
+              Invite
+            </Button>
+          )}
+        </div>
+      )}
       <div className="px-5 pt-[18px]">
         {wait ? (
           <div className="grid grid-cols-2 gap-3" role="status" aria-label="Loading kitchen">
@@ -174,6 +225,30 @@ export function KitchenPage() {
           </ul>
         )}
       </section>
+      {uid && kitchen && (
+        <>
+          <PeopleSheet
+            open={showPeople}
+            onClose={() => setShowPeople(false)}
+            members={members}
+            uid={uid}
+            ownerUid={kitchen.ownerUid}
+            removeMember={removeMember}
+            leaveKitchen={leaveKitchen}
+            onLeft={() => {
+              setShowPeople(false);
+              setToast('You left the kitchen');
+            }}
+          />
+          <InviteSheet open={!!invite} onClose={() => setInvite(null)} onRetry={openInvite} url={invite?.url ?? null} error={invite?.error ?? ''} />
+        </>
+      )}
+      <div
+        role="status"
+        className={toast ? 'fixed bottom-24 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl border border-border bg-surface-secondary px-4 py-3 text-sm font-medium text-text-primary shadow-lg' : 'sr-only'}
+      >
+        {toast}
+      </div>
       {(collections.length > 0 || collectionsError === COLLECTIONS_LOAD_FAILED_MESSAGE) && (
         <section className="px-5 pt-[18px]" aria-labelledby="kitchen-collections">
           <Sub id="kitchen-collections" className="font-heading text-[18px] text-text-primary">Collections</Sub>

@@ -2157,3 +2157,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - No UI yet (RL-239, RL-240), so nothing new to see. Check that nothing regressed: as a verified user, the shopping list, pantry, "Add to shopping list" on a recipe and "Add leftovers" after cooking still work, and a reload keeps them. Needs RL-249's rules deploy for live writes.
 - Settings > Download my data (verified): the file has `cloud.kitchenMemberships`, one entry with your id, `role: "owner"` and `memberCount: 1` if you have a kitchen.
 - Operator, emulator only: `node scripts/data-request.mjs erase <uid> --emulator` for a user who owns a kitchen with a second member prints "shared kitchen passed to its longest-standing member (1 other member affected)" and no other uid.
+
+### RL-239 Kitchen household, invite and join
+- Needs RL-249's rules deploy for live invites and joins. Use two verified accounts on two devices (A owns, B joins).
+- A: Kitchen shows A's avatar right of the title and "Just you" under it. Tap Invite (check it is a comfortable 44px target): a sheet with the link and "Anyone with this link can join for 7 days." Share link opens the phone's share sheet; on desktop it copies and says "Link copied".
+- B: open the link signed out. A sheet "Join a kitchen" over a plain background; Sign in to join opens "Sign in to join this kitchen". Sign in by email link: it brings B back to the join page, now "Join A's kitchen" with "Share a shopping list and pantry with A." Tap Join: Kitchen opens with the toast "You're in A's kitchen".
+- Both: the header reads "Shared with B" on A and "Shared with A" on B, avatars overlap with a light ring. Both add and tick items on the shopping list and pantry and see each other's changes. Pantry shows the avatar pill.
+- B: tap the avatars, People lists both with A as Owner; "Leave this kitchen", confirm. B is back to their own list with "You left the kitchen". Open the old link again and Join: B is back in.
+- A: tap the avatars, Remove B, confirm. B's Kitchen goes back to their own list.
+- Edge cases: a mangled link (/join/abc) shows "This invite has expired" at once. B, already in A's kitchen, opening an invite from someone else sees "You already share a kitchen. Leave it before joining another." A opening their own link sees "This is your own invite".
+- VoiceOver: the avatar button reads "People. Shared with B"; each state's heading is announced as the sheet changes; Remove and Leave each ask first.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs, as in rateLimit.test.ts.
 import rules from '../../firestore.rules?raw';
-import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX, newInviteCode, isInviteCode, inviteUrl, pickKitchenId } from './kitchen';
+import { KITCHEN_ITEM_CAP, KITCHEN_MEMBER_CAP, KITCHEN_INVITE_DAYS, KITCHEN_INVITE_CODE_MIN, COLLECTION_RECIPE_CAP, KITCHEN_DOC_MAX_BYTES, kitchenFits, COLLECTION_NAME_MAX, COLLECTION_RECIPE_ID_MAX, CollectionRefusedError, collectionName, checkCollectionRecipeId, checkCollectionRoom, checkCollectionCount, COLLECTIONS_PER_USER_MAX, newInviteCode, isInviteCode, inviteUrl, pickKitchenId, sharedWithLine } from './kitchen';
 
 describe('firestore.rules kitchen and collection caps (RL-211)', () => {
   // Fails, rather than passing vacuously, when a function is renamed or removed.
@@ -112,5 +112,15 @@ describe('household sharing helpers (RL-238)', () => {
     expect(pickKitchenId('me', ['me'])).toBe('me');
     expect(pickKitchenId('me', ['me', 'them'])).toBe('them');
     expect(pickKitchenId('me', ['them', 'me'])).toBe('them');
+  });
+});
+
+describe('sharedWithLine (RL-239)', () => {
+  it('names the others, or says Just you', () => {
+    expect(sharedWithLine([])).toBe('Just you');
+    expect(sharedWithLine(['Ola'])).toBe('Shared with Ola');
+    expect(sharedWithLine(['Ola', 'Sami'])).toBe('Shared with Ola and Sami');
+    expect(sharedWithLine(['Ola', 'Sami', 'Kim'])).toBe('Shared with Ola, Sami and Kim');
+    expect(sharedWithLine([null, ' '])).toBe('Shared with a cook and a cook');
   });
 });

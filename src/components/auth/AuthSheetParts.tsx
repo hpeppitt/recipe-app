@@ -3,7 +3,7 @@ import { useAuth, isGoogleAccountExists } from '../../contexts/AuthContext';
 import type { PendingIntent } from '../../lib/pendingAction';
 import { Button } from '../ui/Button';
 import { Spinner } from '../ui/Spinner';
-import { ChefHat, GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound } from '../ui/icons';
+import { ChefHat, GitBranchPlus, GoogleG, Heart, MailOpen, MessageCircle, ShieldCheck, Link, UserPlus, UserRound, Users } from '../ui/icons';
 
 /**
  * What the visitor was doing when the sheet opened (RL-108). It names the headline
@@ -17,7 +17,8 @@ export type AuthAction =
   | { kind: 'suggest' }
   | { kind: 'branch' }
   | { kind: 'cook' }
-  | { kind: 'edit-profile' };
+  | { kind: 'edit-profile' }
+  | { kind: 'join-kitchen'; name?: string | null };
 
 function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?: string }) => ReactNode } {
   switch (action.kind) {
@@ -35,6 +36,8 @@ function actionCopy(action: AuthAction): { text: string; Icon: (p: { className?:
       return { text: 'log a cook', Icon: ChefHat };
     case 'edit-profile':
       return { text: 'edit your profile', Icon: UserRound };
+    case 'join-kitchen':
+      return { text: action.name?.trim() ? `join ${action.name.trim()}'s kitchen` : 'join this kitchen', Icon: Users };
     default:
       return { text: 'continue', Icon: UserRound };
   }

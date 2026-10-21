@@ -141,6 +141,14 @@ export const isInviteCode = (code: string): boolean => INVITE_CODE.test(code);
 
 export const inviteUrl = (origin: string, code: string): string => `${origin}/join/${code}`;
 
+/** The household line under Kitchen's title (RL-239): "Just you", "Shared with Ola", "Shared with Ola and Sami", "Shared with Ola, Sami and Kim". `others` excludes the viewer. */
+export function sharedWithLine(others: readonly (string | null)[]): string {
+  const names = others.map((n) => n?.trim() || 'a cook');
+  if (!names.length) return 'Just you';
+  const last = names.pop()!;
+  return `Shared with ${names.length ? `${names.join(', ')} and ${last}` : last}`;
+}
+
 export const INVITE_EXPIRED_MESSAGE = 'This invite has expired. Ask for a new one.';
 export const KITCHEN_MEMBERS_FULL_MESSAGE = 'This kitchen is full.';
 export const KITCHEN_SHARING_FAILED_MESSAGE = "Couldn't update your household. Check your connection and try again.";
