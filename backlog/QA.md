@@ -1992,3 +1992,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Tap Notes: "Notes from cooks" lists both newest first with name, day, Again or Tweak tag and italic note. Signed in as one of them, only your note has Delete; it asks "Delete this cook?", and after Delete the count drops and the note goes. Check 320px and dark theme, and that the row reads as one sentence in VoiceOver.
 - Log a cook yourself from the footer: the row updates without a reload.
 
+
+### RL-200 Cook log page
+- **Needs RL-209 deployed (cooks rules and indexes), or the emulators.** Log three cooks: one with a note, one Needs a tweak, one grown into a branch. On You, the "Cook log" row sits under the stat tiles. Open it at 390px, light and dark: summary line reads "3 cooks · N recipes · 1 branch grew from a note"; each card has emoji on a rotating tint, title, day, the note in quotes, and a Branched, Again or Tweak tag top right. Tapping a card opens the recipe; tapping Branched opens the branch.
+- Delete a cooked recipe: its card reads "A deleted recipe". Signed out or as a guest the page shows Sign in. Empty log shows "Nothing cooked yet".
+- Known gap: the profile row has no count (no cheap source there). Long titles are clamped to two lines under the tag; check they do not collide with it at 320px.

@@ -20,6 +20,7 @@ const RecipeEditPage = lazy(() => import('./pages/RecipeEditPage').then(m => ({ 
 const VersionTreePage = lazy(() => import('./pages/VersionTreePage').then(m => ({ default: m.VersionTreePage })));
 const RecipeChangesPage = lazy(() => import('./pages/RecipeChangesPage').then(m => ({ default: m.RecipeChangesPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const CookLogPage = lazy(() => import('./pages/CookLogPage').then(m => ({ default: m.CookLogPage })));
 const SharedRecipePage = lazy(() => import('./pages/SharedRecipePage').then(m => ({ default: m.SharedRecipePage })));
 const LegalPage = lazy(() => import('./pages/LegalPage').then(m => ({ default: m.LegalPage })));
 const SavedPage = lazy(() => import('./pages/SavedPage').then(m => ({ default: m.SavedPage })));
@@ -65,6 +66,8 @@ export function AppRoutes() {
         </Route>
         {/* Reached from the You tab's gear and has its own Back button (RL-097). */}
         <Route path="/settings" element={<SettingsPage />} />
+        {/* Cook log (RL-200): takes its final name now so Kitchen only adds a tile. */}
+        <Route path="/kitchen/log" element={<CookLogPage />} />
         <Route path="/create" element={<RecipeChatPage />} />
         {/* Add from a link (RL-186), gated like /create, with its own Close button. */}
         <Route path="/import" element={<ImportPage />} />

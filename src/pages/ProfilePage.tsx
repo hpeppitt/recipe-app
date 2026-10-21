@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
 import { useCollabRecipes } from '../hooks/useCollabRecipes';
@@ -25,7 +25,7 @@ import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { IconButton } from '../components/ui/IconButton';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { RecipeTileGrid } from '../components/profile/RecipeTileGrid';
-import { ChevronLeft, CloudOff, Pencil, RotateCw, Settings, Trees, UserRound } from '../components/ui/icons';
+import { ChefHat, ChevronLeft, ChevronRight, CloudOff, Pencil, RotateCw, Settings, Trees, UserRound } from '../components/ui/icons';
 
 /** One row in the followers / following list. */
 function PersonRow({
@@ -401,6 +401,15 @@ function OwnProfile() {
               />
               <StatTile label="Saves" value={tabs.loading || statsStatus !== 'ready' ? '–' : stats.totalFavorites} />
             </div>
+            {/* No count: the cooks listener belongs to the log page, not this one (RL-200). */}
+            <Link
+              to="/kitchen/log"
+              className="flex min-h-11 items-center gap-3 rounded-[28px] bg-surface-secondary px-4 text-[15px] font-bold text-text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              <ChefHat className="size-5" />
+              <span className="flex-1">Cook log</span>
+              <ChevronRight className="size-5 text-neutral-700" />
+            </Link>
             <button
               type="button"
               onClick={() => setOpenList(openList === 'following' ? null : 'following')}
