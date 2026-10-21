@@ -585,6 +585,14 @@ export is the fallback. Nothing in the export path logs
 a photo's URL. The operator's erase script deletes the user's photos, then their cooks, and
 anonymises other people's cooks of the user's recipes (see docs/operations.md, Data requests).
 
+**Kitchen and collections in data requests** (RL-226): Download my data reads `kitchens/{uid}` by
+id (`cloud.kitchen`, null when none) and `collections` where `ownerUid ==` the user
+(`cloud.collections`), both verified-only reads, additive so `DATA_EXPORT_VERSION` stays 1. Any other
+uid in a kitchen (`memberUids`, `ownerUid`, a pantry item's `addedBy`) becomes `other-user-N`
+(none in Phase 2). The operator's erase script deletes the collections and the kitchen. It
+deletes a kitchen only when the uid is its owner and sole member; otherwise it skips it and
+reports it (RL-238 must decide what leaving or erasing means for a shared kitchen).
+
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
 

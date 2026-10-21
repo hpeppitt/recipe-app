@@ -242,6 +242,17 @@ export function buildErasePlan(uid, fetched) {
     if (c.data.uid !== uid) add("another user's cook of an own recipe (kept, owner anonymised)", [{ kind: 'update', path: c.path, set: anonymisedOwnerCookPatch() }]);
   }
 
+  // Collections are owner-only (RL-226). The kitchen is deleted only when the uid owns it and is its
+  // sole member; a shared kitchen (RL-238) is skipped and reported, never deleted from under others.
+  for (const c of fetched.collections ?? []) add('own collection', [del(c.path)]);
+  const skipped = [];
+  const k = fetched.kitchen;
+  if (k) {
+    const members = Array.isArray(k.data.memberUids) ? k.data.memberUids : [];
+    if (k.data.ownerUid === uid && members.length === 1 && members[0] === uid) add('own kitchen', [del(k.path)]);
+    else skipped.push(`${k.path} not deleted: not owned by the uid alone (owner and members are not printed). Handle it by hand.`);
+  }
+
   for (const n of uniqueByPath(fetched.notifications ?? [])) add('notification (to or from)', [del(n.path)]);
   for (const e of fetched.clientErrors ?? []) add('error report', [del(e.path)]);
   for (const key of ['profile', 'termsAcceptance', 'notificationPrefs', 'rateLimit']) {
@@ -249,7 +260,7 @@ export function buildErasePlan(uid, fetched) {
   }
   for (const w of fetched.writeWindows ?? []) add('write window', [del(w.path)]);
 
-  return { groups, deleteAuthUser: Boolean(fetched.authUser) };
+  return { groups, skipped, deleteAuthUser: Boolean(fetched.authUser) };
 }
 
 /** Packs groups into batches of at most `limit` ops, keeping a group whole when it fits. */
@@ -271,6 +282,11 @@ export function chunkPlan(groups, limit = BATCH_LIMIT) {
   }
   if (current.length) batches.push(current);
   return batches;
+}
+
+/** Exit 3 when the erase left something skipped on purpose (a shared kitchen), so it cannot be missed. */
+export function exitCodeFor(plan) {
+  return plan.skipped?.length ? 3 : 0;
 }
 
 /** Counts per label, for the log. */
@@ -398,6 +414,8 @@ async function collect(db, auth, uid) {
     // A photo row holds its data URL (up to 200000 characters); only paths and counts are printed.
     cooks: await q(db.collection('cooks').where('uid', '==', uid)),
     cookPhotos: await q(db.collection('cookPhotos').where('uid', '==', uid)),
+    kitchen: await one(`kitchens/${uid}`),
+    collections: await q(db.collection('collections').where('ownerUid', '==', uid)),
     cooksOnOwn: (await q(db.collection('cooks').where('recipeOwnerId', '==', uid))).filter((c) => c.data.uid !== uid),
     counters,
   };
@@ -446,13 +464,19 @@ export function redactExport(uid, body) {
     n.data.recipientUid = alias(n.data.recipientUid);
   }
   for (const c of out.cooks) c.data.recipeOwnerId = alias(c.data.recipeOwnerId);
+  if (out.kitchen) {
+    const d = out.kitchen.data;
+    d.ownerUid = alias(d.ownerUid);
+    if (Array.isArray(d.memberUids)) d.memberUids = d.memberUids.map(alias);
+    for (const p of Array.isArray(d.pantry) ? d.pantry : []) if (p) p.addedBy = alias(p.addedBy);
+  }
   // Paths last, once every other uid has an alias. Composite ids are joined with `_`.
   const fixPath = (p) => p.split('/').map((seg) => seg.split('_').map((x) => ids.get(x) ?? x).join('_')).join('/');
   const docs = [
     out.profile, out.termsAcceptance, out.notificationPrefs, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
-    ...out.cooks, ...out.cookPhotos,
+    ...out.cooks, ...out.cookPhotos, out.kitchen, ...out.collections,
   ].filter(Boolean);
   for (const d of docs) d.path = fixPath(d.path);
   out.redaction = "Other people's account ids are replaced with other-user-N and their display names removed. Content is kept.";
@@ -480,6 +504,8 @@ function exportBody(uid, project, target, f) {
     clientErrors: f.clientErrors,
     cooks: f.cooks,
     cookPhotos: f.cookPhotos,
+    kitchen: f.kitchen,
+    collections: f.collections,
   };
 }
 
@@ -501,6 +527,8 @@ function countExport(body) {
     clientErrors: body.clientErrors.length,
     cooks: body.cooks.length,
     cookPhotos: body.cookPhotos.length,
+    kitchen: body.kitchen ? 1 : 0,
+    collections: body.collections.length,
   };
 }
 
@@ -597,6 +625,7 @@ async function main(argv) {
   for (const g of plan.groups) for (const op of g.ops) console.log(`  ${describeOp(op)}`);
   if (plan.deleteAuthUser) console.log(`  DELETE auth user ${opts.uid}`);
   console.table(summarise(plan));
+  for (const s of plan.skipped) console.warn(`  SKIPPED ${s}`);
   const writes = plan.groups.reduce((n, g) => n + g.ops.length, 0);
   console.log(`${writes} document writes in ${chunkPlan(plan.groups).length} batches, auth user: ${plan.deleteAuthUser ? 'delete' : 'none found'}`);
 
@@ -613,7 +642,10 @@ async function main(argv) {
   const left = buildErasePlan(opts.uid, await collect(db, auth, opts.uid));
   const remaining = left.groups.reduce((n, g) => n + g.ops.length, 0) + (left.deleteAuthUser ? 1 : 0);
   console.log(`re-checked after erase: ${remaining} writes still planned (expected 0)`);
-  return remaining === 0 && failed.length === 0 ? 0 : 1;
+  for (const s of plan.skipped) console.warn(`  STILL PRESENT, SKIPPED ${s}`);
+  if (plan.skipped.length) console.warn('Exit code 3: erased everything else, but a kitchen was skipped and remains. Handle it by hand.');
+  if (remaining === 0 && failed.length === 0) return exitCodeFor(plan);
+  return 1;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {

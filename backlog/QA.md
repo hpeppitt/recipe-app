@@ -883,7 +883,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Search the file for the other account's uid and display name: neither appears. They show as `other-user-1`, and the other person's reply text is still present.
 - Signed in anonymously (and signed out): the button reads "Download my data (this device only)", and the file has `cloud: null` and the note that anonymous accounts keep data on this device only.
 - Failure display: stop the emulators (or go offline) and click it as a verified user. Expect an alert saying the online data could not be read, and a file with the local part and an `errors` list. A signed-in but unverified email account sees "1 part could not be fully read" (suggestions are verified-only) and the rest of its data.
-- Double-tap the button: one file only. The status text names the missing parts in plain words and says "Verify your email to include suggestions" for an unverified account. The helper line under the button explains the difference from Export All Recipes.
+- Double-tap the button: one file only. The status text names the missing parts in plain words and says "Verify your email to include all your online data" for an unverified account. The helper line under the button explains the difference from Export All Recipes.
 - Reviewer noted, not fixed (low): the status messages appear conditionally rather than in an always-present live region; the filename date is UTC, so it can be a day off near midnight; the status regions follow the page's existing pattern.
 - Check it at 390px wide and in dark mode: the button is at least 44px tall and the status text is readable.
 - Privacy Policy wording may now point at this download (author re-signs per RL-046). Lines that could now point at it (not edited, author-owned): `src/content/legal/privacy.ts` line 29 ("To see, export, correct or delete...") and line 208 (the portability line, which already carries a `[DEPENDS ON RL-056]` marker); `src/content/legal/terms.ts` line 84 ("Use Export All Recipes ... to keep a copy") could also mention Download my data.
@@ -2108,3 +2108,8 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 - Share on the shopping list on desktop: "Copied" appears under the list column, not over the recipe or the rail.
 
 - Orchestrator check: a headless probe of the built app (signed out) showed no bottom nav and no sideways scroll on /kitchen/list, /kitchen/pantry and /kitchen/log at 390px, and the 220px rail on all four Kitchen pages at 1280px. Not checked signed in. Phone behaviour change: shopping list chip titles are now links. List pages' Back closes a recipe beside them first. aria-current is tested on the shopping list only.
+
+### RL-226 Kitchen in the Privacy Policy and data requests
+- Author: sign off the Kitchen wording in /privacy before release (new section "Your Kitchen: shopping list, pantry and collections", plus the export and erasure lines in "Your rights"). `lastUpdated` is 2026-10-21; `TERMS_VERSION` unchanged.
+- Verified account: Settings > Download my data. The file has `cloud.kitchen` and `cloud.collections`. Unverified: both land in the file's errors with the verify note.
+- Operator: run `node scripts/data-request.mjs erase <uid> --emulator` (dry run) on a seeded emulator user and check "own kitchen" and "own collection" lines. Nothing was run against production.
