@@ -8,6 +8,7 @@ import {
   NOTIFICATION_CAP,
   RECIPE_CAP,
   COOK_CAP,
+  COOKBOOK_CAP,
   WINDOW_MS,
   RECIPE_WINDOW_MS,
   RATE_LIMITS,
@@ -107,6 +108,7 @@ describe('per-action limits (RL-049)', () => {
       notification: { cap: 60, windowMs: HOUR },
       recipe: { cap: 30, windowMs: 24 * HOUR },
       cook: { cap: 20, windowMs: 24 * HOUR },
+      cookbook: { cap: 5, windowMs: 24 * HOUR },
     });
   });
 
@@ -119,22 +121,25 @@ describe('per-action limits (RL-049)', () => {
     expect(rules).toContain(`recipe window ${RECIPE_WINDOW_MS} ms`);
     expect(literal('cookCap')).toBe(COOK_CAP);
     expect(rules).toContain(`cooks        ${COOK_CAP} per day`);
+    expect(literal('cookbookCap')).toBe(COOKBOOK_CAP);
+    expect(rules).toContain(`cookbooks     ${COOKBOOK_CAP} per day (publishes: a collection becoming public)`);
   });
 
   it('the rules map every action to its cap and window function', () => {
     expect(rules).toContain(
-      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap()}[action]"
+      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap(), 'cookbook': cookbookCap()}[action]"
     );
     expect(rules).toContain(
-      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs()}[action]"
+      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs(), 'cookbook': recipeWindowMs()}[action]"
     );
-    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook']");
+    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook', u + '_cookbook']");
   });
 
   it('bind notification and recipe creates to their window bump', () => {
     expect(rules).toContain("movedWindow('notification', 'notifications/' + notificationId)");
     expect(rules).toContain("movedWindow('recipe', 'recipes/' + recipeId)");
     expect(rules).toContain("movedWindow('cook', 'cooks/' + cookId)");
+    expect(rules).toContain("movedWindow('cookbook', 'collections/' + collectionId)");
   });
 
   it('the daily window resets only after a day plus the margin', () => {

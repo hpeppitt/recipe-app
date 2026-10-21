@@ -3,7 +3,7 @@ import type { RateLimitAction } from './rateLimit';
 /**
  * Thrown before writing anything when a limited write would pass its cap
  * (RL-048, RL-049). A limited notification is swallowed by its writer, so only
- * suggestion, reply, recipe and cook ever reach a message.
+ * suggestion, reply, recipe, cook and cookbook ever reach a message.
  */
 export class RateLimitedError extends Error {
   readonly action: RateLimitAction;
@@ -80,6 +80,7 @@ export function rateLimitMessage(err: unknown): string | null {
   if (!(err instanceof RateLimitedError)) return null;
   if (err.action === 'recipe') return "You've published a lot today. Try again tomorrow.";
   if (err.action === 'cook') return "You've logged a lot of cooks today. Try again tomorrow.";
+  if (err.action === 'cookbook') return "You've shared a lot of cookbooks today. Try again tomorrow.";
   const what = err.action === 'suggestion' ? 'suggestions' : 'replies';
   return `You've sent a lot of ${what} recently. Try again in a while.`;
 }
