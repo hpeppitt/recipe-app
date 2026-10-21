@@ -31,6 +31,16 @@ describe('RecipeHeader original', () => {
     expect(screen.queryByText(/variation$/)).toBeNull();
   });
 
+  it('shows the import source line for an imported original and a branch', () => {
+    show(makeRecipe({ ...original, importedFrom: 'https://example.com/r' }));
+    expect(screen.getByRole('link', { name: /Imported from example\.com/ })).toBeInTheDocument();
+  });
+
+  it('shows no import line without importedFrom', () => {
+    show();
+    expect(screen.queryByText(/Imported from/)).toBeNull();
+  });
+
   it('shows Save off, then on with aria-pressed, and calls onFavorite once per click', () => {
     const props = show();
     const save = screen.getByRole('button', { name: 'Save' });

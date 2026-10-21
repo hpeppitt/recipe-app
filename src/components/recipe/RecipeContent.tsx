@@ -77,6 +77,7 @@ function RecipeContentBody({ recipe, compact = false, hideHeader = false, afterM
         totalTime={recipe.totalTime}
         difficulty={recipe.difficulty}
         author={compact ? null : recipe.createdBy}
+        via={!!recipe.importedFrom && !recipe.parentId}
         nutrition={recipe.nutrition}
         tags={recipe.tags}
         servings={compact ? scaled.servings : undefined}
