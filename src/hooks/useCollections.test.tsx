@@ -6,6 +6,7 @@ import { AuthContext, TermsContext, type AuthContextType } from '../contexts/Aut
 import { fakeUser } from '../test/renderWithProviders';
 import { COLLECTION_RECIPE_CAP, COLLECTIONS_PER_USER_MAX, CollectionRefusedError } from '../lib/kitchen';
 import type { AppUser } from '../types/recipe';
+import { RateLimitedError } from '../lib/errors';
 import type { RecipeCollection } from '../services/firestore';
 
 const subscribeCollections = vi.fn();
@@ -14,6 +15,7 @@ const renameCollection = vi.fn();
 const deleteCollection = vi.fn();
 const addToCollection = vi.fn();
 const removeFromCollection = vi.fn();
+const setCookbookSharing = vi.fn();
 const unsubscribe = vi.fn();
 vi.mock('../services/firestore', () => ({
   subscribeCollections: (...a: unknown[]) => subscribeCollections(...a),
@@ -22,6 +24,7 @@ vi.mock('../services/firestore', () => ({
   deleteCollection: (...a: unknown[]) => deleteCollection(...a),
   addToCollection: (...a: unknown[]) => addToCollection(...a),
   removeFromCollection: (...a: unknown[]) => removeFromCollection(...a),
+  setCookbookSharing: (...a: unknown[]) => setCookbookSharing(...a),
 }));
 const getIdToken = vi.fn(async () => 'token');
 vi.mock('../services/firebase', () => ({ auth: { currentUser: { getIdToken: (...a: unknown[]) => getIdToken(...(a as [])) } } }));
@@ -163,6 +166,16 @@ describe('useCollections', () => {
     const { result, unmount } = renderHook(() => useCollections(), { wrapper: wrapperFor(fakeUser) });
     await expect(result.current.addToCollection('c1', 'r2')).rejects.toThrow('This collection is full.');
     expect(reportError).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it('maps the cookbook publish cap to its own copy without setting the page error (RL-265)', async () => {
+    setCookbookSharing.mockRejectedValueOnce(new RateLimitedError('cookbook'));
+    const { result, unmount } = renderHook(() => useCollections(), { wrapper: wrapperFor(fakeUser) });
+    const err = await result.current.setCookbookSharing('c1', 'public', 'Warm').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CollectionRefusedError);
+    expect((err as Error).message).toBe("You've shared a lot of cookbooks today. Try again tomorrow.");
+    expect(result.current.error).toBeNull();
     unmount();
   });
 

@@ -66,13 +66,15 @@ service cloud.firestore {
     // --- Write limits (RL-048, RL-049) ---
     //
     // MUST equal RATE_LIMITS in src/lib/rateLimit.ts (SUGGESTION_CAP, REPLY_CAP,
-    // NOTIFICATION_CAP, RECIPE_CAP, COOK_CAP, WINDOW_MS, RECIPE_WINDOW_MS);
+    // NOTIFICATION_CAP, RECIPE_CAP, COOK_CAP, COOKBOOK_CAP, WINDOW_MS,
+    // RECIPE_WINDOW_MS);
     // src/lib/rateLimit.test.ts fails the build when they differ:
     //   suggestions  10 per hour
     //   replies      30 per hour
     //   notifications 60 per hour
     //   recipes      30 per day (creates only; a re-publish is an update)
     //   cooks        20 per day (RL-194, same day window as recipes)
+    //   cookbooks     5 per day (publishes: a collection becoming public)
     //   window       3600000 ms
     //   recipe window 86400000 ms
     function suggestionCap() {
@@ -90,6 +92,9 @@ service cloud.firestore {
     function cookCap() {
       return 20;
     }
+    function cookbookCap() {
+      return 5;
+    }
     function windowMs() {
       return 3600000;
     }
@@ -100,10 +105,10 @@ service cloud.firestore {
     // Per-action cap and window length. Only called with an action from
     // ownWindowIds(), so the map lookup never misses.
     function capFor(action) {
-      return {'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap()}[action];
+      return {'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap(), 'cookbook': cookbookCap()}[action];
     }
     function windowMsFor(action) {
-      return {'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs()}[action];
+      return {'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs(), 'cookbook': recipeWindowMs()}[action];
     }
 
     // Proves the limited create moved writeWindows/{uid}_{action} in the same
@@ -628,8 +633,8 @@ service cloud.firestore {
     // --- Write windows: per-user fixed-window counters (RL-048, RL-049) ---
     //
     // One document per user per action, id {uid}_{action}, written in the same
-    // transaction as the suggestion, message, notification, recipe or cook create it
-    // counts (see movedWindow()). Each action has its own cap and window length
+    // transaction as the suggestion, message, notification, recipe or cook create,
+    // or the cookbook publish, it counts (see movedWindow()). Each action has its own cap and window length
     // (capFor(), windowMsFor()); the action is the id after the underscore.
     // `last` is that document's path, relative to the database root.
     // Separate from rateLimits, which stays closed for the Cloud Function.
@@ -663,10 +668,10 @@ service cloud.firestore {
         );
       allow delete: if false;
 
-      // A uid has no underscore, so these five ids are exact.
+      // A uid has no underscore, so these six ids are exact.
       function ownWindowIds() {
         let u = request.auth.uid;
-        return [u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook'];
+        return [u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook', u + '_cookbook'];
       }
 
       // Only meaningful once windowId is in ownWindowIds().
@@ -937,7 +942,10 @@ service cloud.firestore {
     // lastAddedAt, which may only move to the request time in a write that grows
     // recipeIds; never ownerUid, createdAt or followerCount. A create or update
     // that leaves the collection public is public content, so it also needs the
-    // current Terms (one access). Anyone verified, the owner included, may move
+    // current Terms (one access). A publish (a create with visibility 'public',
+    // or an update from not public to 'public') also moves the cookbook write
+    // window, 5 a day (RL-265); keeping a public collection public or making it
+    // private needs no window. Anyone verified, the owner included, may move
     // followerCount by exactly 1 and change nothing else, only with their own
     // follow in the same batch (RL-258): +1 creates cookbookFollows/{uid}_{id}
     // on a public collection, -1 deletes it (any visibility, so unfollow still
@@ -945,8 +953,8 @@ service cloud.firestore {
     // Create: own ownerUid, server-time createdAt, followerCount absent or 0,
     // lastAddedAt absent or the request time. description, lastAddedAt and
     // followerCount are optional so RL-211 documents stay valid. Accesses: a
-    // public write 1 (termsAcceptance), a bump 1 to 2 (the follow, before and
-    // after).
+    // publish 2 (termsAcceptance, the window after), another public write 1
+    // (termsAcceptance), a bump 1 to 2 (the follow, before and after).
     match /collections/{collectionId} {
       allow read: if resource.data.visibility == 'public'
         || (verified() && resource.data.ownerUid == request.auth.uid);
@@ -956,7 +964,8 @@ service cloud.firestore {
         && request.resource.data.get('followerCount', 0) == 0
         && request.resource.data.get('lastAddedAt', request.time) == request.time
         && isWellFormedCollection(request.resource.data)
-        && (request.resource.data.visibility != 'public' || acceptedTerms());
+        && (request.resource.data.visibility != 'public'
+          || (acceptedTerms() && movedWindow('cookbook', 'collections/' + collectionId)));
       allow update: if verified()
         && resource.data.ownerUid == request.auth.uid
         && !changedKeys().hasAny(['ownerUid', 'createdAt', 'followerCount'])
@@ -964,7 +973,10 @@ service cloud.firestore {
           || (request.resource.data.lastAddedAt == request.time
             && request.resource.data.recipeIds.size() > resource.data.recipeIds.size()))
         && isWellFormedCollection(request.resource.data)
-        && (request.resource.data.visibility != 'public' || acceptedTerms());
+        && (request.resource.data.visibility != 'public' || acceptedTerms())
+        && (resource.data.visibility == 'public'
+          || request.resource.data.visibility != 'public'
+          || movedWindow('cookbook', 'collections/' + collectionId));
       allow update: if verified()
         && changedKeys().hasOnly(['followerCount'])
         && isFollowBump();

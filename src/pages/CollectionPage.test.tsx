@@ -36,6 +36,7 @@ vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 
 import { CollectionPage } from './CollectionPage';
 import { TermsContext } from '../contexts/AuthContext';
+import { CollectionRefusedError } from '../lib/kitchen';
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -195,6 +196,17 @@ describe('CollectionPage (RL-224)', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Share' }));
       await waitFor(() => expect(mocks.share).toHaveBeenCalledWith('c1', 'public', 'Fast'));
       expect(mocks.ensure).toHaveBeenCalled();
+    });
+
+    it('shows the cookbook cap copy in the sheet and keeps the description (RL-265)', async () => {
+      mocks.share.mockRejectedValueOnce(new CollectionRefusedError("You've shared a lot of cookbooks today. Try again tomorrow."));
+      open();
+      const box = screen.getByPlaceholderText('What makes these worth cooking?');
+      fireEvent.change(box, { target: { value: 'Fast' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent("You've shared a lot of cookbooks today. Try again tomorrow.");
+      expect(screen.getByPlaceholderText('What makes these worth cooking?')).toHaveValue('Fast');
+      expect(screen.getByRole('button', { name: 'Share' })).toBeEnabled();
     });
 
     it('does not write when the Terms are owed', async () => {

@@ -18,6 +18,16 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-265 Sharing a cookbook is limited to 5 publishes a day
+- Against production, Share already fails until RL-261 deploys the rules, so do this walk on the emulators or after RL-261.
+- Open a collection, More, Share as a cookbook, type a description, Share. Then Stop sharing. Repeat until you have shared five times in total (re-sharing the same cookbook counts each time).
+- The sixth Share shows "You've shared a lot of cookbooks today. Try again tomorrow." in red under the description, the description you typed is still there, and the collection stays private. No page-level "Couldn't update your collections" error appears.
+- While at the cap, add a recipe to a cookbook that is still shared (save a recipe and pick it in the sheet, or Rename it): that still works. Stop sharing still works too.
+- Release order: the client must ship with or after the RL-261 rules; old rules have no cookbook rules at all.
+
+- Reviewer noted (ui, low): keyboard focus drops to the page after any failed Share (not new); Share stays tappable after the cap and each tap is refused again.
+- Reviewer noted (data, low): Share from a stale private view of an already-public cookbook uses up a count (shortcut comment; logged decision); a publish is now a transaction, so offline it times out with the "maybe saved" copy rather than queueing; a run-on comment line in the writeWindows block.
+
 ### RL-263 A photo import is credited "Imported from a photo"
 - A photo import save fails against production until RL-261 deploys the rules (the live rules reject `importedFrom: 'photo'`, and nothing is written). Do this walk on the emulators or after RL-261.
 - Snap a page, read it, save. Under the title on the recipe page: "Imported from a photo" as plain grey 13px text, not a link, no arrow icon. The author pill reads "via <your name>".

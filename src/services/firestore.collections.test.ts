@@ -181,9 +181,10 @@ describe('addToCollection', () => {
 });
 
 describe('setCookbookSharing', () => {
-  it('writes visibility and description only, never followerCount', async () => {
-    await setCookbookSharing('c1', 'public', 'Quick dinners');
-    expect(ops).toEqual([{ op: 'update', path: 'collections/c1', data: { visibility: 'public', description: 'Quick dinners', updatedAt: 'SERVER_TS' } }]);
+  // A publish goes through the cookbook window (RL-265): see firestore.cookbook.test.ts.
+  it('stops sharing with visibility and description only, never followerCount', async () => {
+    await setCookbookSharing('c1', 'private', 'Quick dinners');
+    expect(ops).toEqual([{ op: 'update', path: 'collections/c1', data: { visibility: 'private', description: 'Quick dinners', updatedAt: 'SERVER_TS' } }]);
   });
 });
 

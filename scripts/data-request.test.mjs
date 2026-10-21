@@ -231,7 +231,7 @@ describe('buildErasePlan', () => {
     notificationPrefs: doc(`notificationPrefs/${U}`, {}),
     tasteProfile: doc(`tasteProfiles/${U}`, {}),
     rateLimit: null,
-    writeWindows: [doc(`writeWindows/${U}_reply`, {})],
+    writeWindows: [doc(`writeWindows/${U}_reply`, {}), doc(`writeWindows/${U}_cookbook`, {})],
     ownRecipes: [doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] })],
     collaboratorRecipes: [
       doc('recipes/r1', { createdBy: { uid: U }, collaborators: [{ uid: U, displayName: 'T' }] }),
@@ -357,7 +357,7 @@ describe('buildErasePlan', () => {
   it('deletes everything else once', () => {
     expect(deletes).toEqual(expect.arrayContaining([
       'recipes/r1', `favorites/${O}_r1`, `follows/${U}_${O}`, `follows/${O}_${U}`, 'notifications/n1', 'notifications/n2',
-      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `notificationPrefs/${U}`, `tasteProfiles/${U}`, `writeWindows/${U}_reply`,
+      'clientErrors/e1', `profiles/${U}`, `termsAcceptance/${U}`, `notificationPrefs/${U}`, `tasteProfiles/${U}`, `writeWindows/${U}_reply`, `writeWindows/${U}_cookbook`,
     ]));
     expect(new Set(deletes).size).toBe(deletes.length);
     expect(plan.deleteAuthUser).toBe(true);

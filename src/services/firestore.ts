@@ -1937,15 +1937,29 @@ export async function renameCollection(id: string, name: string): Promise<void> 
 
 /**
  * Turns Share as a cookbook on or off and stores its description (null when blank). Publishing
- * needs the current Terms, which the caller checks first. Never touches followerCount.
+ * needs the current Terms, which the caller checks first, and moves the 'cookbook' write window
+ * (RL-265, 5 a day): at the cap it throws RateLimitedError('cookbook') having written nothing.
+ * Stopping sharing is a plain update. Never touches followerCount: a publish rewrites the
+ * document as read in the transaction, so a concurrent follow bump retries it rather than being lost.
  */
 export async function setCookbookSharing(id: string, visibility: 'private' | 'public', description: string | null): Promise<void> {
-  const { fs } = collectionsDb();
-  await rejectAfter(
-    updateDoc(doc(fs, 'collections', id), { visibility, description, updatedAt: serverTimestamp() }),
-    'Updating the cookbook',
-    COLLECTION_WRITE_TIMEOUT_MS
-  );
+  const { fs, uid } = collectionsDb();
+  const ref = doc(fs, 'collections', id);
+  if (visibility === 'private') {
+    await rejectAfter(
+      updateDoc(ref, { visibility, description, updatedAt: serverTimestamp() }),
+      'Updating the cookbook',
+      COLLECTION_WRITE_TIMEOUT_MS
+    );
+    return;
+  }
+  // shortcut: the caller only publishes a private collection, so an already public one still counts once; check stored visibility first if a public-to-public save is ever added.
+  await writeLimited(fs, uid, 'cookbook', ref, async (tx) => {
+    const snap = await tx.get(ref);
+    // Same code as a denied update of a missing document, so the hook reports it as gone.
+    if (!snap.exists()) throw Object.assign(new Error('Collection not found'), { code: 'not-found' });
+    return { ...snap.data(), visibility, description, updatedAt: serverTimestamp() };
+  });
 }
 
 export async function deleteCollection(id: string): Promise<void> {
@@ -2544,7 +2558,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     // Ids are exact and a missing document reads as absent, never denied (RL-026).
     exportSection<CloudDoc[]>('writeWindows', async () => {
       const snaps = await Promise.all(
-        (['suggestion', 'reply', 'notification', 'recipe', 'cook'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
+        (['suggestion', 'reply', 'notification', 'recipe', 'cook', 'cookbook'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
       );
       return { data: snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...exportFields(s.data()!) }) as CloudDoc) };
     }),

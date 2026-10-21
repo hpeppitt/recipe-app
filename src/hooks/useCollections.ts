@@ -21,6 +21,7 @@ import {
   checkCollectionRoom,
   collectionName,
 } from '../lib/kitchen';
+import { RateLimitedError, rateLimitMessage } from '../lib/errors';
 
 export const COLLECTIONS_LOAD_FAILED_MESSAGE = "Couldn't load your collections. Check your connection and try again.";
 export const COLLECTIONS_FAILED_MESSAGE = "Couldn't update your collections. Check your connection and try again.";
@@ -134,6 +135,8 @@ async function write<T>(uid: string, call: () => Promise<T>, validate?: () => vo
     return out;
   } catch (err) {
     if (err instanceof CollectionRefusedError) throw err;
+    // The cookbook publish cap (RL-265) is the form's copy, not a page failure; writeLimited reported it.
+    if (err instanceof RateLimitedError) throw new CollectionRefusedError(rateLimitMessage(err) ?? COLLECTIONS_FAILED_MESSAGE);
     const code = (err as { code?: unknown }).code;
     if (id && (code === 'permission-denied' || code === 'not-found') && loaded(uid) && !known(uid, id)) {
       throw new CollectionRefusedError(COLLECTION_GONE_MESSAGE);
