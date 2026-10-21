@@ -8,6 +8,7 @@ import { makeRecipe } from '../test/factories';
 
 const followUser = vi.fn();
 const updateAvatar = vi.fn();
+const countUserCooks = vi.fn(async (..._a: unknown[]) => 4);
 vi.mock('../services/firestore', () => ({
   isFollowing: vi.fn(async () => false),
   followUser: (...a: unknown[]) => followUser(...a),
@@ -15,6 +16,7 @@ vi.mock('../services/firestore', () => ({
   getFollowingIds: vi.fn(async () => []),
   getFollowingProfiles: vi.fn(async () => []),
   getFollowers: vi.fn(async () => []),
+  countUserCooks: (...a: unknown[]) => countUserCooks(...a),
 }));
 vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
@@ -264,21 +266,41 @@ describe('OwnProfile Organic layout (RL-095)', () => {
     expect(screen.queryByText('My Profile')).toBeNull();
   });
 
-  it('shows the views line only when there are some, and saves in the tile', () => {
+  it('shows the views and saves line only when there are some, and no Saves tile', () => {
     const { unmount } = renderAt('/profile', fakeUser);
     expect(screen.queryByText(/views/)).toBeNull();
     unmount();
     totals = { totalViews: 3, totalFavorites: 1 };
     renderAt('/profile', fakeUser);
-    expect(screen.getByText('3 views')).toBeInTheDocument();
-    expect(within(screen.getByText('Saves').parentElement!).getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('3 views · 1 save')).toBeInTheDocument();
+    expect(screen.queryByText('Saves')).toBeNull();
   });
 
-  it.each(['loading', 'error'])('shows a dash for Saves while stats are %s', (status) => {
-    statsStatus = status;
-    totals = { totalViews: 0, totalFavorites: 0 };
+  it('shows the cook count in the Cooked tile, one read, and a dash while loading or on failure', async () => {
+    countUserCooks.mockClear();
     renderAt('/profile', fakeUser);
-    expect(screen.getByRole('group', { name: 'Saves: loading' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Cooked: loading' })).toBeInTheDocument();
+    expect(await screen.findByRole('group', { name: 'Cooked: 4' })).toBeInTheDocument();
+    expect(countUserCooks).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the Cooked dash when the count fails', async () => {
+    countUserCooks.mockRejectedValueOnce(new Error('nope'));
+    renderAt('/profile', fakeUser);
+    expect(await screen.findByRole('group', { name: 'Cooked: unavailable' })).toHaveTextContent('–');
+  });
+
+  it('shows a null count (Firebase off) as unavailable', async () => {
+    countUserCooks.mockResolvedValueOnce(null as unknown as number);
+    renderAt('/profile', fakeUser);
+    expect(await screen.findByRole('group', { name: 'Cooked: unavailable' })).toBeInTheDocument();
+  });
+
+  it('shows 5-digit counts compact with the full number in the name', async () => {
+    countUserCooks.mockResolvedValueOnce(12345);
+    renderAt('/profile', fakeUser);
+    const tile = await screen.findByRole('group', { name: 'Cooked: 12345' });
+    expect(tile).toHaveTextContent('12K');
   });
 
   it('shows dashes for Followers and no Following number until the profile has loaded', () => {
@@ -393,7 +415,8 @@ describe('PublicProfile Organic layout (RL-096)', () => {
     expect(within(tile('Started')).getByText('2')).toBeInTheDocument();
     expect(within(tile('Grew')).getByText('1')).toBeInTheDocument();
     expect(within(tile('Followers')).getByText('3')).toBeInTheDocument();
-    expect(within(tile('Saves')).getByText('6')).toBeInTheDocument();
+    expect(screen.queryByText('Saves')).toBeNull();
+    expect(screen.getByText('6 saves')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Root Soup/ })).toHaveTextContent('1 branch');
     expect(screen.getByRole('link', { name: /Lone Toast/ })).not.toHaveTextContent('No branches yet');
     expect(screen.queryByRole('link', { name: /Spicy Soup/ })).toBeNull();

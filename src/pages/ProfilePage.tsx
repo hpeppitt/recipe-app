@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
@@ -7,6 +7,8 @@ import { useOwnRecipes, useUserRecipes } from '../hooks/useUserRecipes';
 import { useLocalLibrary } from '../hooks/useRecipeLibrary';
 import { useOwnRecipesSyncStatus } from '../hooks/useOwnRecipesSync';
 import { useOnline } from '../hooks/useOnline';
+import { countUserCooks } from '../services/firestore';
+import { reportError } from '../services/telemetry';
 import { splitLibrary, type FeedRecipe, type FeedSource } from '../lib/library';
 import { useFollow, useFollowers, useFollowingList } from '../hooks/useFollow';
 import { usePendingAction } from '../hooks/usePendingAction';
@@ -50,6 +52,34 @@ function PersonRow({
   );
 }
 
+/** One count read per visit, no listener. 'loading' until it settles, 'error' when it fails or is unavailable. */
+function useCookCount(uid: string | undefined): number | 'loading' | 'error' {
+  const [state, setState] = useState<{ uid?: string; n: number | 'error' }>({ n: 'error' });
+  useEffect(() => {
+    if (!uid) return;
+    let live = true;
+    countUserCooks(uid).then(
+      (n) => live && setState({ uid, n: n ?? 'error' }),
+      (e) => {
+        if (navigator.onLine) reportError(e, 'profile-cooked');
+        if (live) setState({ uid, n: 'error' });
+      }
+    );
+    return () => {
+      live = false;
+    };
+  }, [uid]);
+  return state.uid === uid ? state.n : 'loading';
+}
+
+/** The "N views · N saves" line under the tiles. A part that is zero is left out, and nothing renders when both are. */
+function ReachLine({ views, saves }: { views: number; saves: number }) {
+  const parts = [views > 0 && `${views} ${pluralize(views, 'view')}`, saves > 0 && `${saves} ${pluralize(saves, 'save')}`].filter(Boolean);
+  return parts.length ? <p className="text-[13px] text-text-tertiary">{parts.join(' · ')}</p> : null;
+}
+
+const compact = new Intl.NumberFormat('en', { notation: 'compact' });
+
 /** A tappable (or inert) stat tile on the own profile, Organic 4a. */
 function StatTile({
   label,
@@ -57,8 +87,11 @@ function StatTile({
   onClick,
   expanded,
   controls,
+  unavailable,
 }: {
   label: string;
+  /** The count failed: shows a dash and names the tile "unavailable". */
+  unavailable?: boolean;
   /** A string is a placeholder while the count is still loading. */
   value: number | string;
   onClick?: () => void;
@@ -67,10 +100,11 @@ function StatTile({
   controls?: string;
 }) {
   const cls = `min-w-0 rounded-[20px] px-1 py-3 text-center ${expanded ? 'bg-surface-tertiary ring-1 ring-border-strong' : 'bg-surface-secondary'}`;
-  const name = `${label}: ${typeof value === 'string' ? 'loading' : value}`;
+  const name = `${label}: ${unavailable ? 'unavailable' : typeof value === 'string' ? 'loading' : value}`;
+  const shown = typeof value === 'number' && value >= 10000 ? compact.format(value) : value;
   const body = (
     <>
-      <p className="min-w-0 overflow-hidden font-heading text-xl leading-tight text-text-primary tabular-nums">{value}</p>
+      <p className="min-w-0 overflow-hidden font-heading text-xl leading-tight text-text-primary tabular-nums">{shown}</p>
       <p className="truncate text-[11px] text-text-tertiary">{label}</p>
     </>
   );
@@ -259,6 +293,7 @@ function OwnProfile() {
   const { profile, loaded: profileLoaded, updateAvatar, updateName } = useOwnProfile();
   const { stats, statsStatus } = useOwnRecipes(user?.uid);
   const tabs = useRecipeTabs(user?.uid, isConfigured);
+  const cooked = useCookCount(user?.uid);
   const navigate = useNavigate();
   const [editingAvatar, setEditingAvatar] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -392,6 +427,7 @@ function OwnProfile() {
             <div className="grid grid-cols-4 gap-2">
               <StatTile label="Started" value={tabs.loading ? '–' : tabs.created.length} />
               <StatTile label="Grew" value={tabs.loading ? '–' : tabs.branched.length} />
+              <StatTile label="Cooked" value={typeof cooked === 'number' ? cooked : '–'} unavailable={cooked === 'error'} />
               <StatTile
                 label="Followers"
                 value={profileLoaded ? (profile?.followerCount ?? 0) : '–'}
@@ -399,7 +435,6 @@ function OwnProfile() {
                 controls="followers-panel"
                 onClick={() => setOpenList(openList === 'followers' ? null : 'followers')}
               />
-              <StatTile label="Saves" value={tabs.loading || statsStatus !== 'ready' ? '–' : stats.totalFavorites} />
             </div>
             {/* No count: the cooks listener belongs to the log page, not this one (RL-200). */}
             <Link
@@ -419,11 +454,7 @@ function OwnProfile() {
             >
               Following{profileLoaded ? ` ${profile?.followingCount ?? followingProfiles.length}` : ''}
             </button>
-            {stats.totalViews > 0 && (
-              <p className="text-[13px] text-text-tertiary">
-                {stats.totalViews} {pluralize(stats.totalViews, 'view')}
-              </p>
-            )}
+            {statsStatus === 'ready' && <ReachLine views={stats.totalViews} saves={stats.totalFavorites} />}
 
             {openList === 'followers' && (
               <div id="followers-panel" className="border border-border rounded-2xl p-2">
@@ -535,6 +566,7 @@ function PublicProfile({ uid }: { uid: string }) {
     retry: retryProfile,
   } = usePublicProfile(uid);
   const { recipes, stats, isLoading: recipesLoading } = useUserRecipes(uid);
+  const cooked = useCookCount(uid);
   const {
     isFollowing,
     toggleFollow,
@@ -662,14 +694,10 @@ function PublicProfile({ uid }: { uid: string }) {
             <div className="grid grid-cols-4 gap-2">
               <StatTile label="Started" value={recipesLoading ? '–' : created.length} />
               <StatTile label="Grew" value={recipesLoading ? '–' : branched.length} />
+              <StatTile label="Cooked" value={typeof cooked === 'number' ? cooked : '–'} unavailable={cooked === 'error'} />
               <StatTile label="Followers" value={profile.followerCount ?? 0} />
-              <StatTile label="Saves" value={recipesLoading ? '–' : stats.totalFavorites} />
             </div>
-            {stats.totalViews > 0 && (
-              <p className="text-[13px] text-text-tertiary">
-                {stats.totalViews} {pluralize(stats.totalViews, 'view')}
-              </p>
-            )}
+            {!recipesLoading && <ReachLine views={stats.totalViews} saves={stats.totalFavorites} />}
           </div>
 
           <RecipeTabs
