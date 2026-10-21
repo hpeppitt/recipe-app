@@ -22,6 +22,8 @@ const empty: CloudInput = {
   termsAcceptance: { data: null },
   notificationPrefs: { data: null },
   writeWindows: { data: [] },
+  cooks: { data: [] },
+  cookPhotos: { data: [] },
 };
 
 function full(): DataExportInput {
@@ -56,6 +58,10 @@ function full(): DataExportInput {
       termsAcceptance: { data: { id: ME, version: 'v', acceptedAt: 1 } },
       notificationPrefs: { data: { id: ME, branch: true, suggestion: true, follow: false } },
       writeWindows: { data: [{ id: `${ME}_recipe`, count: 1 }] },
+      cooks: {
+        data: [{ id: 'k1', uid: ME, displayName: 'Me', recipeId: 'r9', rootId: 'r9', recipeOwnerId: CAL, vote: 'again', note: 'lovely', branchId: null, createdAt: 10 }],
+      },
+      cookPhotos: { data: [{ id: 'k1', uid: ME, recipeId: 'r9', url: 'data:image/jpeg;base64,AAAA', createdAt: 11 }] },
     },
   };
 }
@@ -75,6 +81,17 @@ describe('assembleDataExport', () => {
     expect(out.cloud?.termsAcceptance).not.toBeNull();
     expect(out.cloud?.notificationPrefs).toMatchObject({ follow: false });
     expect(out.cloud?.writeWindows).toHaveLength(1);
+    expect(out.cloud?.cooks).toHaveLength(1);
+    expect(out.cloud?.cookPhotos).toHaveLength(1);
+  });
+
+  it("keeps the user's cooks and photos whole and aliases the recipe owner of a cook", () => {
+    const input = full();
+    input.cloud!.cookPhotos = { data: [{ id: 'k1', uid: ME, recipeId: 'r9', url: 'data:image/jpeg;base64,AAAA', createdAt: 11, stray: BOB }] };
+    const out = assembleDataExport(input);
+    expect(out.cloud!.cooks[0]).toMatchObject({ uid: ME, displayName: 'Me', note: 'lovely', recipeOwnerId: out.cloud!.favorites[0].recipeOwnerId });
+    expect(out.cloud!.cooks[0].recipeOwnerId).toMatch(/^other-user-\d+$/);
+    expect(out.cloud!.cookPhotos).toEqual([{ id: 'k1', uid: ME, recipeId: 'r9', url: 'data:image/jpeg;base64,AAAA', createdAt: 11 }]);
   });
 
   it('records a failed section in errors and carries on', () => {

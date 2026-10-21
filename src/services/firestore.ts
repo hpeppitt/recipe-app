@@ -57,7 +57,7 @@ import { cacheRecipe } from '../db/recipes';
 import type { UserProfile, Follow } from '../types/profile';
 import { VERIFY_NOTE } from '../lib/dataExport';
 import { withBoundedImportedFrom } from '../lib/linkImport';
-import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, Section } from '../lib/dataExport';
+import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, CloudCookPhoto, Section } from '../lib/dataExport';
 import { reportError } from './telemetry';
 
 // --- Recipes ---
@@ -1816,7 +1816,9 @@ export async function getRecipesByUsers(uids: string[]): Promise<Array<SharedRec
 // list is authorised from its filters and never sees document data (docs/decisions.md):
 // favorites uid, notifications recipientUid, follows followerId and followingId (two
 // queries), suggestions suggestedBy.uid and recipeOwnerId (two queries), messages by
-// parent path. Recipes and profiles are public. No orderBy, so no composite index.
+// parent path, cooks and cookPhotos uid (both public read; RL-207). Recipes and profiles
+// are public. No orderBy, so no composite index. A cook photo row carries its data URL
+// (up to 200000 characters), so it is never logged: a failed read logs the error only.
 
 const EXPORT_SECTION_TIMEOUT_MS = 30000;
 const EXPORT_PAGE_SIZE = 500;
@@ -1842,9 +1844,10 @@ const exportDoc = (d: QueryDocumentSnapshot<DocumentData>): CloudDoc => ({ id: d
 
 async function readAllDocs(
   col: CollectionReference<DocumentData>,
-  ...constraints: QueryConstraint[]
+  constraints: QueryConstraint[] = [],
+  /** Filled page by page, so a caller can keep what arrived if the read is cut off. */
+  docs: QueryDocumentSnapshot<DocumentData>[] = []
 ): Promise<{ docs: QueryDocumentSnapshot<DocumentData>[]; truncated: boolean }> {
-  const docs: QueryDocumentSnapshot<DocumentData>[] = [];
   for (;;) {
     const last = docs[docs.length - 1];
     const atCap = docs.length >= EXPORT_MAX_ROWS;
@@ -1908,13 +1911,14 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, writeWindows: error, cooks: error, cookPhotos: error };
   }
   const byField = (col: string, field: string) => async () => {
-    const r = await readAllDocs(collection(fs, col), where(field, '==', uid));
+    const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
     return { rows: r.docs.map(exportDoc), truncated: r.truncated };
   };
 
+  const photoDocs: QueryDocumentSnapshot<DocumentData>[] = [];
   let partialSuggestions: Section<CloudSuggestion[]> | null = null;
   const readSuggestions = async (): Promise<Section<CloudSuggestion[]>> => {
     const base = await readMerged('suggestions', [byField('suggestions', 'suggestedBy.uid'), byField('suggestions', 'recipeOwnerId')]);
@@ -1944,7 +1948,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos] = await Promise.all([
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
       return { data: snap.exists() ? ({ uid: snap.id, ...exportFields(snap.data()) } as unknown as UserProfile) : null };
@@ -1973,10 +1977,20 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     // Ids are exact and a missing document reads as absent, never denied (RL-026).
     exportSection<CloudDoc[]>('writeWindows', async () => {
       const snaps = await Promise.all(
-        (['suggestion', 'reply', 'notification', 'recipe'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
+        (['suggestion', 'reply', 'notification', 'recipe', 'cook'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
       );
       return { data: snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...exportFields(s.data()!) }) as CloudDoc) };
     }),
+    exportSection('cooks', () => readMerged('cooks', [byField('cooks', 'uid')]) as Promise<Section<Cook[]>>),
+    // Up to 200 KB a row, so a slow phone may hit the deadline: keep the pages that arrived.
+    exportSection<CloudCookPhoto[]>(
+      'cookPhotos',
+      () => readMerged('cook photos', [async () => {
+        const r = await readAllDocs(collection(fs, 'cookPhotos'), [where('uid', '==', uid)], photoDocs);
+        return { rows: r.docs.map(exportDoc), truncated: r.truncated };
+      }]) as Promise<Section<CloudCookPhoto[]>>,
+      () => ({ data: photoDocs.map(exportDoc) as CloudCookPhoto[], warning: 'Reading cookPhotos timed out; some photos may be missing' })
+    ),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, writeWindows, cooks, cookPhotos };
 }

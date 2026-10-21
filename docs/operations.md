@@ -601,7 +601,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | Data | Erase |
 |---|---|
 | Auth user | Deleted, after Firestore |
-| `profiles/{uid}`, `termsAcceptance/{uid}`, `notificationPrefs/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification` and `{uid}_recipe` | Deleted |
+| `profiles/{uid}`, `termsAcceptance/{uid}`, `notificationPrefs/{uid}`, `rateLimits/{uid}`, `writeWindows/{uid}_suggestion`, `{uid}_reply`, `{uid}_notification`, `{uid}_recipe` and `{uid}_cook` | Deleted |
 | `recipes` with `createdBy.uid == uid` (with `createdBy.displayName`) | Deleted |
 | The uid in another recipe's `collaborators` (objects of `{ uid, displayName }`) and `collaboratorUids` (RL-172) | Removed from both with `arrayRemove` in one update (`collaboratorUids` only when the document's list holds the uid). Found with an `array-contains` query on `collaboratorUids` plus a read of every recipe, because recipes credited before RL-172 have only the objects, which no query can match on uid. Export aliases other uids in both fields |
 | `favorites` with `uid == uid` | Deleted, and the favourited recipe's `favoriteCount` decremented (not below 0, not on the uid's own recipes) |
@@ -612,6 +612,9 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
 | `suggestions` on the uid's own recipes (`recipeOwnerId == uid`) | Kept and anonymised (RL-060): `recipeOwnerId` becomes `deleted-user`, the uid's own replies in the thread are anonymised as above, and the other party's suggestion, text and replies are untouched, though the recipe is deleted. The suggester can still read the thread (the rules never read the recipe) but the app only reaches it from the recipe page, so they see it through their data export. A suggestion the uid made on their own recipe has no other party and is deleted with its whole thread. `recipeOwnerId` is checked against the recipe on create, so it is the owner field relied on |
 | `notifications` with `recipientUid` or `fromUid` equal to the uid (with `fromDisplayName`) | Deleted |
 | `clientErrors` with `uid == uid` | Deleted |
+| `cookPhotos` with `uid == uid` (RL-207) | Deleted, before the cooks, so no photo is left without its cook. Exported whole: each row holds its JPEG data URL, up to about 200 KB in the file. The dry run prints paths and counts only, never a URL |
+| `cooks` with `uid == uid` (with `displayName` and `note`) | Deleted. Exported with the recipe owner's uid aliased |
+| Other users' `cooks` of the uid's recipes (`recipeOwnerId == uid`) | Kept, anonymised: `recipeOwnerId` becomes `deleted-user`, as for suggestions on own recipes. Their cook photos are theirs and untouched |
 
 **Not covered**, so say so in the reply to an erasure request:
 
@@ -635,7 +638,7 @@ node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
   the kept suggestion and reply text (kept threads on a deleted recipe also keep its `recipeTitle` and `recipeEmoji`), can contain a name or anything the person typed. The
   script does not search text.
 - `writeWindows/{other uid}_*` `last` fields may still name a deleted suggestion, reply,
-  notification or recipe path. A path holds ids only, no uid or name.
+  notification, recipe or cook path. A path holds ids only, no uid or name.
 
 ## Verification gates
 

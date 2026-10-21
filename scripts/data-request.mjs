@@ -129,6 +129,11 @@ export function anonymisedOwnerSuggestionPatch() {
   return { recipeOwnerId: PLACEHOLDER_UID };
 }
 
+/** What stays on another person's cook of a recipe the uid owned (RL-207). */
+export function anonymisedOwnerCookPatch() {
+  return { recipeOwnerId: PLACEHOLDER_UID };
+}
+
 /** What stays on a reply the uid wrote in a thread that is kept. */
 export function anonymisedMessagePatch() {
   return { fromUid: PLACEHOLDER_UID, fromDisplayName: null };
@@ -228,6 +233,13 @@ export function buildErasePlan(uid, fetched) {
       ops.push({ kind: 'update', path: `profiles/${followerId}`, increment: { field: 'followingCount', by: -1 } });
     }
     add('follow (either side)', ops);
+  }
+
+  // Photos before cooks (RL-207): the photo's rules read its cook, so none is left without one.
+  for (const p of fetched.cookPhotos ?? []) add('own cook photo', [del(p.path)]);
+  for (const c of fetched.cooks ?? []) add('own cook', [del(c.path)]);
+  for (const c of fetched.cooksOnOwn ?? []) {
+    if (c.data.uid !== uid) add("another user's cook of an own recipe (kept, owner anonymised)", [{ kind: 'update', path: c.path, set: anonymisedOwnerCookPatch() }]);
   }
 
   for (const n of uniqueByPath(fetched.notifications ?? [])) add('notification (to or from)', [del(n.path)]);
@@ -369,7 +381,7 @@ async function collect(db, auth, uid) {
     termsAcceptance: await one(`termsAcceptance/${uid}`),
     notificationPrefs: await one(`notificationPrefs/${uid}`),
     rateLimit: await one(`rateLimits/${uid}`),
-    writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
+    writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe', 'cook'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
     ownRecipes,
     collaboratorRecipes,
     favorites,
@@ -383,6 +395,10 @@ async function collect(db, auth, uid) {
       ...(await q(db.collection('notifications').where('fromUid', '==', uid))),
     ],
     clientErrors: await q(db.collection('clientErrors').where('uid', '==', uid)),
+    // A photo row holds its data URL (up to 200000 characters); only paths and counts are printed.
+    cooks: await q(db.collection('cooks').where('uid', '==', uid)),
+    cookPhotos: await q(db.collection('cookPhotos').where('uid', '==', uid)),
+    cooksOnOwn: (await q(db.collection('cooks').where('recipeOwnerId', '==', uid))).filter((c) => c.data.uid !== uid),
     counters,
   };
 }
@@ -429,12 +445,14 @@ export function redactExport(uid, body) {
     named(n.data, 'fromUid', 'fromDisplayName');
     n.data.recipientUid = alias(n.data.recipientUid);
   }
+  for (const c of out.cooks) c.data.recipeOwnerId = alias(c.data.recipeOwnerId);
   // Paths last, once every other uid has an alias. Composite ids are joined with `_`.
   const fixPath = (p) => p.split('/').map((seg) => seg.split('_').map((x) => ids.get(x) ?? x).join('_')).join('/');
   const docs = [
     out.profile, out.termsAcceptance, out.notificationPrefs, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
+    ...out.cooks, ...out.cookPhotos,
   ].filter(Boolean);
   for (const d of docs) d.path = fixPath(d.path);
   out.redaction = "Other people's account ids are replaced with other-user-N and their display names removed. Content is kept.";
@@ -460,6 +478,8 @@ function exportBody(uid, project, target, f) {
     suggestions: uniqueByPath([...f.suggestionsAuthored, ...f.suggestionsOnOwn]),
     notifications: uniqueByPath(f.notifications),
     clientErrors: f.clientErrors,
+    cooks: f.cooks,
+    cookPhotos: f.cookPhotos,
   };
 }
 
@@ -479,6 +499,8 @@ function countExport(body) {
     messages: body.suggestions.reduce((n, s) => n + s.messages.length, 0),
     notifications: body.notifications.length,
     clientErrors: body.clientErrors.length,
+    cooks: body.cooks.length,
+    cookPhotos: body.cookPhotos.length,
   };
 }
 
