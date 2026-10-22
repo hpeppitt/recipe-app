@@ -31,7 +31,7 @@ export const PRIVACY: LegalDocument = {
       heading: 'What is public',
       paragraphs: [
         'Published recipes can be read by anyone, including people without an account and anyone with the link. A published recipe includes its full content, the prompt you typed to start it, your display name, and the display names of people whose suggestions you approved. It also carries account ids that the app uses to link recipes to profiles.',
-        'Your profile can be read by anyone: display name, avatar (an emoji, a generated picture, or a small photo you upload) and your recipe, follower and following counts.',
+        'Your profile can be read by anyone: display name, avatar (an emoji, a generated picture, or a small photo you upload), your bio (up to 160 characters, written by you), your country flag and your recipe, follower and following counts.',
         'A collection you share as a cookbook can be read by anyone too, including its name, description, the recipes in it and its follower count. See Shared cookbooks below.',
         'Cooks you log ("I made this") and any photo you add to one are public too. See the Cooks and Cook photos sections below.',
         'The full AI conversation behind a recipe is not published. It stays on your device.',
@@ -172,11 +172,12 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Your profile',
       paragraphs: [
-        'What: display name, avatar choice, an uploaded avatar photo if you add one (stored as a small 128 by 128 pixel image), counts, and the date it was created. It holds no email address.',
+        'What: display name, avatar choice, an uploaded avatar photo if you add one (stored as a small 128 by 128 pixel image), an optional bio of up to 160 characters that you write, an optional country flag, counts, and the date it was created. It holds no email address.',
+        'The country flag is set once, the first time you sign in with a verified account and no flag is set (this includes accounts made before the flag existed), from your device\'s time zone. If no country can be worked out from the time zone, no flag is set. It is never worked out from your IP address or GPS. It can be wrong, for example if you travel. You can change it or choose "No flag" at any time. Both the bio and the flag are public.',
         'Why: so others can see who made a recipe and follow you.',
         'Where: Google Cloud Firestore.',
         'Who sees it: anyone.',
-        `How long: until your account is deleted. You can change your name and avatar at any time. Deleting the profile is by email request to ${SUPPORT_EMAIL}.`,
+        `How long: until your account is deleted. You can change your name, avatar, bio and country at any time. Deleting the profile is by email request to ${SUPPORT_EMAIL}.`,
       ],
     },
     {
@@ -315,7 +316,7 @@ export const PRIVACY: LegalDocument = {
         `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
         `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry, collections and cookbook follows. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
-        `Correction: change your display name and avatar on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
+        `Correction: change your display name, avatar, bio and country on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
         `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), delete your collections, unfollow cookbooks, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,
         'Withdrawing consent: turn analytics off in Settings at any time. This does not affect what was sent before.',

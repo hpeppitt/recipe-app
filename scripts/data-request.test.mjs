@@ -188,7 +188,7 @@ describe('resolveProject', () => {
 
 describe('redactExport', () => {
   const body = {
-    profile: doc(`profiles/${U}`, {}), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), tasteProfile: doc(`tasteProfiles/${U}`, { avoids: ['Coriander'] }), rateLimit: null, writeWindows: [], clientErrors: [],
+    profile: doc(`profiles/${U}`, { bio: 'Hello', country: 'AU' }), termsAcceptance: null, notificationPrefs: doc(`notificationPrefs/${U}`, { follow: false }), tasteProfile: doc(`tasteProfiles/${U}`, { avoids: ['Coriander'] }), rateLimit: null, writeWindows: [], clientErrors: [],
     recipes: {
       owned: [doc('recipes/r1', { createdBy: { uid: U, displayName: 'T' }, collaborators: [{ uid: O, displayName: 'Omar' }], collaboratorUids: [O] })],
       asCollaborator: [doc('recipes/r2', { createdBy: { uid: O, displayName: 'Omar' }, collaborators: [{ uid: U, displayName: 'T' }], collaboratorUids: [U] })],
@@ -223,6 +223,9 @@ describe('redactExport', () => {
     expect(r.follows[0].data.followerDisplayName).toBeNull();
     expect(r.notifications[0].data).toMatchObject({ recipientUid: U, fromUid: 'other-user-1', fromDisplayName: null });
     expect(r.cooks[0].data).toEqual({ uid: U, displayName: 'T', recipeId: 'r2', recipeOwnerId: 'other-user-1', note: 'good' });
+  });
+  it('keeps bio and country in the export', () => {
+    expect(r.profile.data).toMatchObject({ bio: 'Hello', country: 'AU' });
   });
   it('keeps the taste profile in the export', () => {
     expect(r.tasteProfile).toEqual(body.tasteProfile);
@@ -268,7 +271,7 @@ describe('plain', () => {
 describe('buildErasePlan', () => {
   const fetched = {
     authUser: { uid: U },
-    profile: doc(`profiles/${U}`, {}),
+    profile: doc(`profiles/${U}`, { bio: 'Hello', country: 'AU' }),
     termsAcceptance: doc(`termsAcceptance/${U}`, {}),
     notificationPrefs: doc(`notificationPrefs/${U}`, {}),
     tasteProfile: doc(`tasteProfiles/${U}`, {}),
@@ -403,6 +406,11 @@ describe('buildErasePlan', () => {
     ]));
     expect(new Set(deletes).size).toBe(deletes.length);
     expect(plan.deleteAuthUser).toBe(true);
+  });
+
+  it('deletes the whole profile document, which holds bio and country', () => {
+    expect(deletes.filter((d) => d === `profiles/${U}`)).toHaveLength(1);
+    expect(updates.some((o) => o.path === `profiles/${U}`)).toBe(false);
   });
 
   it('deletes an own sole-member kitchen and its collections', () => {

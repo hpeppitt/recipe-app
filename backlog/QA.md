@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-283 Privacy wording for bio and country flag
+
+- Author: sign off the bio and country flag wording in /privacy before release. It is pending your sign-off. Read "What is public", "Your profile" and "Correction".
+- Release step: Privacy `lastUpdated` is already 2026-10-22 and live. Move it to the release date if that is later (not `TERMS_VERSION`).
+
 ### RL-280 Time zone to country helpers
 
 - No visible change yet (pure lib code for RL-281/282). Nothing to check beyond CI.
