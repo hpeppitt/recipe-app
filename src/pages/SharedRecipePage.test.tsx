@@ -340,7 +340,7 @@ describe('SharedRecipePage hash link', () => {
     resolve({ id: 'copy-1' });
     const openBtn = await screen.findByRole('button', { name: 'Open in my library' });
     expect(screen.queryByRole('button', { name: 'Save to my library' })).toBeNull();
-    expect(document.activeElement).toBe(openBtn);
+    await waitFor(() => expect(document.activeElement).toBe(openBtn));
     fireEvent.click(openBtn);
     expect(navigateSpy).toHaveBeenCalledWith('/recipe/copy-1');
   });

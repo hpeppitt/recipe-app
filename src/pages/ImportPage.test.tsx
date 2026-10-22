@@ -248,11 +248,12 @@ describe('ImportPage', () => {
     await waitFor(() => expect(button.textContent).toBe('Saving…'));
     expect(button.getAttribute('aria-disabled')).toBe('true');
     expect(button.parentElement!.parentElement!.getAttribute('aria-busy')).toBe('true');
+    expect(document.activeElement).not.toBe(button);
     fail(new Error('offline'));
     expect((await screen.findByRole('alert')).textContent).toBe(
       "Couldn't save the recipe. Check your connection and try again."
     );
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit first' }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit first' })));
     expect(await db.recipes.count()).toBe(0);
     expect(probe()).toBe('/import|null');
   });
