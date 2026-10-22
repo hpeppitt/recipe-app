@@ -953,6 +953,21 @@ When `/import` opens from the Android share with a usable link, a `ConfirmDialog
 
 RL-282. When a verified account's profile has no `country` key, sign-in (`ensureProfile`) sets it from the device time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone` through `countryFromTimeZone`), in the same write that already ensures the profile, so no read is added. It runs once: a zone that maps to nothing writes null, and after that the user's choice, including null for No flag, is never overwritten. This covers new sign-ups and existing accounts on their next sign-in. Privacy: the country is inferred without asking and is public; it is coarse location and personal data. It never comes from IP or GPS, can be wrong for travellers and VPN users, is visible to the user on their own profile, and can be removed with No flag. The privacy paragraph is RL-283. Rejected: IP geolocation, and changing the flag when the user travels.
 
+### Beta feedback is a Firestore collection (2026-10-22)
+
+Author decisions at `/groom`, 2026-10-22. The ticket set is RL-285 to RL-291.
+
+1. Destination: a Firestore `feedback` collection.
+2. Who sees the tab: every verified account, with a device-local Settings switch "Show the feedback tab" (on by default) to hide it.
+3. Screenshot: captured automatically when the tab is tapped, with `html-to-image`. The author approved that dependency by name as a client dependency, loaded only on tap (RL-288). The user can remove the screenshot before sending, or attach their own instead (RL-287).
+4. Sent with each note: page path (no query string), app version, screen size, theme, user agent, uid and display name.
+5. Limit: 10 feedback items a day per user, through a `feedback` write window (the RL-048 pattern).
+6. Reading: with `scripts/feedback.mjs` only (RL-289). There is no in-app inbox.
+7. Retention: deleted once handled, and kept at most 12 months.
+8. Privacy: a screenshot can show other people's names and content, and the sender's own private lists. The sheet says so. Only the operator reads feedback. The sender can read their own (through Download my data). Feedback joins export and erase. The policy paragraph is RL-290.
+
+Rejected: PostHog (consent-gated, so feedback from anyone who declined analytics would be lost), email (needs a server; Spark has no functions), html2canvas (larger than html-to-image), an allowlist of beta testers (a rules change and a read on every load), and an in-app inbox. Cook photos already store a downscaled JPEG data URL of at most 200000 characters in Firestore (RL-193), which is the pattern for the screenshot.
+
 ---
 
 ## v0.4.0 release (2026-10-22)

@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-284 docs/decisions.md and backlog/DECISIONS.md record the author's 2026-10-22 decisions on the beta feedback tab
+
+- Docs only. Nothing to check in a browser.
+
 ### RL-283 Privacy wording for bio and country flag
 
 - Author: sign off the bio and country flag wording in /privacy before release. It is pending your sign-off. Read "What is public", "Your profile" and "Correction".
