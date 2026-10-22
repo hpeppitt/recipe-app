@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-289 scripts/feedback.mjs
+
+- After RL-291 deploys the rules, send a note with a screenshot from the app, then run `npm run feedback -- list --project recipe-lab-3832b` and `save <dir outside the repo>`. Open the .jpg and .md: the image should match, the note should list uid, path, version, viewport and theme.
+- Try `delete <id>` without `--confirm`: it must only print and say DRY RUN. Then with `--confirm recipe-lab-3832b`. Not exercised against production; an emulator run (list, save, prune, delete, dry run and confirmed) is in the ticket Notes.
+
 ### RL-287 Feedback tab and sheet
 
 - Sends work live only after RL-291 deploys the rules. On a phone, take a screenshot, tap Feedback, attach it, send; check it arrived with the RL-289 script. Turn the tab off in Settings (Appearance > Show the feedback tab) and check it is gone on every page and stays gone after a reload.

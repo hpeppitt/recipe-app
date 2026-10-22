@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "emulators": "firebase emulators:start --only auth,firestore",
     "dev:emulated": "VITE_USE_EMULATORS=true vite",
-    "backlog": "node scripts/backlog.mjs"
+    "backlog": "node scripts/backlog.mjs",
+    "feedback": "node scripts/feedback.mjs"
   },
   "dependencies": {
     "dexie": "^4.3.0",

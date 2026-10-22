@@ -18,6 +18,7 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run dev:emulated` | Dev server pointed at the emulator suite |
 | `npm run backlog -- <list\|next\|show\|set\|validate>` | The ticket backlog CLI (`scripts/backlog.mjs`, tested). `next` prints the ticket an agent should pick up, skipping any with a `ticket/<ID>` branch on `origin` |
 | `node scripts/data-request.mjs <export\|erase> <uid> [flags]` | One person's data export or erasure, by the operator (RL-055, tested in `scripts/data-request.test.mjs`). See [Data requests](#data-requests) |
+| `npm run feedback -- <list\|save\|delete\|prune> [flags]` | Read and clear beta feedback (RL-289, tested in `scripts/feedback.test.mjs`). See [Reading beta feedback](#reading-beta-feedback) |
 
 Tests run in node by default, with `fake-indexeddb` and the jest-dom matchers loaded from
 `src/test/setup.ts`.
@@ -494,6 +495,33 @@ grep -o 'url:"[^"]*"' dist/sw.js          # precache list: entry, route chunks, 
 After deploy, `curl -sSD - -o /dev/null https://recipe-lab-3832b.web.app/sw.js` must show
 `no-cache`. The offline reload itself needs a real browser: load once online, set devtools
 Network to Offline, reload `/` and a local recipe.
+
+## Reading beta feedback
+
+Verified users send notes and optional screenshots from the Feedback tab (RL-287). They land in
+the Firestore `feedback` collection, which clients can write once and never read back across
+users or change. The operator reads and clears them with `scripts/feedback.mjs` (Admin SDK,
+same credentials as [Data requests](#data-requests)). `--project <id>` is required outside the
+emulator (the run prints PRODUCTION, DEV or CLOUD); `--emulator` uses `demo-recipe-lab`.
+
+```
+npm run feedback -- list --project recipe-lab-3832b
+npm run feedback -- save ~/feedback --project recipe-lab-3832b
+npm run feedback -- delete <id...> --project recipe-lab-3832b --confirm recipe-lab-3832b
+npm run feedback -- prune --older-than 365d --project recipe-lab-3832b --confirm recipe-lab-3832b
+```
+
+- `list` prints newest first: id, date, display name, uid, path, app version, viewport, theme,
+  whether there is a screenshot, then the note.
+- `save <dir>` writes `<date>-<id>.md` (every field but the screenshot, uid included) and
+  `<date>-<id>.jpg` for each item. The directory must exist and be outside the repo, because
+  screenshots and uids are personal data. It never overwrites; a rerun skips saved files.
+  Delete the folder once handled.
+- `delete` and `prune` print what they would delete and change nothing unless `--confirm`
+  repeats the project id. This applies to the emulator too.
+- Feedback is kept at most 12 months: run `prune --older-than 365d` now and then.
+- Mention feedback in the privacy policy review if retention changes (decisions 6 and 7 of
+  RL-284 in [decisions.md](decisions.md)).
 
 ## Data requests
 
