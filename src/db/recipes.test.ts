@@ -15,6 +15,9 @@ import {
   clearOwnRecipes,
   reparentChildren,
   moveFamilyCloudFirst,
+  getRecipe,
+  getAllRecipes,
+  getRecipeTree,
 } from './recipes';
 import { makeRecipe, makeIngredient } from '../test/factories';
 import type { Recipe } from '../types/recipe';
@@ -435,5 +438,19 @@ describe('clearOwnRecipes', () => {
 
     expect((await db.recipes.toArray()).map((r) => r.id).sort()).toEqual(['legacy', 'loc', 'other', 'saved']);
     expect(await db.favorites.count()).toBe(1);
+  });
+});
+
+describe('emoji normalised on read (RL-272)', () => {
+  it('reads a two-emoji row as one from every reader and leaves the row on disk unchanged', async () => {
+    const r = makeRecipe({ id: 'old', title: 'Toast', emoji: '🍞🧈' });
+    await db.recipes.put(r);
+    expect((await getRecipe('old'))?.emoji).toBe('🍞');
+    expect((await getAllRecipes())[0].emoji).toBe('🍞');
+    expect((await getRecipeTree('old'))[0].emoji).toBe('🍞');
+    expect((await exportAllRecipes())[0].emoji).toBe('🍞');
+    expect((await searchRecipes('Toast'))[0].emoji).toBe('🍞');
+    expect((await searchVariations('old', 'Toast'))[0].emoji).toBe('🍞');
+    expect((await db.recipes.toCollection().raw().toArray())[0].emoji).toBe('🍞🧈');
   });
 });

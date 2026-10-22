@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-272 Stored multi-emoji recipes show one emoji
+
+- On live, open a recipe saved with several emoji before RL-271 (if any exist), in your library and as a published recipe in Explore or a shared link: one emoji shows. Re-publish it and the cloud copy now holds one.
+- Notification and suggestion rows, shopping list sources and collection tiles may still show the old multi-emoji copy; that is out of scope.
+
+- Reviewer noted (data, low): Download my data and backups read through the hook, so a legacy multi-emoji recipe exports with one emoji; a row with no emoji exports as the fallback. Any read-then-write of a legacy row stores one emoji, as intended.
+
 ### RL-271 One emoji per recipe write
 
 - Edit a recipe's emoji on a phone: pick two emoji from the keyboard; only the last stays, and the icon fits its circle.

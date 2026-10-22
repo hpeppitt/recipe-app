@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRecipe } from '../test/factories';
+import { RECIPE_EMOJI_FALLBACK } from './emoji';
 import { planOwnRecipeSync, toLocalRecipe, type CloudRecipeDoc } from './recipeSync';
 import type { Recipe } from '../types/recipe';
 
@@ -138,5 +139,12 @@ describe('planOwnRecipeSync', () => {
       put: [],
       remove: [],
     });
+  });
+});
+
+describe('toLocalRecipe emoji (RL-272)', () => {
+  it('keeps one emoji from a two-emoji doc, or the fallback when there is none', () => {
+    expect(toLocalRecipe(asDoc(own({ emoji: '🍞🧈' }))).emoji).toBe('🍞');
+    expect(toLocalRecipe(asDoc(own({ emoji: 'bread' }))).emoji).toBe(RECIPE_EMOJI_FALLBACK);
   });
 });

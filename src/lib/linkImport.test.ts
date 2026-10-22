@@ -52,6 +52,13 @@ describe('withBoundedImportedFrom', () => {
       expect(out).toEqual({ id: 'a', title: 'T' });
     }
   });
+
+  it('keeps one emoji from a two-emoji recipe and leaves importedFrom handling alone (RL-272)', () => {
+    const r = makeRecipe({ emoji: '🍞🧈', importedFrom: 'https://a.com/x' });
+    expect(withBoundedImportedFrom(r)).toEqual({ ...r, emoji: '🍞' });
+    expect(r.emoji).toBe('🍞🧈');
+    expect(withBoundedImportedFrom({ id: 'a', emoji: '🍞🧈', importedFrom: 'javascript:x' })).toEqual({ id: 'a', emoji: '🍞' });
+  });
 });
 
 describe('ImportedFromSchema (RL-263)', () => {
