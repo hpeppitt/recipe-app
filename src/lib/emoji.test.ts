@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { lastEmoji, oneEmoji, RECIPE_EMOJI_FALLBACK } from './emoji'
+import { lastEmoji, oneEmoji, RECIPE_EMOJI_FALLBACK, typedEmoji } from './emoji'
 
 const FB = 'X'
 const family = '👨‍👩‍👧'
@@ -49,3 +49,12 @@ describe('lastEmoji', () => {
     expect(lastEmoji(7)).toBeNull()
   })
 })
+
+describe('typedEmoji', () => {
+  it('keeps the newly added emoji wherever it lands', () => {
+    expect(typedEmoji('🍞', '🍞🧈')).toBe('🧈');
+    expect(typedEmoji('🍞', '🧈🍞')).toBe('🧈');
+    expect(typedEmoji('', '🧈')).toBe('🧈');
+    expect(typedEmoji('🍞', '')).toBeNull();
+  });
+});

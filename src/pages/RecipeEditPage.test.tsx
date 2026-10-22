@@ -153,6 +153,42 @@ describe('RecipeEditPage save (verified owner, cloud first)', () => {
   });
 });
 
+describe('RecipeEditPage emoji field', () => {
+  it('a second emoji replaces the first', () => {
+    renderEdit();
+    const input = screen.getByLabelText('Emoji') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: `${input.value}🧈` } });
+    expect(input.value).toBe('🧈');
+  });
+
+  it('an emoji inserted before the existing one wins', () => {
+    renderEdit();
+    const input = screen.getByLabelText('Emoji') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: `🧈${input.value}` } });
+    expect(input.value).toBe('🧈');
+  });
+
+  it('shows one emoji for an old multi-emoji recipe and the previous one when emptied', () => {
+    renderEdit();
+    const input = screen.getByLabelText('Emoji') as HTMLInputElement;
+    const before = input.value;
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input.value).toBe('');
+    expect(screen.getByText('Leave empty to keep the current emoji.')).toBeTruthy();
+    expect(before).not.toBe('');
+  });
+
+  it('does not normalise while composing, then does on compositionend', () => {
+    renderEdit();
+    const input = screen.getByLabelText('Emoji') as HTMLInputElement;
+    const before = input.value;
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: `${before}sm` } });
+    fireEvent.compositionEnd(input);
+    expect(input.value).toBe(before);
+  });
+});
+
 describe('RecipeEditPage save (Dexie only)', () => {
   it('local-only mode writes Dexie and never touches the cloud', async () => {
     firebase.isFirebaseConfigured = false;

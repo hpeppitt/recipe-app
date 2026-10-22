@@ -62,6 +62,15 @@ describe('recipeToDraft', () => {
   });
 });
 
+describe('draftToPatch emoji', () => {
+  it('keeps one emoji, falling back to the previous one', () => {
+    const r = baseRecipe({ emoji: '🍞' });
+    expect(draftToPatch(draftOf({ emoji: '🥖🧈' }), r).emoji).toBe('🥖');
+    expect(draftToPatch(draftOf({ emoji: 'bread' }), r).emoji).toBe('🍞');
+    expect(draftToPatch(draftOf({ emoji: '' }), r).emoji).toBe('🍞');
+  });
+});
+
 describe('validateDraft', () => {
   it('accepts the draft of an existing recipe', () => {
     expect(validateDraft(draftOf())).toEqual({});

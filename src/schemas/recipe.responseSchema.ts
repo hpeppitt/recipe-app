@@ -76,7 +76,7 @@ const recipeProperties = {
     items: Schema.string(),
     description: 'Cuisine, dietary and meal-type labels.',
   }),
-  emoji: Schema.string({ description: 'One food emoji for the recipe.' }),
+  emoji: Schema.string({ description: 'Exactly one food emoji, nothing else.' }),
   nutrition: nutritionSchema(false),
 };
 
