@@ -18,6 +18,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-262 The ImportPage failed-save and SharedRecipePage saved-copy focus tests wait for the focus move
+- Test-only change, nothing to check in the browser.
+
 ### RL-265 Sharing a cookbook is limited to 5 publishes a day
 - Against production, Share already fails until RL-261 deploys the rules, so do this walk on the emulators or after RL-261.
 - Open a collection, More, Share as a cookbook, type a description, Share. Then Stop sharing. Repeat until you have shared five times in total (re-sharing the same cookbook counts each time).
