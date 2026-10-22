@@ -1,14 +1,12 @@
 import type { LegalDocument } from '../../lib/legal';
 import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 
-// Draft for RL-046 sign-off. Facts come from docs/legal/data-inventory.md. Bracketed
-// notes are for the author and must be resolved before publishing; each is listed in
+// Approved by the author on 2026-10-22 (RL-267, RL-268). Facts come from
+// docs/legal/data-inventory.md. Bracketed notes are for the author; each is listed in
 // docs/legal/claims-to-verify.md.
 export const PRIVACY: LegalDocument = {
   title: 'Privacy Policy',
   lastUpdated: '2026-10-22',
-  draftNotice:
-    'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
     {
       heading: 'About this policy',

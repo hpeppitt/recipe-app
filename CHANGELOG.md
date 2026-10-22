@@ -90,8 +90,8 @@ Terms once.
 - Signing out removes your own recipes from the device, and the delete-from-this-device
   copy says so. The old cloud identity migration is gone.
 - Everyone accepts the updated Terms once. The Terms, Privacy and Cookie Policies cover
-  photos, cooks, kitchens, cookbooks, Google sign-in and imports, and give a contact
-  address.
+  photos, cooks, kitchens, cookbooks, Google sign-in and imports, give a contact
+  address, and no longer carry a draft banner.
 - The spinner stops spinning if you ask your device to reduce motion.
 
 ### Fixed

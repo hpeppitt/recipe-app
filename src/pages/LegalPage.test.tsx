@@ -29,10 +29,11 @@ describe.each(Object.entries(LEGAL_DOCUMENTS))('LegalPage %s', (key, doc) => {
       auth: { isConfigured: false },
     });
 
-  it('renders title, draft notice, date and every section, signed out and local-only', () => {
+  it('renders title, date and every section, signed out and local-only', () => {
     render();
     expect(screen.getByRole('heading', { level: 1, name: doc.title })).toBeTruthy();
-    expect(screen.getByRole('note').textContent).toBe(doc.draftNotice);
+    expect(screen.queryByRole('note')).toBeNull();
+    expect(screen.queryByText(/Draft\. Not legal advice/)).toBeNull();
     expect(document.querySelector('time')?.getAttribute('datetime')).toBe(doc.lastUpdated);
     const h2s = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
     expect(h2s).toEqual(doc.sections.map((s) => s.heading));

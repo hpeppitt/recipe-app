@@ -147,8 +147,8 @@ still deploys a preview. Its build step is only `npm run build` (typecheck and b
 or tests. Auto-merge on green CI normally keeps `main` green.
 
 Once the secret is set, the `qa` channel publishes `main` publicly, so the preview serves the
-DRAFT Terms, Privacy and Cookie pages at `/terms`, `/privacy` and `/cookies` to anyone with the
-link. That matters until the author signs them off in RL-046.
+Terms, Privacy and Cookie pages at `/terms`, `/privacy` and `/cookies` to anyone with the
+link. Those pages are approved (RL-267, RL-268), so the preview shows the published wording.
 
 **Secret** `FIREBASE_SERVICE_ACCOUNT` (repository secret): the JSON key of a service account
 with the **Firebase Hosting Admin** role only (least privilege). The author creates it either
@@ -197,11 +197,11 @@ loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
 
 - [ ] Walk the QA checklist (`/qa-pass`, `backlog/QA-CHECKLIST.md`) and accept or overrule each
   row in `backlog/DECISIONS.md`. An overruled decision becomes a `/groom` input.
-- [ ] **RL-046** sign off the Terms, Privacy and Cookie drafts: set `[STATE]`, resolve every
-  `[DEPENDS ON ...]` and `[AUTHOR TO CONFIRM]` marker (the ticket's Notes list each file and
-  line), and record the date and `TERMS_VERSION` in [decisions.md](decisions.md). If the terms
-  date changes, `TERMS_VERSION` and the rules literal change together (`src/lib/legal.test.ts`
-  fails if they differ). **Do not release the client before this.**
+- [x] **RL-046** sign off the Terms, Privacy and Cookie drafts. Signed off by the author via
+  RL-267 on 2026-10-22: `[STATE]` set, the `[DEPENDS ON ...]` and `[AUTHOR TO CONFIRM]` markers
+  resolved, and `TERMS_VERSION` recorded as `2026-10-22` in [decisions.md](decisions.md). If the
+  terms date changes, `TERMS_VERSION` and the rules literal change together
+  (`src/lib/legal.test.ts` fails if they differ).
 - [ ] Decide whether your own `termsAcceptance` document is made by hand before the rules or
   by accepting on the live app straight after (see "The pending release order", step 6).
 - [ ] Confirm the production build gets the values it needs from the local `.env` (to confirm

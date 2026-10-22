@@ -103,3 +103,7 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
 ### Policy sign-off and contact address (RL-267, 2026-10-22)
 
 The author signed off the Privacy Policy, Terms and Cookie Policy drafts. The contact address in every policy (`SUPPORT_EMAIL`) is now `hpeppitt@gmail.com`. Terms, Privacy and Cookies are dated `2026-10-22`, and `TERMS_VERSION` and the rules `termsVersion()` literal are `2026-10-22`, so every existing user accepts the Terms once.
+
+### Draft banner removed (RL-268, 2026-10-22)
+
+The author approved the policy wording, so the "Draft. Not legal advice" notice is gone. `LegalPage` no longer renders a `role="note"` banner, and `draftNotice` is removed from `LegalDocument` and the three content files. The wording, `lastUpdated` and `TERMS_VERSION` are unchanged.

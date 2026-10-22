@@ -1,13 +1,11 @@
 import type { LegalDocument } from '../../lib/legal';
 import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 
-// Draft for RL-046 sign-off. Bracketed notes are for the author and must be resolved
-// before publishing. See docs/legal/claims-to-verify.md.
+// Approved by the author on 2026-10-22 (RL-267, RL-268). Bracketed notes are for the author;
+// see docs/legal/claims-to-verify.md.
 export const TERMS: LegalDocument = {
   title: 'Terms of Service',
   lastUpdated: '2026-10-22',
-  draftNotice:
-    'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
     {
       heading: 'About these terms',

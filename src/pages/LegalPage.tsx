@@ -33,13 +33,6 @@ export function LegalPage({ doc }: { doc: LegalDocKey }) {
     <div className="flex flex-col bg-surface min-h-dvh">
       <TopBar title={document_.title} showBack onBack={onBack} />
       <main className="flex-1 max-w-lg mx-auto w-full p-4 pb-12 space-y-6 break-words">
-        {/* Prominent on purpose: these are drafts until the author signs off (RL-046). */}
-        <p
-          role="note"
-          className="border border-warning-200 bg-warning-50 rounded-2xl p-4 text-sm font-medium text-warning-800"
-        >
-          {document_.draftNotice}
-        </p>
         <p className="text-sm text-text-secondary">
           Last updated{' '}
           <time dateTime={document_.lastUpdated}>

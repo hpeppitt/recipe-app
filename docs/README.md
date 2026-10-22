@@ -16,7 +16,7 @@ is the only mechanism that keeps documentation true.
 | [agent-workflow.md](agent-workflow.md) | How is it developed? The autonomous loop, the two human touchpoints, which model does which job, what agents may decide alone. |
 | [tech-stack-review.md](tech-stack-review.md) | Proposal (2026-10-13): is Firebase + Gemini still the right stack for sharing with friends at hobby cost? Awaiting the author's decision, RL-001. |
 | [legal/data-inventory.md](legal/data-inventory.md) | What personal data is stored where, who can read it and for how long, today and after the planned privacy tickets. The basis for the draft policies in `src/content/legal/`. |
-| [legal/claims-to-verify.md](legal/claims-to-verify.md) | What the draft Terms, Privacy and Cookie policies say that the author must confirm before they go live (RL-046). |
+| [legal/claims-to-verify.md](legal/claims-to-verify.md) | What the Terms, Privacy and Cookie policies say, and the claims the author had to confirm before they went live (RL-046, signed off 2026-10-22). |
 
 Two documents sit outside `docs/` on purpose:
 
