@@ -15,13 +15,8 @@ export interface LegalDocument {
   title: string;
   /** ISO date, YYYY-MM-DD. */
   lastUpdated: string;
-  draftNotice: string;
   sections: LegalSection[];
 }
-
-/** Each draft opens with this line until the author decides otherwise (RL-046). */
-export const DRAFT_NOTICE =
-  'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.';
 
 // The content files are the one source of truth for the dates; these only re-export them.
 export const TERMS_LAST_UPDATED = TERMS.lastUpdated;

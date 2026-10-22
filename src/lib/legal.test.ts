@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 // ?raw rather than node:fs: the app tsconfig has no Node types, and Vite/Vitest read the file as-is.
 import rules from '../../firestore.rules?raw';
 import {
-  DRAFT_NOTICE,
   LEGAL_DOCUMENTS,
   TERMS_LAST_UPDATED,
   PRIVACY_LAST_UPDATED,
@@ -23,7 +22,6 @@ function allText(doc: LegalDocument): string {
   return [
     doc.title,
     doc.lastUpdated,
-    doc.draftNotice,
     ...doc.sections.flatMap((s) => [s.heading, ...s.paragraphs]),
   ].join('\n');
 }
@@ -36,11 +34,8 @@ describe.each(docs)('%s', (_name, doc, exportedDate) => {
     expect(exportedDate).toBe(doc.lastUpdated);
   });
 
-  it('starts with the exact draft notice', () => {
-    expect(doc.draftNotice).toBe(
-      'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.'
-    );
-    expect(doc.draftNotice).toBe(DRAFT_NOTICE);
+  it('carries no draft notice (approved by the author on 2026-10-22, RL-268)', () => {
+    expect(allText(doc)).not.toContain('Draft. Not legal advice');
   });
 
   it('has a title and non-empty sections', () => {
