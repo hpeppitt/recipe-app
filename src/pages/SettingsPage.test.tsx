@@ -431,6 +431,26 @@ describe('Settings: weigh spoons and liquids (RL-183)', () => {
   });
 });
 
+describe('Settings: show the feedback tab (RL-287)', () => {
+  let store: Map<string, string>;
+  beforeEach(() => {
+    store = new Map();
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('is on by default, stores the hidden flag when turned off and clears it when on', async () => {
+    render();
+    const sw = screen.getByRole('switch', { name: /Show the feedback tab/ });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    await userEvent.click(sw);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(store.get('recipe-lab-feedback-tab-hidden')).toBe('1');
+    await userEvent.click(sw);
+    expect(store.has('recipe-lab-feedback-tab-hidden')).toBe(false);
+  });
+});
+
 describe('Settings: analytics switch', () => {
   it('is hidden when PostHog is not configured', () => {
     render();
@@ -478,7 +498,8 @@ describe('Settings: Notify me when', () => {
     user = member;
     setPrefsDoc.mockClear();
     render();
-    expect(screen.getAllByRole('switch').filter((x) => x.getAttribute('aria-checked') === 'true')).toHaveLength(3);
+    // The device feedback-tab switch (RL-287) is also on by default.
+    expect(screen.getAllByRole('switch').filter((x) => x.getAttribute('aria-checked') === 'true')).toHaveLength(4);
     await userEvent.click(screen.getByRole('switch', { name: 'Someone follows me' }));
     expect(setPrefsDoc).toHaveBeenCalledWith('u1', { branch: true, suggestion: true, follow: false });
     expect(screen.getByRole('switch', { name: 'Someone follows me' })).toHaveAttribute('aria-checked', 'false');

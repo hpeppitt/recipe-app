@@ -7,6 +7,7 @@ import { RouteErrorBoundary } from './components/ui/ErrorBoundary';
 import { PageFallback } from './components/ui/PageFallback';
 import { UpdatePrompt } from './components/layout/UpdatePrompt';
 import { TermsGate } from './components/auth/TermsUpdateDialog';
+import { FeedbackTab } from './components/feedback/FeedbackTab';
 import { EmailLinkStatus } from './components/auth/EmailLinkStatus';
 import { useTheme } from './hooks/useTheme';
 import { useOwnRecipesSync } from './hooks/useOwnRecipesSync';
@@ -129,6 +130,8 @@ export default function App() {
         <UpdatePrompt />
         {/* Inside the router so it can stay off the policy pages (RL-047). */}
         <TermsGate />
+        {/* Beta feedback (RL-287): on every route, inside and outside the shell. */}
+        <FeedbackTab />
         {/* Once, at the root: the sign-in link returns to whichever page asked for it (RL-135). */}
         <EmailLinkStatus />
         <OwnRecipesSync />

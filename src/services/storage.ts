@@ -68,6 +68,16 @@ export function setWeighVolumes(on: boolean): void {
   else safeRemove(STORAGE_KEYS.WEIGH_VOLUMES);
 }
 
+/** The Feedback tab (RL-287) is on unless this device hid it; the key is stored only when hidden. */
+export function getFeedbackTab(): boolean {
+  return safeGet(STORAGE_KEYS.FEEDBACK_TAB_HIDDEN) !== '1';
+}
+
+export function setFeedbackTab(on: boolean): void {
+  if (on) safeRemove(STORAGE_KEYS.FEEDBACK_TAB_HIDDEN);
+  else safeSet(STORAGE_KEYS.FEEDBACK_TAB_HIDDEN, '1');
+}
+
 // --- Device + Anonymous Identity Persistence ---
 
 // Held in memory too, so with blocked storage one session still has one id.

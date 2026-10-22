@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-287 Feedback tab and sheet
+
+- Sends work live only after RL-291 deploys the rules. On a phone, take a screenshot, tap Feedback, attach it, send; check it arrived with the RL-289 script. Turn the tab off in Settings (Appearance > Show the feedback tab) and check it is gone on every page and stays gone after a reload.
+- Look at the tab at 320px on Explore, a recipe page footer, Create's sticky actions, cook mode and the two-pane desktop view: it should cover no primary button or text. It is centred vertically; if it does, move it to `top-1/3`.
+- Reviewer note (low): on the two-pane desktop view the tab may overlap the recipe pane's scrollbar at the right edge; look at it and move or inset it if so.
+- The tab is hidden on cook mode (reviewer choice). It has a 44px touch area extending left of the 32px visual tab.
+- Check Tab reaches the tab, the sheet traps focus, and focus returns to the tab on close. Go offline, send, and check the note is kept and a retry works.
+
 ### RL-286 submitFeedback service
 
 - Service and helpers only, no screen yet (RL-287). Nothing to check in a browser. The 15 s bound and the rate-limit copy ("You've sent a lot of feedback today. Thank you. Try again tomorrow.") are worth a read.
