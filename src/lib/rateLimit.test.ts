@@ -9,6 +9,7 @@ import {
   RECIPE_CAP,
   COOK_CAP,
   COOKBOOK_CAP,
+  FEEDBACK_CAP,
   WINDOW_MS,
   RECIPE_WINDOW_MS,
   RATE_LIMITS,
@@ -109,6 +110,7 @@ describe('per-action limits (RL-049)', () => {
       recipe: { cap: 30, windowMs: 24 * HOUR },
       cook: { cap: 20, windowMs: 24 * HOUR },
       cookbook: { cap: 5, windowMs: 24 * HOUR },
+      feedback: { cap: 10, windowMs: 24 * HOUR },
     });
   });
 
@@ -123,16 +125,18 @@ describe('per-action limits (RL-049)', () => {
     expect(rules).toContain(`cooks        ${COOK_CAP} per day`);
     expect(literal('cookbookCap')).toBe(COOKBOOK_CAP);
     expect(rules).toContain(`cookbooks     ${COOKBOOK_CAP} per day (publishes: a collection becoming public)`);
+    expect(literal('feedbackCap')).toBe(FEEDBACK_CAP);
+    expect(rules).toContain(`feedback     ${FEEDBACK_CAP} per day (RL-285)`);
   });
 
   it('the rules map every action to its cap and window function', () => {
     expect(rules).toContain(
-      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap(), 'cookbook': cookbookCap()}[action]"
+      "{'suggestion': suggestionCap(), 'reply': replyCap(), 'notification': notificationCap(), 'recipe': recipeCap(), 'cook': cookCap(), 'cookbook': cookbookCap(), 'feedback': feedbackCap()}[action]"
     );
     expect(rules).toContain(
-      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs(), 'cookbook': recipeWindowMs()}[action]"
+      "{'suggestion': windowMs(), 'reply': windowMs(), 'notification': windowMs(), 'recipe': recipeWindowMs(), 'cook': recipeWindowMs(), 'cookbook': recipeWindowMs(), 'feedback': recipeWindowMs()}[action]"
     );
-    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook', u + '_cookbook']");
+    expect(rules).toContain("[u + '_suggestion', u + '_reply', u + '_notification', u + '_recipe', u + '_cook', u + '_cookbook', u + '_feedback']");
   });
 
   it('bind notification and recipe creates to their window bump', () => {
@@ -140,6 +144,7 @@ describe('per-action limits (RL-049)', () => {
     expect(rules).toContain("movedWindow('recipe', 'recipes/' + recipeId)");
     expect(rules).toContain("movedWindow('cook', 'cooks/' + cookId)");
     expect(rules).toContain("movedWindow('cookbook', 'collections/' + collectionId)");
+    expect(rules).toContain("movedWindow('feedback', 'feedback/' + feedbackId)");
   });
 
   it('the daily window resets only after a day plus the margin', () => {

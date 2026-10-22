@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-285 Feedback rules and the 10-a-day feedback window
+
+- Rules only, in the repo; nothing reaches production until RL-291 deploys them. Nothing to check in a browser yet.
+- After RL-291: Download my data lists a `writeWindows/{uid}_feedback` entry once you have sent feedback (RL-286 onward).
+
+- Reviewer noted (data, low): clients cannot delete their own feedback and feedback joins export and erase only in RL-290, so RL-291 (the deploy) now also waits on RL-290 and RL-283; a whitespace-only note passes the rule (the client should trim, RL-286/287); the limited-send copy is RL-286's.
+
 ### RL-304 Focus assertions wait for the focus move
 
 - Test-only. Nothing to check in a browser.

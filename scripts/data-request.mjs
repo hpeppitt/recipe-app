@@ -492,7 +492,7 @@ async function collect(db, auth, uid) {
     notificationPrefs: await one(`notificationPrefs/${uid}`),
     tasteProfile: await one(`tasteProfiles/${uid}`),
     rateLimit: await one(`rateLimits/${uid}`),
-    writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe', 'cook', 'cookbook'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
+    writeWindows: (await Promise.all(['suggestion', 'reply', 'notification', 'recipe', 'cook', 'cookbook', 'feedback'].map((a) => one(`writeWindows/${uid}_${a}`)))).filter(Boolean),
     ownRecipes,
     collaboratorRecipes,
     favorites,
