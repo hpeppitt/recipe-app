@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-275 Create tab: tiles, pantry card, or, sentence
+
+- Create tab at 390x844 (and 320, light and dark): Paste a link and Snap a page tiles, the green What have you got? card, an "or" divider, then the sentence. Tap What have you got? and the pantry sheet opens over Search. Check nothing scrolls sideways and the Write it bar does not cover the sentence at the end of the scroll. Explore's card should look unchanged.
+- At 320x568, check the first line of the sentence is visible above Write it without scrolling.
+
+- Reviewer noted (ui, low): the card's top-right corner blends into the decorative sage circle (as the Paste tile already does); the "or" rules are faint in dark mode. If 320x568 still hides the sentence, the fallback is moving the card to the bottom.
+
 ### RL-274 Create tab: Describe it my own way opens the chat
 
 - Create tab: Describe it my own way opens the chat with an empty box.

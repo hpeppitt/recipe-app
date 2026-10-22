@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Camera, Link as LinkIcon, Sparkles } from '../components/ui/icons';
 import { DEFAULT_SELECTION, buildCreatePrompt, createTerms, cycleWord, selectedWords, type CreateSlot } from '../lib/createPrompt';
+import { PantryCard } from '../components/recipe/PantryCard';
 import { useTasteProfile } from '../hooks/useTasteProfile';
 
 const NO_COOKS: never[] = [];
@@ -66,12 +67,37 @@ export function CreatePage() {
   );
 
   return (
-    <div className="relative flex flex-col overflow-clip px-6 pb-6 min-h-[calc(100dvh_-_78px_-_max(8px,env(safe-area-inset-bottom)))] lg:min-h-dvh">
+    <div className="relative flex flex-col overflow-clip px-6 pt-6 [@media(max-height:700px)]:pt-3 pb-6 min-h-[calc(100dvh_-_78px_-_max(8px,env(safe-area-inset-bottom)))] lg:min-h-dvh">
       <div aria-hidden="true" className="absolute -right-[90px] -top-[60px] size-[260px] rounded-full bg-accent-2-200" />
-      <p id={hintId} className="relative pt-6 text-[13px] text-text-tertiary">
+      {/* Importing reads a page with AI, so local-only mode (no Firebase) has no tiles (RL-250). */}
+      {isConfigured && (
+        <div className="relative grid grid-cols-2 gap-2.5">
+          <Link to="/import" className="flex min-h-[110px] [@media(max-height:700px)]:min-h-0 flex-col gap-2.5 rounded-[28px] bg-accent-2-200 p-4 text-accent-2-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
+              <LinkIcon className="size-5 text-accent-2-700" />
+            </span>
+            <span className="font-heading text-base">Paste a link</span>
+            <span className="text-xs">From any recipe site</span>
+          </Link>
+          <Link to="/import?mode=photo" className="flex min-h-[110px] [@media(max-height:700px)]:min-h-0 flex-col gap-2.5 rounded-[28px] bg-accent-200 p-4 text-accent-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
+            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
+              <Camera className="size-5 text-accent-700" />
+            </span>
+            <span className="font-heading text-base">Snap a page</span>
+            <span className="text-xs">Cookbook or handwritten card</span>
+          </Link>
+        </div>
+      )}
+      <PantryCard className={`relative ${isConfigured ? 'mt-2.5' : ''}`} />
+      <div className="relative my-6 [@media(max-height:700px)]:my-3 flex items-center gap-3 text-[13px] text-text-tertiary">
+        <span aria-hidden="true" className="h-px flex-1 bg-neutral-200" />
+        or
+        <span aria-hidden="true" className="h-px flex-1 bg-neutral-200" />
+      </div>
+      <p id={hintId} className="relative text-[13px] text-text-tertiary">
         Tap the underlined words
       </p>
-      <h1 className="relative mt-[30px] font-heading text-[36px] leading-[1.25] text-text-primary">
+      <h1 className="relative mt-3 font-heading text-[36px] leading-[1.25] text-text-primary">
         I want something {word(0)} with {word(1)} for {word(2)}
         {shown.map(({ label }, i) => {
           const off = dropped.has(label);
@@ -109,25 +135,6 @@ export function CreatePage() {
       <p className="sr-only" role="status">
         {status}
       </p>
-      {/* Importing reads a page with AI, so local-only mode (no Firebase) has no tiles (RL-250). */}
-      {isConfigured && (
-        <div className="relative mt-8 grid grid-cols-2 gap-2.5">
-          <Link to="/import" className="flex min-h-[110px] flex-col gap-2.5 rounded-[28px] bg-accent-2-200 p-4 text-accent-2-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
-            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
-              <LinkIcon className="size-5 text-accent-2-700" />
-            </span>
-            <span className="font-heading text-base">Paste a link</span>
-            <span className="text-xs">From any recipe site</span>
-          </Link>
-          <Link to="/import?mode=photo" className="flex min-h-[110px] flex-col gap-2.5 rounded-[28px] bg-accent-200 p-4 text-accent-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500">
-            <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-surface">
-              <Camera className="size-5 text-accent-700" />
-            </span>
-            <span className="font-heading text-base">Snap a page</span>
-            <span className="text-xs">Cookbook or handwritten card</span>
-          </Link>
-        </div>
-      )}
       <div className="flex-1" />
       {/* Sticky above the nav, so an in-flow banner over the page cannot push the actions under it.
           overflow-clip (not hidden) on the page, because hidden would make it the sticky scroller. */}

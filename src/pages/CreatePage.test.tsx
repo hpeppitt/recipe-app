@@ -89,6 +89,26 @@ describe('CreatePage', () => {
     renderWithProviders(<CreatePage />, { route: '/new', auth: { isConfigured: false } });
     expect(screen.queryByRole('link', { name: /Paste a link/ })).toBeNull();
     expect(screen.queryByRole('link', { name: /Snap a page/ })).toBeNull();
+    expect(screen.getByRole('link', { name: /What have you got/ })).toBeTruthy();
+    expect(screen.getByText('or')).toBeTruthy();
+  });
+
+  it('orders tiles, pantry card, or, hint, sentence, actions; the card opens the pantry sheet (RL-275)', () => {
+    render();
+    const nodes = [
+      screen.getByRole('link', { name: /Paste a link/ }),
+      screen.getByRole('link', { name: /Snap a page/ }),
+      screen.getByRole('link', { name: /What have you got/ }),
+      screen.getByText('or'),
+      screen.getByText('Tap the underlined words'),
+      screen.getByRole('heading', { level: 1 }),
+      screen.getByRole('button', { name: 'Write it' }),
+      screen.getByRole('button', { name: 'Describe it my own way' }),
+    ];
+    nodes.slice(1).forEach((n, i) => {
+      expect(nodes[i].compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+    expect(nodes[2].getAttribute('href')).toBe('/search?sheet=pantry');
   });
 
   // jsdom has no layout, so this pins the classes: overflow-hidden would turn the page into the

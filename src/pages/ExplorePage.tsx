@@ -15,6 +15,7 @@ import { Button } from '../components/ui/Button';
 import { Chip } from '../components/ui/Chip';
 import { RecipeTileRow, MAX_TILES } from '../components/recipe/RecipeTileRow';
 import { TonightCard } from '../components/recipe/TonightCard';
+import { PantryCard } from '../components/recipe/PantryCard';
 import { MostBranchedList } from '../components/recipe/MostBranchedList';
 import { UserPill } from '../components/ui/UserPill';
 import { APP_NAME, EXPLORE_TAGS } from '../lib/constants';
@@ -24,7 +25,7 @@ import type { ScorableRecipe } from '../lib/search';
 import { getLastOpened, getTonightDismissed, setTonightDismissed } from '../services/storage';
 import { listOriginState } from '../lib/paneMode';
 import { RecipePaneContext } from '../contexts/RecipePaneContext';
-import { CloudOff, BookmarkCheck, GitBranch, Search, Refrigerator, ChevronRight } from '../components/ui/icons';
+import { CloudOff, BookmarkCheck, GitBranch, Search } from '../components/ui/icons';
 
 const NO_ROWS: never[] = [];
 
@@ -180,19 +181,7 @@ export function ExplorePage() {
       {/* Search works on the device, so this shows in local-only mode too; in cloud mode it waits for the rows so nothing jumps. */}
       {(rowsAllowed || !isConfigured) && (
         <div className="px-5 pt-[18px]">
-          <Link
-            to="/search?sheet=pantry"
-            className="flex items-center gap-3.5 rounded-[30px] bg-accent-2-200 p-[18px] hover:bg-accent-2-300 active:bg-accent-2-300 text-accent-2-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
-          >
-            <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface text-accent-2-700">
-              <Refrigerator className="size-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-heading text-lg leading-tight">What have you got?</span>
-              <span className="block text-[13px]">Find or write a recipe from your fridge.</span>
-            </span>
-            <ChevronRight className="size-5 shrink-0" />
-          </Link>
+          <PantryCard />
         </div>
       )}
 
