@@ -14,6 +14,7 @@ let ops: Op[] = [];
 let commitImpl: () => Promise<void> = async () => {};
 let termsVersion: string | null = null;
 let hangCounts = false;
+let hangDocs = false;
 // Documents the transaction can read besides the window, by path.
 let stored: Record<string, Record<string, unknown>> = {};
 const queries: unknown[][] = [];
@@ -49,7 +50,7 @@ vi.mock('firebase/firestore', () => ({
   getCountFromServer: async (q: unknown[]) => hangCounts ? new Promise(() => {}) : ({
     data: () => ({ count: JSON.stringify(q).includes('again') ? 3 : 7 }),
   }),
-  getDocs: async () => ({
+  getDocs: async () => hangDocs ? new Promise(() => {}) : ({
     docs: [
       { id: 'c1', data: () => ({ uid: 'u', vote: 'again', createdAt: { toMillis: () => 5 } }) },
       // A pending write before the server stamps it.
@@ -100,6 +101,7 @@ beforeEach(() => {
   commitImpl = async () => {};
   termsVersion = TERMS_VERSION;
   hangCounts = false;
+  hangDocs = false;
   stored = { 'recipes/r2': { rootId: 'r1', createdBy: { uid: 'owner', displayName: 'Owner' } } };
   updateDoc.mockClear();
   deleteDoc.mockReset().mockResolvedValue(undefined);
@@ -323,19 +325,45 @@ describe('getOwnCooksInFamily', () => {
 });
 
 describe('getRecentCooks (RL-242)', () => {
-  it('runs one range plus orderBy on createdAt, limit 200, and keeps only four fields', async () => {
+  it('runs one range plus orderBy on createdAt, limit 500, and keeps only four fields', async () => {
     const out = await getRecentCooks(NOW - 1000);
     const q = queries[queries.length - 1];
-    expect(q).toEqual([['where', 'createdAt', '>=', new Date(NOW - 1000)], ['orderBy', 'createdAt', 'desc'], ['limit', 200]]);
+    expect(q).toEqual([['where', 'createdAt', '>=', new Date(NOW - 1000)], ['orderBy', 'createdAt', 'desc'], ['limit', 500]]);
     expect(out[0]).toEqual({ recipeId: undefined, rootId: undefined, uid: 'u', createdAt: 5 });
     expect(Object.keys(out[0]).sort()).toEqual(['createdAt', 'recipeId', 'rootId', 'uid']);
+  });
+
+  it('rejects after 6 s, not 5', async () => {
+    hangDocs = true;
+    let settled = false;
+    const p = getRecentCooks(NOW - 1000).catch((e: unknown) => {
+      settled = true;
+      return e;
+    });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(((await p) as Error).message).toMatch(/timed out/);
   });
 });
 
 describe('getFamilyCooks (RL-245)', () => {
-  it('runs rootId equality plus orderBy createdAt desc, limit 200, and keeps four fields', async () => {
+  it('runs rootId equality plus orderBy createdAt desc, limit 1000, and keeps four fields', async () => {
     const out = await getFamilyCooks('r1');
-    expect(queries[queries.length - 1]).toEqual([['where', 'rootId', '==', 'r1'], ['orderBy', 'createdAt', 'desc'], ['limit', 200]]);
+    expect(queries[queries.length - 1]).toEqual([['where', 'rootId', '==', 'r1'], ['orderBy', 'createdAt', 'desc'], ['limit', 1000]]);
     expect(Object.keys(out[0]).sort()).toEqual(['createdAt', 'recipeId', 'rootId', 'uid']);
+  });
+
+  it('rejects after 12 s, not 11', async () => {
+    hangDocs = true;
+    let settled = false;
+    const p = getFamilyCooks('r1').catch((e: unknown) => {
+      settled = true;
+      return e;
+    });
+    await vi.advanceTimersByTimeAsync(11000);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(((await p) as Error).message).toMatch(/timed out/);
   });
 });

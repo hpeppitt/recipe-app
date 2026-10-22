@@ -1351,6 +1351,8 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
 // --- Cooks (RL-196): public "I made this" records, cloud only ---
 
 const COOK_SUMMARY_TIMEOUT_MS = 6000;
+// A 1000-row family read can outrun 6 s (RL-266).
+const FAMILY_COOKS_TIMEOUT_MS = 12_000;
 const COOK_SUMMARY_RECENT = 20;
 const OWN_COOKS_MAX = 200;
 const COOK_PHOTO_TIMEOUT_MS = 15_000;
@@ -1460,9 +1462,9 @@ export async function getRecipeCookSummary(recipeId: string): Promise<RecipeCook
  * serves it and no composite index is needed. Costs one read per cook returned (at most `max`).
  * Local-only returns empty. Rejects after 6 s.
  *
- * shortcut: counts only the newest 200 cooks in 90 days, upgrade to a counter
+ * shortcut: counts only the newest 500 cooks in 90 days, upgrade to a counter
  */
-export async function getRecentCooks(sinceMs: number, max = 200): Promise<RecentCook[]> {
+export async function getRecentCooks(sinceMs: number, max = 500): Promise<RecentCook[]> {
   if (!firestore) return [];
   const snap = await rejectAfter(
     getDocs(query(collection(firestore, 'cooks'), where('createdAt', '>=', new Date(sinceMs)), orderBy('createdAt', 'desc'), limit(max))),
@@ -1478,16 +1480,16 @@ export async function getRecentCooks(sinceMs: number, max = 200): Promise<Recent
 /**
  * The newest `max` cooks of one family (RL-245), reduced to the four slim fields. Equality on
  * `rootId` plus `orderBy createdAt desc` needs the (rootId asc, createdAt desc) composite index.
- * One read per cook returned. Local-only returns empty. Rejects after 6 s.
+ * One read per cook returned. Local-only returns empty. Rejects after 12 s.
  *
- * shortcut: counts only the newest 200 cooks of a family, upgrade to a counter
+ * shortcut: counts only the newest 1000 cooks of a family, upgrade to a counter
  */
-export async function getFamilyCooks(rootId: string, max = 200): Promise<RecentCook[]> {
+export async function getFamilyCooks(rootId: string, max = 1000): Promise<RecentCook[]> {
   if (!firestore) return [];
   const snap = await rejectAfter(
     getDocs(query(collection(firestore, 'cooks'), where('rootId', '==', rootId), orderBy('createdAt', 'desc'), limit(max))),
     'Reading family cooks',
-    COOK_SUMMARY_TIMEOUT_MS
+    FAMILY_COOKS_TIMEOUT_MS
   );
   return snap.docs.map((d) => {
     const c = toCook(d);

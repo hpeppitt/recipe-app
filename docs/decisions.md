@@ -99,6 +99,8 @@ identity-orphaning path, so its copy needs a real contact route rather than a pl
 *2026-10-18 (RL-032):* the notice was removed. After RL-040 an anonymous account owns no cloud
 data, so nothing can be stranded; only the local carry-over of recipes and bookmarks remains.
 
+2026-10-22: Spark for now; the author will move to Blaze as users arrive (RL-266 raises the cook read caps in anticipation). The Gemini free-tier trade-off still applies.
+
 ### 3. Photos: no, text-first, permanently (recipe photos; generation input photos, see the dated note below)
 
 Requires Firebase Storage, upload UX, and a moderation story. The base64-in-Firestore trick

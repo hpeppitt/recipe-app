@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-266 Explore reads up to 500 recent cooks and the tree up to 1000 family cooks within 12 s, the original RL-242 and RL-245 caps
+- RL-266: Explore's cook sections and the tree's cook counts look and behave as before; only the read caps changed (500 recent cooks, 1000 per family). Nothing new to see unless a family or the last 90 days has more than 200 cooks.
+
+- Reviewer noted (data, low): a timed-out read is not cancelled, so a failed 1000-row family read can still bill and then retry after 60 s; Explore's 500-row read keeps 6 s, so check it first if Explore comes back empty on slow networks.
+
 ### RL-262 The ImportPage failed-save and SharedRecipePage saved-copy focus tests wait for the focus move
 - Test-only change, nothing to check in the browser.
 

@@ -283,7 +283,7 @@ export function setPantryNudgeDismissed(day: string): void {
 // --- Recent cooks cache (RL-242) ---
 //
 // The slim 90 day cook list, kept 6 hours across sessions so an Explore visit does not spend up
-// to 200 reads each time (Spark allows 50k a day). A bad or old entry is a miss.
+// to 500 reads each time (RL-266). A bad or old entry is a miss.
 const RECENT_COOKS_KEY = 'recipe-lab-recent-cooks';
 export const RECENT_COOKS_TTL_MS = 6 * 3600_000;
 
