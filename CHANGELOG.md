@@ -12,6 +12,53 @@ release, newest first.
 
 ---
 
+## v0.5.0 - 2026-10-22
+
+Smaller touches that make importing, creating and your profile feel better, plus a beta
+Feedback tab so you can tell us what you think from any page.
+
+### Added
+
+- **A Feedback tab (beta).** Signed-in, verified users see a Feedback tab on the right edge
+  of every page except cook mode. Tap it to write a note. Recipe Lab captures a picture of
+  the page you were on, shows it in the sheet, and you can remove it or attach your own
+  screenshot before you send. If the picture cannot be taken, you are told and can still
+  send the note. You can send up to 10 a day, and if you are offline the note is kept so
+  you can retry. Hide the tab any time in Settings, under Appearance, "Show the feedback
+  tab".
+- **A short bio.** Write up to 160 characters on your profile. It shows under your name on
+  your own and your public profile. Clear it to remove it.
+- **A country flag.** A small flag shows after your name. New accounts, and existing
+  accounts without one, get a flag from the time zone on your device, once. Change it from
+  a searchable list, or choose "No flag". It stays as you set it.
+- **More choices on the Create tab.** Add one more ingredient (spinach, peppers, courgette,
+  broccoli, sweet potato or carrots), a time (in 15 minutes, in 30 minutes, in an hour) and
+  a method (on the stove, in the oven, in the air fryer, in the pressure cooker). Tap each
+  button to cycle through the options, and tap its chip to remove it.
+- **Feedback in Download my data.** Your export now lists the feedback you sent, with its
+  screenshot. Erasing your data removes it too.
+
+### Changed
+
+- **Importing saves a new recipe.** After you paste a link or snap a page, the main button
+  is "Save recipe". It saves the import as a new recipe and opens it, with a saved toast.
+  "Edit first" still opens the editor. If you already have the dish, "Add to <family>"
+  appears below as the way to branch it.
+- **One emoji per recipe.** Editing a recipe keeps just the last emoji you pick. Recipes
+  saved earlier with several emoji now show one, with no change to your data.
+- **A tidier Create tab.** Paste a link and Snap a page sit at the top, then a "What have
+  you got?" pantry card, an "or" divider, and the sentence. "Describe it my own way" now
+  opens the chat with an empty box.
+- **Privacy Policy.** It now covers your bio, your country flag and feedback: what is sent
+  with a note, that a screenshot can show other people's content, that only you and the
+  operator can read it, and how long it is kept (at most 12 months).
+
+### Fixed
+
+- A recipe with several emoji no longer overflows its circle, in your library, in Explore
+  or on a shared link.
+- Typing or searching emoji on a phone keyboard no longer wipes what you are composing.
+
 ## v0.4.0 - 2026-10-22
 
 A new look and a much bigger app. Every screen follows the Organic design, and Recipe Lab

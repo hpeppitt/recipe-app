@@ -1001,3 +1001,22 @@ the QA pass and accepted. The rest were accepted as built and need no record her
 - **Dark theme** values (warm night 20a with lifted tertiary text) were proofed in the app
   by the author.
 - **Policy text** was approved by the author on 2026-10-22 with the contact address hpeppitt@gmail.com and a Terms bump to 2026-10-22 (RL-267).
+
+## v0.5.0 release (2026-10-22)
+
+Decisions the author approved while v0.5.0 was built.
+
+- **Beta feedback (RL-284).** Feedback is a Firestore `feedback` collection. Every verified
+  account sees the tab, with a device-local Settings switch to hide it. The screenshot is
+  captured on tap with html-to-image, which is approved by name and loaded only on tap.
+  Page path, app version, screen size, theme, user agent, uid and display name are sent.
+  Each user may send 10 a day. The author reads feedback with `scripts/feedback.mjs` only,
+  with no in-app inbox. Handled feedback is deleted and none is kept past 12 months.
+  PostHog, email, html2canvas, a tester allowlist and an in-app inbox were not taken.
+- **Create word options (RL-277).** One extra of each kind: vegetables spinach, peppers,
+  courgette, broccoli, sweet potato, carrots; times in 15 minutes, in 30 minutes, in an
+  hour; methods on the stove, in the oven, in the air fryer, in the pressure cooker. Longer
+  lists, free text and several extra ingredients were not taken.
+- **Create tab layout (RL-275).** The pantry card sits at the top, full width under the two
+  import tiles, then an "or" divider and the sentence. The bottom is the sticky Write it
+  bar and a card there would compete with it.
