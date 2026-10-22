@@ -9,6 +9,7 @@ import { setDisplayName } from '../services/firebase';
 import { trackProfileUpdated } from '../services/analytics';
 import type { UserProfile } from '../types/profile';
 import { withTimeout } from '../lib/utils';
+import { cleanBio } from '../lib/bio';
 import { reportError } from '../services/telemetry';
 
 /** Subscribe to the current user's own profile */
@@ -56,7 +57,16 @@ export function useOwnProfile() {
     [user]
   );
 
-  return { profile, loaded, updateAvatar, updateName };
+  const updateBio = useCallback(
+    async (bio: string | null) => {
+      if (!user?.emailVerified) return;
+      await createOrUpdateProfile(user.uid, { bio: cleanBio(bio) });
+      trackProfileUpdated('bio');
+    },
+    [user]
+  );
+
+  return { profile, loaded, updateAvatar, updateName, updateBio };
 }
 
 /** Fetch another user's profile (one-time, not real-time) */

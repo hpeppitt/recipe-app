@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useOwnProfile, usePublicProfile } from '../hooks/useProfile';
@@ -22,7 +22,8 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
-import { pluralize } from '../lib/utils';
+import { pluralize, withTimeout } from '../lib/utils';
+import { BIO_MAX, cleanBio } from '../lib/bio';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { IconButton } from '../components/ui/IconButton';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
@@ -290,7 +291,7 @@ function useRecipeTabs(uid: string | undefined, isConfigured: boolean) {
 
 function OwnProfile() {
   const { user, updateDisplayName, isConfigured } = useAuth();
-  const { profile, loaded: profileLoaded, updateAvatar, updateName } = useOwnProfile();
+  const { profile, loaded: profileLoaded, updateAvatar, updateName, updateBio } = useOwnProfile();
   const { stats, statsStatus } = useOwnRecipes(user?.uid);
   const tabs = useRecipeTabs(user?.uid, isConfigured);
   const cooked = useCookCount(user?.uid);
@@ -299,6 +300,21 @@ function OwnProfile() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.displayName ?? '');
   const [nameSaved, setNameSaved] = useState(false);
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioInput, setBioInput] = useState('');
+  const [bioSaving, setBioSaving] = useState(false);
+  const [bioError, setBioError] = useState(false);
+  const bioBoxRef = useRef<HTMLTextAreaElement>(null);
+  const bioBtnRef = useRef<HTMLButtonElement>(null);
+  const bioClosed = useRef(false);
+  // Focus follows the editor: into the textarea on open, back to the trigger on close.
+  useEffect(() => {
+    if (editingBio) bioBoxRef.current?.focus();
+    else if (bioClosed.current) {
+      bioClosed.current = false;
+      bioBtnRef.current?.focus();
+    }
+  }, [editingBio]);
   const [showSignUp, setShowSignUp] = useState(false);
   // Which list, if any, the user has opened from the stat row. Inline disclosure
   // rather than a new route: it is a short list read in context, and a separate
@@ -321,6 +337,33 @@ function OwnProfile() {
     setEditingName(false);
     setNameSaved(true);
     setTimeout(() => setNameSaved(false), 2000);
+  };
+
+  const bio = cleanBio(profile?.bio);
+  const openBio = () => {
+    if (needsSignUp) {
+      setShowSignUp(true);
+      return;
+    }
+    setBioInput(bio ?? '');
+    setBioError(false);
+    setEditingBio(true);
+  };
+  const handleSaveBio = async () => {
+    setBioSaving(true);
+    setBioError(false);
+    try {
+      // Bounded: offline, Firestore retries instead of rejecting, so a plain await would hang.
+      const done = await withTimeout(updateBio(cleanBio(bioInput)).then(() => true), 8000, false);
+      if (!done) throw new Error('save-bio timed out');
+      bioClosed.current = true;
+      setEditingBio(false);
+    } catch (err) {
+      reportError(err, 'save-bio');
+      setBioError(true);
+    } finally {
+      setBioSaving(false);
+    }
   };
 
   const since = profile?.createdAt
@@ -407,6 +450,64 @@ function OwnProfile() {
                 <p className="text-[13px] text-text-tertiary">
                   {user.isAnonymous ? 'Guest · this device only' : `Cooking since ${since}`}
                 </p>
+              )}
+              {editingBio ? (
+                <div className="mt-2 flex w-full flex-col gap-2">
+                  <textarea
+                    ref={bioBoxRef}
+                    aria-describedby="bio-count"
+                    value={bioInput}
+                    onChange={(e) => setBioInput(e.target.value.replace(/[\r\n]+/g, ' '))}
+                    rows={3}
+                    maxLength={BIO_MAX}
+                    placeholder="What do you like to cook?"
+                    aria-label="Bio"
+                    className="w-full rounded-[22px] border border-neutral-400 bg-neutral-100 px-4 py-3 text-[15px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-shadow"
+                  />
+                  <span id="bio-count" className={bioInput.length >= 140 ? 'text-right text-xs text-text-tertiary' : 'sr-only'}>
+                    {bioInput.length}/{BIO_MAX}
+                  </span>
+                  <span role="status" aria-live="polite" className="sr-only">
+                    {bioInput.length >= 140 ? `${bioInput.length} of ${BIO_MAX} characters` : ''}
+                  </span>
+                  {bioError && (
+                    <p role="alert" className="text-sm text-danger-700">Couldn't save your bio. Try again.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleSaveBio} disabled={bioSaving}>
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={bioSaving}
+                      onClick={() => {
+                        bioClosed.current = true;
+                        setEditingBio(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : bio ? (
+                <button
+                  ref={bioBtnRef}
+                  onClick={openBio}
+                  aria-label={`Edit bio, currently ${bio}`}
+                  className="flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                >
+                  <span className="min-w-0 break-words text-[15px] text-text-secondary">{bio}</span>
+                  <Pencil className="size-4 shrink-0 text-text-tertiary" />
+                </button>
+              ) : (
+                <button
+                  ref={bioBtnRef}
+                  onClick={openBio}
+                  className="min-h-11 rounded-lg text-left text-[15px] text-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                >
+                  + Add a short bio
+                </button>
               )}
             </div>
           </div>
@@ -521,7 +622,7 @@ function OwnProfile() {
       <SignUpDialog
         open={showSignUp}
         action={{ kind: 'edit-profile' }}
-        body="Your name and avatar are shown to other cooks, so they belong to an account with an email. Your bookmarks stay on this device either way."
+        body="Your name, avatar and bio are shown to other cooks, so they belong to an account with an email. Your bookmarks stay on this device either way."
         onClose={() => setShowSignUp(false)}
       />
     </div>
@@ -643,6 +744,7 @@ function PublicProfile({ uid }: { uid: string }) {
   }
 
   const name = profile.displayName ?? 'Anonymous';
+  const publicBio = cleanBio(profile.bio);
   const { created, branched } = splitLibrary(recipes, recipes, { uid, isConfigured: true });
   const promptById = new Map(recipes.map((r) => [r.id, r.prompt ?? '']));
 
@@ -672,6 +774,7 @@ function PublicProfile({ uid }: { uid: string }) {
               {name}
             </h2>
           </div>
+          {publicBio && <p className="break-words text-[15px] text-text-secondary">{publicBio}</p>}
 
           {isConfigured && !isSelf && (
             <Button
