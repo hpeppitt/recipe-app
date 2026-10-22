@@ -5,7 +5,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // Bracketed notes are for the author; see docs/legal/claims-to-verify.md.
 export const COOKIES: LegalDocument = {
   title: 'Cookie Policy',
-  lastUpdated: '2026-10-18',
+  lastUpdated: '2026-10-22',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [

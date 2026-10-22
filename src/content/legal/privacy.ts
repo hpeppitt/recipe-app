@@ -132,7 +132,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Shared cookbooks',
       paragraphs: [
-        'What: you can turn a collection into a public cookbook. It then holds its name, an optional description of up to 280 characters, your account id (shown as your display name), the ids of the recipes in it, when something was last added, and a follower count. You need to have accepted the current Terms of Service to publish one.',
+        'What: you can turn a collection into a public cookbook. It then holds its name, an optional description of up to 280 characters, your account id (the cookbook shows the display name from your public profile), the ids of the recipes in it, when something was last added, and a follower count. You need to have accepted the current Terms of Service to publish one.',
         'Why: so others can browse a cookbook and follow it to see when it gains recipes.',
         'Where: Google Cloud Firestore.',
         'Who sees it: anyone, including people without an account, who can also list all public cookbooks. Do not put personal information in a name or description.',
@@ -288,7 +288,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
-        'Contract: running your account, signing you in, storing and publishing your recipes, cooks, cook photos and profile, saves, follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
+        'Contract: running your account, signing you in, storing and publishing your recipes, cooks, cook photos and profile, saves, follows, shared cookbooks and cookbook follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
         'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), limits on how often you can suggest, reply, notify and publish, and a record that we handled a privacy request, so we can show we complied. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
       ],

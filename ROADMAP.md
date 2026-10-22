@@ -378,8 +378,8 @@ been rewritten.
   every later step is denied by the same class of rule. Copy lives in `lib/migration.ts`
   (tested, 9 cases) and renders as a dismissible banner in `AppShell`, gated on at least one
   recipe actually being stranded. Contact route is `SUPPORT_EMAIL` in `lib/constants.ts`,
-  currently `harry@seidrlab.com` — change it before inviting anyone whose mail should not
-  reach that address.
+  currently `hpeppitt@gmail.com` (set by the author on 2026-10-22, RL-267); change it again if
+  that mailbox should not receive user mail.
   Why now: risk 2 is the only remaining silent data-loss path, and the honest fix is one
   screen of copy while the real fix (4.2) waits on Blaze.
   Where: `completeEmailSignIn` already returns `previousUid` (`firebase.ts:159`);

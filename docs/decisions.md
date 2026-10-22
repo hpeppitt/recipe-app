@@ -799,6 +799,8 @@ The author signed off the Terms, Privacy and Cookie policies as drafts for testi
 
 2026-10-19: Privacy updated for photo input (RL-120), approved at /groom; Terms unchanged, so no re-acceptance. Wording awaits the author's sign-off before release.
 
+2026-10-22 (RL-267): the author approved the drafts. `TERMS_VERSION` is now `2026-10-22` (rules literal bumped with it), so every existing user accepts the Terms once. Contact address is `hpeppitt@gmail.com`.
+
 Answers recorded: the request log rests on legitimate interests (not legal obligation); the policy states plainly that the operator accesses data from Australia, which has no EU or UK adequacy decision, and claims no further transfer mechanism; PostHog is on the free plan (one year retention) and its key stays unset for the first release; reCAPTCHA, Hosting log and Gemini wording is deliberately cautious (reCAPTCHA cookie `_GRECAPTCHA` about six months from third-party listings, Hosting logs up to 30 days "may keep", Gemini free tier). Testers are invited from outside the EEA, Switzerland and the UK only while the Gemini free tier is in use, because Google's terms allow only the paid tier for those regions.
 
 

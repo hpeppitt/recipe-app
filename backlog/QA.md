@@ -320,7 +320,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - Read `/privacy` on a phone and sign off the four changed paragraphs before release: "The short version" (third paragraph), and "AI recipe generation" What, Who sees it and How long. This is legal text; the wording is in the ticket and awaits your approval.
 - The page header shows "Last updated 19 October 2026".
-- Sign in as an existing user: no Terms update dialog appears (Terms and `TERMS_VERSION` are unchanged).
+- Sign in as an existing user: RL-267 bumps `TERMS_VERSION`, so existing users see the Terms dialog once.
 - The EXIF claim ("removes the location and camera details") rests on the canvas redraw in `downscaleToJpeg`, read in code only. Check with a geotagged photo in RL-119's walk if you want proof.
 
 ### RL-118 useRecipeChat can send up to three downscaled photos with a message to Gemini
@@ -2335,3 +2335,7 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ### RL-248 Privacy wording
 - Author: sign off the taste, household and receipt wording in /privacy before release.
+
+### RL-267 Policy sign-off, contact address and Terms version
+- Deploy order: rules first, then client, back to back (docs/operations.md "A later Terms bump"). Until the client ships, contributing writes are denied for users who have not accepted 2026-10-22.
+- Every existing user sees the Terms dialog once after the client deploys. Check /terms, /privacy and /cookies show `hpeppitt@gmail.com` and "Last updated 2026-10-22".
