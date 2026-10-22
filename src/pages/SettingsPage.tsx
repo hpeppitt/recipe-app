@@ -7,6 +7,7 @@ import { describeImport } from '../lib/import';
 import { pluralize } from '../lib/utils';
 import { useUnitSystem } from '../hooks/useUnitSystem';
 import { useWeighVolumes } from '../hooks/useWeighVolumes';
+import { useFeedbackTab } from '../hooks/useFeedbackTab';
 import { useTheme } from '../hooks/useTheme';
 import { useConsent } from '../hooks/useConsent';
 import { useNotificationPrefs } from '../hooks/useNotificationPrefs';
@@ -62,6 +63,7 @@ export function SettingsPage() {
   const downloading = useRef(false);
   const { unitSystem, setUnitSystem } = useUnitSystem();
   const { weighVolumes, setWeighVolumes } = useWeighVolumes();
+  const { feedbackTab, setFeedbackTab } = useFeedbackTab();
   const { theme, setTheme } = useTheme();
   const { configured: analyticsConfigured, granted: analyticsGranted, setConsent } = useConsent();
   const { user, isConfigured, signOut } = useAuth();
@@ -387,6 +389,28 @@ export function SettingsPage() {
               >
                 <span
                   className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface motion-safe:transition-[left] motion-safe:duration-150 ${weighVolumes ? 'left-[21px]' : 'left-[3px]'}`}
+                />
+              </span>
+            </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={feedbackTab}
+              aria-labelledby="feedback-tab-label"
+              aria-describedby="feedback-tab-desc"
+              onClick={() => setFeedbackTab(!feedbackTab)}
+              className="mt-1 flex min-h-11 w-full items-center justify-between gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+            >
+              <span>
+                <span id="feedback-tab-label" className="block text-[15px] text-text-primary">Show the feedback tab</span>
+                <span id="feedback-tab-desc" className="block text-[13px] text-neutral-700">On the right edge of every page, on this device</span>
+              </span>
+              <span
+                aria-hidden
+                className={`relative h-[26px] w-11 flex-shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 ${feedbackTab ? 'bg-accent-2-600' : 'bg-neutral-400 ring-1 ring-inset ring-neutral-500'}`}
+              >
+                <span
+                  className={`absolute top-[3px] h-5 w-5 rounded-full bg-surface motion-safe:transition-[left] motion-safe:duration-150 ${feedbackTab ? 'left-[21px]' : 'left-[3px]'}`}
                 />
               </span>
             </button>
