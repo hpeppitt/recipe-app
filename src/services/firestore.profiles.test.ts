@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const getDoc = vi.fn();
+const setDoc = vi.fn(async (..._a: unknown[]) => {});
+const updateDoc = vi.fn(async (..._a: unknown[]) => {});
 vi.mock('./firebase', () => ({ firestore: { __mock: true }, isFirebaseConfigured: true }));
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, col: string, id: string) => ({ col, id }),
   getDoc: (ref: unknown) => getDoc(ref),
+  setDoc: (...a: unknown[]) => setDoc(...a),
+  updateDoc: (...a: unknown[]) => updateDoc(...a),
 }));
 
-const { getFollowingProfiles } = await import('./firestore');
+const { getFollowingProfiles, createOrUpdateProfile } = await import('./firestore');
 
 type Ref = { id: string };
 const found = (id: string) => ({ exists: () => true, id, data: () => ({ displayName: id }) });
@@ -45,5 +49,45 @@ describe('getFollowingProfiles', () => {
   it('makes no reads for no ids', async () => {
     expect(await getFollowingProfiles([])).toEqual([]);
     expect(getDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe('createOrUpdateProfile defaultCountry (RL-282)', () => {
+  const existing = (data: Record<string, unknown>) => ({ exists: () => true, id: 'me', data: () => data });
+
+  beforeEach(() => {
+    getDoc.mockReset();
+    setDoc.mockClear();
+    updateDoc.mockClear();
+  });
+
+  it('gives a new profile the default country', async () => {
+    getDoc.mockResolvedValue(missing);
+    await createOrUpdateProfile('me', { displayName: 'Cook' }, { defaultCountry: 'GB' });
+    expect(setDoc.mock.calls[0][1]).toMatchObject({ displayName: 'Cook', country: 'GB' });
+  });
+
+  it('fills an existing profile that has no country key', async () => {
+    getDoc.mockResolvedValue(existing({ displayName: 'Cook' }));
+    await createOrUpdateProfile('me', { displayName: 'Cook' }, { defaultCountry: 'GB' });
+    expect(updateDoc.mock.calls[0][1]).toEqual({ displayName: 'Cook', country: 'GB' });
+  });
+
+  it.each([null, 'FR'])('never changes an existing country of %s', async (country) => {
+    getDoc.mockResolvedValue(existing({ displayName: 'Cook', country }));
+    await createOrUpdateProfile('me', { displayName: 'Cook' }, { defaultCountry: 'GB' });
+    expect(updateDoc.mock.calls[0][1]).toEqual({ displayName: 'Cook' });
+  });
+
+  it('writes null for a zone that maps to nothing, so it is not retried', async () => {
+    getDoc.mockResolvedValue(existing({ displayName: 'Cook' }));
+    await createOrUpdateProfile('me', { displayName: 'Cook' }, { defaultCountry: null });
+    expect(updateDoc.mock.calls[0][1]).toEqual({ displayName: 'Cook', country: null });
+  });
+
+  it('adds no country without the option', async () => {
+    getDoc.mockResolvedValue(existing({ displayName: 'Cook' }));
+    await createOrUpdateProfile('me', { bio: 'hi' });
+    expect(updateDoc.mock.calls[0][1]).toEqual({ bio: 'hi' });
   });
 });

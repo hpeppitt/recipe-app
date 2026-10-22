@@ -2059,13 +2059,21 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
   return { uid: snap.id, ...snap.data() } as UserProfile;
 }
 
+/**
+ * `defaultCountry` (RL-282) fills `country` only when the document is new or has no
+ * `country` key; an existing code or null ("No flag") is never changed by it.
+ */
 export async function createOrUpdateProfile(
   uid: string,
-  data: Partial<Omit<UserProfile, 'uid'>>
+  data: Partial<Omit<UserProfile, 'uid'>>,
+  options: { defaultCountry?: string | null } = {}
 ): Promise<void> {
   if (!firestore) return;
   const ref = doc(firestore, 'profiles', uid);
   const snap = await getDoc(ref);
+  if (options.defaultCountry !== undefined && !(snap.exists() && 'country' in snap.data())) {
+    data = { country: options.defaultCountry, ...data };
+  }
   if (snap.exists()) {
     await updateDoc(ref, data);
   } else {

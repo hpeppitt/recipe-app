@@ -22,6 +22,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - No visible change yet (pure lib code for RL-281/282). Nothing to check beyond CI.
 
+### RL-282 Profile flag defaults from the time zone
+
+- Sign up a new account in a fresh browser; the flag matches your time zone. Set the computer's time zone to Europe/London, sign up another; it shows GB.
+- An existing account with no flag gets one on its next sign-in, once. Choose No flag, sign out and back in: it stays No flag. Pick another country, change the time zone, sign in again: your pick stays.
+
+- Checked against the live v0.4.0 rules: the owner profile update has no key list, so adding country to the sign-in write is allowed before RL-291.
+- Reviewer noted (data, low): a flag picked in the instant between the sign-in read and write could be overwritten (sign-in happens before the UI is usable); the sign-in profile write fails silently and retries next sign-in; no test pins that a caller's own country beats the default.
+
 ### RL-281 Country flag on the profile
 
 - Saves live only after RL-291 deploys the RL-278 rules.

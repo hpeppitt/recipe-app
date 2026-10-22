@@ -19,6 +19,7 @@ import {
   signOut,
 } from '../services/firebase';
 import { generateDisplayName } from '../lib/identity';
+import { countryFromTimeZone } from '../lib/country';
 import {
   createOrUpdateProfile,
   pushLocalFavoritesToCloud,
@@ -152,7 +153,9 @@ function toAppUser(user: User): AppUser {
  */
 function ensureProfile(user: User): void {
   if (!user.emailVerified) return;
-  createOrUpdateProfile(user.uid, { displayName: user.displayName }).catch(() => {});
+  // RL-282: the flag defaults from the device time zone once; the service never overwrites a set value.
+  const defaultCountry = countryFromTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  createOrUpdateProfile(user.uid, { displayName: user.displayName }, { defaultCountry }).catch(() => {});
 }
 
 async function runMigration(
