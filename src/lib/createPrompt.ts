@@ -1,30 +1,46 @@
 import { pantryItems, type PantryTimeId } from './library';
 import { normaliseAvoid } from './taste';
-/** The Create tab's sentence builder (Organic 6c, RL-125): three words, three options each. */
+/** The Create tab's sentence builder (Organic 6c, RL-125): three words, three options each, plus three optional extras (RL-276). */
 export const CREATE_OPTIONS = [
   ['quick', 'one-pan', 'slow-cooked'],
   ['chickpeas', 'salmon', 'mushrooms'],
   ['two', 'a crowd', 'lunchboxes'],
+  ['spinach', 'peppers', 'courgette', 'broccoli', 'sweet potato', 'carrots'],
+  ['in 15 minutes', 'in 30 minutes', 'in an hour'],
+  ['on the stove', 'in the oven', 'in the air fryer', 'in the pressure cooker'],
 ] as const;
 
-/** One index per word, in sentence order. */
-export type CreateSelection = readonly [number, number, number];
-export type CreateSlot = 0 | 1 | 2;
+type Optional = number | null;
+/** One index per word. Slots 3 to 5 (extra veg, time, method) are optional: absent or null means not added. */
+export type CreateSelection = readonly [number, number, number, Optional?, Optional?, Optional?];
+export type CreateSlot = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const DEFAULT_SELECTION: CreateSelection = [0, 0, 0];
 
-export function cycleWord(selection: CreateSelection, slot: CreateSlot): CreateSelection {
-  const next: [number, number, number] = [...selection];
-  next[slot] = (next[slot] + 1) % CREATE_OPTIONS[slot].length;
-  return next;
+function withSlot(s: CreateSelection, slot: CreateSlot, value: Optional): CreateSelection {
+  const next: Optional[] = [s[0], s[1], s[2], s[3] ?? null, s[4] ?? null, s[5] ?? null];
+  next[slot] = value;
+  return next as unknown as CreateSelection;
 }
 
-export const selectedWords = (s: CreateSelection) => [0, 1, 2].map((i) => CREATE_OPTIONS[i][s[i]]);
+/** Cycles a slot to its next option, wrapping. An unset optional slot starts at its first option. */
+export function cycleWord(selection: CreateSelection, slot: CreateSlot): CreateSelection {
+  const cur = selection[slot];
+  return withSlot(selection, slot, cur == null ? 0 : (cur + 1) % CREATE_OPTIONS[slot].length);
+}
 
-/** Appends the kept profile terms (RL-235): "Something quick with chickpeas for two, no peanuts, under 30 min". */
+export const addSlot = (s: CreateSelection, slot: CreateSlot): CreateSelection => (s[slot] == null ? withSlot(s, slot, 0) : s);
+export const removeSlot = (s: CreateSelection, slot: CreateSlot): CreateSelection => withSlot(s, slot, null);
+
+const word = (s: CreateSelection, slot: CreateSlot) => (s[slot] == null ? null : CREATE_OPTIONS[slot][s[slot]]);
+
+/** The chosen words per slot, in slot order; an unset optional slot is null. */
+export const selectedWords = (s: CreateSelection) => ([0, 1, 2, 3, 4, 5] as CreateSlot[]).map((i) => word(s, i));
+
+/** Appends the kept profile terms (RL-235): "Something quick with chickpeas and spinach in the oven, ready in 30 minutes for two, no peanuts". */
 export function buildCreatePrompt(selection: CreateSelection, terms: readonly string[] = []): string {
-  const [a, b, c] = selectedWords(selection);
-  return `Something ${a} with ${b} for ${c}${terms.map((t) => `, ${t}`).join('')}`;
+  const [a, b, c, veg, time, method] = selectedWords(selection);
+  return `Something ${a} with ${b}${veg ? ` and ${veg}` : ''}${method ? ` ${method}` : ''}${time ? `, ready ${time}` : ''} for ${c}${terms.map((t) => `, ${t}`).join('')}`;
 }
 
 /** A taste term on the Create sentence. `avoid` is the stored avoid it came from, if any. */
@@ -33,10 +49,10 @@ export interface CreateTerm {
   avoid: string | null;
 }
 
-/** The sentence's profile terms (RL-235): each avoid as "no <avoid>", then "under 30 min" when the user tends to make things quicker. */
-export function createTerms(avoids: readonly string[], tendToChange: readonly string[]): CreateTerm[] {
+/** The sentence's profile terms (RL-235): each avoid as "no <avoid>", then "under 30 min" when the user tends to make things quicker, unless a time word is already in the sentence (RL-276). */
+export function createTerms(avoids: readonly string[], tendToChange: readonly string[], hasTimeSlot = false): CreateTerm[] {
   const terms: CreateTerm[] = avoids.map((a) => ({ label: `no ${a.toLowerCase()}`, avoid: a }));
-  if (tendToChange.some((t) => t.toLowerCase() === 'quicker')) terms.push({ label: 'under 30 min', avoid: null });
+  if (!hasTimeSlot && tendToChange.some((t) => t.toLowerCase() === 'quicker')) terms.push({ label: 'under 30 min', avoid: null });
   return terms;
 }
 
