@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-301 data-request.mjs requires --project
+
+- On the next real data request, run `export` with `--project recipe-lab-3832b` and check the first line ends `target PRODUCTION`. Run one against the emulator (`--emulator`, no `--project`) and check it uses `demo-recipe-lab`.
+- A bare run without `--project` should exit 1 and print the required-flag message.
+
 ### RL-295 Pure deploy helpers in scripts/deploy-lib.mjs
 
 - Nothing to check in a browser. The helpers are pure and covered by `scripts/deploy-lib.test.mjs`; the runner (RL-296) is what uses them.

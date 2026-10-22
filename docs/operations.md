@@ -525,7 +525,7 @@ first month. Plan to finish well inside it.
 Firebase console, Authentication, Users: search by email and copy the "User UID" column.
 Do not use `firebase auth:export` for this; it writes every user's data to a file.
 
-### 3. Authenticate (production runs only)
+### 3. Authenticate (real-project runs only)
 
 Either application default credentials:
 
@@ -536,10 +536,12 @@ gcloud auth application-default set-quota-project recipe-lab-3832b
 
 or `GOOGLE_APPLICATION_CREDENTIALS=/path/outside/the/repo/key.json` for a service account
 key. Never commit a key, never put it in `.env`, and delete a downloaded key when done. The
-project is `--project <id>` if given, else `GCLOUD_PROJECT`, else the default in
-`.firebaserc` (`recipe-lab-3832b`). The first line of output names it; check it.
+project is always `--project <id>`: a run without `--emulator` and without `--project`
+exits 1, and `GCLOUD_PROJECT` and the `.firebaserc` default are ignored. The first line of
+output names it and ends `target PRODUCTION` (the `prod` alias, `recipe-lab-3832b`),
+`target DEV` or `target CLOUD <id>`; check it.
 
-A production run (no `--emulator`) refuses to start while `FIRESTORE_EMULATOR_HOST` or
+A real-project run (no `--emulator`) refuses to start while `FIRESTORE_EMULATOR_HOST` or
 `FIREBASE_AUTH_EMULATOR_HOST` is set, even to an empty value, because Firestore would follow
 the variable while Auth went to production. Unset both in that shell first.
 
@@ -552,19 +554,19 @@ loads credentials. A stale value in the shell cannot redirect it.
 
 ```bash
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
-npx -y firebase-tools emulators:start --only auth,firestore --project demo-rl055
+npx -y firebase-tools emulators:start --only auth,firestore --project demo-recipe-lab
 # seed a test user by signing up through `npm run dev:emulated`, then:
-node scripts/data-request.mjs export <uid> --emulator
-node scripts/data-request.mjs erase <uid> --emulator              # dry run
-node scripts/data-request.mjs erase <uid> --emulator --execute
+node scripts/data-request.mjs export <uid> --emulator --project demo-recipe-lab
+node scripts/data-request.mjs erase <uid> --emulator --project demo-recipe-lab   # dry run
+node scripts/data-request.mjs erase <uid> --emulator --project demo-recipe-lab --execute
 ```
 
 ### 5. Run it for real
 
 ```bash
-node scripts/data-request.mjs export <uid>                        # access or export
-node scripts/data-request.mjs erase <uid>                         # dry run: read it all
-node scripts/data-request.mjs erase <uid> --execute --confirm <uid>
+node scripts/data-request.mjs export <uid> --project recipe-lab-3832b   # access or export
+node scripts/data-request.mjs erase <uid> --project recipe-lab-3832b    # dry run: read it all
+node scripts/data-request.mjs erase <uid> --project recipe-lab-3832b --execute --confirm <uid>
 ```
 
 - **Export** writes one new JSON file, by default under the system temp directory

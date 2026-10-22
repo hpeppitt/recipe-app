@@ -16,6 +16,7 @@ import {
   plain,
   emulatorHosts,
   resolveTarget,
+  resolveProject,
   redactExport,
   kitchenMemberships,
   kitchenErasePatch,
@@ -49,8 +50,8 @@ describe('parseArgs', () => {
 describe('checkConfirmation', () => {
   const erase = (o) => ({ command: 'erase', uid: U, emulator: false, execute: true, confirm: null, ...o });
   it('refuses a production execute without the uid typed twice', () => {
-    expect(checkConfirmation(erase())).toMatch(/PRODUCTION/);
-    expect(checkConfirmation(erase({ confirm: O }))).toMatch(/PRODUCTION/);
+    expect(checkConfirmation(erase())).toMatch(/real project/);
+    expect(checkConfirmation(erase({ confirm: O }))).toMatch(/real project/);
   });
   it('allows a dry run, the emulator, and a confirmed production run', () => {
     expect(checkConfirmation(erase({ execute: false }))).toBeNull();
@@ -77,7 +78,7 @@ describe('checkConfirmation', () => {
       stdout = err.stdout;
     }
     expect(status).toBe(1);
-    expect(stderr).toMatch(/refusing to erase in PRODUCTION/);
+    expect(stderr).toMatch(/refusing to erase in a real project/);
     expect(stdout).toBe(''); // the "on project ..." line is printed only after the checks
   });
 });
@@ -140,7 +141,48 @@ describe('resolveTarget', () => {
       stderr = err.stderr;
     }
     expect(status).toBe(1);
-    expect(stderr).toMatch(/refusing a production run with FIRESTORE_EMULATOR_HOST set/);
+    expect(stderr).toMatch(/refusing a real-project run \(not the emulator\) with FIRESTORE_EMULATOR_HOST set/);
+  });
+});
+
+describe('resolveProject', () => {
+  const projects = { dev: 'rl-dev', prod: 'rl-prod' };
+  it('requires --project on a real run and names the aliases', () => {
+    const r = resolveProject({ emulator: false, project: null }, projects);
+    expect(r.error).toMatch(/--project is required/);
+    expect(r.error).toMatch(/rl-dev/);
+    expect(r.error).toMatch(/rl-prod/);
+  });
+  it('labels PRODUCTION, DEV and CLOUD', () => {
+    expect(resolveProject({ project: 'rl-prod' }, projects)).toEqual({ project: 'rl-prod', label: 'PRODUCTION' });
+    expect(resolveProject({ project: 'rl-dev' }, projects).label).toBe('DEV');
+    expect(resolveProject({ project: 'other' }, projects).label).toBe('CLOUD other');
+  });
+  it('falls back to the known production id without a prod alias', () => {
+    expect(resolveProject({ project: 'recipe-lab-3832b' }, {}).label).toBe('PRODUCTION');
+  });
+  it('defaults the emulator to a demo- id and refuses any other', () => {
+    expect(resolveProject({ emulator: true }, projects).project).toBe('demo-recipe-lab');
+    expect(resolveProject({ emulator: true, project: 'demo-x' }, projects).project).toBe('demo-x');
+    expect(resolveProject({ emulator: true, project: 'rl-prod' }, projects).error).toMatch(/demo-/);
+  });
+  it('exits 1 from the CLI before Firebase loads, without --project', () => {
+    let status = 0;
+    let stderr = '';
+    let stdout = '';
+    try {
+      execFileSync('node', [join(REPO_ROOT, 'scripts/data-request.mjs'), 'export', U], {
+        encoding: 'utf8',
+        stdio: 'pipe',
+        env: { PATH: process.env.PATH, GCLOUD_PROJECT: 'stale-project' },
+        timeout: 10000,
+      });
+    } catch (err) {
+      ({ status, stderr, stdout } = err);
+    }
+    expect(status).toBe(1);
+    expect(stderr).toMatch(/--project is required/);
+    expect(stdout).toBe('');
   });
 });
 
