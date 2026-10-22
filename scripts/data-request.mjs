@@ -2,10 +2,12 @@
 // Operator tool for one person's data request (RL-055). Runbook: docs/operations.md,
 // "Data requests". Uses the Firebase Admin SDK, which bypasses the security rules.
 //
-//   node scripts/data-request.mjs export <uid> [--emulator] [--out <file>] [--project <id>]
-//   node scripts/data-request.mjs erase  <uid> [--emulator]                 dry run, changes nothing
+//   node scripts/data-request.mjs export <uid> --project <id> [--out <file>]         real project (--project required)
+//   node scripts/data-request.mjs export <uid> --emulator [--out <file>]            emulator (demo-recipe-lab)
+//   node scripts/data-request.mjs erase  <uid> --project <id>                       dry run, changes nothing
+//   node scripts/data-request.mjs erase  <uid> --emulator                           dry run in the emulator
 //   node scripts/data-request.mjs erase  <uid> --emulator --execute         erase in the emulator
-//   node scripts/data-request.mjs erase  <uid> --execute --confirm <uid>    erase in production
+//   node scripts/data-request.mjs erase  <uid> --project <id> --execute --confirm <uid>    erase for real
 //
 // Credentials: application default credentials (`gcloud auth application-default login`)
 // or GOOGLE_APPLICATION_CREDENTIALS pointing at a service account key kept outside the repo.
@@ -27,8 +29,10 @@ export const PLACEHOLDER_UID = 'deleted-user';
 export const BATCH_LIMIT = 400;
 
 const USAGE = `usage:
-  node scripts/data-request.mjs export <uid> [--emulator] [--out <file>] [--project <id>]
-  node scripts/data-request.mjs erase <uid> [--emulator] [--execute] [--confirm <uid>] [--project <id>]`;
+  node scripts/data-request.mjs export <uid> (--project <id> | --emulator) [--out <file>]
+  node scripts/data-request.mjs erase <uid> (--project <id> | --emulator) [--execute] [--confirm <uid>]
+  e.g. node scripts/data-request.mjs export <uid> --project recipe-lab-3832b
+--project is required outside the emulator; the emulator uses a demo- id.`;
 
 // --- Pure logic -------------------------------------------------------------
 
@@ -66,7 +70,7 @@ export function parseArgs(argv) {
 export function checkConfirmation(opts) {
   if (opts.command !== 'erase' || !opts.execute || opts.emulator) return null;
   if (opts.confirm !== opts.uid) {
-    return `refusing to erase in PRODUCTION without the uid typed twice: add --confirm ${opts.uid}`;
+    return `refusing to erase in a real project (not the emulator) without the uid typed twice: add --confirm ${opts.uid}`;
   }
   return null;
 }
@@ -106,13 +110,35 @@ const EMULATOR_VARS = ['FIRESTORE_EMULATOR_HOST', 'FIREBASE_AUTH_EMULATOR_HOST']
 export function resolveTarget(opts, env, hosts) {
   if (!opts.emulator) {
     const set = EMULATOR_VARS.filter((k) => env[k] !== undefined);
-    if (set.length) return { error: `refusing a production run with ${set.join(' and ')} set; unset it, or add --emulator` };
+    if (set.length) return { error: `refusing a real-project run (not the emulator) with ${set.join(' and ')} set; unset it, or add --emulator` };
     return { env: {} };
   }
   for (const k of EMULATOR_VARS) {
     if (!LOOPBACK.test(hosts[k] ?? '')) return { error: `${k} would be ${hosts[k]}, which is not a loopback host` };
   }
   return { env: Object.fromEntries(EMULATOR_VARS.map((k) => [k, hosts[k]])) };
+}
+
+/** Used when .firebaserc has no `prod` alias. */
+export const PROD_FALLBACK = 'recipe-lab-3832b';
+export const EMULATOR_PROJECT = 'demo-recipe-lab';
+
+/**
+ * Picks the project from --project only (never GCLOUD_PROJECT or the .firebaserc default)
+ * and labels it. `projects` is .firebaserc's `projects` map. Returns { error } or { project, label }.
+ */
+export function resolveProject(opts, projects = {}) {
+  const prod = projects.prod ?? PROD_FALLBACK;
+  if (opts.emulator) {
+    if (opts.project && !opts.project.startsWith('demo-')) return { error: `--emulator needs a demo- project id, not ${opts.project}` };
+    return { project: opts.project ?? EMULATOR_PROJECT, label: null };
+  }
+  if (!opts.project) {
+    const ids = [...new Set([projects.dev, prod].filter(Boolean))];
+    return { error: `--project is required for a run outside the emulator, for example ${ids.map((i) => `--project ${i}`).join(' or ')}` };
+  }
+  const label = opts.project === prod ? 'PRODUCTION' : opts.project === projects.dev ? 'DEV' : `CLOUD ${opts.project}`;
+  return { project: opts.project, label };
 }
 
 export function defaultOutPath(uid, now = new Date()) {
@@ -394,10 +420,9 @@ export function emulatorHosts(repoRoot = REPO_ROOT) {
   };
 }
 
-function defaultProject() {
-  if (process.env.GCLOUD_PROJECT) return process.env.GCLOUD_PROJECT;
+function firebaseProjects() {
   const rc = join(REPO_ROOT, '.firebaserc');
-  return existsSync(rc) ? JSON.parse(readFileSync(rc, 'utf8')).projects?.default : undefined;
+  return existsSync(rc) ? JSON.parse(readFileSync(rc, 'utf8')).projects ?? {} : {};
 }
 
 // --- Firebase I/O -----------------------------------------------------------
@@ -693,10 +718,15 @@ async function main(argv) {
     return 1;
   }
   Object.assign(process.env, where.env);
-  const project = opts.project ?? defaultProject();
+  const picked = resolveProject(opts, firebaseProjects());
+  if (picked.error) {
+    console.error(picked.error);
+    return 1;
+  }
+  const { project } = picked;
   const target = opts.emulator
     ? `EMULATOR (firestore ${process.env.FIRESTORE_EMULATOR_HOST}, auth ${process.env.FIREBASE_AUTH_EMULATOR_HOST})`
-    : 'PRODUCTION';
+    : picked.label;
   console.log(`${opts.command} ${opts.uid} on project ${project}, target ${target}`);
 
   const { initializeApp, applicationDefault } = await import('firebase-admin/app');
