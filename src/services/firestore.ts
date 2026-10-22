@@ -2568,7 +2568,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     // Ids are exact and a missing document reads as absent, never denied (RL-026).
     exportSection<CloudDoc[]>('writeWindows', async () => {
       const snaps = await Promise.all(
-        (['suggestion', 'reply', 'notification', 'recipe', 'cook', 'cookbook'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
+        (['suggestion', 'reply', 'notification', 'recipe', 'cook', 'cookbook', 'feedback'] as const).map((a) => getDoc(doc(fs, 'writeWindows', `${uid}_${a}`)))
       );
       return { data: snaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...exportFields(s.data()!) }) as CloudDoc) };
     }),

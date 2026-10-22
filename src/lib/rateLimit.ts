@@ -1,11 +1,11 @@
 /**
  * Per-user write limits enforced by firestore.rules alone (RL-048, RL-049). The
  * rules hold the same numbers in suggestionCap(), replyCap(), notificationCap(),
- * recipeCap(), cookCap(), cookbookCap(), windowMs() and recipeWindowMs(); rateLimit.test.ts fails the
+ * recipeCap(), cookCap(), cookbookCap(), feedbackCap(), windowMs() and recipeWindowMs(); rateLimit.test.ts fails the
  * build when they differ.
  */
 
-export type RateLimitAction = 'suggestion' | 'reply' | 'notification' | 'recipe' | 'cook' | 'cookbook';
+export type RateLimitAction = 'suggestion' | 'reply' | 'notification' | 'recipe' | 'cook' | 'cookbook' | 'feedback';
 
 export const SUGGESTION_CAP = 10;
 export const REPLY_CAP = 30;
@@ -16,6 +16,8 @@ export const RECIPE_CAP = 30;
 export const COOK_CAP = 20;
 /** Cookbook publishes (RL-265): a collection becoming public, on the day window. */
 export const COOKBOOK_CAP = 5;
+/** Beta feedback items (RL-285), on the day window. */
+export const FEEDBACK_CAP = 10;
 export const WINDOW_MS = 60 * 60 * 1000;
 export const RECIPE_WINDOW_MS = 24 * WINDOW_MS;
 
@@ -26,6 +28,7 @@ export const RATE_LIMITS: Record<RateLimitAction, { cap: number; windowMs: numbe
   recipe: { cap: RECIPE_CAP, windowMs: RECIPE_WINDOW_MS },
   cook: { cap: COOK_CAP, windowMs: RECIPE_WINDOW_MS },
   cookbook: { cap: COOKBOOK_CAP, windowMs: RECIPE_WINDOW_MS },
+  feedback: { cap: FEEDBACK_CAP, windowMs: RECIPE_WINDOW_MS },
 };
 
 /**
