@@ -86,7 +86,7 @@ transaction); everything else, `favorites` included, stays.
 
 | Collection | Document id | Shape | Notes |
 |---|---|---|---|
-| `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `collaboratorUids`, `createdAt` | The published feed. Read by anyone, signed in or not. `collaboratorUids` (RL-172) is the plain uid list of `collaborators`, so a profile can find recipes a cook contributed to with `array-contains` (an object match on `collaborators` breaks when a display name changes). Cloud only: the Dexie `Recipe` does not carry it. Not backfilled: recipes credited before RL-172 lack it until a later Apply on them adds the suggester's uid. |
+| `recipes/{recipeId}` | recipe UUID | `SharedRecipe` (`lib/share.ts`) plus `favoriteCount`, `viewCount`, `collaborators`, `collaboratorUids`, `createdAt` | The published feed. Read by anyone, signed in or not. `collaboratorUids` (RL-172) is the plain uid list of `collaborators`, so a profile can find recipes a cook contributed to with `array-contains` (an object match on `collaborators` breaks when a display name changes). Cloud only: the Dexie `Recipe` does not carry it. Not backfilled: recipes credited before RL-172 lack it until a later Apply on them adds the suggester's uid. `emoji` must be a string of 1 to 24 UTF-16 units on create and on any owner update that changes it (RL-273; in the repo, deployed by RL-291), so a stored legacy value of any length stays editable while the emoji is untouched. |
 | `favorites/{uid}_{recipeId}` | composite | `{ uid, recipeId, recipeOwnerId, createdAt }` | Global favourite records. Existence drives the owner's notification. |
 | `suggestions/{autoId}` | auto | `Suggestion` (`types/social.ts`) | `status: pending \| approved \| rejected \| applied \| branched` (shown Open, Approved on old documents, Declined, Applied, Branched), optional `edits[]` (`SuggestionEdit`: kind, index, name, from, to, why) and `branchId` (RL-145), `recipeOwnerId` denormalised so the update rule can check ownership without a lookup; create verifies it against the recipe once. |
 | `suggestions/{id}/messages/{autoId}` | auto | `SuggestionMessage` | The reply thread. A subcollection rather than an array on the parent, so the parent's owner-only, status-only update rule stays intact. |
@@ -241,6 +241,12 @@ the marker a photo import stores. Emulator-probed 2026-10-22: `'photo'` 200, `'P
 `'photo2'` and `'javascript:alert(1)'` 403, an https URL 200. The client applies the same bound on every read
 (`withBoundedImportedFrom` in `lib/linkImport.ts` for published reads, `toLocalRecipe` for the
 own-recipe sync), so a bad value is dropped before anything can render it.
+Since RL-273 (in the repo, deployed by RL-291) a create, and an owner update that changes
+`emoji`, also require `emoji` to be a string of 1 to 24 UTF-16 units (`emojiOk()`). Rules
+cannot count graphemes; the longest RGI emoji is 15 units. The check runs on update only when
+`emoji` is in the changed keys, so a document holding a longer legacy value (before RL-271)
+stays editable and re-publishable, and RL-272's normalised re-publish (one grapheme) passes.
+View, favourite and reparent updates are unaffected. Emulator-probed 2026-10-22 (RL-273 Notes).
 **Moving children up when a version is deleted (RL-158, in the repo, deployed by RL-160).** A
 fourth update shape, `isReparentAfterParentDelete()`: a verified user may change only
 `parentId` and `depth` of a recipe whose stored `parentId` names a version P, when P's
