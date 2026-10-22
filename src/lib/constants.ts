@@ -4,7 +4,7 @@ export const APP_NAME = 'Recipe Lab';
  * Where a user goes when only a human can help (the legal pages' contact address).
  * Change this before inviting anyone whose mail should not reach this address.
  */
-export const SUPPORT_EMAIL = 'harry@seidrlab.com';
+export const SUPPORT_EMAIL = 'hpeppitt@gmail.com';
 
 export const STORAGE_KEYS = {
   UNIT_SYSTEM: 'recipe-lab-unit-system',

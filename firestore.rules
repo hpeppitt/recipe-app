@@ -49,7 +49,7 @@ service cloud.firestore {
     // Bump both together, and deploy these rules in the order docs/operations.md
     // gives: a bump denies every contributing write until the user re-accepts.
     function termsVersion() {
-      return '2026-10-17';
+      return '2026-10-22';
     }
 
     // Guards the content-creating writes only: recipe create, suggestion create

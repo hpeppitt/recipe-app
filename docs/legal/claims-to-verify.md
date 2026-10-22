@@ -15,9 +15,8 @@ Cookies = `src/content/legal/cookies.ts`. Facts behind the drafts are in
    GDPR needs the controller's identity and contact details. Ticket: RL-046.
 2. **Governing state.** Terms "Governing law": `[STATE]` appears twice. Ticket: RL-046.
 3. **Support address.** All three documents use `SUPPORT_EMAIL` from
-   `src/lib/constants.ts` (currently the author's personal address). Its own comment says to
-   change it before inviting anyone whose mail should not reach it. Confirm it is the address
-   to publish. Ticket: RL-046.
+   `src/lib/constants.ts` (now `hpeppitt@gmail.com`). Resolved: the author confirmed it as the
+   published address on 2026-10-22 (RL-267). Ticket: RL-046.
 4. **EU or UK representative.** Privacy "About this policy": whether GDPR Article 27 or the
    UK equivalent requires a named representative. Ticket: RL-046.
 5. **Privacy Act coverage.** Privacy "About this policy": whether the Privacy Act 1988 binds
@@ -100,3 +99,7 @@ Each is marked `[DEPENDS ON RL-0xx]` in the text. Status as of 2026-10-15.
     `/cookies`, and the Settings "Legal" section. Built as drafts in RL-045; still open for the author's check.
 34. **Photos in the recipe chat.** Privacy 'The short version' and 'AI recipe generation': photos are not stored, are resent each turn, and the downscale drops EXIF. RL-118, RL-119, RL-120.
 35. **Shared cookbooks, cookbook follows, photo imports.** Privacy 'Shared cookbooks', 'Importing a recipe from photos', 'Your Kitchen' (RL-260). Cookbooks are public with name, description, owner display name, recipe ids and follower count; follows are readable only by the follower. Photo imports are downscaled on the device, sent to Gemini, never stored, errors redacted. Cookbook follows are in Download my data and the erase script (RL-260).
+
+### Policy sign-off and contact address (RL-267, 2026-10-22)
+
+The author signed off the Privacy Policy, Terms and Cookie Policy drafts. The contact address in every policy (`SUPPORT_EMAIL`) is now `hpeppitt@gmail.com`. Terms, Privacy and Cookies are dated `2026-10-22`, and `TERMS_VERSION` and the rules `termsVersion()` literal are `2026-10-22`, so every existing user accepts the Terms once.

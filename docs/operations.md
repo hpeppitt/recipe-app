@@ -249,7 +249,7 @@ loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
   and unused helpers; release that client.
 - [ ] Optional housekeeping: set the Preview secret and variables (RL-013, "Preview deploys"),
   delete the GA4 property and the `VITE_FIREBASE_MEASUREMENT_ID` repository variable if it
-  exists, change `SUPPORT_EMAIL` in `src/lib/constants.ts` before inviting anyone else.
+  exists, `SUPPORT_EMAIL` in `src/lib/constants.ts` changed to `hpeppitt@gmail.com` (done, RL-267).
 
 A later Terms bump is the reverse order, rules first, then the client ("A later Terms bump is
 the reverse"). Never deploy `functions/` (see "Deploying").

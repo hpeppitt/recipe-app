@@ -5,7 +5,7 @@ import { APP_NAME, SUPPORT_EMAIL } from '../../lib/constants';
 // before publishing. See docs/legal/claims-to-verify.md.
 export const TERMS: LegalDocument = {
   title: 'Terms of Service',
-  lastUpdated: '2026-10-17',
+  lastUpdated: '2026-10-22',
   draftNotice:
     'Draft. Not legal advice. The operator should have this reviewed by a qualified lawyer before relying on it.',
   sections: [
