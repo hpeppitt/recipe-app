@@ -139,6 +139,16 @@ export const PRIVACY: LegalDocument = {
       ],
     },
     {
+      heading: 'Feedback',
+      paragraphs: [
+        'What: if you send feedback from the Feedback tab, we store your note and, if you add one, a screenshot (made smaller on your device first, as a JPEG). With it we store the page address you were on (without anything after a question mark, and with a household invite code replaced), the app version, your screen size, whether the app was in light or dark theme, your browser details (user agent), your account id and your display name. You can remove the screenshot before sending. A screenshot can show other people\'s names and content, and your own private lists, so check it first. At most 10 items a day can be sent.',
+        'Why: so we can fix problems and improve the app while it is in testing.',
+        'Where: Google Cloud Firestore, with the rest of your account.',
+        'Who sees it: only the operator, who reads it with an admin tool. It is not public: only you and the operator can read it. You can read your own through "Download my data" in Settings.',
+        'How long: until the operator has handled it and deletes it, and in any case at most 12 months. It is included in "Download my data" in Settings, and is deleted if your account is erased. You can hide the Feedback tab in Settings.',
+      ],
+    },
+    {
       heading: 'Taste and avoids',
       paragraphs: [
         'What: the foods you tell us you avoid (up to 12, such as "peanuts" or "pork"), and the learned tastes you chose to hide. What you avoid can reveal health information, such as an allergy, an intolerance or a medical condition, so please add only what you are comfortable with. Avoids are a preference to steer recipes, not a medical guarantee. Always check ingredients yourself if you have an allergy.',
@@ -287,7 +297,7 @@ export const PRIVACY: LegalDocument = {
     {
       heading: 'Lawful bases (GDPR and UK GDPR)',
       paragraphs: [
-        'Contract: running your account, signing you in, storing and publishing your recipes, cooks, cook photos and profile, saves, follows, shared cookbooks and cookbook follows, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
+        'Contract: running your account, signing you in, storing and publishing your recipes, cooks, cook photos and profile, saves, follows, shared cookbooks and cookbook follows, feedback you send, suggestions, replies, notifications and AI generation, because that is the service you asked for.',
         'Legitimate interests: error reports (to keep the app working), bot protection with reCAPTCHA and App Check (to stop abuse of AI generation), limits on how often you can suggest, reply, notify and publish, and a record that we handled a privacy request, so we can show we complied. You can object to these; see your rights below.',
         'Consent: product analytics. You can withdraw consent at any time in Settings.',
       ],
@@ -315,7 +325,7 @@ export const PRIVACY: LegalDocument = {
       paragraphs: [
         `Under the Australian Privacy Principles, the GDPR and the UK GDPR you have the rights below. Where there is no control in the app, email ${SUPPORT_EMAIL} from the address on your account. We will check it is you and reply within one month.`,
         `Access: email ${SUPPORT_EMAIL} for a copy of everything we hold about you.`,
-        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry, collections and cookbook follows. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
+        `Export (portability): "Download my data" in Settings downloads the recipes and bookmarks on your device and, for a signed-in account with an email, your cloud data, including your cooks and cook photos, shopping list, pantry, collections, cookbook follows and feedback. For anything it does not cover, email ${SUPPORT_EMAIL}.`,
         `Correction: change your display name, avatar, bio and country on your profile and edit your own recipes. For anything else, email ${SUPPORT_EMAIL}.`,
         `Erasure: delete recipes from their page, delete your cooks (which deletes their photos), delete your collections, unfollow cookbooks, unsave, unfollow, or use "Delete Recipes on This Device". To delete your account and everything else, email ${SUPPORT_EMAIL}.`,
         `Objection and restriction: email ${SUPPORT_EMAIL} to object to error reports or bot checks, or to ask us to limit how we use your information.`,

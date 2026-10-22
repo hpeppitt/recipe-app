@@ -2481,18 +2481,19 @@ async function readAllDocs(
   col: CollectionReference<DocumentData>,
   constraints: QueryConstraint[] = [],
   /** Filled page by page, so a caller can keep what arrived if the read is cut off. */
-  docs: QueryDocumentSnapshot<DocumentData>[] = []
+  docs: QueryDocumentSnapshot<DocumentData>[] = [],
+  pageSize = EXPORT_PAGE_SIZE
 ): Promise<{ docs: QueryDocumentSnapshot<DocumentData>[]; truncated: boolean }> {
   for (;;) {
     const last = docs[docs.length - 1];
     const atCap = docs.length >= EXPORT_MAX_ROWS;
     const snap = await getDocs(
-      query(col, ...constraints, ...(last ? [startAfter(last)] : []), limit(atCap ? 1 : EXPORT_PAGE_SIZE))
+      query(col, ...constraints, ...(last ? [startAfter(last)] : []), limit(atCap ? 1 : pageSize))
     );
     // At the cap, one more row is a peek: exactly EXPORT_MAX_ROWS rows is complete, not truncated.
     if (atCap) return { docs, truncated: snap.docs.length > 0 };
     docs.push(...snap.docs);
-    if (snap.docs.length < EXPORT_PAGE_SIZE) return { docs, truncated: false };
+    if (snap.docs.length < pageSize) return { docs, truncated: false };
   }
 }
 
@@ -2546,7 +2547,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   const fs = firestore;
   if (!fs) {
     const error: Section<never> = { error: 'Firebase is not configured' };
-    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, kitchenMemberships: error, collections: error, cookbookFollows: error };
+    return { profile: error, recipes: error, favorites: error, follows: error, suggestions: error, notifications: error, termsAcceptance: error, notificationPrefs: error, tasteProfile: error, writeWindows: error, cooks: error, cookPhotos: error, kitchen: error, kitchenMemberships: error, collections: error, cookbookFollows: error, feedback: error };
   }
   const byField = (col: string, field: string) => async () => {
     const r = await readAllDocs(collection(fs, col), [where(field, '==', uid)]);
@@ -2554,6 +2555,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
   };
 
   const photoDocs: QueryDocumentSnapshot<DocumentData>[] = [];
+  const feedbackDocs: QueryDocumentSnapshot<DocumentData>[] = [];
   let partialSuggestions: Section<CloudSuggestion[]> | null = null;
   const readSuggestions = async (): Promise<Section<CloudSuggestion[]>> => {
     const base = await readMerged('suggestions', [byField('suggestions', 'suggestedBy.uid'), byField('suggestions', 'recipeOwnerId')]);
@@ -2583,7 +2585,7 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     return { data: out, ...(warnings.length ? { warning: warnings.join('; ') } : {}) };
   };
 
-  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows] = await Promise.all([
+  const [profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows, feedback] = await Promise.all([
 
     exportSection('profile', async () => {
       const snap = await getDoc(doc(fs, 'profiles', uid));
@@ -2654,6 +2656,16 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
       : Promise.resolve<Section<CloudDoc[]>>({ error: VERIFY_NOTE }),
     // The list rule asks only for uid == the signed-in user (RL-256), so no verified gate.
     exportSection<CloudDoc[]>('cookbookFollows', () => readMerged('cookbook follows', [byField('cookbookFollows', 'uid')])),
+    // The read rule asks for uid == the signed-in user (RL-285); rows can hold a screenshot of up to 200000 characters.
+    // Small pages and partial rows on a timeout, as for cook photos.
+    exportSection<CloudDoc[]>(
+      'feedback',
+      () => readMerged('feedback', [async () => {
+        const r = await readAllDocs(collection(fs, 'feedback'), [where('uid', '==', uid)], feedbackDocs, 50);
+        return { rows: r.docs.map(exportDoc), truncated: r.truncated };
+      }]),
+      () => ({ data: feedbackDocs.map(exportDoc), warning: 'Reading feedback timed out; some feedback may be missing' })
+    ),
   ]);
-  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows };
+  return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows, feedback };
 }

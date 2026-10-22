@@ -321,6 +321,7 @@ export function buildErasePlan(uid, fetched) {
     }
     add('own cookbook follow', ops);
   }
+  for (const f of fetched.feedback ?? []) add('own feedback', [del(f.path)]);
   for (const i of fetched.kitchenInvites ?? []) add('own kitchen invite', [del(i.path)]);
   const skipped = [];
   for (const k of uniqueByPath([fetched.kitchen, ...(fetched.kitchenMemberships ?? [])].filter(Boolean))) {
@@ -514,6 +515,8 @@ async function collect(db, auth, uid) {
     kitchenInvites: await q(db.collection('kitchenInvites').where('ownerUid', '==', uid)),
     collections: await q(db.collection('collections').where('ownerUid', '==', uid)),
     cookbookFollows,
+    // A row can hold a screenshot data URL (up to 200000 characters); only paths and counts are printed.
+    feedback: await q(db.collection('feedback').where('uid', '==', uid)),
     cooksOnOwn: (await q(db.collection('cooks').where('recipeOwnerId', '==', uid))).filter((c) => c.data.uid !== uid),
     counters,
   };
@@ -562,6 +565,10 @@ export function redactExport(uid, body) {
     n.data.recipientUid = alias(n.data.recipientUid);
   }
   for (const c of out.cooks) c.data.recipeOwnerId = alias(c.data.recipeOwnerId);
+  // The page a note was sent from can be another user's profile: /profile/<uid> or /profile/<uid>/forest.
+  for (const f of out.feedback ?? []) {
+    if (typeof f.data.path === 'string') f.data.path = f.data.path.replace(/^(\/profile\/)([^/]+)/, (_, a, u) => a + alias(u));
+  }
   for (const i of out.kitchenInvites ?? []) i.data.kitchenId = alias(i.data.kitchenId);
   for (const m of out.kitchenMemberships ?? []) {
     m.kitchenId = alias(m.kitchenId);
@@ -581,7 +588,7 @@ export function redactExport(uid, body) {
     out.profile, out.termsAcceptance, out.notificationPrefs, out.tasteProfile, out.rateLimit, ...out.writeWindows, ...out.recipes.owned,
     ...out.recipes.asCollaborator, ...out.favorites, ...out.follows, ...out.suggestions,
     ...out.suggestions.flatMap((s) => s.messages), ...out.notifications, ...out.clientErrors,
-    ...out.cooks, ...out.cookPhotos, out.kitchen, ...(out.kitchenInvites ?? []), ...out.collections, ...(out.cookbookFollows ?? []),
+    ...out.cooks, ...out.cookPhotos, out.kitchen, ...(out.kitchenInvites ?? []), ...out.collections, ...(out.cookbookFollows ?? []), ...(out.feedback ?? []),
   ].filter(Boolean);
   for (const d of docs) d.path = fixPath(d.path);
   out.redaction = "Other people's account ids are replaced with other-user-N and their display names removed. Content is kept.";
@@ -623,6 +630,7 @@ function exportBody(uid, project, target, f) {
     kitchenInvites: f.kitchenInvites ?? [],
     collections: f.collections,
     cookbookFollows: f.cookbookFollows ?? [],
+    feedback: f.feedback ?? [],
   };
 }
 
@@ -650,6 +658,7 @@ function countExport(body) {
     kitchenInvites: body.kitchenInvites.length,
     collections: body.collections.length,
     cookbookFollows: body.cookbookFollows.length,
+    feedback: body.feedback.length,
   };
 }
 

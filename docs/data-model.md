@@ -744,6 +744,8 @@ the uid owns with others to the longest-standing other member, removes the uid f
 belong to, and anonymises pantry items they added (see docs/operations.md, Data requests).
 Since RL-260 Download my data also reads `cookbookFollows where uid ==` the user (`cloud.cookbookFollows`: `id`, `uid`, `collectionId`, `createdAt`, `lastSeenAt`; no verified gate, as the list rule has none), and the erase script deletes them and decrements the cookbook's `followerCount`.
 
+Since RL-290 Download my data also reads `feedback where uid ==` the user (`cloud.feedback`: `id`, `uid`, `displayName`, `note`, `path`, `appVersion`, `viewport`, `theme`, `userAgent`, `screenshot`, `createdAt`; no verified gate, as the read rule has none), and the erase script deletes them.
+
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
 

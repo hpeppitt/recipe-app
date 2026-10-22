@@ -44,6 +44,8 @@ export interface CloudInput {
   collections: Section<CloudDoc[]>;
   /** cookbookFollows (RL-260): the user's own follows, readable only by them. */
   cookbookFollows: Section<CloudDoc[]>;
+  /** feedback (RL-290): the user's own notes, readable only by them; a screenshot is a JPEG data URL. */
+  feedback: Section<CloudDoc[]>;
 }
 
 /** One kitchen the user belongs to (RL-238). `kitchenId` and `memberUids` are aliased when another person's. */
@@ -89,6 +91,7 @@ export interface DataExport {
     kitchenMemberships: KitchenMembership[];
     collections: CloudDoc[];
     cookbookFollows: CloudDoc[];
+    feedback: CloudDoc[];
   } | null;
   note?: string;
   redaction: string;
@@ -113,6 +116,7 @@ const COOK_PHOTO_KEYS = ['id', 'uid', 'recipeId', 'url', 'createdAt'];
 const KITCHEN_KEYS = ['id', 'memberUids', 'ownerUid', 'shopping', 'pantry', 'updatedAt'];
 const COLLECTION_KEYS = ['id', 'ownerUid', 'name', 'visibility', 'recipeIds', 'description', 'lastAddedAt', 'followerCount', 'createdAt', 'updatedAt'];
 const COOKBOOK_FOLLOW_KEYS = ['id', 'uid', 'collectionId', 'createdAt', 'lastSeenAt'];
+const FEEDBACK_KEYS = ['id', 'uid', 'displayName', 'note', 'path', 'appVersion', 'viewport', 'theme', 'userAgent', 'screenshot', 'createdAt'];
 const NOTIFICATION_KEYS = ['id', 'recipientUid', 'type', 'recipeId', 'recipeTitle', 'recipeEmoji', 'fromUid', 'fromDisplayName', 'message', 'read', 'createdAt'];
 
 const sorted = <T extends { createdAt?: unknown; id?: string }>(rows: T[]): T[] => [...rows].sort(byCreatedAt);
@@ -242,6 +246,7 @@ export function assembleDataExport(input: DataExportInput): DataExport {
       collections: sorted(take('collections', c.collections, [])).map((k) => pick(k, COLLECTION_KEYS)),
       // Own rows only (read where uid == the user), so no other person's id appears.
       cookbookFollows: sorted(take('cookbookFollows', c.cookbookFollows, [])).map((k) => pick(k, COOKBOOK_FOLLOW_KEYS)),
+      feedback: sorted(take('feedback', c.feedback, [])).map((k) => pick(k, FEEDBACK_KEYS)),
     };
     // Document ids that embed a uid (follows, favourites) are rewritten last,
     // once every other uid has an alias.

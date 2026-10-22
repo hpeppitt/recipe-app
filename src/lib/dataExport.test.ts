@@ -29,6 +29,7 @@ const empty: CloudInput = {
   kitchenMemberships: { data: [] },
   collections: { data: [] },
   cookbookFollows: { data: [] },
+  feedback: { data: [] },
 };
 
 function full(): DataExportInput {
@@ -123,6 +124,20 @@ describe('assembleDataExport', () => {
       { id: `${ME}_c1`, uid: ME, collectionId: 'c1', createdAt: 1, lastSeenAt: 1 },
       { id: `${ME}_c2`, uid: ME, collectionId: 'c2', createdAt: 2, lastSeenAt: 3 },
     ]);
+  });
+
+  it('exports feedback with only its own keys, screenshot included (RL-290)', () => {
+    const input = full();
+    input.cloud!.feedback = {
+      data: [
+        { id: 'f2', uid: ME, displayName: 'Me', note: 'b', path: '/library', appVersion: '0.4.0', viewport: '390x844', theme: 'dark', userAgent: 'UA', screenshot: 'data:image/jpeg;base64,AAAA', createdAt: 2, stray: BOB },
+        { id: 'f1', uid: ME, displayName: null, note: 'a', path: '/', appVersion: '0.4.0', viewport: '390x844', theme: 'light', userAgent: 'UA', screenshot: null, createdAt: 1 },
+      ],
+    };
+    const out = assembleDataExport(input).cloud!;
+    expect(out.feedback.map((f) => f.id)).toEqual(['f1', 'f2']);
+    expect(out.feedback[1]).toMatchObject({ screenshot: 'data:image/jpeg;base64,AAAA', note: 'b' });
+    expect(JSON.stringify(out.feedback)).not.toContain(BOB);
   });
 
   it('summarises kitchen membership with role and member count, other members anonymised (RL-238)', () => {

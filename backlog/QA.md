@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-290 The Privacy Policy has a Feedback section, and export and erase include feedback
+
+- Author: sign off the Feedback wording in /privacy before release. It is pending your sign-off. Read the "Feedback" section, the Contract basis line and the Export line.
+- After sending a feedback item, Settings > Download my data: the file's `cloud.feedback` lists it with its screenshot.
+- Release step: Privacy `lastUpdated` is already 2026-10-22 and live. Move it to the release date if that is later (not `TERMS_VERSION`).
+
+- Reviewer round fixed: the operator export aliases another user's uid in a feedback path; Download my data reads feedback 50 at a time and keeps the rows read if it times out, with a warning; the policy says only you and the operator can read feedback.
+- Reviewer noted (low): the app's own Download my data keeps the raw profile path the sender was on (their own file only); the 12-month limit relies on the operator running prune.
+
 ### RL-289 scripts/feedback.mjs
 
 - After RL-291 deploys the rules, send a note with a screenshot from the app, then run `npm run feedback -- list --project recipe-lab-3832b` and `save <dir outside the repo>`. Open the .jpg and .md: the image should match, the note should list uid, path, version, viewport and theme.
