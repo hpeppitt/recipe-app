@@ -210,6 +210,7 @@ describe('redactExport', () => {
     kitchenInvites: [doc('kitchenInvites/code1', { kitchenId: U, ownerUid: U, ownerName: 'T' })],
     collections: [doc('collections/c1', { ownerUid: U, name: 'Dinner', recipeIds: ['r1'] })],
     cookbookFollows: [doc(`cookbookFollows/${U}_c9`, { uid: U, collectionId: 'c9' })],
+    feedback: [doc('feedback/f1', { uid: U, displayName: 'T', note: 'hi', screenshot: 'data:image/jpeg;base64,AAAA' })],
   };
   const r = redactExport(U, body);
   it('replaces every other uid and name, in fields and paths, with one stable alias', () => {
@@ -244,6 +245,16 @@ describe('redactExport', () => {
     ]);
     expect(JSON.stringify(r)).not.toContain('"cal"');
     expect(r.kitchenInvites[0].data.kitchenId).toBe(U);
+  });
+  it('keeps feedback whole', () => {
+    expect(r.feedback[0]).toEqual(body.feedback[0]);
+  });
+  it('aliases another user\'s uid in the page a note was sent from', () => {
+    const b = { ...body, feedback: [doc('feedback/f2', { uid: U, path: `/profile/${O}/forest` }), doc('feedback/f3', { uid: U, path: `/profile/${U}` })] };
+    const out = redactExport(U, b);
+    expect(out.feedback[0].data.path).toBe('/profile/other-user-1/forest');
+    expect(out.feedback[1].data.path).toBe(`/profile/${U}`);
+    expect(JSON.stringify(out.feedback)).not.toContain(O);
   });
   it('keeps the cook photo whole', () => {
     expect(r.cookPhotos).toEqual(body.cookPhotos);
@@ -315,6 +326,7 @@ describe('buildErasePlan', () => {
     clientErrors: [doc('clientErrors/e1', { uid: U })],
     cooks: [doc('cooks/k1', { uid: U, recipeId: 'r2', recipeOwnerId: O }), doc('cooks/k2', { uid: U, recipeId: 'r1', recipeOwnerId: U })],
     cookPhotos: [doc('cookPhotos/k1', { uid: U, recipeId: 'r2', url: 'data:image/jpeg;base64,AAAA' })],
+    feedback: [doc('feedback/f1', { uid: U }), doc('feedback/f2', { uid: U })],
     cooksOnOwn: [doc('cooks/k3', { uid: O, recipeId: 'r1', recipeOwnerId: U })],
     kitchen: doc(`kitchens/${U}`, { ownerUid: U, memberUids: [U] }),
     collections: [doc('collections/c1', { ownerUid: U })],
@@ -491,6 +503,9 @@ describe('buildErasePlan', () => {
     it('kitchenErasePatch is null when there is nothing to change', () => {
       expect(kitchenErasePatch(U, doc(`kitchens/${O}`, { ownerUid: O, memberUids: [O], pantry: [] }), null)).toBeNull();
     });
+  });
+  it('deletes the uid\'s feedback documents (RL-290)', () => {
+    expect(deletes).toEqual(expect.arrayContaining(['feedback/f1', 'feedback/f2']));
   });
   it('deletes the uid\'s cook photos before its cooks and anonymises other cooks of own recipes', () => {
     const paths = ops.map((o) => o.path);

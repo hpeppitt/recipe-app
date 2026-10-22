@@ -59,6 +59,7 @@ describe('fetchCloudDataForExport', () => {
       'cookbookFollows:uid',
       'cooks:uid',
       'favorites:uid',
+      'feedback:uid',
       'follows:followerId',
       'follows:followingId',
       'kitchens:memberUids',
@@ -139,6 +140,21 @@ describe('fetchCloudDataForExport', () => {
     vi.useRealTimers();
     expect('data' in out.cookPhotos && out.cookPhotos.data).toHaveLength(500);
     expect('warning' in out.cookPhotos && out.cookPhotos.warning).toMatch(/timed out/);
+  });
+
+  it('keeps the feedback pages that arrived when the deadline passes, reading 50 at a time', async () => {
+    vi.useFakeTimers();
+    getDocsImpl = (q) => {
+      if (q.col !== 'feedback') return Promise.resolve({ docs: [] });
+      if (q.after) return new Promise(() => {});
+      return Promise.resolve({ docs: Array.from({ length: 50 }, (_, i) => row(`f${i}`, { uid: 'u1' })) });
+    };
+    const p = fetchCloudDataForExport('u1');
+    await vi.advanceTimersByTimeAsync(30001);
+    const out = await p;
+    vi.useRealTimers();
+    expect('data' in out.feedback && out.feedback.data).toHaveLength(50);
+    expect('warning' in out.feedback && out.feedback.warning).toMatch(/timed out/);
   });
 
   it('turns a failed cook photo read into that section error alone', async () => {
