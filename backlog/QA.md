@@ -18,6 +18,9 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-268 Remove the draft banner from the Terms, Privacy and Cookie pages
+- Open /terms, /privacy and /cookies at 390px: the "Draft. Not legal advice" box is gone, the title, "Last updated 2026-10-22" line and first section sit at the top, and the text reads well in light and dark. Nothing scrolls sideways.
+
 ### RL-266 Explore reads up to 500 recent cooks and the tree up to 1000 family cooks within 12 s, the original RL-242 and RL-245 caps
 - RL-266: Explore's cook sections and the tree's cook counts look and behave as before; only the read caps changed (500 recent cooks, 1000 per family). Nothing new to see unless a family or the last 90 days has more than 200 cooks.
 

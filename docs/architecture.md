@@ -62,8 +62,8 @@ chosen, so the banner asks again. `AppShell` also runs `clearLeftoverGaCookies` 
 The rule that keeps this honest: nothing in `lib/` imports from `services/` or `hooks/`.
 That is why `lib/` is testable in node with no mocks beyond `fake-indexeddb`.
 
-**`content/`** holds static text as typed data: `content/legal/` has the draft Terms, Privacy
-and Cookie policies (RL-044), imported by `lib/legal.ts`. It imports only from `lib/`.
+**`content/`** holds static text as typed data: `content/legal/` has the Terms, Privacy
+and Cookie policies (RL-044, approved 2026-10-22), imported by `lib/legal.ts`. It imports only from `lib/`.
 
 ## Dual storage
 
