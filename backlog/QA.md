@@ -18,6 +18,14 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-277 Create tab: add an ingredient, a time and a method
+
+- Create tab: add an ingredient, a time and a method, cycle each, Write it, check the composer text.
+- Remove each with its chip (the chip shows as pressed and filled). With Quicker learned, adding a time hides "under 30 min".
+- At 320px the three chips wrap and nothing overflows; the sentence is still reachable above Write it.
+
+- Reviewer noted (ui, low): on screens 700px tall or less the chip row can sit under the Write it bar until scrolled; two identical announcements in a row may not re-announce.
+
 ### RL-276 Create sentence builder: optional veg, time and method words
 
 - Pure logic only, no UI change yet; nothing to look at until RL-277 adds the buttons.

@@ -70,6 +70,36 @@ describe('CreatePage', () => {
     expect(probe()).toBe('/create|{"suggestion":"Something one-pan with salmon for a crowd"}');
   });
 
+  it('adds, cycles and removes the extra words, and Write it sends all three', () => {
+    taste.tendToChange = ['quicker'];
+    render();
+    expect(screen.getByText('under 30 min')).toBeTruthy();
+    tap('+ Another ingredient');
+    tap('+ Add a time');
+    tap('+ Add a method');
+    expect(live()).toBe('on the stove added');
+    expect(screen.getByRole('button', { name: '+ Add a time' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByText('under 30 min')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('I want something quick with chickpeas and spinach on the stove, ready in 15 minutes for two.');
+    tap('spinach');
+    tap('in 15 minutes');
+    tap('on the stove');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('I want something quick with chickpeas and peppers in the oven, ready in 30 minutes for two.');
+    tap('Write it');
+    expect(probe()).toBe('/create|{"suggestion":"Something quick with chickpeas and peppers in the oven, ready in 30 minutes for two"}');
+  });
+
+  it('a chip removes its word again', () => {
+    render();
+    tap('+ Add a method');
+    expect(screen.getByRole('button', { name: '+ Add a method' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'on the stove' })).toBeTruthy();
+    tap('+ Add a method');
+    expect(live()).toBe('on the stove removed');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('I want something quick with chickpeas for two.');
+    expect(screen.getByRole('button', { name: '+ Add a method' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('Describe it my own way opens /create with no state, so the composer is empty', () => {
     render();
     tap('Describe it my own way');

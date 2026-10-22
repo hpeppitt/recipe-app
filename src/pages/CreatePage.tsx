@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Camera, Link as LinkIcon, Sparkles } from '../components/ui/icons';
-import { DEFAULT_SELECTION, buildCreatePrompt, createTerms, cycleWord, selectedWords, type CreateSlot } from '../lib/createPrompt';
+import { Chip } from '../components/ui/Chip';
+import { DEFAULT_SELECTION, addSlot, buildCreatePrompt, createTerms, cycleWord, removeSlot, selectedWords, type CreateSlot } from '../lib/createPrompt';
 import { PantryCard } from '../components/recipe/PantryCard';
 import { useTasteProfile } from '../hooks/useTasteProfile';
 
@@ -25,7 +26,7 @@ export function CreatePage() {
   // No cooks: tendToChange comes from the user's own branch prompts, so /new opens no cooks listener.
   const taste = useTasteProfile(NO_COOKS);
   // A failed or refused read shows no terms rather than an error.
-  const terms = taste.loading || taste.loadFailed ? [] : createTerms(taste.avoids, taste.tendToChange);
+  const terms = taste.loading || taste.loadFailed ? [] : createTerms(taste.avoids, taste.tendToChange, selection[4] != null);
   const [dropped, setDropped] = useState<ReadonlySet<string>>(new Set());
   const kept = terms.filter((t) => !dropped.has(t.label));
   const [expanded, setExpanded] = useState(false);
@@ -44,6 +45,12 @@ export function CreatePage() {
     else next.delete(label);
     setDropped(next);
     setStatus(`${label} ${off ? 'dropped' : 'kept'}`);
+  };
+  const toggleExtra = (slot: CreateSlot) => {
+    const on = selection[slot] != null;
+    const next = on ? removeSlot(selection, slot) : addSlot(selection, slot);
+    setSelection(next);
+    setStatus(`${words[slot] ?? selectedWords(next)[slot]} ${on ? 'removed' : 'added'}`);
   };
   const write = () => {
     const dropAvoids = terms.flatMap((t) => (t.avoid && dropped.has(t.label) ? [t.avoid] : []));
@@ -98,7 +105,10 @@ export function CreatePage() {
         Tap the underlined words
       </p>
       <h1 className="relative mt-3 font-heading text-[36px] leading-[1.25] text-text-primary">
-        I want something {word(0)} with {word(1)} for {word(2)}
+        I want something {word(0)} with {word(1)}
+        {words[3] && <> and {word(3)}</>}
+        {words[5] && <> {word(5)}</>}
+        {words[4] && <>, ready {word(4)}</>} for {word(2)}
         {shown.map(({ label }, i) => {
           const off = dropped.has(label);
           return (
@@ -132,6 +142,17 @@ export function CreatePage() {
         )}
         .
       </h1>
+      <div className="relative mt-5 flex flex-wrap gap-2">
+        {([[3, 'Another ingredient'], [4, 'Add a time'], [5, 'Add a method']] as const).map(([slot, add]) => (
+          <Chip
+            key={slot}
+            label={`+ ${add}`}
+            pressed={selection[slot] != null}
+            active={selection[slot] != null}
+            onClick={() => toggleExtra(slot)}
+          />
+        ))}
+      </div>
       <p className="sr-only" role="status">
         {status}
       </p>
