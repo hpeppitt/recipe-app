@@ -41,7 +41,7 @@ export interface FamilyCooks {
 
 const empty = (loading: boolean): FamilyCooks => ({ countById: new Map(), total: 0, leaderId: null, loading });
 
-/** Counts are all-time over the family's newest 200 cooks; leaderId looks only at the last 90 days (familyLeader), so a family can show cooks and no leader. Distinct people per version, distinct people in the family, and the most-cooked leader (RL-242 rules), from the family's newest 200 cooks. Empty while loading, on failure and local-only. Read only. */
+/** Counts are all-time over the family's newest 1000 cooks; leaderId looks only at the last 90 days (familyLeader), so a family can show cooks and no leader. Distinct people per version, distinct people in the family, and the most-cooked leader (RL-242 rules), from the family's newest 1000 cooks. Empty while loading, on failure and local-only. Read only. */
 export function useFamilyCooks(rootId: string | undefined): FamilyCooks {
   const [state, setState] = useState<{ rootId?: string; value: FamilyCooks }>({ value: empty(true) });
   useEffect(() => {
