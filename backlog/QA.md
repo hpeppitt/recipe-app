@@ -18,6 +18,11 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-278 Profile rules bound bio and country
+
+- Rules only, in the repo, not deployed until RL-291. Nothing to see in the app yet.
+- After RL-291 deploys: edit your profile name and avatar, follow and unfollow someone, and check none of it is refused.
+
 ### RL-277 Create tab: add an ingredient, a time and a method
 
 - Create tab: add an ingredient, a time and a method, cycle each, Write it, check the composer text.
