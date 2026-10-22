@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-280 Time zone to country helpers
+
+- No visible change yet (pure lib code for RL-281/282). Nothing to check beyond CI.
+
 ### RL-279 Profile bio
 
 - Saves live only after RL-291 deploys the RL-278 rules; before that, a save against the live project may be refused or stored unbounded.
