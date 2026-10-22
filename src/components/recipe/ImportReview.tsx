@@ -9,7 +9,7 @@ import { Check } from '../ui/icons';
 import { pluralize } from '../../lib/utils';
 import { IngredientRow } from './IngredientRow';
 
-type Choice = 'edit' | 'vary' | 'family';
+type Choice = 'edit' | 'recipe' | 'family';
 
 /** The link's host and path for the source pill; the CSS truncates the rest. */
 function sourceLabel(preview: ImportPreview): string {
@@ -23,8 +23,8 @@ function sourceLabel(preview: ImportPreview): string {
 
 /**
  * "Check the import" (RL-252, 30b): the read recipe before it is saved, with its title and
- * ingredient amounts editable and unclear amounts flagged. Edit first and Save and branch both
- * save a new original (RL-186's save) and then open the editor or the branch composer.
+ * ingredient amounts editable and unclear amounts flagged. Edit first and Save recipe both
+ * save a new original (RL-186's save) and then open the editor or the recipe.
  */
 export function ImportReview({
   preview,
@@ -68,7 +68,7 @@ export function ImportReview({
     setConfirm(null);
     if (isSaving) return;
     setChoice(c);
-    onSave(c === 'family', { title, ingredients: fromReviewRows(rows) }, c === 'edit' ? 'edit' : c === 'vary' ? 'vary' : 'recipe');
+    onSave(c === 'family', { title, ingredients: fromReviewRows(rows) }, c === 'edit' ? 'edit' : 'recipe');
   };
   const tap = (c: Choice) => {
     if (isSaving) return;
@@ -152,8 +152,8 @@ export function ImportReview({
           <Button data-choice="edit" variant="secondary" className="flex-1" aria-disabled={isSaving || undefined} onClick={() => tap('edit')}>
             {label('Edit first', choice === 'edit')}
           </Button>
-          <Button data-choice="vary" className="flex-1" aria-disabled={isSaving || undefined} onClick={() => tap('vary')}>
-            {label('Save and branch', choice === 'vary')}
+          <Button data-choice="recipe" className="flex-1" aria-disabled={isSaving || undefined} onClick={() => tap('recipe')}>
+            {label('Save recipe', choice === 'recipe')}
           </Button>
         </div>
         {family && (
