@@ -81,6 +81,7 @@ export function rateLimitMessage(err: unknown): string | null {
   if (err.action === 'recipe') return "You've published a lot today. Try again tomorrow.";
   if (err.action === 'cook') return "You've logged a lot of cooks today. Try again tomorrow.";
   if (err.action === 'cookbook') return "You've shared a lot of cookbooks today. Try again tomorrow.";
+  if (err.action === 'feedback') return "You've sent a lot of feedback today. Thank you. Try again tomorrow.";
   const what = err.action === 'suggestion' ? 'suggestions' : 'replies';
   return `You've sent a lot of ${what} recently. Try again in a while.`;
 }

@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-286 submitFeedback service
+
+- Service and helpers only, no screen yet (RL-287). Nothing to check in a browser. The 15 s bound and the rate-limit copy ("You've sent a lot of feedback today. Thank you. Try again tomorrow.") are worth a read.
+
+- Reviewer round fixed: /join/<code> is redacted in the stored path; a retry with the draft's id reads the feedback window first and writes nothing if its last commit already landed (one extra read per send with an id); truncation never splits an emoji; a non-JPEG screenshot is refused before writing; tests assert the screenshot and note never reach reportError.
+- Note for RL-287: keep one id per draft and pass it on every retry. The landed-commit check is not atomic, so it covers a retry of the same draft before any newer send.
+
 ### RL-285 Feedback rules and the 10-a-day feedback window
 
 - Rules only, in the repo; nothing reaches production until RL-291 deploys them. Nothing to check in a browser yet.

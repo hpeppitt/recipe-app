@@ -45,6 +45,7 @@ import { COOK_PHOTO_MAX_URL_LENGTH, JPEG_DATA_URL_PREFIX } from '../lib/imageAtt
 import { normalizeTags } from '../lib/library';
 import { KitchenFullError, kitchenFits, KITCHEN_INVITE_DAYS, KITCHEN_MEMBER_CAP, newInviteCode, pickKitchenId, checkCollectionRecipeId, checkCollectionRoom, collectionName, CollectionRefusedError, COLLECTION_GONE_MESSAGE, type KitchenLists } from '../lib/kitchen';
 import { TERMS_VERSION } from '../lib/legal';
+import { cleanNote, cutUnits, FEEDBACK_SCREENSHOT_MAX, FEEDBACK_SCREENSHOT_PREFIX, type FeedbackContext } from '../lib/feedback';
 import { nextWindow, RATE_LIMITS, type RateLimitAction } from '../lib/rateLimit';
 import { FamilyMoveRefusedError, RateLimitedError, StaleSuggestionError, SuggestionClosedError, RecipeNotPublishedError, TermsNotAcceptedError, TooManyMovedBranchesError } from '../lib/errors';
 import { db } from '../db/database';
@@ -837,7 +838,8 @@ async function writeLimited(
    * When given, `ref` is read first and, if it exists, merged with this instead: no window move.
    * 'skip' leaves an existing `ref` as it is, so a retry under the same id writes nothing.
    */
-  ifExists?: DocumentData | 'skip'
+  ifExists?: DocumentData | 'skip',
+  timeoutMs = CALL_TIMEOUT_MS
 ): Promise<boolean> {
   const windowRef = doc(fs, 'writeWindows', `${uid}_${action}`);
   try {
@@ -865,7 +867,8 @@ async function writeLimited(
         }
         return true;
       }),
-      `Sending the ${action}`
+      `Sending the ${action}`,
+      timeoutMs
     );
   } catch (err) {
     if (err instanceof RateLimitedError) reportError(err, `rate-limited-${action}`);
@@ -2004,6 +2007,54 @@ export async function removeFromCollection(id: string, recipeId: string): Promis
     'Removing from the collection',
     COLLECTION_WRITE_TIMEOUT_MS
   );
+}
+
+// --- Feedback (RL-286) ---
+
+const FEEDBACK_TIMEOUT_MS = 15_000;
+
+/**
+ * Sends one beta feedback item: feedback/{autoId} plus the 'feedback' window (10 a day) in one
+ * transaction, bounded at 15 s. Throws RateLimitedError('feedback') at the cap, having written
+ * nothing. Refuses a blank note or an oversized screenshot before any write. The screenshot is
+ * never passed to reportError. Matches firestore.rules isWellFormedFeedback key for key.
+ */
+export async function submitFeedback(
+  user: Pick<AppUser, 'uid' | 'displayName'>,
+  { note, screenshot }: { note: string; screenshot: string | null },
+  context: FeedbackContext,
+  /** Kept by the caller for one draft across retries, so a commit that landed after a timeout is not sent twice. */
+  id?: string
+): Promise<string> {
+  if (!firestore) throw new Error('Firebase not configured');
+  const text = cleanNote(note);
+  if (!text) throw new Error('Write a note first.');
+  if (screenshot && (screenshot.length > FEEDBACK_SCREENSHOT_MAX || !screenshot.startsWith(FEEDBACK_SCREENSHOT_PREFIX))) {
+    throw new Error('The screenshot is too large or not a JPEG.');
+  }
+  const ref = id ? doc(firestore, 'feedback', id) : doc(collection(firestore, 'feedback'));
+  if (id) {
+    // The feedback rule cannot read a missing document, so a retry is spotted on the window, which names the last document it counted.
+    const win = await rejectAfter(getDoc(doc(firestore, 'writeWindows', `${user.uid}_feedback`)), 'Checking the feedback window', FEEDBACK_TIMEOUT_MS);
+    if (win.exists() && win.data().last === ref.path) return ref.id;
+  }
+  await writeLimited(
+    firestore,
+    user.uid,
+    'feedback',
+    ref,
+    {
+      uid: user.uid,
+      displayName: user.displayName ? cutUnits(user.displayName, 100) : null,
+      note: text,
+      ...context,
+      screenshot: screenshot || null,
+      createdAt: serverTimestamp(),
+    },
+    undefined,
+    FEEDBACK_TIMEOUT_MS
+  );
+  return ref.id;
 }
 
 // --- Profiles ---

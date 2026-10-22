@@ -153,6 +153,11 @@ same transaction, a retry under the same `cookId` a no-op); `setCookBranch` is t
 newest 20, bounded at 6 s, through `useRecipeCooks`) and `subscribeOwnCooks` (the user's newest
 200, through `useOwnCooks`, verified users only), both in `hooks/useCooks.ts`.
 
+Beta feedback (RL-286) is written the same way: `submitFeedback` creates `feedback/{autoId}` with the
+ten RL-285 keys and moves the `feedback` window (10 a day) in one `writeLimited` transaction, bounded
+at 15 s, and refuses a blank note or a screenshot over 200000 characters before any write. The bounds,
+`cleanNote` and `feedbackContext` are in `lib/feedback.ts`. A retry under the same draft id after a landed commit writes nothing (spotted on the window's `last`, since the rule cannot read a missing feedback document). A join code in the path is redacted. The screenshot never reaches `reportError`.
+
 The kitchen (RL-213) is cloud only too. `hooks/useKitchen.ts` holds one `onSnapshot` on
 `kitchens/{uid}` (`subscribeKitchen`) per session for a verified user, in a module-level store
 shared by every component that calls `useKitchen`, closed when the last one unmounts. Its
