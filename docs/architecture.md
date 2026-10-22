@@ -448,5 +448,5 @@ rewrite to `index.html` (required for client-side routing). Tailwind v4 runs thr
 (Caprasimo, Figtree) are self-hosted woff2 files in `public/fonts/`. Dark Organic (20a) is a `.dark` block in the same file that
 overrides those variables; `useTheme` sets the class on `<html>`, and an inline script in `index.html` sets it before first paint. `vite-plugin-pwa` (dev dependency) emits
 `sw.js` and the manifest into `dist/`; `components/layout/UpdatePrompt.tsx` (mounted in `App.tsx`, outside the routes) registers
-the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. Two workflows: `ci.yml` runs the
+the worker and shows the update bar. See [operations.md](operations.md) for the cache-header rule. `html-to-image` (client dependency, pinned 1.11.13, approved by name 2026-10-22, RL-288) is loaded by `services/pageCapture.ts` through a dynamic `import()` when the Feedback tab is tapped, so it is its own 13 kB chunk and not in the main bundle. It draws the DOM through an SVG `foreignObject`; cross-origin images and iframes may come out blank and iOS Safari can drop web fonts on the first capture. Two workflows: `ci.yml` runs the
 gates, and `preview.yml` deploys `dist/` to the `qa` Hosting preview channel (not live).

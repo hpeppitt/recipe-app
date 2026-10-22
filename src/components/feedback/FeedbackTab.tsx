@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useFeedbackTab } from '../../hooks/useFeedbackTab';
 import { feedbackContext, type FeedbackContext } from '../../lib/feedback';
+import { capturePage } from '../../services/pageCapture';
 import { FeedbackSheet } from './FeedbackSheet';
 
 const SENT = 'Thanks. Feedback sent.';
@@ -17,6 +18,10 @@ export function FeedbackTab() {
   const { pathname } = useLocation();
   const [context, setContext] = useState<FeedbackContext | null>(null);
   const [toast, setToast] = useState(false);
+  // The page capture taken before the sheet opened, or null when it failed (the sheet says so).
+  const [capture, setCapture] = useState<string | null>(null);
+  const capturing = useRef(false);
+  const [preparing, setPreparing] = useState(false);
   const tabRef = useRef<HTMLButtonElement>(null);
   // One id per draft: made on first open, reused on every retry and reopen, replaced only after a send lands.
   const draftId = useRef<string | null>(null);
@@ -48,20 +53,30 @@ export function FeedbackTab() {
           ref={tabRef}
           type="button"
           aria-label="Send feedback"
-          onClick={() => {
-            draftId.current ??= crypto.randomUUID();
-            setContext(
-              feedbackContext({
+          aria-busy={preparing}
+          onClick={async () => {
+            if (capturing.current) return;
+            capturing.current = true;
+            setPreparing(true);
+            try {
+              draftId.current ??= crypto.randomUUID();
+              const ctx = feedbackContext({
                 pathname,
                 width: window.innerWidth,
                 height: window.innerHeight,
                 theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
                 userAgent: navigator.userAgent,
                 appVersion: __APP_VERSION__,
-              })
-            );
+              });
+              // Before the sheet mounts, so the sheet is not in the shot. Bounded at 3 s inside capturePage.
+              setCapture(await capturePage(tabRef.current));
+              setContext(ctx);
+            } finally {
+              capturing.current = false;
+              setPreparing(false);
+            }
           }}
-          className="fixed top-1/2 right-0 z-30 flex h-24 w-8 -translate-y-1/2 items-center justify-center rounded-l-[14px] bg-text-primary text-on-accent shadow-md before:absolute before:inset-y-0 before:-left-3 before:w-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+          className="fixed top-1/2 right-0 z-30 flex h-24 w-8 -translate-y-1/2 items-center justify-center rounded-l-[14px] bg-text-primary text-on-accent shadow-md aria-busy:opacity-60 before:absolute before:inset-y-0 before:-left-3 before:w-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
         >
           <span aria-hidden="true" className="rotate-180 text-[13px] font-semibold [writing-mode:vertical-rl]">
             Feedback
@@ -72,6 +87,7 @@ export function FeedbackTab() {
         <FeedbackSheet
           user={user}
           context={context}
+          initialShot={capture}
           draftId={draftId.current}
           onClose={close}
           onSent={() => {
@@ -82,6 +98,7 @@ export function FeedbackTab() {
         />
       )}
       <div role="status">
+        {preparing && <span className="sr-only">Preparing screenshot</span>}
         {toast && (
           <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm rounded-xl border border-border bg-surface-secondary px-4 py-3 shadow-lg">
             <p className="text-sm font-medium text-text-primary">{SENT}</p>

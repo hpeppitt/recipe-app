@@ -9,12 +9,14 @@ import { RateLimitedError } from '../../lib/errors';
 const mocks = vi.hoisted(() => ({
   submit: vi.fn(),
   downscale: vi.fn(),
+  capture: vi.fn(),
   reportError: vi.fn(),
   auth: {} as { user: unknown; isConfigured: boolean },
 }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => mocks.auth }));
 vi.mock('../../services/firestore', () => ({ submitFeedback: mocks.submit }));
 vi.mock('../../services/imageDownscale', () => ({ downscaleToJpeg: mocks.downscale }));
+vi.mock('../../services/pageCapture', () => ({ capturePage: mocks.capture }));
 vi.mock('../../services/telemetry', () => ({ reportError: mocks.reportError }));
 
 const verified = { uid: 'u1', displayName: 'Ann', isAnonymous: false, emailVerified: true };
@@ -31,6 +33,7 @@ beforeEach(() => {
   mocks.submit.mockReset().mockResolvedValue('f1');
   mocks.downscale.mockReset().mockResolvedValue({ mimeType: 'image/jpeg', base64: 'QUJD' });
   mocks.reportError.mockReset();
+  mocks.capture.mockReset().mockResolvedValue(null);
   mocks.auth = { user: verified, isConfigured: true };
 });
 afterEach(cleanup);
@@ -146,5 +149,34 @@ describe('FeedbackSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(mocks.submit).not.toHaveBeenCalled();
+  });
+});
+
+describe('FeedbackTab page capture', () => {
+  it('shows the capture in the tile, excludes the tab, and lets the user remove it', async () => {
+    mocks.capture.mockResolvedValue('data:image/jpeg;base64,QUJD');
+    show();
+    await open();
+    expect(mocks.capture).toHaveBeenCalledWith(tab());
+    expect(screen.getByAltText('Your screenshot')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove screenshot' }));
+    expect(screen.queryByAltText('Your screenshot')).toBeNull();
+  });
+  it('opens without a screenshot and says so when the capture fails', async () => {
+    show();
+    await open();
+    expect(screen.queryByAltText('Your screenshot')).toBeNull();
+    expect(screen.getByText(/couldn't capture this page\. You can add/)).not.toBeNull();
+    expect(screen.getByLabelText('Add a screenshot')).not.toBeNull();
+  });
+  it('marks the tab busy and announces while the capture runs', async () => {
+    let done!: (v: null) => void;
+    mocks.capture.mockReturnValue(new Promise((r) => (done = r)));
+    show();
+    await userEvent.click(tab()!);
+    expect(tab()!.getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByText('Preparing screenshot')).not.toBeNull();
+    await act(async () => done(null));
+    expect(tab()!.getAttribute('aria-busy')).toBe('false');
   });
 });
