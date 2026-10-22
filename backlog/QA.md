@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-273 Recipe rules bound the emoji
+
+- Rules only, in the repo, not deployed until RL-291. Nothing to see in the app yet.
+- After RL-291 deploys: publish a new recipe, edit and re-publish an older recipe that showed several emoji, favourite one, and apply a suggestion. None of it should be refused.
+
+- Reviewer noted (data, low): a non-standard grapheme over 24 units would be refused on create (only reachable with adversarial input); the recipe create rule's total expression count was not measured before RL-291.
+
 ### RL-290 The Privacy Policy has a Feedback section, and export and erase include feedback
 
 - Author: sign off the Feedback wording in /privacy before release. It is pending your sign-off. Read the "Feedback" section, the Contract basis line and the Export line.

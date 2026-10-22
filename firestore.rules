@@ -162,6 +162,7 @@ service cloud.firestore {
         && request.resource.data.createdAt is int
         && request.resource.data.createdAt <= request.time.toMillis() + 60000
         && hasBoundedContent()
+        && emojiOk()
         && movedWindow('recipe', 'recipes/' + recipeId);
 
       // Not limited: a re-publish, view or favourite bump is an update and
@@ -205,7 +206,9 @@ service cloud.firestore {
           && resource.data.createdBy.uid == request.auth.uid
           && request.resource.data.createdBy.uid == resource.data.createdBy.uid
           && !('createdAt' in changedKeys())
-          && hasBoundedContent();
+          && hasBoundedContent()
+          // RL-273: only when changed, so a stored legacy emoji stays editable.
+          && (!('emoji' in changedKeys()) || emojiOk());
       }
 
       // RL-158: deleting a version P moves its direct children up to P's parent
@@ -238,6 +241,14 @@ service cloud.firestore {
           && get(path).data.get('parentId', null) is string
           && request.resource.data.parentId == get(path).data.parentId
           && exists(/databases/$(database)/documents/recipes/$(get(path).data.parentId));
+      }
+
+      // RL-273: rules cannot count graphemes, so bound UTF-16 units instead. The
+      // longest RGI emoji (a couple with two skin tones, a subdivision flag) is
+      // 15 units; 24 leaves room. The client stores one grapheme (RL-272).
+      function emojiOk() {
+        let e = request.resource.data.get('emoji', null);
+        return e is string && e.size() >= 1 && e.size() <= 24;
       }
 
       // Evaluated on request.resource.data, the document as it would be after
