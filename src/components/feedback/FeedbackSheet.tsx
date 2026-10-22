@@ -34,12 +34,14 @@ interface FeedbackSheetProps {
   context: FeedbackContext;
   /** One id per draft, kept by the caller across retries and reopens until a send lands. */
   draftId: string;
+  /** The page capture taken before the sheet opened; null when it failed, which the sheet says. */
+  initialShot?: string | null;
   onClose: () => void;
   onSent: () => void;
 }
 
 /** The "Send feedback" sheet (RL-287). Mount it per open so each visit starts empty. */
-export function FeedbackSheet({ user, context, draftId, onClose, onSent }: FeedbackSheetProps) {
+export function FeedbackSheet({ user, context, draftId, initialShot = null, onClose, onSent }: FeedbackSheetProps) {
   const titleId = useId();
   const noteId = useId();
   const helpId = useId();
@@ -47,7 +49,7 @@ export function FeedbackSheet({ user, context, draftId, onClose, onSent }: Feedb
   const shotId = useId();
   const [note, setNote] = useState('');
   // The downscaled JPEG data URL. Held in memory only: never in Dexie, analytics or a report.
-  const [shot, setShot] = useState<string | null>(null);
+  const [shot, setShot] = useState<string | null>(initialShot);
   const [shotBusy, setShotBusy] = useState(false);
   const [shotError, setShotError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -217,8 +219,17 @@ export function FeedbackSheet({ user, context, draftId, onClose, onSent }: Feedb
               )}
             </div>
             <div className="text-[13px] text-neutral-700">
-              <p className="font-medium text-text-primary">Add a screenshot</p>
-              <p>Take a screenshot first, then add it here.</p>
+              <p className="font-medium text-text-primary">{shot && shot === initialShot ? 'Screenshot of this page' : 'Add a screenshot'}</p>
+              <p>
+                {shot && shot === initialShot
+                  ? 'Remove it if it shows something you would rather not send.'
+                  : initialShot
+                    ? 'Take a screenshot first, then add it here.'
+                    : "We couldn't capture this page. You can add a screenshot yourself."}
+              </p>
+              <span role="status" className="sr-only">
+                {initialShot === null && !shot ? "We couldn't capture this page." : ''}
+              </span>
             </div>
           </div>
           {shotError && (

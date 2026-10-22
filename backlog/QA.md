@@ -18,6 +18,15 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-288 Tapping Feedback captures the current page
+
+- Tap Feedback on Explore, a recipe and the tree on iOS Safari and Android Chrome; check the preview matches the page and the sheet itself is not in it. Remove it with the x and attach your own instead.
+- The capture is the visible viewport. Fixed elements (bottom nav, sticky bars) and the two-pane desktop inner scroller (rendered at its top) need a real-device check, as does dark mode (background should not be white).
+- Look for blank images or missing web fonts in the capture (known limits), and that the sheet opens within about 3 s on a slow phone, with the "couldn't capture" note if not.
+
+- Reviewer round fixed: the tab dims and announces "Preparing screenshot"; the capture is the visible viewport with the page background; the failure note is announced; the capture lock always resets.
+- Known limit (shortcut comment): on the desktop two-pane view the right pane's own scroll position is not captured, so a scrolled recipe pane shows its top. A timed-out capture keeps running in the background until it finishes.
+
 ### RL-273 Recipe rules bound the emoji
 
 - Rules only, in the repo, not deployed until RL-291. Nothing to see in the app yet.
