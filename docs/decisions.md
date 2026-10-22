@@ -948,3 +948,37 @@ Addendum (RL-265, author decision 2026-10-22): sharing is limited to 5 publishes
 ### A shared link asks before reading (RL-264, 2026-10-22)
 
 When `/import` opens from the Android share with a usable link, a `ConfirmDialog` ("Read this recipe from <host>?", Read it / Not now) asks first and `read` runs only on confirm. It shows once per page mount, and only when, after auth finishes loading, the page is in link mode, `isConfigured`, the user can generate and the device is online. Otherwise the link is only prefilled, as in RL-254. Reason: one Gemini call per confirmed share, with the user's consent, never one per share. Rejected: auto-reading on mount.
+
+---
+
+## v0.4.0 release (2026-10-22)
+
+Reversible choices made while building v0.4.0 that are worth keeping. Each was reviewed at
+the QA pass and accepted. The rest were accepted as built and need no record here.
+
+- **Photos are generation input only.** A photo goes once to Gemini through Firebase AI
+  Logic and is never stored, exported or kept in history. Only the text recipe is saved.
+  A photo import saves `importedFrom: 'photo'` (RL-263).
+- **Link import sends `responseSchema` with the URL context tool.** No doc confirms the
+  pair. Keep it, check one live import at deploy, and drop `generationConfig` if it fails.
+- **An Android share asks before reading.** A confirm dialog, "Read this recipe from
+  <host>?", and the read starts only on confirm. An auto-read on mount was rejected.
+- **Cookbook sharing is limited to 5 publishes a day** by a write window in the rules.
+  Unfollowing needs only the signed-in follower, so it works after a cookbook goes private
+  or is deleted.
+- **Explore reads are bounded:** up to 500 recent cooks and 1000 family cooks, within 12 s,
+  cached to protect Spark's 50k daily reads. `cooks (rootId asc, createdAt desc)` is the
+  index behind the family read.
+- **Data requests (RL-055).** The export redacts other people's identity (stable
+  `other-user-N`) but keeps content. Erasing a recipe owner deletes the suggestion with
+  its whole thread. Erase decrements other users' counters in the same batch and never
+  below 0. Production needs `--confirm <uid>`, checked before `firebase-admin` loads.
+- **`collaboratorUids` is cloud only.** The Dexie `Recipe` does not carry it, so a
+  re-publish cannot send a stale list.
+- **Text edits are length-checked with `matches('(?s).{0,N}')`,** which counts code points,
+  because `is string` plus `size()` hit the rules expression limit at 7 edits.
+- **Wording.** User-facing "favourite" is "save" (verb), "Saved" (list). A resize across
+  1024px keeps all state, and links inside the pane keep the list origin.
+- **Dark theme** values (warm night 20a with lifted tertiary text) were proofed in the app
+  by the author.
+- **Policy text** was approved by the author on 2026-10-22 with the contact address hpeppitt@gmail.com and a Terms bump to 2026-10-22 (RL-267).

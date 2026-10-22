@@ -12,6 +12,96 @@ release, newest first.
 
 ---
 
+## v0.4.0 - 2026-10-22
+
+A new look and a much bigger app. Every screen follows the Organic design, and Recipe Lab
+now helps you import, cook, shop and share, not only generate. Everyone accepts the updated
+Terms once.
+
+### Added
+
+- **The Organic look, light and dark.** New colours, type and icons, soft dialogs and
+  sheets, a five-slot bottom nav, a left rail from 1024px wide, and Explore and Saved
+  beside the recipe on large screens. Settings has Light, Dark and System, and a grouped
+  list. Signed-out visitors get a short Settings page.
+- **A new Create tab.** Build a sentence ("Write it" or "Describe it my own way"), tap
+  taste terms, or use the import tiles. You can attach up to three photos to the recipe
+  chat and to a new branch.
+- **Search.** A /search screen, with a pantry chip that finds what you can make now.
+- **Branching.** Branching opens one focused screen: a single instruction, quick-change
+  chips that learn from the recipe's family, and a Grow this branch button. While you
+  type, a card warns when a recipe is the same or similar, and a sheet checks again on
+  send. A new original can be moved into its related family.
+- **The version tree, three ways.** A Map, a Timeline and a Forest view, with a legend,
+  a What changed screen for any branch, and a branch carousel on the recipe page. Deleting
+  a version moves its branches up. Branching someone else's recipe tells its author.
+- **A better recipe page.** A version pill, two-line titles, a sage lineage strip,
+  macro and diet pills, an inline servings stepper with a Scaled strip, tick-off
+  ingredients, numbered method steps, and a collapsed nutrition card. You can reorder
+  ingredients and collapse the method when editing, and fact pills are native pickers.
+  A "Weigh spoons and liquids" setting shows spoon and millilitre amounts in grams.
+- **Suggestions you can act on.** Suggest mode sends structured edits. The owner sees diff
+  rows and can Apply, Decline or Keep as branch. Each suggestion opens as a full thread.
+- **Import from a link.** Paste a recipe link and the app reads it, shows what it found,
+  and credits the source ("Imported from <host>").
+- **Import from photos.** Snap a page, up to three photos, and it reads the recipe. The
+  photos are used once and never stored. Photo imports are credited "Imported from a photo".
+- **Share to Recipe Lab on Android.** Share a link from another app. Recipe Lab asks
+  "Read this recipe from <host>?" and only reads after you confirm.
+- **Continue with Google.** A new sign-in option, with sign-in methods shown in Settings.
+  It stays off unless the site turns it on.
+- **Sign-in that remembers.** Sign-in is a sheet that names the action, the link brings
+  you back to the page you were on, and the action you asked for then runs once.
+- **Cooks.** An I made this sheet records a cook with notes, an optional photo and what
+  was left over. Cooked shows in the recipe footer, with a made-by row, a notes sheet and
+  a cook log page. A branch grown from a cook note credits it. Profiles show a Cooked tile.
+- **Cook mode.** A full-screen, step-by-step view for the kitchen.
+- **Kitchen.** A new tab with a shopping list, a pantry and your collections.
+  - Add a recipe, or a whole family tree, to the shopping list. Shop mode is for the
+    supermarket aisle.
+  - The pantry nudges you about ageing items, and a receipt photo can fill it.
+  - Households: invite people to share a kitchen, a list and a pantry, each with an avatar.
+- **Collections and cookbooks.** Save a recipe into a collection straight after saving it.
+  Share a collection as a public cookbook at its own page, and follow other people's
+  cookbooks. Activity shows "added to <cookbook>" for the ones you follow. Sharing is
+  limited to 5 a day.
+- **Taste and avoids.** The app learns what you like from what you save and cook, shows it
+  on a Your taste page, and asks once about foods to avoid. Avoids are respected when it
+  generates.
+- **Explore cooking stats.** Explore has newest-recipe tiles, Most branched and Most cooked
+  rankings, a Branching this week row, a Tonight card and a pantry card. Cook counts show on
+  the tree, and the most-cooked branch opens from Explore and Search.
+- **Activity.** Filter chips, day headers, one-line suggestion changes, and Settings
+  "Notify me when" controls for branch notifications.
+- **Profiles.** A redrawn own profile and other cooks' profiles, a Collabs tab, stat tiles,
+  and a new avatar editor.
+- **Saved.** Replaces favourites everywhere ("save", "saves", "Saved"). The Saved page lists
+  everything honestly, including offline, failed and deleted items.
+- **Loading screens** that appear on long generations, and a redrawn tree explainer.
+
+### Changed
+
+- Explore is the home screen, and My Recipes shows what you created, branched and saved.
+- A shared recipe opens straight to the recipe with a "Shared by" banner, Save and
+  Make it yours.
+- Saving, editing and deleting your own recipes now go to the cloud first, and a verified
+  account's recipes stay in step on every device. Imports are saved copies that sync never
+  removes.
+- Signing out removes your own recipes from the device, and the delete-from-this-device
+  copy says so. The old cloud identity migration is gone.
+- Everyone accepts the updated Terms once. The Terms, Privacy and Cookie Policies cover
+  photos, cooks, kitchens, cookbooks, Google sign-in and imports, and give a contact
+  address.
+- The spinner stops spinning if you ask your device to reduce motion.
+
+### Fixed
+
+- Avatars and themes follow dark mode, and the chrome colour follows the theme.
+- Opening a link, sign-in or share no longer loses the page or action you came from.
+- Cooks, cookbooks and follows are guarded in the cloud rules, so a deleted or private
+  cookbook can still be unfollowed.
+- Small import and Explore reads stay within time and size limits.
+
 ## v0.3.0 - 2026-10-18
 
 The first release as an accounts app. Production data and every sign-in were wiped first, so
