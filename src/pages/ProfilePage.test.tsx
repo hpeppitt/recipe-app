@@ -9,6 +9,7 @@ import { makeRecipe } from '../test/factories';
 const followUser = vi.fn();
 const updateAvatar = vi.fn();
 const updateBio = vi.fn(async (..._a: unknown[]) => {});
+const updateCountry = vi.fn(async (..._a: unknown[]) => {});
 const countUserCooks = vi.fn(async (..._a: unknown[]) => 4);
 vi.mock('../services/firestore', () => ({
   isFollowing: vi.fn(async () => false),
@@ -23,10 +24,10 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({
-  useOwnProfile: () => ({ profile: ownProfile, loaded: ownLoaded, updateAvatar, updateName: vi.fn(), updateBio: (...a: unknown[]) => updateBio(...a) }),
+  useOwnProfile: () => ({ profile: ownProfile, loaded: ownLoaded, updateAvatar, updateName: vi.fn(), updateBio: (...a: unknown[]) => updateBio(...a), updateCountry: (...a: unknown[]) => updateCountry(...a) }),
   usePublicProfile: () => publicProfile,
 }));
-const chefProfile: { uid: string; displayName: string; photoType: string; followerCount: number; followingCount: number; bio?: unknown } = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
+const chefProfile: { uid: string; displayName: string; photoType: string; followerCount: number; followingCount: number; bio?: unknown; country?: unknown } = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
 const retryProfile = vi.fn();
 let publicProfile: { profile: typeof chefProfile | null; isLoading: boolean; error: boolean; retry: () => void } = {
   profile: chefProfile,
@@ -40,7 +41,7 @@ let chefLoading = false;
 let syncStatus = 'off';
 let rows: Recipe[] | undefined = [];
 let ownLoaded = true;
-let ownProfile: { createdAt: number; followerCount: number; followingCount: number; bio?: unknown } | null = null;
+let ownProfile: { createdAt: number; followerCount: number; followingCount: number; bio?: unknown; country?: unknown } | null = null;
 vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
 let statsStatus = 'ready';
 let totals = { totalViews: 0, totalFavorites: 0 };
@@ -703,5 +704,100 @@ describe('Bio (RL-279)', () => {
     publicProfile = { ...publicProfile, profile: { ...chefProfile, bio: '  ' } };
     renderAt('/profile/chef', null);
     expect(screen.queryByText('Loves rice')).toBeNull();
+  });
+});
+
+describe('Country flag (RL-281)', () => {
+  const own = (country?: unknown) => {
+    ownProfile = { createdAt: 1, followerCount: 0, followingCount: 0, country };
+  };
+  beforeEach(() => updateCountry.mockClear());
+
+  it('shows the flag as a change button, and no flag when null, absent or invalid', () => {
+    own('AU');
+    const { unmount } = renderAt('/profile', verified);
+    expect(screen.getByRole('button', { name: 'Change country, currently Australia' })).toHaveTextContent('🇦🇺');
+    unmount();
+    for (const c of [null, undefined, 'au', 'ZZ', 5]) {
+      own(c);
+      const r = renderAt('/profile', verified);
+      expect(screen.queryByRole('button', { name: /^Change country/ })).toBeNull();
+      expect(screen.getByRole('button', { name: '+ Add your country' })).toBeInTheDocument();
+      r.unmount();
+    }
+  });
+
+  it('changes the country, closes and returns focus', async () => {
+    own('AU');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Change country/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Japan/ }));
+    await waitFor(() => expect(updateCountry).toHaveBeenCalledWith('JP'));
+    await waitFor(() => expect(screen.queryByText('Where do you cook?')).toBeNull());
+    expect(screen.getByRole('button', { name: /^Change country/ })).toHaveFocus();
+  });
+
+  it('keeps focus on the trigger when Add swaps to the flag', async () => {
+    own();
+    updateCountry.mockImplementationOnce(async () => { own('JP'); });
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add your country' }));
+    fireEvent.click(screen.getByRole('button', { name: /Japan/ }));
+    await waitFor(() => expect(screen.queryByText('Where do you cook?')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Change country, currently Japan' })).toHaveFocus();
+  });
+
+  it('marks the current row and announces the count', () => {
+    own('AU');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Change country/ }));
+    expect(screen.getByRole('button', { name: /^Australia/ })).toHaveAttribute('aria-current', 'true');
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search countries' }), { target: { value: 'zzzz' } });
+    expect(screen.getByRole('status')).toHaveTextContent('No countries match');
+  });
+
+  it('chooses No flag', async () => {
+    own('AU');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Change country/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'No flag' }));
+    await waitFor(() => expect(updateCountry).toHaveBeenCalledWith(null));
+  });
+
+  it('filters by name as you type', () => {
+    own();
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add your country' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search countries' }), { target: { value: 'austra' } });
+    expect(screen.getByRole('button', { name: /Australia/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Japan/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'No flag' })).toBeNull();
+  });
+
+  it('keeps the sheet open with an error when the save fails', async () => {
+    updateCountry.mockRejectedValueOnce(new Error('denied'));
+    own();
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add your country' }));
+    fireEvent.click(screen.getByRole('button', { name: /Japan/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save that. Try again.");
+    expect(screen.getByText('Where do you cook?')).toBeInTheDocument();
+  });
+
+  it('gives a guest the sign-up dialog', () => {
+    renderAt('/profile', anon);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add your country' }));
+    expect(screen.getByRole('heading', { name: 'Sign in to edit your profile' })).toBeInTheDocument();
+    expect(screen.queryByText('Where do you cook?')).toBeNull();
+  });
+
+  it('shows the flag on a public profile only when valid', () => {
+    publicProfile = { ...publicProfile, profile: { ...chefProfile, country: 'NZ' } };
+    const { unmount } = renderAt('/profile/chef', null);
+    expect(screen.getByRole('img', { name: 'New Zealand' })).toHaveTextContent('🇳🇿');
+    unmount();
+    publicProfile = { ...publicProfile, profile: { ...chefProfile, country: null } };
+    renderAt('/profile/chef', null);
+    expect(screen.queryByRole('img', { name: 'New Zealand' })).toBeNull();
   });
 });

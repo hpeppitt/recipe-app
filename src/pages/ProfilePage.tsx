@@ -24,6 +24,8 @@ import { Input } from '../components/ui/Input';
 import { EmptyState } from '../components/ui/EmptyState';
 import { pluralize, withTimeout } from '../lib/utils';
 import { BIO_MAX, cleanBio } from '../lib/bio';
+import { countryName, flagEmoji, isCountryCode } from '../lib/country';
+import { CountrySheet } from '../components/profile/CountrySheet';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { IconButton } from '../components/ui/IconButton';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
@@ -291,7 +293,7 @@ function useRecipeTabs(uid: string | undefined, isConfigured: boolean) {
 
 function OwnProfile() {
   const { user, updateDisplayName, isConfigured } = useAuth();
-  const { profile, loaded: profileLoaded, updateAvatar, updateName, updateBio } = useOwnProfile();
+  const { profile, loaded: profileLoaded, updateAvatar, updateName, updateBio, updateCountry } = useOwnProfile();
   const { stats, statsStatus } = useOwnRecipes(user?.uid);
   const tabs = useRecipeTabs(user?.uid, isConfigured);
   const cooked = useCookCount(user?.uid);
@@ -315,6 +317,17 @@ function OwnProfile() {
       bioBtnRef.current?.focus();
     }
   }, [editingBio]);
+  const [pickingCountry, setPickingCountry] = useState(false);
+  const countryBtnRef = useRef<HTMLButtonElement>(null);
+  // The country the sheet closed on; the trigger may swap (Add to flag) once the new value arrives.
+  const countryClosed = useRef<{ from: string | null } | null>(null);
+  const savedCountry = isCountryCode(profile?.country) ? profile.country : null;
+  useEffect(() => {
+    const closed = countryClosed.current;
+    if (pickingCountry || !closed) return;
+    countryBtnRef.current?.focus();
+    if (savedCountry !== closed.from) countryClosed.current = null;
+  }, [pickingCountry, savedCountry]);
   const [showSignUp, setShowSignUp] = useState(false);
   // Which list, if any, the user has opened from the stat row. Inline disclosure
   // rather than a new route: it is a short list read in context, and a separate
@@ -340,6 +353,16 @@ function OwnProfile() {
   };
 
   const bio = cleanBio(profile?.bio);
+  const country = savedCountry;
+  const openCountry = () => {
+    if (needsSignUp) return setShowSignUp(true);
+    countryClosed.current = null;
+    setPickingCountry(true);
+  };
+  const saveCountry = async (code: string | null) => {
+    const done = await withTimeout(updateCountry(code).then(() => true), 8000, false);
+    if (!done) throw new Error('save-country timed out');
+  };
   const openBio = () => {
     if (needsSignUp) {
       setShowSignUp(true);
@@ -426,6 +449,7 @@ function OwnProfile() {
                   </div>
                 </div>
               ) : (
+                <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     if (needsSignUp) {
@@ -435,7 +459,7 @@ function OwnProfile() {
                     setNameInput(user.displayName ?? '');
                     setEditingName(true);
                   }}
-                  className="flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
                   aria-label={`Edit display name, currently ${user.displayName ?? 'Anonymous'}`}
                 >
                   <h2 className="min-w-0 break-words font-heading text-[26px] leading-[1.1] text-text-primary">
@@ -444,11 +468,36 @@ function OwnProfile() {
                   {/* Always visible: on touch there is no hover. */}
                   <Pencil className="size-4 shrink-0 text-text-tertiary" />
                 </button>
+                {country && (
+                  <button
+                    ref={countryBtnRef}
+                    onClick={openCountry}
+                    aria-label={`Change country, currently ${countryName(country)}`}
+                    className="flex size-11 shrink-0 items-center justify-center rounded-lg text-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                  >
+                    <span aria-hidden="true">{flagEmoji(country)}</span>
+                  </button>
+                )}
+                </div>
               )}
               {nameSaved && <span className="text-xs text-success-600">Name saved!</span>}
-              {(user.isAnonymous || since) && (
+              {(user.isAnonymous || since || !country) && (
                 <p className="text-[13px] text-text-tertiary">
-                  {user.isAnonymous ? 'Guest · this device only' : `Cooking since ${since}`}
+                  {(user.isAnonymous || since) && (
+                    <span>{user.isAnonymous ? 'Guest · this device only' : `Cooking since ${since}`}</span>
+                  )}
+                  {!country && (
+                    <>
+                      {(user.isAnonymous || since) && ' · '}
+                      <button
+                        ref={countryBtnRef}
+                        onClick={openCountry}
+                        className="min-h-11 rounded-lg text-[13px] text-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
+                      >
+                        + Add your country
+                      </button>
+                    </>
+                  )}
                 </p>
               )}
               {editingBio ? (
@@ -619,6 +668,17 @@ function OwnProfile() {
         }}
       />
 
+      {pickingCountry && (
+        <CountrySheet
+          current={country}
+          onSave={saveCountry}
+          onClose={() => {
+            countryClosed.current = { from: country };
+            setPickingCountry(false);
+          }}
+        />
+      )}
+
       <SignUpDialog
         open={showSignUp}
         action={{ kind: 'edit-profile' }}
@@ -745,6 +805,7 @@ function PublicProfile({ uid }: { uid: string }) {
 
   const name = profile.displayName ?? 'Anonymous';
   const publicBio = cleanBio(profile.bio);
+  const publicCountry = isCountryCode(profile.country) ? profile.country : null;
   const { created, branched } = splitLibrary(recipes, recipes, { uid, isConfigured: true });
   const promptById = new Map(recipes.map((r) => [r.id, r.prompt ?? '']));
 
@@ -772,6 +833,11 @@ function PublicProfile({ uid }: { uid: string }) {
             </EmojiBlob>
             <h2 className="min-w-0 flex-1 break-words font-heading text-[26px] leading-[1.1] text-text-primary">
               {name}
+              {publicCountry && (
+                <span role="img" aria-label={countryName(publicCountry)} className="ml-1.5 align-middle text-xl">
+                  {flagEmoji(publicCountry)}
+                </span>
+              )}
             </h2>
           </div>
           {publicBio && <p className="break-words text-[15px] text-text-secondary">{publicBio}</p>}

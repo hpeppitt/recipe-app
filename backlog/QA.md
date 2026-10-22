@@ -22,6 +22,17 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 - No visible change yet (pure lib code for RL-281/282). Nothing to check beyond CI.
 
+### RL-281 Country flag on the profile
+
+- Saves live only after RL-291 deploys the RL-278 rules.
+- Change your flag, choose No flag, check the public profile from another account. On Windows expect two letters.
+- With no flag, "+ Add your country" shows in the Cooking since line; as a guest it opens the sign-up dialog.
+- Type in the search field: the list filters by name; a failed save keeps the sheet open with an error.
+
+- Reviewer round fixed: result count and "Saving..." are announced; the current country is marked selected; the heading and search stay pinned; focus survives the Add to flag swap; an unverified save shows the error.
+- Check in the browser: the pinned search header's offsets inside the sheet on a phone; the keyboard opening over the list on first open.
+- Reviewer noted (low): no arrow-key navigation through about 250 rows; a timed-out save may still land later; the public flag adds the country name to the heading's spoken name.
+
 ### RL-279 Profile bio
 
 - Saves live only after RL-291 deploys the RL-278 rules; before that, a save against the live project may be refused or stored unbounded.
