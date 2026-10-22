@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-276 Create sentence builder: optional veg, time and method words
+
+- Pure logic only, no UI change yet; nothing to look at until RL-277 adds the buttons.
+
 ### RL-275 Create tab: tiles, pantry card, or, sentence
 
 - Create tab at 390x844 (and 320, light and dark): Paste a link and Snap a page tiles, the green What have you got? card, an "or" divider, then the sentence. Tap What have you got? and the pantry sheet opens over Search. Check nothing scrolls sideways and the Write it bar does not cover the sentence at the end of the scroll. Explore's card should look unchanged.

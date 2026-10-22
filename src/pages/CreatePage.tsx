@@ -57,7 +57,7 @@ export function CreatePage() {
       onClick={() => {
         const next = cycleWord(selection, slot);
         setSelection(next);
-        setStatus(selectedWords(next)[slot]);
+        setStatus(selectedWords(next)[slot] ?? '');
       }}
       aria-describedby={hintId}
       className="inline-block bg-transparent px-0 py-1 -my-1 [font:inherit] text-accent-700 underline decoration-[3px] underline-offset-[6px] rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500"
