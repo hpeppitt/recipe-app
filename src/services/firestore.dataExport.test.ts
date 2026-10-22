@@ -71,6 +71,12 @@ describe('fetchCloudDataForExport', () => {
     expect(writes).not.toHaveBeenCalled();
   });
 
+  it('includes bio and country from the profile document', async () => {
+    getDocImpl = async (path) => (path === 'profiles/u1' ? { id: 'u1', exists: () => true, data: () => ({ displayName: 'A', bio: 'Hello', country: 'AU' }) } : missing(path));
+    const out = await fetchCloudDataForExport('u1');
+    expect('data' in out.profile && out.profile.data).toMatchObject({ uid: 'u1', bio: 'Hello', country: 'AU' });
+  });
+
   it('merges the two suggestion queries without duplicates and reads each thread by path', async () => {
     getDocsImpl = async (q) => {
       if (q.col === 'suggestions') return { docs: [row('s1', { recipeOwnerId: 'u1' }), q.wheres[0][0] === 'recipeOwnerId' ? row('s2') : row('s1')] };
