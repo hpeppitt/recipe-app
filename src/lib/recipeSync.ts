@@ -1,5 +1,6 @@
 import type { Recipe } from '../types/recipe';
 import { ImportedFromSchema } from '../schemas/recipe.schema';
+import { oneEmoji, RECIPE_EMOJI_FALLBACK } from './emoji';
 
 /** A recipe document as Firestore returns it: Recipe fields plus counters, some optional. */
 export type CloudRecipeDoc = Partial<Omit<Recipe, 'chatHistory'>> & {
@@ -37,7 +38,7 @@ export function toLocalRecipe(doc: CloudRecipeDoc, localRow?: Recipe): Recipe {
     servings: doc.servings,
     difficulty: doc.difficulty,
     tags: doc.tags,
-    emoji: doc.emoji,
+    emoji: oneEmoji(doc.emoji, RECIPE_EMOJI_FALLBACK),
     nutrition: doc.nutrition,
     relatedFamilyId: doc.relatedFamilyId,
     importedFrom: ImportedFromSchema.parse(doc.importedFrom),

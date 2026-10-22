@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { GeneratedRecipeSchema, ImportedFromSchema, IngredientSchema } from '../schemas/recipe.schema';
 import type { Ingredient } from '../types/recipe';
+import { oneEmoji, RECIPE_EMOJI_FALLBACK } from './emoji';
 import type { GeneratedRecipe } from '../types/api';
 
 /** The one message every import failure shows (RL-185). */
@@ -69,8 +70,13 @@ export function importHost(url: string): string {
 /**
  * A recipe read from storage with `importedFrom` kept only when it is a bounded http(s)
  * URL or exactly 'photo' (ImportedFromSchema), so nothing downstream can render an unchecked link.
+ * Also keeps one `emoji` (RL-272): older documents may hold several, normalised on read only.
  */
 export function withBoundedImportedFrom<T extends object>(recipe: T): T {
+  if ('emoji' in recipe) {
+    const emoji = oneEmoji(recipe.emoji, RECIPE_EMOJI_FALLBACK);
+    if (emoji !== recipe.emoji) recipe = { ...recipe, emoji };
+  }
   if (!('importedFrom' in recipe)) return recipe;
   const importedFrom = ImportedFromSchema.parse(recipe.importedFrom);
   if (importedFrom !== undefined) return { ...recipe, importedFrom };

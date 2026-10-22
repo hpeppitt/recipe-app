@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie';
 import type { Recipe, Favorite } from '../types/recipe';
+import { oneEmoji, RECIPE_EMOJI_FALLBACK } from '../lib/emoji';
 
 export class RecipeDatabase extends Dexie {
   recipes!: Table<Recipe, string>;
@@ -33,6 +34,11 @@ export class RecipeDatabase extends Dexie {
         }
       });
     });
+
+    // RL-272: older rows may hold several emoji; normalise on read, never rewrite the row.
+    this.recipes.hook('reading', (recipe) =>
+      recipe ? { ...recipe, emoji: oneEmoji(recipe.emoji, RECIPE_EMOJI_FALLBACK) } : recipe,
+    );
   }
 }
 
