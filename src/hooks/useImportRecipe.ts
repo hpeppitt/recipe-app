@@ -18,7 +18,7 @@ import type { Recipe } from '../types/recipe';
 /** What the review screen lets the user change before saving (RL-252). */
 export type ImportEdits = { title: string; ingredients: ImportedIngredient[] };
 /** Where a save goes: the recipe, or the editor or the branch composer (RL-252). */
-export type ImportDest = 'recipe' | 'edit' | 'vary';
+export type ImportDest = 'recipe' | 'edit';
 
 /** The dedup check is a nicety: past this the preview shows without the family notice. */
 const DEDUP_TIMEOUT_MS = 4000;

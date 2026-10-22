@@ -149,7 +149,7 @@ describe('ImportPage', () => {
     expect((screen.getByRole('textbox', { name: 'Ingredient 3 amount' }) as HTMLInputElement).value).toBe('1');
     expect(screen.queryByRole('region', { name: 'Already in the library' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Edit first' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save and branch' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Save recipe' })).toBeTruthy();
   });
 
   it('says All amounts read clearly with no flags, and One amount for a single flag', async () => {
@@ -170,9 +170,9 @@ describe('ImportPage', () => {
     expect(review.textContent).toContain('One amount was unclear.');
     fireEvent.change(screen.getByRole('textbox', { name: 'Ingredient 1 amount' }), { target: { value: '0.75' } });
     expect(review.textContent).toContain('All amounts read clearly.');
-    // No flags left: Save and branch saves at once, with the typed amount and the edited title.
+    // No flags left: Save recipe saves at once, with the typed amount and the edited title.
     fireEvent.change(screen.getByRole('textbox', { name: 'Recipe title' }), { target: { value: 'Better Stew' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
     await waitFor(() => expect(publishRecipe).toHaveBeenCalled());
     const saved = publishRecipe.mock.calls[0][0] as Recipe;
     expect(saved.title).toBe('Better Stew');
@@ -200,18 +200,20 @@ describe('ImportPage', () => {
     render();
     readLink();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Ingredient 1 amount' }), { target: { value: '1/2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Amounts must be numbers');
     expect((screen.getByRole('textbox', { name: 'Ingredient 1 amount' }) as HTMLInputElement).value).toBe('1/2');
     expect(publishRecipe).not.toHaveBeenCalled();
   });
 
-  it('Save and branch saves a new original and opens the branch composer', async () => {
+  it('Save recipe saves a new original and opens the recipe page', async () => {
     render();
     readLink();
-    fireEvent.click(await screen.findByRole('button', { name: 'Save and branch' }));
-    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/vary\|null$/));
-    expect(publishRecipe.mock.calls[0][0]).toMatchObject({ parentId: null, depth: 0, importedFrom: PAGE });
+    fireEvent.click(await screen.findByRole('button', { name: 'Save recipe' }));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/[^/]+\|.*"saved":"cloud"/));
+    const saved = publishRecipe.mock.calls[0][0] as Recipe;
+    expect(saved).toMatchObject({ parentId: null, depth: 0, importedFrom: PAGE });
+    expect(saved.rootId).toBe(saved.id);
   });
 
   it('offers Add to family first when the library has the same dish, and saves it as a branch', async () => {
@@ -331,9 +333,9 @@ describe('ImportPage photo mode (RL-251)', () => {
     expect(card.textContent).toContain('One amount was unclear.');
     expect(card.textContent).not.toContain('Source kept');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save and branch' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save', hidden: true }));
-    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/.+\/vary/));
+    await waitFor(() => expect(probe()).toMatch(/^\/recipe\/[^/]+\|/));
     const saved = publishRecipe.mock.calls[0][0] as Recipe;
     expect(saved.prompt).toBe('Imported from a photo');
     expect(saved.importedFrom).toBe('photo');
