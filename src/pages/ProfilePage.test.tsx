@@ -8,6 +8,7 @@ import { makeRecipe } from '../test/factories';
 
 const followUser = vi.fn();
 const updateAvatar = vi.fn();
+const updateBio = vi.fn(async (..._a: unknown[]) => {});
 const countUserCooks = vi.fn(async (..._a: unknown[]) => 4);
 vi.mock('../services/firestore', () => ({
   isFollowing: vi.fn(async () => false),
@@ -22,10 +23,10 @@ vi.mock('../services/firebase', () => ({ isFirebaseConfigured: true }));
 vi.mock('../services/analytics', () => ({ trackFollowToggled: vi.fn() }));
 vi.mock('../services/telemetry', () => ({ reportError: vi.fn() }));
 vi.mock('../hooks/useProfile', () => ({
-  useOwnProfile: () => ({ profile: ownProfile, loaded: ownLoaded, updateAvatar, updateName: vi.fn() }),
+  useOwnProfile: () => ({ profile: ownProfile, loaded: ownLoaded, updateAvatar, updateName: vi.fn(), updateBio: (...a: unknown[]) => updateBio(...a) }),
   usePublicProfile: () => publicProfile,
 }));
-const chefProfile = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
+const chefProfile: { uid: string; displayName: string; photoType: string; followerCount: number; followingCount: number; bio?: unknown } = { uid: 'chef', displayName: 'Chef', photoType: 'generated', followerCount: 3, followingCount: 5 };
 const retryProfile = vi.fn();
 let publicProfile: { profile: typeof chefProfile | null; isLoading: boolean; error: boolean; retry: () => void } = {
   profile: chefProfile,
@@ -39,7 +40,7 @@ let chefLoading = false;
 let syncStatus = 'off';
 let rows: Recipe[] | undefined = [];
 let ownLoaded = true;
-let ownProfile: { createdAt: number; followerCount: number; followingCount: number } | null = null;
+let ownProfile: { createdAt: number; followerCount: number; followingCount: number; bio?: unknown } | null = null;
 vi.mock('../hooks/useOwnRecipesSync', () => ({ useOwnRecipesSyncStatus: () => syncStatus }));
 let statsStatus = 'ready';
 let totals = { totalViews: 0, totalFavorites: 0 };
@@ -597,5 +598,110 @@ describe('Collabs tab (RL-173)', () => {
     expect(screen.getByRole('radio', { name: /^Collabs/ })).toHaveAttribute('aria-checked', 'true');
     fireEvent.keyDown(screen.getByRole('radio', { name: /^Collabs/ }), { key: 'ArrowRight' });
     expect(screen.getByRole('radio', { name: /^Started/ })).toHaveAttribute('aria-checked', 'true');
+  });
+});
+
+describe('Bio (RL-279)', () => {
+  const own = (bio?: unknown) => {
+    ownProfile = { createdAt: 1, followerCount: 0, followingCount: 0, bio };
+  };
+  beforeEach(() => updateBio.mockClear());
+
+  it('adds a bio, trimmed and on one line', async () => {
+    own();
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a short bio' }));
+    fireEvent.change(screen.getByPlaceholderText('What do you like to cook?'), { target: { value: '  Soup\nlover ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateBio).toHaveBeenCalledWith('Soup lover'));
+  });
+
+  it('shows the bio and edits it', async () => {
+    own('Bread nerd');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Edit bio/ }));
+    const box = screen.getByPlaceholderText('What do you like to cook?');
+    expect(box).toHaveValue('Bread nerd');
+    fireEvent.change(box, { target: { value: 'Pasta nerd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateBio).toHaveBeenCalledWith('Pasta nerd'));
+  });
+
+  it('saves null when cleared', async () => {
+    own('Bread nerd');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Edit bio/ }));
+    fireEvent.change(screen.getByPlaceholderText('What do you like to cook?'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateBio).toHaveBeenCalledWith(null));
+  });
+
+  it('caps at 160 and shows the counter from 140', () => {
+    own();
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a short bio' }));
+    const box = screen.getByPlaceholderText('What do you like to cook?');
+    expect(box).toHaveAttribute('maxlength', '160');
+    fireEvent.change(box, { target: { value: 'a'.repeat(139) } });
+    expect(screen.getByText('139/160')).toHaveClass('sr-only');
+    expect(screen.queryByText('139 of 160 characters')).toBeNull();
+    fireEvent.change(box, { target: { value: 'a'.repeat(140) } });
+    expect(screen.getByText('140/160')).not.toHaveClass('sr-only');
+    expect(screen.getByText('140 of 160 characters')).toBeInTheDocument();
+  });
+
+  it('reads a stored bio defensively', () => {
+    own('x'.repeat(200));
+    renderAt('/profile', verified);
+    expect(screen.getByRole('button', { name: /^Edit bio/ })).toHaveTextContent(/^x{160}$/);
+  });
+
+  it('keeps the editor open with a message when the save fails', async () => {
+    own();
+    updateBio.mockRejectedValueOnce(new Error('denied'));
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a short bio' }));
+    fireEvent.change(screen.getByPlaceholderText('What do you like to cook?'), { target: { value: 'Hi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't save your bio. Try again.");
+    expect(screen.getByPlaceholderText('What do you like to cook?')).toBeInTheDocument();
+  });
+
+  it('moves focus into the textarea on open and back to the button on Cancel', () => {
+    own('Bread nerd');
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: /^Edit bio/ }));
+    expect(screen.getByPlaceholderText('What do you like to cook?')).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Edit bio, currently Bread nerd' })).toHaveFocus();
+  });
+
+  it('disables Cancel while saving', async () => {
+    own();
+    let finish = () => {};
+    updateBio.mockImplementationOnce(() => new Promise<void>((res) => { finish = res; }));
+    renderAt('/profile', verified);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a short bio' }));
+    fireEvent.change(screen.getByPlaceholderText('What do you like to cook?'), { target: { value: 'Hi' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await act(async () => finish());
+  });
+
+  it('gives a guest the sign-up dialog', () => {
+    renderAt('/profile', anon);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a short bio' }));
+    expect(screen.getByRole('heading', { name: 'Sign in to edit your profile' })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('What do you like to cook?')).toBeNull();
+  });
+
+  it('shows the bio on a public profile only when set', () => {
+    publicProfile = { ...publicProfile, profile: { ...chefProfile, bio: 'Loves rice' } };
+    const { unmount } = renderAt('/profile/chef', null);
+    expect(screen.getByText('Loves rice')).toBeInTheDocument();
+    unmount();
+    publicProfile = { ...publicProfile, profile: { ...chefProfile, bio: '  ' } };
+    renderAt('/profile/chef', null);
+    expect(screen.queryByText('Loves rice')).toBeNull();
   });
 });

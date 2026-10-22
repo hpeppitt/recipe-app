@@ -5,6 +5,8 @@ export interface UserProfile {
   photoEmoji: string | null;
   photoBgColor: string | null;
   photoURL: string | null;
+  /** Absent or null when unset; read through `cleanBio`, the live rules do not bound it yet. */
+  bio?: string | null;
   recipeCount: number;
   followerCount: number;
   followingCount: number;

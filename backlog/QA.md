@@ -18,6 +18,16 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-279 Profile bio
+
+- Saves live only after RL-291 deploys the RL-278 rules; before that, a save against the live project may be refused or stored unbounded.
+- Write a 160-character bio on a phone, check it on your public profile from another account.
+- Clear it and save: the "+ Add a short bio" button comes back and the public profile shows no bio line.
+- As a guest, tap "+ Add a short bio": the sign-up dialog opens.
+
+- Reviewer round fixed: the counter is announced from 140; focus moves into the editor and back to the button; Cancel is disabled while saving; the bio save times out after 8 s with the error.
+- Reviewer noted (low): the name save on the same page has no timeout or error message (pre-existing).
+
 ### RL-278 Profile rules bound bio and country
 
 - Rules only, in the repo, not deployed until RL-291. Nothing to see in the app yet.
