@@ -10,6 +10,7 @@ import { trackProfileUpdated } from '../services/analytics';
 import type { UserProfile } from '../types/profile';
 import { withTimeout } from '../lib/utils';
 import { cleanBio } from '../lib/bio';
+import { isCountryCode } from '../lib/country';
 import { reportError } from '../services/telemetry';
 
 /** Subscribe to the current user's own profile */
@@ -66,7 +67,19 @@ export function useOwnProfile() {
     [user]
   );
 
-  return { profile, loaded, updateAvatar, updateName, updateBio };
+  const updateCountry = useCallback(
+    async (country: string | null) => {
+      // Throws so the sheet shows its error instead of closing as if saved; the page gates guests first.
+      if (!user?.emailVerified) throw new Error('profile writes need a verified email');
+      // The RL-278 rules take a two-letter upper-case code or null; anything else is refused here.
+      if (country !== null && !isCountryCode(country)) throw new Error('invalid country');
+      await createOrUpdateProfile(user.uid, { country });
+      trackProfileUpdated('country');
+    },
+    [user]
+  );
+
+  return { profile, loaded, updateAvatar, updateName, updateBio, updateCountry };
 }
 
 /** Fetch another user's profile (one-time, not real-time) */
