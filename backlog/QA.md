@@ -18,6 +18,13 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-271 One emoji per recipe write
+
+- Edit a recipe's emoji on a phone: pick two emoji from the keyboard; only the last stays, and the icon fits its circle.
+
+- Reviewer round fixed (ui, med): a new emoji wins wherever the caret is; emoji search and IME composition are not wiped mid-typing; an empty field previews the current emoji with "Leave empty to keep the current emoji". Check all three on an iPhone and an Android keyboard.
+- Reviewer noted (low): © and ® count as emoji; sync still copies a legacy multi-emoji value until RL-272.
+
 ### RL-270 oneEmoji helper in src/lib
 
 - Nothing to check in a browser. The helper is pure and covered by `src/lib/emoji.test.ts`; RL-271 to RL-273 call it.

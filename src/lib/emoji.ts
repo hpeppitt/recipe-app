@@ -20,3 +20,14 @@ export function oneEmoji(value: unknown, fallback: string): string {
 export function lastEmoji(value: unknown): string | null {
   return emojiGraphemes(value).at(-1) ?? null
 }
+
+/** The emoji the user just added to `prev` (at either end or inside), else the last one in `next`. */
+export function typedEmoji(prev: string, next: string): string | null {
+  const added =
+    prev && next.endsWith(prev)
+      ? next.slice(0, -prev.length)
+      : prev && next.startsWith(prev)
+        ? next.slice(prev.length)
+        : next;
+  return lastEmoji(added) ?? lastEmoji(next);
+}

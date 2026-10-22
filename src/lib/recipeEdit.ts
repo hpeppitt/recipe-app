@@ -1,3 +1,4 @@
+import { oneEmoji } from './emoji';
 import type { Recipe, Ingredient, Instruction } from '../types/recipe';
 
 /**
@@ -65,7 +66,7 @@ export function recipeToDraft(recipe: Recipe): RecipeDraft {
   return {
     title: recipe.title,
     description: recipe.description,
-    emoji: recipe.emoji,
+    emoji: oneEmoji(recipe.emoji, ''),
     servings: numberToDraft(recipe.servings),
     prepTime: numberToDraft(recipe.prepTime),
     cookTime: numberToDraft(recipe.cookTime),
@@ -226,7 +227,7 @@ export function draftToPatch(draft: RecipeDraft, previous: Recipe): RecipePatch 
     description: draft.description.trim(),
     // Falls back to the existing emoji rather than to a default: clearing the
     // field is far more likely to be a slip than a request for 🍽.
-    emoji: draft.emoji.trim() || previous.emoji,
+    emoji: oneEmoji(draft.emoji, previous.emoji),
     servings: draftToNumber(draft.servings) ?? previous.servings,
     prepTime,
     cookTime,

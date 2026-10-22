@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { oneEmoji, RECIPE_EMOJI_FALLBACK } from '../lib/emoji';
 
 export const IngredientSchema = z.object({
   amount: z.number().nullable(),
@@ -40,7 +41,7 @@ export const GeneratedRecipeSchema = z.object({
   servings: z.number(),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   tags: z.array(z.string()),
-  emoji: z.string(),
+  emoji: z.string().transform((s) => oneEmoji(s, RECIPE_EMOJI_FALLBACK)),
   nutrition: NutritionSchema.nullish(),
 });
 

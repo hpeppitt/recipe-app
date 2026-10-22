@@ -21,6 +21,8 @@ Database name `RecipeAppDB`, defined in `src/db/database.ts`. Two tables.
 | v2 | adds `favorites` table | backfills `createdBy = { uid: 'local', displayName: null }` on recipes that lack it. This is why `'local'` is a real uid value the ownership check must handle. |
 | v3 | no schema change | backfills `collaborators = []` on recipes that lack it. |
 
+`Recipe.emoji` is exactly one emoji grapheme (RL-271): the generation, link, photo, file and shared-link schemas keep the first one or fall back to 🍽️, and the editor keeps the last one typed. Rows saved before RL-271 may hold more; RL-272 cleans them.
+
 Unindexed fields need no version. `relatedFamilyId` (RL-162) is one: optional on `Recipe`, set
 only on an original saved after "Create New Recipe Anyway", carrying the `rootId` of the first
 match the panel showed. Rows and documents without it are normal. `importedFrom` (the source URL, or exactly `'photo'` for a photo import) and `importedVia`

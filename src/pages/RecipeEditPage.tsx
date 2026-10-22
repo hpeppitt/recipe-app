@@ -25,6 +25,7 @@ import {
   type DraftErrors,
 } from '../lib/recipeEdit';
 import { TopBar } from '../components/layout/TopBar';
+import { typedEmoji } from '../lib/emoji';
 import { EmojiBlob } from '../components/ui/EmojiBlob';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -273,6 +274,7 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showDiscard, setShowDiscard] = useState(false);
   const emojiRef = useRef<HTMLInputElement>(null);
+  const emojiBefore = useRef('');
   // Draft-only row keys, kept beside the draft so isDraftDirty and draftToPatch never see them.
   const nextKey = useRef(recipe.ingredients.length);
   const [ingKeys, setIngKeys] = useState<number[]>(() => recipe.ingredients.map((_, i) => i));
@@ -492,7 +494,7 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
               onClick={() => emojiRef.current?.focus()}
               className="relative shrink-0 rounded-full"
             >
-              <EmojiBlob size={72} emoji={draft.emoji} />
+              <EmojiBlob size={72} emoji={draft.emoji || recipe.emoji} />
               <span
                 aria-hidden="true"
                 className="absolute -right-1 -bottom-1 flex h-7 w-7 items-center justify-center rounded-full bg-text-primary text-on-accent"
@@ -507,10 +509,25 @@ function RecipeEditForm({ recipe }: { recipe: Recipe }) {
             <input
               ref={emojiRef}
               value={draft.emoji}
-              onChange={(e) => update('emoji', e.target.value)}
+              onCompositionStart={() => {
+                emojiBefore.current = draft.emoji;
+              }}
+              onCompositionEnd={(e) =>
+                update('emoji', typedEmoji(emojiBefore.current, e.currentTarget.value) ?? '')
+              }
+              onChange={(e) =>
+                // Leave the raw text alone while an IME or emoji search is composing.
+                update(
+                  'emoji',
+                  (e.nativeEvent as InputEvent).isComposing
+                    ? e.target.value
+                    : (typedEmoji(draft.emoji, e.target.value) ?? ''),
+                )
+              }
               className={`${pill} w-20 text-center text-xl`}
             />
           </label>
+          <p className="-mt-2 text-xs text-text-secondary">Leave empty to keep the current emoji.</p>
 
           <div className="space-y-1.5">
             <label htmlFor="description" className="block text-sm font-medium text-text-primary">
