@@ -188,7 +188,7 @@ describe('CookedSheet photo', () => {
     expect(mocks.downscale).toHaveBeenCalledWith(jpeg, { maxSide: 800, maxBytes: 149_982, shrinkToFit: true });
     expect(img.alt).toBe('Your cook photo');
     expect(screen.getByLabelText(/Replace photo/)).toBe(photoInput());
-    expect(document.activeElement).toBe(photoInput());
+    await waitFor(() => expect(document.activeElement).toBe(photoInput()));
     expect(screen.getByRole('button', { name: 'Remove photo' }).className).toContain('size-11');
     expect(screen.getByText(/Food only, please/)).toBeTruthy();
 

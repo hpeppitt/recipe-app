@@ -103,6 +103,7 @@ vi.mock('../components/recipe/CookedSheet', () => ({
 
 import { RecipeDetailPage } from './RecipeDetailPage';
 import { KITCHEN_BUSY_MESSAGE, KITCHEN_FULL_MESSAGE, KITCHEN_MAYBE_SAVED_MESSAGE } from '../hooks/useKitchen';
+import { TooManyMovedBranchesError } from '../lib/errors';
 
 const anon: AppUser = { uid: 'anon-1', displayName: 'Waffle', email: null, isAnonymous: true, emailVerified: false, providers: [] };
 const writeText = vi.fn();
@@ -419,7 +420,6 @@ describe('RecipeDetailPage Delete version (RL-159)', () => {
   });
 
   it('says so, without Try again, when too many other cooks have branches', async () => {
-    const { TooManyMovedBranchesError } = await import('../lib/errors');
     deletePublishedVersion.mockRejectedValue(new TooManyMovedBranchesError(9));
     openDialog(fakeUser);
     fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));

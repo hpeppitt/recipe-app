@@ -35,7 +35,8 @@ function setup(over: { onSend?: (s: { message: string; edits: SuggestionEdit[] }
   render(<SuggestMode recipe={over.r ?? recipe} onSend={onSend} onCancel={onCancel} onSent={onSent} />);
   return { onSend, onCancel, onSent };
 }
-const row = (n: string) => screen.getByRole('button', { name: new RegExp(`^Suggest a change to (.* )?${n}$`) });
+// hidden: true skips the per-node visibility walk, the slow part of getByRole under load; nothing here is hidden.
+const row = (n: string) => screen.getByRole('button', { name: new RegExp(`^Suggest a change to (.* )?${n}$`), hidden: true });
 const stepRow = (n: number) => screen.getByRole('button', { name: new RegExp(`^Suggest a change to step ${n}: `) });
 const writeNote = (v: string) => {
   fireEvent.click(screen.getByRole('button', { name: /^General note/ }));
@@ -44,7 +45,7 @@ const writeNote = (v: string) => {
 const sendBtn = () => screen.getByRole('button', { name: /^Send to/ });
 const edit = (n: string, v: string) => {
   fireEvent.click(row(n));
-  fireEvent.change(within(screen.getByRole('group', { name: `Change ${n}` })).getByLabelText('New amount'), { target: { value: v } });
+  fireEvent.change(within(screen.getByRole('group', { name: `Change ${n}`, hidden: true })).getByLabelText('New amount'), { target: { value: v } });
 };
 
 describe('SuggestMode', () => {

@@ -278,13 +278,13 @@ describe('RecipeEditPage layout and guard', () => {
     expect(screen.queryByText('Discard changes?')).toBeNull();
   });
 
-  it('the emoji blob button focuses the emoji input', () => {
+  it('the emoji blob button focuses the emoji input', async () => {
     renderEdit();
     fireEvent.click(screen.getByRole('button', { name: 'Change emoji' }));
-    expect(document.activeElement).toBe(screen.getByLabelText('Emoji'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Emoji')));
   });
 
-  it('a failed Save moves focus to the first invalid field and scrolls it into view', () => {
+  it('a failed Save moves focus to the first invalid field and scrolls it into view', async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     try {
@@ -295,7 +295,7 @@ describe('RecipeEditPage layout and guard', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
       // Servings comes before ingredients on the page, so it wins.
-      expect(document.activeElement).toBe(screen.getByLabelText('Servings'));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Servings')));
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
       expect(scrollIntoView.mock.instances[0]).toBe(screen.getByLabelText('Servings'));
       // Focus lands before the re-render adds aria-describedby, so the message must be an alert.
@@ -304,7 +304,7 @@ describe('RecipeEditPage layout and guard', () => {
       fireEvent.change(screen.getByLabelText('Servings'), { target: { value: '2' } });
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
       const amount = screen.getByLabelText('Ingredient 1 amount');
-      expect(document.activeElement).toBe(amount);
+      await waitFor(() => expect(document.activeElement).toBe(amount));
       expect(amount.getAttribute('aria-invalid')).toBe('true');
       expect(screen.getByRole('alert').textContent).toBe("Amounts can't be negative.");
       expect(publishRecipe).not.toHaveBeenCalled();
@@ -314,12 +314,12 @@ describe('RecipeEditPage layout and guard', () => {
     }
   });
 
-  it('a blank title is attached to the Title field and takes focus', () => {
+  it('a blank title is attached to the Title field and takes focus', async () => {
     renderEdit();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: ' ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     const title = screen.getByLabelText('Title');
-    expect(document.activeElement).toBe(title);
+    await waitFor(() => expect(document.activeElement).toBe(title));
     expect(screen.getByRole('alert').textContent).toBe('A recipe needs a title.');
     expect(document.getElementById(title.getAttribute('aria-describedby') ?? '')?.textContent).toBe(
       'A recipe needs a title.'
