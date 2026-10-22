@@ -949,6 +949,10 @@ Addendum (RL-265, author decision 2026-10-22): sharing is limited to 5 publishes
 
 When `/import` opens from the Android share with a usable link, a `ConfirmDialog` ("Read this recipe from <host>?", Read it / Not now) asks first and `read` runs only on confirm. It shows once per page mount, and only when, after auth finishes loading, the page is in link mode, `isConfigured`, the user can generate and the device is online. Otherwise the link is only prefilled, as in RL-254. Reason: one Gemini call per confirmed share, with the user's consent, never one per share. Rejected: auto-reading on mount.
 
+### Profile flag defaults from the time zone (author, 2026-10-22)
+
+RL-282. When a verified account's profile has no `country` key, sign-in (`ensureProfile`) sets it from the device time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone` through `countryFromTimeZone`), in the same write that already ensures the profile, so no read is added. It runs once: a zone that maps to nothing writes null, and after that the user's choice, including null for No flag, is never overwritten. This covers new sign-ups and existing accounts on their next sign-in. Privacy: the country is inferred without asking and is public; it is coarse location and personal data. It never comes from IP or GPS, can be wrong for travellers and VPN users, is visible to the user on their own profile, and can be removed with No flag. The privacy paragraph is RL-283. Rejected: IP geolocation, and changing the flag when the user travels.
+
 ---
 
 ## v0.4.0 release (2026-10-22)

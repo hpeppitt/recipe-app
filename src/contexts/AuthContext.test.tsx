@@ -203,7 +203,27 @@ describe('AuthProvider profile creation', () => {
     renderHook(() => useAuth(), { wrapper });
     act(() => authListener(verified));
     // RL-047: the profile now follows the terms check, so it lands a tick later.
-    await waitFor(() => expect(createOrUpdateProfile).toHaveBeenCalledWith('me', { displayName: 'Cook' }));
+    await waitFor(() =>
+      expect(createOrUpdateProfile).toHaveBeenCalledWith('me', { displayName: 'Cook' }, expect.any(Object)),
+    );
+  });
+
+  it.each([
+    ['Europe/London', 'GB'],
+    ['Mars/Olympus', null],
+  ])('passes the country for the device time zone %s (RL-282)', async (timeZone, defaultCountry) => {
+    const spy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockReturnValue({ timeZone } as Intl.ResolvedDateTimeFormatOptions);
+    try {
+      renderHook(() => useAuth(), { wrapper });
+      act(() => authListener(verified));
+      await waitFor(() =>
+        expect(createOrUpdateProfile).toHaveBeenCalledWith('me', { displayName: 'Cook' }, { defaultCountry }),
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('creates no profile on anonymous sign-in and keeps the generated name', async () => {
@@ -225,7 +245,7 @@ describe('AuthProvider profile creation', () => {
     const upgraded = { ...anon, email: 'a@example.com', isAnonymous: false, emailVerified: true };
     await act(async () => resolveLink({ user: upgraded, previousUid: null, linked: true }));
 
-    expect(createOrUpdateProfile).toHaveBeenCalledWith('anon-1', { displayName: 'CrispyWaffle' });
+    expect(createOrUpdateProfile).toHaveBeenCalledWith('anon-1', { displayName: 'CrispyWaffle' }, expect.any(Object));
     expect(result.current.user).toMatchObject({ uid: 'anon-1', emailVerified: true, isAnonymous: false });
   });
 });
