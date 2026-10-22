@@ -144,7 +144,7 @@ export function CreatePage() {
           <Sparkles className="size-5" />
           Write it
         </Button>
-        <Button variant="ghost" onClick={() => navigate('/search')} className="h-11">
+        <Button variant="ghost" onClick={() => navigate('/create')} className="h-11">
           Describe it my own way
         </Button>
       </div>

@@ -70,10 +70,10 @@ describe('CreatePage', () => {
     expect(probe()).toBe('/create|{"suggestion":"Something one-pan with salmon for a crowd"}');
   });
 
-  it('Describe it my own way opens /search', () => {
+  it('Describe it my own way opens /create with no state, so the composer is empty', () => {
     render();
     tap('Describe it my own way');
-    expect(probe()).toBe('/search|null');
+    expect(probe()).toBe('/create|null');
   });
 
   it('shows two import tiles instead of the old link row (RL-250)', () => {

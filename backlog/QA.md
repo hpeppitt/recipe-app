@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-274 Create tab: Describe it my own way opens the chat
+
+- Create tab: Describe it my own way opens the chat with an empty box.
+
 ### RL-272 Stored multi-emoji recipes show one emoji
 
 - On live, open a recipe saved with several emoji before RL-271 (if any exist), in your library and as a published recipe in Explore or a shared link: one emoji shows. Re-publish it and the cloud copy now holds one.
