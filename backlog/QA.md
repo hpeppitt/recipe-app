@@ -18,6 +18,10 @@ Things no agent can verify here, so every QA pass covers them at a 390x844 viewp
 
 ## Since the last release
 
+### RL-304 Focus assertions wait for the focus move
+
+- Test-only. Nothing to check in a browser.
+
 ### RL-284 docs/decisions.md and backlog/DECISIONS.md record the author's 2026-10-22 decisions on the beta feedback tab
 
 - Docs only. Nothing to check in a browser.

@@ -734,7 +734,7 @@ describe('Country flag (RL-281)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Japan/ }));
     await waitFor(() => expect(updateCountry).toHaveBeenCalledWith('JP'));
     await waitFor(() => expect(screen.queryByText('Where do you cook?')).toBeNull());
-    expect(screen.getByRole('button', { name: /^Change country/ })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Change country/ })).toHaveFocus());
   });
 
   it('keeps focus on the trigger when Add swaps to the flag', async () => {
@@ -744,7 +744,7 @@ describe('Country flag (RL-281)', () => {
     fireEvent.click(screen.getByRole('button', { name: '+ Add your country' }));
     fireEvent.click(screen.getByRole('button', { name: /Japan/ }));
     await waitFor(() => expect(screen.queryByText('Where do you cook?')).toBeNull());
-    expect(screen.getByRole('button', { name: 'Change country, currently Japan' })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Change country, currently Japan' })).toHaveFocus());
   });
 
   it('marks the current row and announces the count', () => {

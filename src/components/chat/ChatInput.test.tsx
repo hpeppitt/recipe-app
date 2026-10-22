@@ -109,7 +109,7 @@ describe('ChatInput', () => {
       await screen.findByAltText('Attached photo 3 of 3');
       await u.click(screen.getByRole('button', { name: 'Remove photo 2' }));
       expect(screen.getAllByRole('img')).toHaveLength(2);
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove photo 2' }));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Remove photo 2' })));
       await u.click(screen.getByRole('button', { name: 'Send' }));
       expect(onSend).toHaveBeenCalledWith('', [att('1.jpg'), att('3.jpg')]);
     });
@@ -119,7 +119,7 @@ describe('ChatInput', () => {
       const u = userEvent.setup();
       await u.upload(fileInput(), jpg());
       await u.click(await screen.findByRole('button', { name: 'Remove photo 1' }));
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add photos' }));
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Add photos' })));
     });
 
     it('the same file can be picked again after removal', async () => {
