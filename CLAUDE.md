@@ -1,3 +1,12 @@
+## Project profile
+- type: engineering
+- extensions: none
+- run: npm run dev
+- check: npx tsc -b && npm run lint && npm test
+- test: npm test
+- backlog: backlog/tickets/
+- docs: docs/
+
 # CLAUDE.md
 
 Guidance for Claude Code (claude.ai/code) working in this repository.
