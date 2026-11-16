@@ -1,7 +1,7 @@
 # QA ledger
 
 What has landed on `main` since the last release and what the human QA pass must check.
-`/next-ticket` appends a section per ticket; `/qa-pass` collates this file, the pending
+The build workers append a section per ticket; `/qa-pass` collates this file, the pending
 decisions, and the preview build into a checklist; `/release` moves the accepted entries
 into `CHANGELOG.md` and clears this file.
 

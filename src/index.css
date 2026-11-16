@@ -143,7 +143,7 @@
  * element that holds the @theme variables, so aliases such as primary-* and border resolve to
  * these values. Every 100 to 900 ramp is reversed (step N takes step 10 minus N), so a
  * "tint fill + 800 text" pair keeps working with no dark: class. Contrast for every pair is
- * listed in backlog/tickets/RL-117.md.
+ * listed in the RL-117 ticket.
  */
 .dark {
   color-scheme: dark;

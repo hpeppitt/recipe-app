@@ -26,10 +26,10 @@ indexes, client, rules (client first, then rules, back to back; the old and new 
 break against the other's rules), then your own Terms acceptance. The single ordered
 checklist is the
 [release and deploy runbook](docs/operations.md#release-and-deploy-runbook-first-production-release).
-The human QA pass is prepared by `/qa-pass` (checklist `backlog/QA-CHECKLIST.md`, generated
+The human QA pass is prepared by `/qa-pass` (checklist `docs/QA-CHECKLIST.md`, generated
 on the branch `qa/pass-2026-10-15`, not merged).
 
-**Waiting on the author** (all `needs-human`, see `npm run backlog -- list`):
+**Waiting on the author** (all needing the author, see the `needs-harry` column of the fleet board):
 
 - RL-042 wipe production data, then RL-022 and RL-051 deploys (rules are one unit).
 - RL-046 sign off the Terms, Privacy and Cookie drafts. It gates the client release. The
@@ -40,13 +40,13 @@ on the branch `qa/pass-2026-10-15`, not merged).
 - RL-001 decide the AI path and confirm the live Gemini quota. RL-014 (proxy) waits on it.
 - RL-010 TTL policy on `clientErrors`. RL-012 look at `TreeIntro` in a browser.
 - RL-057 self-service account deletion (a rules design decision, then work).
-- The 46 pending decisions in `backlog/DECISIONS.md`: accept or overrule each.
+- The 46 pending decisions in `docs/PENDING-DECISIONS.md`: accept or overrule each.
 
 **Ready for the loop once unblocked.** RL-032 (delete the uid migration, stranded-identity
-notice and unused helpers) after RL-042. RL-054 after RL-053. Run `/loop /next-ticket`; when
-`npm run backlog -- next` prints `NONE` the loop stops and `/qa-pass` is next.
+notice and unused helpers) after RL-042. RL-054 after RL-053. Those tickets were built by the old loop; when
+nothing was left to pick, `/qa-pass` was next.
 
-**Candidates for `/groom` (noticed, not yet ticketed).** The Favorites filter does not list a
+**Candidates for the board (noticed, not yet ticketed).** The Favorites filter does not list a
 favourite whose recipe a device has never loaded (fetch favourited recipes by id). Tags are
 free text, so Explore chips match only exact lower-case tags (normalise on publish). RL-110 made the edit
 form focus and scroll to its first error and announce its field errors.

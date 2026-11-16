@@ -23,12 +23,13 @@ Two documents sit outside `docs/` on purpose:
 - [`../README.md`](../README.md) — the front door: what this is, how to get it running.
 - [`../CHANGELOG.md`](../CHANGELOG.md) — dated milestones, reconstructed from git history.
 
-And three are working backlogs rather than documentation:
+And these are working documents rather than documentation:
 
 - [`../ROADMAP.md`](../ROADMAP.md) — the strategic layer: phases, sequencing, what is
   explicitly not being built.
-- [`../backlog/`](../backlog/README.md) — the tactical layer: one groomed ticket per file,
-  plus the pending-decisions and QA ledgers the autonomous loop writes for the author.
+- [`PENDING-DECISIONS.md`](PENDING-DECISIONS.md), [`QA.md`](QA.md) and
+  [`LAUNCH-DECISIONS.md`](LAUNCH-DECISIONS.md), the ledgers the build workers write for the
+  author's QA pass. Tickets live on the fleet board, not in this repo.
 - [`../AUDIT.md`](../AUDIT.md) — the 2026-07 audit, now historical. Its open findings became
   tickets on 2026-10-13; it is kept because the fix notes record why each fix took the shape
   it did.
@@ -45,7 +46,7 @@ A knowledgebase that lies is worse than none. What updates when:
 | An npm script, env var, or deploy step | `operations.md` |
 | What is stored, sent to a third party, or kept for how long | `legal/data-inventory.md`, and the policy text in `src/content/legal/` (bump its `lastUpdated`) |
 | Anything where the *reasoning* matters, or you reject an approach | `decisions.md` |
-| A skill, an agent, a ticket field or status, or the dev process | `agent-workflow.md` and `../backlog/README.md` |
+| A skill, an agent, or the dev process | `agent-workflow.md` |
 | Anything a user would notice, at release time | `CHANGELOG.md` |
 
 Enforcement is a step in `/preflight`: it checks the working diff against the table above

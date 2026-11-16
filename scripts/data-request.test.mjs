@@ -87,7 +87,7 @@ describe('checkOutPath', () => {
   it('refuses the repo and anything inside it', () => {
     expect(checkOutPath(REPO_ROOT)).toBeTruthy();
     expect(checkOutPath(join(REPO_ROOT, 'export.json'))).toBeTruthy();
-    expect(checkOutPath(join(REPO_ROOT, 'backlog/x.json'))).toBeTruthy();
+    expect(checkOutPath(join(REPO_ROOT, 'docs/x.json'))).toBeTruthy();
   });
   it('compares the repo case-insensitively and refuses missing dirs and existing files', () => {
     expect(checkOutPath(join(REPO_ROOT.toLowerCase(), 'export.json'))).toBeTruthy();

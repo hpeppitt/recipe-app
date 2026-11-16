@@ -423,7 +423,7 @@ in-flight transactions on one window, which Firestore's read preconditions seria
 
 **Deploy order.** Unlike RL-047, both orders break something for a short gap, and there is
 deliberately no client fallback to the old plain write; see [operations.md](operations.md)
-and the pending entry in `backlog/DECISIONS.md`.
+and the pending entry in `docs/PENDING-DECISIONS.md`.
 
 ### Notifications and recipe creates join the rules-only limits (RL-049, 2026-10-15)
 
@@ -580,6 +580,8 @@ alone is denied whole, even for the owner.
 
 ### Development is an autonomous agent loop between two human touchpoints (2026-10-13)
 
+**Superseded 2026-11-16:** the repo's own ticket files, `/groom`, `/next-ticket` and the `groomer` agent were retired. Work is tracked on the fleet board and built by the `run-ticket` pipeline (groom, build, QA, review). The two human touchpoints, the pinned models and the reversible-versus-irreversible rule below still hold. The ticket file text below is history.
+
 The author sets direction (`ROADMAP.md`, approving each grooming run) and does QA before
 anything goes live. Everything between is agents: `/groom` writes tickets, `/next-ticket`
 implements, reviews, gates and merges one at a time, `/qa-pass` prepares the checklist,
@@ -587,7 +589,7 @@ implements, reviews, gates and merges one at a time, `/qa-pass` prepares the che
 
 Decisions taken in setting it up, each cheap to overrule:
 
-- **Tickets live in the repo** (`backlog/tickets/`, one file each), not in an issue
+- **Tickets live in the repo** (one file each, since retired), not in an issue
   tracker. Same reasoning as the docs: reviewed and closed in the pull request that
   implements them, offline, no second system. Parallel sessions claim work by pushing a
   `ticket/<ID>` branch, so git is the lock. Rejected GitHub Issues (fine, but needs API
@@ -599,7 +601,7 @@ Decisions taken in setting it up, each cheap to overrule:
   the most capable model: grooming is where capability pays, implementation mostly is
   not, and the loop's cost per ticket is the thing that decides whether it runs at all.
 - **Reversible decisions are taken and logged; irreversible ones stop the ticket.** The
-  list of irreversible things is in `backlog/README.md`. This is what makes the loop
+  list of irreversible things is now in `agent-workflow.md`. This is what makes the loop
   safe to leave unattended; widening the list is always allowed, narrowing it is the
   author's call.
 - **`main` is integration, not live.** Agents auto-merge green pull requests; live is
@@ -610,7 +612,7 @@ Decisions taken in setting it up, each cheap to overrule:
   history.
 
 Consequence: a ticket that a human never approved at grooming never runs. If the loop is
-idle, the fix is `/groom`, not a looser rule.
+idle, the fix is to groom more work on the fleet board, not a looser rule.
 
 ### Suggestion approval writes the collaborator first (RL-017, 2026-10-14)
 
@@ -824,7 +826,7 @@ The app is light only. The Theme control is removed from Settings and `useTheme`
 
 Supersedes "Light only until a dark Organic exists" above. The condition it named is met: the design now has a dark Organic (20a, Warm night), and the author approved reversing RL-065 at the RL-117 `/groom` review on 2026-10-19, choosing 20a over 20b (olive dusk) and System as the default when nothing is stored. Settings' Appearance card has a Light / Dark / System segment again. The `dark` variant stays class based (`.dark` on `<html>`, set by `useTheme` and, before first paint, by an inline script in `index.html`) rather than switching to `[data-theme="dark"]`, because the variant and the old hook were already class based.
 
-The `.dark` block overrides the token variables: every 100 to 900 ramp, and the danger, success and warning scales, is reversed (step N takes step 10 minus N), so a tint fill with 800 text keeps working unchanged and the old `dark:` classes, which were the same flip done by hand, are removed. Departures from the 20a table, each measured: `primary-600` (fills) is the dark accent `#e8925a`, not flipped accent-700, with `on-accent` set to the dark ground `#1e1915` (the design draws accent buttons with `--color-bg` text); `text-tertiary` is `#bfb29d`, not 20a's muted `#b6a994`, which is 4.49:1 and 4.26:1 on the card tints; shadow colours moved to plain variables because Tailwind inlines `--shadow-*` values; the dialog and sheet scrims get `dark:backdrop:bg-black/60` because `neutral-900` flips to cream. Every measured pair is in `backlog/tickets/RL-117.md`.
+The `.dark` block overrides the token variables: every 100 to 900 ramp, and the danger, success and warning scales, is reversed (step N takes step 10 minus N), so a tint fill with 800 text keeps working unchanged and the old `dark:` classes, which were the same flip done by hand, are removed. Departures from the 20a table, each measured: `primary-600` (fills) is the dark accent `#e8925a`, not flipped accent-700, with `on-accent` set to the dark ground `#1e1915` (the design draws accent buttons with `--color-bg` text); `text-tertiary` is `#bfb29d`, not 20a's muted `#b6a994`, which is 4.49:1 and 4.26:1 on the card tints; shadow colours moved to plain variables because Tailwind inlines `--shadow-*` values; the dialog and sheet scrims get `dark:backdrop:bg-black/60` because `neutral-900` flips to cream. Every measured pair was in the RL-117 ticket file, since retired (see git history).
 
 
 ### Suggestions section sits below the recipe body (RL-105, 2026-10-19)

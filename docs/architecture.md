@@ -232,7 +232,7 @@ Google-hosted proxy. This is the single most important architectural fact:
   no recipe. Every failure resolves to "Couldn't read that page. Check the link, or try a
   photo of it." instead of throwing. Analytics get the generation fields only; the console
   warning on failure names the host, never the path. Whether AI Logic accepts
-  `responseSchema` together with URL context is unconfirmed (backlog/DECISIONS.md, RL-185);
+  `responseSchema` together with URL context is unconfirmed (docs/PENDING-DECISIONS.md, RL-185);
   the prompt asks for the same JSON so the schema can come off without other changes. The
   gates are the generation gates; nothing new is checked here.
 - **A recipe can be read from photos (RL-251).** `importRecipeFromPhotos(photos)` is one

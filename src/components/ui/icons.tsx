@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-// Icon paths are copied from Lucide (ISC licence, lucide.dev). See backlog/tickets/RL-064.md
+// Icon paths are copied from Lucide (ISC licence, lucide.dev). See the RL-064 ticket
 // for which are exact and which are approximations. Stroke width 2.75 per the Organic tokens.
 function Icon({ className, fill = 'none', children }: { className?: string; fill?: string; children: ReactNode }) {
   return (
