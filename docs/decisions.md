@@ -143,6 +143,8 @@ is a correctness bug, not a scale concern.
 
 ### 5. "Clear All Data" stays local-only
 
+*2026-11-16: superseded in part by "Self-service account deletion" (RL-057, TASK-149) in the architectural decisions below. Delete Recipes on This Device stays local-only; account deletion is the exit this entry said was missing. The text below is kept as it was.*
+
 Clearing removes local recipes; cloud copies survive. The control was renamed to say so, and is now labelled "Delete Recipes on This Device".
 
 *2026-10-18: see 1b. A verified user's cleared recipes come back from the cloud (copy is RL-081).*
@@ -1020,3 +1022,57 @@ Decisions the author approved while v0.5.0 was built.
 - **Create tab layout (RL-275).** The pantry card sits at the top, full width under the two
   import tiles, then an "or" divider and the sentence. The bottom is the sticky Write it
   bar and a card there would compete with it.
+
+### Self-service account deletion (RL-057, TASK-149.1, 2026-11-16)
+
+The author accepted self-service account deletion on 2026-10-14, which supersedes product
+decision 5's "no bulk exit". Part A is the rules change; the Settings flow and client erase
+come after it and need the rules deployed first. The rules deploy is a separate operator
+step: the client flow fails with permission errors until it has run.
+
+**Anonymise, do not delete, on other people's recipes.** Suggestions and replies a user
+wrote on someone else's recipe, and suggestions made on their own recipes, are rewritten to
+`deleted-user` rather than removed, so the other party keeps their thread. This matches the
+operator erase script (RL-055). Suggestion deletes stay `false`.
+
+**Rules widened permanently** (all need `verified()`, and each is permanent, not an
+erase-only window):
+- `suggestions`: an anonymising update. The suggester may set `suggestedBy` to
+  `{uid: 'deleted-user', displayName: null}`; the recipe owner may set `recipeOwnerId` to
+  `'deleted-user'`. Every other field is unchanged (`affectedKeys().hasOnly`). The owner
+  review rule is untouched.
+- `suggestions/{id}/messages`: the author may set `fromUid` to `'deleted-user'` and
+  `fromDisplayName` to null. `text` and every other field stay immutable; delete stays
+  `false`, so the "messages are immutable" reasoning of UX-37 holds for content.
+- `notifications`: the sender (`fromUid`) may read and delete, as well as the recipient. A
+  list query must filter on `fromUid == uid`, since a list is authorised from its filters.
+  The recipient's mark-read update is unchanged.
+- `follows`: the followed user may delete, as well as the follower.
+- `feedback`: the sender (`uid`) may delete. No client update.
+
+**Not gated on account deletion.** The anonymise grants and the sender's notification delete
+are not tied to account deletion. Any verified user can use them at any time: a sender can
+retract a notification they sent, and an author can anonymise their own suggestion or reply
+after posting. Accepted as permanent, because the rules cannot tell the two cases apart.
+
+**Ordering for the deletion engine (Part B).** Anonymise a thread's messages first, then the
+parent suggestion. The messages read rule depends on the parent's `recipeOwnerId` or
+`suggestedBy.uid`; once the suggestion is anonymised the user can no longer list it or read
+its replies. The engine must skip docs already anonymised, so a retry is safe. A client
+cannot run a collection-group query on `messages` (no rule for it), so it must walk the
+threads it can read, before anonymising their parents.
+
+**Side effects and residuals** (accepted, not fixed here):
+- `writeWindows` documents cannot be deleted by a client (delete is `false`, so a user
+  cannot reset a limit); they remain until the operator erase script runs.
+- Error reports in `clientErrors` carry the uid and cannot be read or deleted by a client.
+- Collaborator credits on other people's recipes keep the uid.
+- `recipeOwnerId` on other people's cooks and favourites of a deleted owner's recipes is
+  left as is.
+- Other users' `followingCount` can drift, since a client may only bump `followerCount`
+  on a profile that is not its own.
+- A followed user's follow delete does not change the follower's `followerCount`, so counts
+  can drift, as `followingCount` already can.
+- The PostHog person stays until the operator removes it.
+- A user who owns a shared kitchen with other members is blocked from deleting until
+  ownership passes or the members leave.
