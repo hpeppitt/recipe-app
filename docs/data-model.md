@@ -759,6 +759,26 @@ Since RL-260 Download my data also reads `cookbookFollows where uid ==` the user
 
 Since RL-290 Download my data also reads `feedback where uid ==` the user (`cloud.feedback`: `id`, `uid`, `displayName`, `note`, `path`, `appVersion`, `viewport`, `theme`, `userAgent`, `screenshot`, `createdAt`; no verified gate, as the read rule has none), and the erase script deletes them.
 
+**Self-service account deletion** (RL-057, TASK-149.2): `deleteAccountData(uid)` in
+`services/firestore.ts` is the client's version of the erase script, within what the rules
+let a client do. It reads with `getDocsFromServer` and `getDocFromServer` only, filtering each
+list on the field its read rule checks, and runs the steps of `DELETION_STEPS`
+(`lib/accountDeletion.ts`) one at a time: cook photos, cooks, favourites (with a best-effort
+`favoriteCount` -1 on other people's recipes), follows as follower (best-effort `followerCount`
+-1 on the followed profile) then as followed, cookbook follows (in a batch with the cookbook's
+`followerCount` -1, a plain delete when that is refused), the user's own replies in every thread
+they can read (`fromUid` to `deleted-user`), then each suggestion's own party (`suggestedBy` or
+`recipeOwnerId`, one write each; a parent waits while any of its replies failed), notifications
+received then sent, kitchen invites, pantry lines `addedBy` the user in other people's kitchens
+(`deleted-user`), the kitchens (own one deleted, others left), collections, recipes (plain
+delete; other cooks' versions stay), feedback, `notificationPrefs`, `tasteProfiles`,
+`termsAcceptance`, and last the profile, which is skipped after any failure. A preflight read of
+`kitchens where memberUids array-contains` the user refuses the whole run, touching nothing,
+when the user owns a kitchen with other members. Writes run 10 at a time, each with a 5 s
+deadline (reads 15 s). It never rejects; a second clean run reads nothing and counts zero.
+Residuals are those in decisions.md, "Self-service account deletion", plus a self-suggestion,
+which is left anonymised on both sides.
+
 **rateLimits**: closed to everyone. Unrelated to `writeWindows`: reserved for the undeployed
 Cloud Function.
 

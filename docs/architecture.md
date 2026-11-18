@@ -312,6 +312,21 @@ owner `google.com` in place of an address, because the address is unknown until 
 `checkTerms` accepts that entry only for a user with a `google.com` provider. The outcomes reuse
 `EmailLinkStatus`: `done` with `linked`, `done` with `existing`, and `error` with reason `google`.
 
+Account deletion (RL-057, TASK-149.2) is an engine with no UI yet; the Settings flow is
+TASK-149.3. `deleteAccount(deps)` in `lib/accountDeletion.ts` is the order of events, with every
+call injected: if `needsReauth` (the token's `auth_time`, from `getAuthTimeMs`, unknown or older
+than 2 minutes) it returns `needs-reauth` before touching anything; then
+`deleteAccountData(uid)` (`services/firestore.ts`, see data-model.md); a `blocked` or any failure
+stops there and keeps the Auth user, so Try again can finish; only at zero failures does it call
+`deleteAuthUser` (`services/firebase.ts`, `deleteUser` with a 15 s bound, where
+`auth/requires-recent-login` maps to `needs-reauth`), then `clearLocal` and `resetAnalytics`. It
+never rejects. Re-auth is `reauthMethod()`: `reauthenticateWithGoogle` (popup only, since a
+redirect return would run through `completeGoogleRedirect` as a sign-in; a blocked popup or an
+installed iOS app answers `blocked`) or `sendReauthEmailLink`, which sends an ordinary sign-in
+link to the account's own address, so `completeEmailSignIn` signs the same user in again. The
+deps TASK-149.3 must supply: `clearLocal` drops `PREVIOUS_UIDS` as well as Dexie, and
+`resetAnalytics` is `setAnalyticsUserId(null)`.
+
 The return-to-page link carries a stored intent. `AuthModal` and `SignUpDialog` (through
 `EmailLinkingForm`) take an optional `pending` (`PendingIntent` from `lib/pendingAction.ts`:
 save, branch or suggest on a recipe id, or follow on a uid) and write it, stamped with the

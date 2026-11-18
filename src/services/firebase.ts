@@ -17,6 +17,8 @@ import {
   getRedirectResult,
   signInWithCredential,
   updateProfile,
+  reauthenticateWithPopup,
+  deleteUser,
   signOut as fbSignOut,
   connectAuthEmulator,
   type Auth,
@@ -30,6 +32,7 @@ import {
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { linkReturnPath } from '../lib/pendingAction';
+import { withTimeout } from '../lib/utils';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -401,6 +404,74 @@ async function runGoogleRedirect(): Promise<GoogleSignInResult | null> {
 export async function setDisplayName(name: string) {
   if (!auth?.currentUser) return;
   await updateProfile(auth.currentUser, { displayName: name });
+}
+
+// --- Account deletion (RL-057, TASK-149.2): recent sign-in and the Auth user ---
+
+/** When the current user last signed in, from the ID token's auth_time; null when unknown or signed out. Never rejects. */
+export async function getAuthTimeMs(): Promise<number | null> {
+  const user = auth?.currentUser;
+  if (!user) return null;
+  try {
+    const ms = Date.parse((await user.getIdTokenResult()).authTime);
+    return Number.isFinite(ms) ? ms : null;
+  } catch {
+    return null;
+  }
+}
+
+/** How the current user can prove a recent sign-in: Google when linked, else an email link; null for a guest. */
+export function reauthMethod(): 'google' | 'email' | null {
+  const user = auth?.currentUser;
+  if (!user || user.isAnonymous) return null;
+  if (user.providerData.some((p) => p.providerId === 'google.com')) return 'google';
+  return user.email ? 'email' : null;
+}
+
+/**
+ * Re-authenticate the current user with a Google popup. Popup only: a redirect return would
+ * run through `completeGoogleRedirect` as if it were a sign-in. 'blocked' covers a blocked
+ * popup and an installed iOS web app, where the email link is the way back.
+ */
+export async function reauthenticateWithGoogle(): Promise<'ok' | 'cancelled' | 'blocked'> {
+  const user = auth?.currentUser;
+  if (!user) throw new Error('Not signed in');
+  if ((navigator as { standalone?: boolean }).standalone === true) return 'blocked';
+  try {
+    await reauthenticateWithPopup(user, new GoogleAuthProvider());
+    return 'ok';
+  } catch (err) {
+    if (isCode(err, 'auth/popup-closed-by-user', 'auth/cancelled-popup-request')) return 'cancelled';
+    if (isCode(err, 'auth/popup-blocked')) return 'blocked';
+    throw err;
+  }
+}
+
+/**
+ * Send a sign-in link to the current user's own address. Opening it signs the same account in
+ * again through `completeEmailSignIn`, which renews auth_time; the user then has 2 minutes.
+ */
+export async function sendReauthEmailLink(): Promise<void> {
+  const email = auth?.currentUser?.email;
+  if (!email) throw new Error('This account has no email address');
+  await sendEmailSignInLink(email);
+}
+
+const AUTH_DELETE_TIMEOUT_MS = 15_000;
+
+/**
+ * Delete the current Auth user. Call only after every cloud step succeeded. Firebase's own
+ * requires-recent-login maps to 'needs-reauth'. Bounded: a timeout is 'failed', though the
+ * delete may still land, which signs the user out.
+ */
+export async function deleteAuthUser(): Promise<'deleted' | 'needs-reauth' | 'failed'> {
+  const user = auth?.currentUser;
+  if (!user) return 'failed';
+  const attempt = deleteUser(user).then(
+    () => 'deleted' as const,
+    (err: unknown) => (isCode(err, 'auth/requires-recent-login') ? ('needs-reauth' as const) : ('failed' as const))
+  );
+  return withTimeout(attempt, AUTH_DELETE_TIMEOUT_MS, 'failed');
 }
 
 export async function signOut() {

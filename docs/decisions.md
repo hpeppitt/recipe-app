@@ -1078,3 +1078,29 @@ threads it can read, before anonymising their parents.
 - The PostHog person stays until the operator removes it.
 - A user who owns a shared kitchen with other members is blocked from deleting until
   ownership passes or the members leave.
+
+### Account deletion engine (RL-057, TASK-149.2, 2026-11-18)
+
+The author approved the architect's spec on 2026-11-18. The engine is `deleteAccountData` and
+`deleteAccount` (data-model.md and architecture.md say how it runs).
+
+- **Own recipes are a plain delete.** Every recipe the user created goes, versions included.
+  Another cook's version of one of them stays, and its `parentId` then names a missing recipe,
+  so it hangs off the family root (the RL-157 reparent batch is not used).
+- **A self-suggestion stays as an anonymised residual.** Suggestion delete stays `false`, so a
+  suggestion the user made on their own recipe is anonymised on both sides and left.
+- **The profile is deleted only at zero failures.** After any failed step the profile is
+  skipped and the Auth user kept, so the account still exists for Try again, and a second run
+  finds only what is left.
+- **Re-auth within 2 minutes.** The client asks for a fresh sign-in when `auth_time` is older
+  than 2 minutes (Firebase's own limit is about 5). For an email account that means leaving
+  the app for the link and coming back within 2 minutes. Google re-auth is popup only (an
+  implementation choice in TASK-149.2, not part of the approved spec: a redirect return would
+  be handled as a sign-in by `completeGoogleRedirect`).
+- **Order of release.** TASK-149.3, the Settings flow, must not ship before the TASK-149.1
+  rules are deployed: under the old rules a run is always partial (the sender's notification
+  list, the followed user's follow delete, feedback delete and every anonymising update are
+  refused) and the Auth user is kept, which is safe but cannot finish.
+- **Offline never reaches the Auth delete.** Lists are read from the server, never the cache,
+  so an offline run fails its reads and stops at a partial result. Every write has a 5 s
+  deadline; a timed-out write may still land later, which only makes a retry find less.

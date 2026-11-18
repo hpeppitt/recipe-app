@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocFromServer,
   getDocs,
+  getDocsFromServer,
   getCountFromServer,
   setDoc,
   updateDoc,
@@ -66,6 +67,7 @@ import { VERIFY_NOTE } from '../lib/dataExport';
 import { withBoundedImportedFrom } from '../lib/linkImport';
 import type { CloudInput, CloudDoc, CloudFavorite, CloudFollow, CloudSuggestion, CloudCookPhoto, Section } from '../lib/dataExport';
 import { reportError } from './telemetry';
+import { anonymisePantry, DELETED_USER, ownsSharedKitchen, runDeletionSteps, type DeletionDataResult, type DeletionStep, type StepCount } from '../lib/accountDeletion';
 
 // --- Recipes ---
 
@@ -2668,4 +2670,179 @@ export async function fetchCloudDataForExport(uid: string, emailVerified = true)
     ),
   ]);
   return { profile, recipes, favorites, follows, suggestions, notifications, termsAcceptance, notificationPrefs, tasteProfile, writeWindows, cooks, cookPhotos, kitchen, kitchenMemberships, collections, cookbookFollows, feedback };
+}
+
+// --- Account deletion (RL-057, TASK-149.2) ---
+//
+// Every list is read with getDocsFromServer, so an offline device fails the read instead of
+// deleting what its cache happens to hold, and the Auth user is never reached. Every read and
+// write has its own deadline, so nothing can hang the promise. Lists filter on the field the
+// rules check (see the data export above); 'deleted-user' rewrites follow decision
+// "Self-service account deletion". Order and the profile rule are in lib/accountDeletion.ts.
+
+const DELETE_READ_TIMEOUT_MS = 15_000;
+const DELETE_WRITE_TIMEOUT_MS = 5000;
+/** Writes in flight at once. */
+const DELETE_CONCURRENCY = 10;
+
+const deleteWrite = <T>(p: Promise<T>) => rejectAfter(p, 'An account deletion write', DELETE_WRITE_TIMEOUT_MS);
+/** A counter fix on someone else's document: never fails the step, never hangs it. */
+const bestEffort = (p: Promise<unknown>) => withTimeout(p.then(() => undefined), DELETE_WRITE_TIMEOUT_MS, undefined);
+
+/** Runs `write` over `items`, DELETE_CONCURRENCY at a time. A write that resolves false did nothing and is not counted. */
+async function eachLimited<T>(items: readonly T[], write: (item: T) => Promise<unknown>): Promise<StepCount> {
+  const count: StepCount = { done: 0, failed: 0 };
+  for (let i = 0; i < items.length; i += DELETE_CONCURRENCY) {
+    const results = await Promise.allSettled(items.slice(i, i + DELETE_CONCURRENCY).map(write));
+    for (const r of results) {
+      if (r.status === 'rejected') count.failed++;
+      else if (r.value !== false) count.done++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Deletes or anonymises everything `uid` has in Firestore, step by step in DELETION_STEPS
+ * order, and returns each step's done and failed counts. Never rejects. Nothing is touched
+ * when `uid` owns a kitchen with other members ('blocked') or when the kitchen read fails.
+ * A second run after a clean one returns all zeros. The Auth user is the caller's job.
+ */
+export async function deleteAccountData(uid: string): Promise<DeletionDataResult> {
+  const fs = firestore;
+  if (!fs) return { status: 'ran', ...(await runDeletionSteps(() => Promise.reject(new Error('Firebase not configured')))) };
+
+  // shortcut: one unpaged server read per list; fine at this app's scale, page it if a user can hold thousands of one kind.
+  const list = async (path: string[], ...constraints: QueryConstraint[]) =>
+    (await rejectAfter(getDocsFromServer(query(collection(fs, path[0], ...path.slice(1)), ...constraints)), `Reading ${path.join('/')}`, DELETE_READ_TIMEOUT_MS)).docs;
+  const mine = (col: string, field: string) => list([col], where(field, '==', uid));
+  const deleteAll = async (col: string, field: string) => eachLimited(await mine(col, field), (d) => deleteWrite(deleteDoc(d.ref)));
+  // Keyed by the uid, so a get answers missing rather than denied; read first so a rerun counts zero.
+  const deleteOwnDoc = async (col: string) => {
+    const ref = doc(fs, col, uid);
+    const snap = await rejectAfter(getDocFromServer(ref), `Reading ${col}`, DELETE_READ_TIMEOUT_MS);
+    return snap.exists() ? eachLimited([ref], (r) => deleteWrite(deleteDoc(r))) : { done: 0, failed: 0 };
+  };
+
+  let kitchens: Array<{ ref: DocumentReference; ownerUid: string; memberUids: string[] }>;
+  try {
+    kitchens = (await list(['kitchens'], where('memberUids', 'array-contains', uid))).map((d) => ({ ref: d.ref, ...toKitchen(d.data()) }));
+  } catch (err) {
+    reportError(err, 'account-deletion-kitchens');
+    return { status: 'ran', ...(await runDeletionSteps(async (s) => (s === 'kitchens' ? { done: 0, failed: 1 } : { done: 0, failed: 0 }))) };
+  }
+  if (ownsSharedKitchen(uid, kitchens)) return { status: 'blocked', reason: 'shared-kitchen' };
+
+  // Filled by the replies step: threads whose own replies are all anonymised, so the parent may follow.
+  let threads: Map<string, { suggester: boolean; owner: boolean }> | null = null;
+  const cleanThreads = new Set<string>();
+
+  const steps: Record<DeletionStep, () => Promise<StepCount>> = {
+    cookPhotos: () => deleteAll('cookPhotos', 'uid'),
+    cooks: () => deleteAll('cooks', 'uid'),
+    favorites: async () =>
+      eachLimited(await mine('favorites', 'uid'), async (d) => {
+        const { recipeId, recipeOwnerId } = d.data();
+        await deleteWrite(deleteDoc(d.ref));
+        // Own recipes are deleted below; a gone recipe just fails the decrement (as removeCloudFavorite).
+        if (typeof recipeId === 'string' && recipeOwnerId !== uid) {
+          await bestEffort(updateDoc(doc(fs, 'recipes', recipeId), { favoriteCount: increment(-1) }));
+        }
+      }),
+    followsAsFollower: async () =>
+      eachLimited(await mine('follows', 'followerId'), async (d) => {
+        const { followingId } = d.data();
+        await deleteWrite(deleteDoc(d.ref));
+        if (typeof followingId === 'string') await bestEffort(updateDoc(doc(fs, 'profiles', followingId), { followerCount: increment(-1) }));
+      }),
+    // The follower's followingCount cannot be changed by this user; it drifts (decisions.md).
+    followsAsFollowed: () => deleteAll('follows', 'followingId'),
+    cookbookFollows: async () =>
+      eachLimited(await mine('cookbookFollows', 'uid'), async (d) => {
+        const { collectionId } = d.data();
+        try {
+          // The rules take the -1 only in the same batch as the follow's delete.
+          const batch = writeBatch(fs);
+          batch.delete(d.ref);
+          batch.update(doc(fs, 'collections', String(collectionId)), { followerCount: increment(-1) });
+          await deleteWrite(batch.commit());
+        } catch (err) {
+          // Refused outright (count at 0, collection gone): the batch did nothing, so the plain delete is safe.
+          const code = (err as { code?: string }).code;
+          if (code !== 'permission-denied' && code !== 'not-found') throw err;
+          await deleteWrite(deleteDoc(d.ref));
+        }
+      }),
+    suggestionReplies: async () => {
+      const [asSuggester, asOwner] = await Promise.all([mine('suggestions', 'suggestedBy.uid'), mine('suggestions', 'recipeOwnerId')]);
+      const found = new Map<string, { suggester: boolean; owner: boolean }>();
+      for (const d of asSuggester) found.set(d.id, { suggester: true, owner: false });
+      for (const d of asOwner) found.set(d.id, { suggester: found.get(d.id)?.suggester ?? false, owner: true });
+      threads = found;
+      const total: StepCount = { done: 0, failed: 0 };
+      // One thread at a time, its replies DELETE_CONCURRENCY at a time.
+      for (const id of found.keys()) {
+        try {
+          const own = await list(['suggestions', id, 'messages'], where('fromUid', '==', uid));
+          const c = await eachLimited(own, (m) => deleteWrite(updateDoc(m.ref, { fromUid: DELETED_USER, fromDisplayName: null })));
+          total.done += c.done;
+          total.failed += c.failed;
+          if (c.failed === 0) cleanThreads.add(id);
+        } catch {
+          total.failed++;
+        }
+      }
+      return total;
+    },
+    suggestions: async () => {
+      if (!threads) throw new Error('The suggestion threads were not read');
+      const all = [...threads];
+      // A parent whose replies are not all anonymised waits: anonymising it would lock them out of reach.
+      const ready = all.filter(([id]) => cleanThreads.has(id));
+      const c = await eachLimited(ready, async ([id, p]) => {
+        const ref = doc(fs, 'suggestions', id);
+        // Two writes, one party each, as the rules allow; a self-suggestion stays as an anonymised residual.
+        if (p.suggester) await deleteWrite(updateDoc(ref, { suggestedBy: { uid: DELETED_USER, displayName: null } }));
+        if (p.owner) await deleteWrite(updateDoc(ref, { recipeOwnerId: DELETED_USER }));
+      });
+      return { done: c.done, failed: c.failed + all.length - ready.length };
+    },
+    notificationsReceived: () => deleteAll('notifications', 'recipientUid'),
+    notificationsSent: () => deleteAll('notifications', 'fromUid'),
+    kitchenInvites: () => deleteAll('kitchenInvites', 'ownerUid'),
+    kitchenPantry: () =>
+      eachLimited(
+        kitchens.filter((k) => k.ownerUid !== uid),
+        (k) =>
+          deleteWrite(
+            runTransaction(fs, async (tx) => {
+              const snap = await tx.get(k.ref);
+              const pantry = snap.exists() ? anonymisePantry(toKitchen(snap.data()).pantry, uid) : null;
+              if (!pantry) return false;
+              tx.update(k.ref, { pantry, updatedAt: serverTimestamp() });
+              return true;
+            })
+          )
+      ),
+    // Own kitchen: delete (it is the user's alone, or this run was blocked). Anyone else's: leave.
+    kitchens: () => eachLimited(kitchens, (k) => deleteWrite(k.ownerUid === uid ? deleteDoc(k.ref) : updateDoc(k.ref, membershipDrop(uid)))),
+    collections: () => deleteAll('collections', 'ownerUid'),
+    // Plain delete (decision 1 of TASK-149): other cooks' branches stay and hang off the family root.
+    recipes: () => deleteAll('recipes', 'createdBy.uid'),
+    feedback: () => deleteAll('feedback', 'uid'),
+    notificationPrefs: () => deleteOwnDoc('notificationPrefs'),
+    tasteProfile: () => deleteOwnDoc('tasteProfiles'),
+    termsAcceptance: () => deleteOwnDoc('termsAcceptance'),
+    profile: () => deleteOwnDoc('profiles'),
+  };
+
+  const result = await runDeletionSteps(async (step) => {
+    try {
+      return await steps[step]();
+    } catch (err) {
+      reportError(err, `account-deletion-${step}`);
+      throw err;
+    }
+  });
+  return { status: 'ran', ...result };
 }
