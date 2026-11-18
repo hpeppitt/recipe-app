@@ -49,8 +49,8 @@ A knowledgebase that lies is worse than none. What updates when:
 | A skill, an agent, or the dev process | `agent-workflow.md` |
 | Anything a user would notice, at release time | `CHANGELOG.md` |
 
-Enforcement is a step in `/preflight`: it checks the working diff against the table above
-and reports drift. It reports rather than blocks, because a doc gate that fails a build
+Enforcement is a step in `/preflight` (the kit's `engineering:preflight`, see Core flows in
+[CLAUDE.md](../CLAUDE.md)): it checks the working diff against the table above and reports drift. It reports rather than blocks, because a doc gate that fails a build
 gets bypassed rather than obeyed.
 
 `CLAUDE.md` deliberately holds no facts that are duplicated here. It points at these files

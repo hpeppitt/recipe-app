@@ -48,9 +48,9 @@ Match the model to the job, not the best model everywhere.
 
 | Role | Where | Model | Why |
 |---|---|---|---|
-| Implementer | `.claude/agents/implementer.md` | by task tier: trivial, **Haiku**; standard, **Sonnet**; hard, **Opus** | The expensive part. The tier is set at grooming, where the information to judge it exists. |
-| Reviewers | `ui-reviewer`, `data-integrity-reviewer` | **Sonnet** | Review needs judgement; Haiku misses too much, Opus is not needed for a checklist. |
-| Scout | `.claude/agents/scout.md` | **Haiku** | Lookups, summaries, docs drift. Anything answered by reading. |
+| Implementer | kit `engineering:implementer` | by task tier: trivial, **Haiku**; standard, **Sonnet**; hard, **Opus** | The expensive part. The tier is set at grooming, where the information to judge it exists. |
+| Reviewers | `ui-reviewer`, `data-integrity-reviewer` (`.claude/agents/`) | **Sonnet** | Review needs judgement; Haiku misses too much, Opus is not needed for a checklist. |
+| Explorer | kit `engineering:explorer` | **Haiku** | Lookups, summaries, docs drift. Anything answered by reading. |
 | Roadmap architect | `.claude/agents/roadmap-architect.md` | **Fable** | Runs rarely, with the author in the loop, on the whole app. |
 
 A `roadmap-architect` run is the most expensive thing here and is run on purpose, not on a
