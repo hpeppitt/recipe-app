@@ -677,11 +677,11 @@ node scripts/data-request.mjs erase <uid> --project recipe-lab-3832b --execute -
 
 ## Verification gates
 
-**`/preflight`** is the pre-commit gate: `npm run build`, `npm run lint`, `npm test`, then a
-390×844 mobile-viewport browser walk of the core flows (library, detail, tree in both
-themes, create, shared, profile) with a console-error check at the end, plus a `docs/` drift
-check against the maintenance contract in [docs/README.md](README.md). It is a gate, not a
-repair step.
+**`/preflight`** (the kit's `engineering:preflight`) is the pre-commit gate. It runs the profile's
+`check` command (`npx tsc -b && npm run lint && npm test`), then a 390×844 mobile-viewport
+browser walk of the Core flows listed in [CLAUDE.md](../CLAUDE.md) with a console-error check
+at the end, plus a `docs/` drift check against the maintenance contract in
+[docs/README.md](README.md). It is a gate, not a repair step.
 
 ### Browser verification is currently unavailable (2026-08-13)
 
@@ -730,7 +730,7 @@ surfaces at edit time rather than at commit time.
   a11y, and state-coverage regressions.
 - `data-integrity-reviewer` (read-only) — after changes to `services/firestore.ts`,
   `src/db/`, the favourites or recipe-chat hooks, or `firestore.rules`.
-- `implementer`, `scout`: the build worker and the lookup agent, used by the `run-ticket` pipeline.
+- `engineering:implementer` (kit), `engineering:explorer` (kit): the build worker and the lookup agent, used by the `run-ticket` pipeline.
 - `roadmap-architect` — not a gate. Reviews the whole app and rewrites `ROADMAP.md`; use it
   for "what next", not for individual fixes.
 
