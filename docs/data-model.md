@@ -99,7 +99,7 @@ transaction); everything else, `favorites` included, stays.
 | `follows/{followerId}_{followingId}` | composite | `Follow` | Readable only by the two parties. |
 | `cooks/{autoId}` | auto | `{ uid, displayName, recipeId, rootId, recipeOwnerId, vote, note, branchId, createdAt }` (`vote` is `again` or `tweak`, `note` and `branchId` null or a string, `createdAt` a server timestamp) | "I made this" records (decision "Cooks are public cloud records", RL-192; rules in the repo since RL-194, deployed by RL-209; the client is RL-196). **Public read**, signed out included, so "Made N times" is a `getCountFromServer` on `recipeId ==` (and `vote == 'again'`), equality filters only, no composite index; the newest-20 list and the own log each need one (Composite indexes below). Cloud only: no Dexie table. Each cook is its own document, so cooking twice counts twice. |
 | `cookPhotos/{cookId}` | the cook's id | `{ uid, recipeId, url, createdAt }` (`url` a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | One photo per cook (RL-193's answers; rules in the repo since RL-204, deployed by RL-209; the client is RL-205 and RL-206). **Public read**, signed out included. Keyed by the cook's id, so there is at most one, and a second write is an update, which the rules refuse. Cloud only: no Dexie table. Decision 3's size reasoning (1 MiB document limit, read bandwidth) is met by the 200000 cap, about 150 KB of JPEG, and by the separate collection, so cook reads and counts never carry the photo. |
-| `feedback/{autoId}` | auto | `{ uid, displayName, note, path, appVersion, viewport, theme, userAgent, screenshot, createdAt }` (`displayName` null or at most 100 characters, `note` 1 to 1000, `path` at most 300 starting with `/`, `appVersion` at most 40, `viewport` at most 20, `theme` `light` or `dark`, `userAgent` at most 400, `screenshot` null or a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | Beta feedback to the operator (decision "Beta feedback is a Firestore collection", RL-284; rules in the repo since RL-285, deployed by RL-291; the client is RL-286). Create: verified, every key present and no other, own `uid`, and the `feedback` write window moved in the same request (10 a day). **Private**: get and list by the sender only, so a list must filter on `uid`. No client update or delete; the operator reads and deletes with the Admin SDK. Cloud only: no Dexie table. **Access-call budget**: a create 1 (the window's `getAfter()`). Emulator-checked 2026-10-22 (ticket RL-285 Notes). |
+| `feedback/{autoId}` | auto | `{ uid, displayName, note, path, appVersion, viewport, theme, userAgent, screenshot, createdAt }` (`displayName` null or at most 100 characters, `note` 1 to 1000, `path` at most 300 starting with `/`, `appVersion` at most 40, `viewport` at most 20, `theme` `light` or `dark`, `userAgent` at most 400, `screenshot` null or a `data:image/jpeg;base64,` string of at most 200000 characters, `createdAt` a server timestamp) | Beta feedback to the operator (decision "Beta feedback is a Firestore collection", RL-284; rules in the repo since RL-285, deployed by RL-291; the client is RL-286). Create: verified, every key present and no other, own `uid`, and the `feedback` write window moved in the same request (10 a day). **Private**: get and list by the sender only, so a list must filter on `uid`. No client update. Delete by the sender only (RL-057, account deletion); the operator also reads and deletes with the Admin SDK. Cloud only: no Dexie table. **Access-call budget**: a create 1 (the window's `getAfter()`). Emulator-checked 2026-10-22 (ticket RL-285 Notes). |
 | `kitchens/{uid}` | the owner's uid (a kitchen whose ownership passed on in an erase keeps its id) | `{ memberUids, ownerUid, shopping, pantry, updatedAt }` (`memberUids` `[ownerUid]` in Phase 2, `shopping` and `pantry` lists of at most 300 (`KITCHEN_ITEM_CAP`, `lib/kitchen.ts`), `updatedAt` a server timestamp) | One kitchen per user (decision "Kitchen and collections storage", RL-210; rules in the repo since RL-211, deployed by RL-227; client `useKitchen` since RL-213; sharing client since RL-238). **Private**: members only, verified. Up to 6 members (`KITCHEN_MEMBER_CAP`); join, leave and remove rules in the repo since RL-237, deployed by RL-249. An optional sixth key, `joinCode` (`'<uid>:<code>'`), is left by the last join. Element shapes are the client's job. |
 | `kitchenInvites/{code}` | the invite code, at least 20 random characters (`KITCHEN_INVITE_CODE_MIN`) | `{ kitchenId, ownerUid, ownerName, expiresAt, createdAt }` (`ownerName` at most 80 characters, `expiresAt` within 7 days (`KITCHEN_INVITE_DAYS`), `createdAt` a server timestamp) | A reusable invite to a kitchen, valid until it expires or its owner deletes it (decision "A household shares one kitchen by invite link", RL-236; rules in the repo since RL-237, deployed by RL-249; client since RL-238, which deletes the owner's invites when it removes a member). **Get only** for any verified user by its code; only the owner may list their own. |
 | `collections/{autoId}` | auto | `{ ownerUid, name, visibility, recipeIds, createdAt, updatedAt }` plus optional `description`, `lastAddedAt`, `followerCount` (`name` 1 to 60 characters, `visibility` `'private'` or `'public'`, `recipeIds` a list of at most 200 (`COLLECTION_RECIPE_CAP`), `description` null or at most 280 (`COOKBOOK_DESCRIPTION_MAX`), `lastAddedAt` a server timestamp, `followerCount` an int; `createdAt` and `updatedAt` server timestamps) | Recipe collections (RL-210; rules in the repo since RL-211, deployed by RL-227; client `useCollections` since RL-222). A private one is owner only, verified. A public one is a cookbook (decision "Cookbooks are public collections followed by pull"): **public read**, signed out included, every field above (rules in the repo since RL-256, deployed by RL-261). |
@@ -325,7 +325,9 @@ automatic single-field index (no `orderBy`, so no composite index; sorted on the
 the owner's own recipes are dropped after the read. Recipes without the field never match.
 Deletion is forbidden
 outright, which is why testing suggestions against the live project leaves permanent
-records; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
+records. The one extra update (RL-057, account deletion) is an anonymisation: the suggester
+sets `suggestedBy` to `{uid: 'deleted-user', displayName: null}`, or the recipe owner sets
+`recipeOwnerId` to `'deleted-user'`, with verified email and no other field changed; use the emulator (see [operations.md](operations.md)). Reads (RL-018) need a
 verified email and are limited to the two parties: the recipe owner (`recipeOwnerId`) and the
 suggester (`suggestedBy.uid`). Anonymous accounts read none. Because a `list` is authorised
 from its filters, `subscribeRecipeSuggestions` filters on `recipeId` plus `recipeOwnerId ==
@@ -340,9 +342,13 @@ three document reads in the rules (the parent suggestion, `termsAcceptance`, and
 `getAfter()`) plus the client's window read in its transaction. Replies stay allowed after the suggestion is closed on purpose.
 Readable by the same two parties, with a verified email, checked with the same `get()` on
 the parent, so opening a thread costs one extra document read on top of its messages.
+Messages are otherwise immutable and undeletable, with one exception (RL-057, account
+deletion): the author may set `fromUid` to `'deleted-user'` and `fromDisplayName` to null,
+changing nothing else, `text` included.
 
 **notifications** — the *acting* user writes the notification and the recipient reads it.
-Every write needs a verified email. Creation requires your own `fromUid` and `read: false`,
+The sender may also read and delete their own (RL-057, account deletion; a list must filter
+on `fromUid == uid`). Every write needs a verified email. Creation requires your own `fromUid` and `read: false`,
 and only the keys `recipientUid`, `type`, `recipeId`, `recipeTitle`, `recipeEmoji`, `fromUid`,
 `fromDisplayName`, `message`, `read`, `createdAt` (any may be absent, which `follow` needs).
 Since RL-049 a create also needs a notification-window move (at most 60 per hour per
@@ -401,7 +407,8 @@ upgrade to an email, so an anonymous account has no profile document.
 
 **follows** — readable by the follower or the followed. The follower creates and deletes,
 with a verified email,
-and the id must be `{their uid}_{followingId}`. No updates.
+and the id must be `{their uid}_{followingId}`. The followed user may also delete it
+(RL-057, account deletion; decision "Self-service account deletion"). No updates.
 
 **tasteProfiles** (RL-230, in the repo, deployed by RL-249): read, create and update only by
 the owner with a verified email; delete by the signed-in owner (no verified email needed, like

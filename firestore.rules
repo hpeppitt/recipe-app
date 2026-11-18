@@ -327,6 +327,18 @@ service cloud.firestore {
             && request.resource.data.branchId is string
             && isOwnBranchOf(request.resource.data.branchId, resource.data.recipeId))
         );
+      // Account deletion (RL-057, decision 2026-11-16): anonymise, never delete.
+      // Each party may replace their own identity with 'deleted-user' and change
+      // nothing else. Another allow update, so it adds to the owner review above.
+      allow update: if verified()
+        && (
+          (resource.data.suggestedBy.uid == request.auth.uid
+            && changedKeys().hasOnly(['suggestedBy'])
+            && request.resource.data.suggestedBy == {'uid': 'deleted-user', 'displayName': null})
+          || (resource.data.recipeOwnerId == request.auth.uid
+            && changedKeys().hasOnly(['recipeOwnerId'])
+            && request.resource.data.recipeOwnerId == 'deleted-user')
+        );
       allow delete: if false;
 
       // The branch must be the owner's own child of the suggested recipe. The
@@ -431,7 +443,14 @@ service cloud.firestore {
             || get(/databases/$(database)/documents/suggestions/$(suggestionId)).data.suggestedBy.uid == request.auth.uid
           )
           && movedWindow('reply', 'suggestions/' + suggestionId + '/messages/' + messageId);
-        allow update, delete: if false;
+        // Account deletion (RL-057): the author may anonymise their own message
+        // and nothing else; text stays immutable. Delete stays closed.
+        allow update: if verified()
+          && resource.data.fromUid == request.auth.uid
+          && changedKeys().hasOnly(['fromUid', 'fromDisplayName'])
+          && request.resource.data.fromUid == 'deleted-user'
+          && request.resource.data.fromDisplayName == null;
+        allow delete: if false;
       }
     }
 
@@ -442,7 +461,11 @@ service cloud.firestore {
     // (which write a notification as part of the action) were open to anonymous
     // accounts; both now need a verified email too, so the reason is gone.
     match /notifications/{notificationId} {
-      allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
+      // The sender may also read (RL-057), so account deletion can find the
+      // notifications they wrote. A list must filter on fromUid.
+      allow read: if signedIn()
+        && (resource.data.recipientUid == request.auth.uid
+          || resource.data.get('fromUid', '') == request.auth.uid);
       // Shape checks (RL-015): a fixed key set, a known type, and a message that
       // is null for favourite and follow and at most 500 characters otherwise.
       // size() counts UTF-16 units (emulator: 250 emoji pass, 251 are denied).
@@ -472,7 +495,9 @@ service cloud.firestore {
       allow update: if verified()
         && resource.data.recipientUid == request.auth.uid
         && changedKeys().hasOnly(['read']);
-      allow delete: if verified() && resource.data.recipientUid == request.auth.uid;
+      allow delete: if verified()
+        && (resource.data.recipientUid == request.auth.uid
+          || resource.data.get('fromUid', '') == request.auth.uid);
 
       // RL-152: "someone branched your recipe". recipeId names the new branch;
       // the sender must be its author and the recipient the parent's owner, and
@@ -814,15 +839,17 @@ service cloud.firestore {
     // strings, an optional JPEG data URL screenshot of at most 200000
     // characters (the cookPhotos pattern), server-time createdAt, and the
     // feedback write window moved in the same request, 10 a day. Read (get and
-    // list) by the sender only, so a list must filter on uid. No client update
-    // or delete: the operator reads and deletes with the Admin SDK
+    // list) by the sender only, so a list must filter on uid. No client update,
+    // and delete only by the sender (RL-057, account deletion), and the
+    // operator reads and deletes with the Admin SDK
     // (scripts/feedback.mjs (RL-289)). Accesses per create: the window after, so 1.
     match /feedback/{feedbackId} {
       allow read: if signedIn() && resource.data.uid == request.auth.uid;
       allow create: if verified()
         && isWellFormedFeedback(request.resource.data)
         && movedWindow('feedback', 'feedback/' + feedbackId);
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if verified() && resource.data.uid == request.auth.uid;
 
       function isWellFormedFeedback(d) {
         let keys = ['uid', 'displayName', 'note', 'path', 'appVersion', 'viewport', 'theme', 'userAgent', 'screenshot', 'createdAt'];
@@ -1179,7 +1206,10 @@ service cloud.firestore {
       allow create: if verified()
         && request.resource.data.followerId == request.auth.uid
         && followId == request.auth.uid + '_' + request.resource.data.followingId;
-      allow delete: if verified() && resource.data.followerId == request.auth.uid;
+      // The followed user may remove the follow too (RL-057, account deletion).
+      allow delete: if verified()
+        && (resource.data.followerId == request.auth.uid
+          || resource.data.get('followingId', '') == request.auth.uid);
       allow update: if false;
     }
   }
