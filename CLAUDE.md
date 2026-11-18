@@ -4,8 +4,9 @@
 - run: npm run dev
 - check: npx tsc -b && npm run lint && npm test
 - test: npm test
-- backlog: backlog/tickets/
 - docs: docs/
+- reviewers: ui-reviewer (src/pages, src/components); data-integrity-reviewer (src/services, src/db, src/hooks, firestore.rules, auth and migration code)
+- merge: manual
 
 # CLAUDE.md
 
@@ -39,21 +40,15 @@ cannot generate.
 
 ## Dev cycle
 
-Autonomous between two human touchpoints, described in full in
-[docs/agent-workflow.md](docs/agent-workflow.md). The short version:
+Work is tracked on the fleet board (`board.sh`, project `recipe-app`) and built by the
+`run-ticket` pipeline: groom, build, QA, review. The repo holds no ticket files. Process
+details are in [docs/agent-workflow.md](docs/agent-workflow.md).
 
 - **`ROADMAP.md`** is the strategic backlog, owned by the author with `roadmap-architect`.
-- **`backlog/tickets/`** is the tactical backlog: one groomed ticket per file, picked by
-  `npm run backlog -- next`. The ticket contract is `backlog/README.md`.
-- **`/groom <input>`** turns a roadmap item, a design document, audit findings or QA notes
-  into tickets and ends with the author's approval.
-- **`/next-ticket`** implements one ticket end to end (claim, implement, review, gates,
-  pull request, auto-merge) and records what the human must check. Loop it with
-  `/loop /next-ticket` from a session started with the Sonnet model.
 - **`/qa-pass`** prepares the author's checklist and preview; **`/release`** ships.
 - **`/preflight`** is the manual full-verification gate, including the browser walk.
 - **`AUDIT.md`** is historical. Its open findings were moved to tickets on 2026-10-13 and
-  new findings are filed with `/groom`, not appended there.
+  new findings go on the fleet board, not appended there.
 - A PostToolUse hook (`.claude/hooks/typecheck-lint.sh`) runs `tsc -b` + ESLint after every
   edit to `src/**/*.ts(x)` and feeds errors back automatically.
 
@@ -61,11 +56,10 @@ Autonomous between two human touchpoints, described in full in
 
 Each has a pinned model; the table in `docs/agent-workflow.md` says why.
 
-- `implementer` (Sonnet by default; Haiku or Opus by ticket tier) — does one ticket.
+- `implementer` (Sonnet by default; Haiku or Opus by task tier): does one board task, spawned by the `run-ticket` pipeline.
 - `ui-reviewer`, `data-integrity-reviewer` (Sonnet, read-only) — run after page/component
   changes and after data-layer changes respectively.
 - `scout` (Haiku, read-only) — lookups, summaries, docs drift.
-- `groomer` (Opus, writes only `backlog/tickets/`) — spawned by `/groom`.
 - `roadmap-architect` (Fable, writes `ROADMAP.md`) — planning with the author, not fixes.
 
 ## Working conventions

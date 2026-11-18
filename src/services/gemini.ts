@@ -157,7 +157,7 @@ export async function importRecipeFromUrl(input: string): Promise<ImportDraft> {
         systemInstruction: IMPORT_SYSTEM_PROMPT,
         tools: [{ urlContext: {} }],
         // Whether AI Logic accepts responseSchema alongside URL context is unconfirmed
-        // (backlog/DECISIONS.md, RL-185). The prompt asks for the same JSON, so
+        // (docs/PENDING-DECISIONS.md, RL-185). The prompt asks for the same JSON, so
         // toImportDraft still validates if the schema has to come off.
         generationConfig: { responseMimeType: 'application/json', responseSchema: IMPORT_RESPONSE_SCHEMA },
       },

@@ -13,7 +13,7 @@ Nothing below has been done. Each item needs you. The order is the release runbo
    Explore ("What's growing", branching fast this week, most branched), bottom nav Explore, Saved,
    Create, Activity, You. I have not walked the other 10 pages, and the chat prompt mentions a
    marketing website mockup, so some pages may not be app screens. Decide: should I walk all pages
-   and run `/groom` on the result (it is a redesign of most screens, so expect many tickets, and
+   and file tickets on the result (it is a redesign of most screens, so expect many tickets, and
    the exact fonts and hex values need exporting from the design), and does branding ship in the
    first test release? Recommendation: no, ship the test release on the current look.
 2. **Merge or hold the policy branch.** `docs/policy-lookups` (47d825d) is committed locally and not
@@ -29,7 +29,7 @@ Nothing below has been done. Each item needs you. The order is the release runbo
    anything is worth keeping. Do not use the live app between the wipe and the rules deploy.
 6. **Deploy order:** indexes (wait for READY), `/release` client, then rules straight after.
    Each is a live change. I will run them when you say go.
-7. **QA walk** (`backlog/QA-CHECKLIST.md`). Browser checks only you can judge.
+7. **QA walk** (`docs/QA-CHECKLIST.md`). Browser checks only you can judge.
 8. **After release, before inviting others:** RL-010 TTL (30 days, the policy promises it),
    RL-050 App Check, RL-057 account deletion, RL-012, RL-001 console reads.
 9. **PostHog key.** The runbook says leave `VITE_POSTHOG_KEY` unset for the first release so no

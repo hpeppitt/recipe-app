@@ -16,7 +16,6 @@ How to run, test, verify, and deploy. Verified against `package.json`, `firebase
 | `npm run preview` | Serve the production build locally |
 | `npm run emulators` | Firebase Auth + Firestore emulators (see below) |
 | `npm run dev:emulated` | Dev server pointed at the emulator suite |
-| `npm run backlog -- <list\|next\|show\|set\|validate>` | The ticket backlog CLI (`scripts/backlog.mjs`, tested). `next` prints the ticket an agent should pick up, skipping any with a `ticket/<ID>` branch on `origin` |
 | `node scripts/data-request.mjs <export\|erase> <uid> [flags]` | One person's data export or erasure, by the operator (RL-055, tested in `scripts/data-request.test.mjs`). See [Data requests](#data-requests) |
 | `npm run feedback -- <list\|save\|delete\|prune> [flags]` | Read and clear beta feedback (RL-289, tested in `scripts/feedback.test.mjs`). See [Reading beta feedback](#reading-beta-feedback) |
 
@@ -192,12 +191,12 @@ the run.
 
 The one ordered checklist for the first release since August 2026. It does not repeat the
 reasoning: each step points at the section that holds it. Nothing here is automated, and the
-loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
+pipeline never runs it (see [agent-workflow.md](agent-workflow.md), "Decisions agents may and may not make"). Tick as you go.
 
 **A. Decide first (no deploy yet)**
 
-- [ ] Walk the QA checklist (`/qa-pass`, `backlog/QA-CHECKLIST.md`) and accept or overrule each
-  row in `backlog/DECISIONS.md`. An overruled decision becomes a `/groom` input.
+- [ ] Walk the QA checklist (`/qa-pass`, `docs/QA-CHECKLIST.md`) and accept or overrule each
+  row in `docs/PENDING-DECISIONS.md`. An overruled decision becomes a ticket on the fleet board.
 - [x] **RL-046** sign off the Terms, Privacy and Cookie drafts. Signed off by the author via
   RL-267 on 2026-10-22: `[STATE]` set, the `[DEPENDS ON ...]` and `[AUTHOR TO CONFIRM]` markers
   resolved, and `TERMS_VERSION` recorded as `2026-10-22` in [decisions.md](decisions.md). If the
@@ -232,7 +231,7 @@ loop never runs it (`backlog/README.md`, "What needs a human"). Tick as you go.
   plus `X-Frame-Options: DENY` and `nosniff`), then complete an email-link sign-in and a
   redirect sign-in end to end ("Risk to watch after the first deploy": `/__/auth/` helper
   pages).
-- [ ] Live QA: the RL-040 to RL-049 checks in `backlog/QA.md`.
+- [ ] Live QA: the RL-040 to RL-049 checks in `docs/QA.md`.
 
 **C. After the release**
 
@@ -351,7 +350,7 @@ them; that is the author's call, not something to improvise at deploy time.) In 
    asks again. Either way is acceptable; which one is the author's call, and RL-051's wording
    should be adjusted to match.
 7. **Live QA** of the RL-040, RL-041, RL-015 to RL-021, RL-047, RL-048 and RL-049 checks in
-   `backlog/QA.md`.
+   `docs/QA.md`.
 
 Why the client waits for READY: the RL-021 client issues an ordered `in` query on recipes.
 Until that index is built the query fails, and `useFollowingRecipes` shows an empty list for
@@ -389,7 +388,7 @@ non-data value is denied.
 RL-047. The new client writes `writeWindows/{uid}_{action}` in the same transaction as each
 suggestion and reply, and the new rules require that window move on every suggestion and
 message create. There is deliberately no client fallback to the old plain write (pending in
-`backlog/DECISIONS.md`).
+`docs/PENDING-DECISIONS.md`).
 
 - **Client live before the rules** (the gap between steps 4 and 5): no rule matches
   `writeWindows`, so the window read is denied and the transaction fails. Every suggestion
@@ -650,7 +649,7 @@ node scripts/data-request.mjs erase <uid> --project recipe-lab-3832b --execute -
 | `cookbookFollows` with `uid == uid` (RL-260) | Deleted, in one batch group with a `followerCount` decrement on the followed collection, only when that collection still exists, its count is above 0 and it is not one of the uid's own (deleted in the same run). Exported whole |
 | `feedback` with `uid == uid` (RL-290) | Deleted. Exported whole, screenshot data URL included (up to about 200 KB a row); the dry run prints paths and counts only. The uid's `writeWindows/{uid}_feedback` is handled with the other windows, unchanged |
 | `kitchenInvites` with `ownerUid == uid` (RL-238) | Deleted. Exported with the kitchen id aliased if another's |
-| `kitchens/{uid}` and `kitchens` whose `memberUids` hold the uid (RL-226, RL-238) | Owned alone (`memberUids == [uid]`): deleted. Owned with others: ownership passes to the longest-standing other member (first in `memberUids`) and the uid is removed; the document keeps its id, the erased uid, which no longer names an account (decision pending, backlog/DECISIONS.md). Belonging to someone else: the uid is removed. In all three, pantry items the uid added get `addedBy: deleted-user`, and a `joinCode` the uid left (`'<uid>:<code>'`) is deleted. The dry run labels each with the number of other members affected and shows another owner's kitchen as `kitchens/<another owner>`, so no other uid is printed. Only a kitchen whose `memberUids` is not a list is skipped (`SKIPPED`, exit 3). Exported: the own kitchen with any other uid aliased and `joinCode` dropped, plus a membership summary per kitchen (`kitchenMemberships`: id, role, member count, members aliased). Print counts only, never list contents |
+| `kitchens/{uid}` and `kitchens` whose `memberUids` hold the uid (RL-226, RL-238) | Owned alone (`memberUids == [uid]`): deleted. Owned with others: ownership passes to the longest-standing other member (first in `memberUids`) and the uid is removed; the document keeps its id, the erased uid, which no longer names an account (decision pending, docs/PENDING-DECISIONS.md). Belonging to someone else: the uid is removed. In all three, pantry items the uid added get `addedBy: deleted-user`, and a `joinCode` the uid left (`'<uid>:<code>'`) is deleted. The dry run labels each with the number of other members affected and shows another owner's kitchen as `kitchens/<another owner>`, so no other uid is printed. Only a kitchen whose `memberUids` is not a list is skipped (`SKIPPED`, exit 3). Exported: the own kitchen with any other uid aliased and `joinCode` dropped, plus a membership summary per kitchen (`kitchenMemberships`: id, role, member count, members aliased). Print counts only, never list contents |
 
 **Not covered**, so say so in the reply to an erasure request:
 
@@ -731,7 +730,7 @@ surfaces at edit time rather than at commit time.
   a11y, and state-coverage regressions.
 - `data-integrity-reviewer` (read-only) — after changes to `services/firestore.ts`,
   `src/db/`, the favourites or recipe-chat hooks, or `firestore.rules`.
-- `implementer`, `scout`, `groomer` — the loop's worker, lookup and grooming agents.
+- `implementer`, `scout`: the build worker and the lookup agent, used by the `run-ticket` pipeline.
 - `roadmap-architect` — not a gate. Reviews the whole app and rewrites `ROADMAP.md`; use it
   for "what next", not for individual fixes.
 
@@ -762,10 +761,10 @@ git -c user.email="20333887+hpeppitt@users.noreply.github.com" commit --amend --
 
 ## Backlogs
 
-- `backlog/tickets/` — the tactical queue, one ticket per file, consumed by `/next-ticket`
-  and produced by `/groom`. Contract in `backlog/README.md`; process in
-  [agent-workflow.md](agent-workflow.md). `backlog/DECISIONS.md` and `backlog/QA.md` are the
-  ledgers the loop writes for the author's QA pass.
+- The fleet board (`board.sh`): the tactical queue, one ticket per task, built by the
+  `run-ticket` pipeline. Process in [agent-workflow.md](agent-workflow.md).
+  `docs/PENDING-DECISIONS.md` and `docs/QA.md` are the ledgers the build workers write for
+  the author's QA pass.
 - `ROADMAP.md` — the strategic layer. Phases, sequencing rationale, and an explicit
   not-doing list.
 - `AUDIT.md` — the 2026-07 audit, historical since 2026-10-13. Open findings became tickets
