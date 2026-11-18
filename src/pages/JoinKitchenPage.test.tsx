@@ -84,7 +84,8 @@ describe('JoinKitchenPage (RL-239)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Join' }));
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(message);
-    expect(alert).toHaveFocus();
+    // findByRole can resolve on the DOM commit, before the effect that moves focus has run.
+    await waitFor(() => expect(alert).toHaveFocus());
     expect(screen.queryByRole('button', { name: 'Join' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Go to Kitchen' }));
     expect(screen.getByTestId('kitchen')).toBeInTheDocument();
